@@ -1,34 +1,34 @@
 const axios = require("axios");
 
-const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
+const ORS_GEOCODE_URL = "https://api.openrouteservice.org/geocode/search";
 
 /**
- * Turn a free-text address into coordinates using Nominatim (OpenStreetMap's
- * free geocoder - no API key, but usage-policy limited to ~1 request/second
- * and requires a descriptive User-Agent, which is why this lives server-side
- * rather than being called directly from the mobile app).
- *
- * Usage policy: https://operations.osmfoundation.org/policies/nominatim/
+ * Turn a free-text address into coordinates using OpenRouteService.
  *
  * @param {string} query - e.g. "Bengaluru, India"
  * @returns {Promise<{lat:number, lng:number, displayName:string}|null>}
  */
 async function geocodeAddress(query) {
-  const response = await axios.get(NOMINATIM_URL, {
-    params: { q: query, format: "json", limit: 1 },
-    headers: {
-      "User-Agent": "travel-itinerary-app/0.1 (contact: gowthampec64@gmail.com)",
-    },
+  const apiKey = process.env.ORS_API_KEY || "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVlMmEyYzUxM2EwNjRmOTNiYTA4MmY0NjEzZDZiOTE5IiwiaCI6Im11cm11cjY0In0=";
+  
+  if (!apiKey) {
+
+    throw new Error("ORS_API_KEY is not configured in environment variables");
+  }
+
+  const response = await axios.get(ORS_GEOCODE_URL, {
+    params: { api_key: apiKey, text: query, size: 1 },
     timeout: 10000,
   });
 
-  const result = response.data[0];
-  if (!result) return null;
+  const features = response.data.features;
+  if (!features || features.length === 0) return null;
 
+  const result = features[0];
   return {
-    lat: parseFloat(result.lat),
-    lng: parseFloat(result.lon),
-    displayName: result.display_name,
+    lat: result.geometry.coordinates[1], // GeoJSON is [lng, lat]
+    lng: result.geometry.coordinates[0],
+    displayName: result.properties.label || result.properties.name,
   };
 }
 
