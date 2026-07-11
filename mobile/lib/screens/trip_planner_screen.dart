@@ -660,8 +660,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                       _selectedPOIs.remove(option['id']);
                     }
                   });
-                  if (_currentPlan != null && MediaQuery.of(context).size.width > 900) {
-                    _fetchPOIsForCurrentPlan();
+                  if (MediaQuery.of(context).size.width > 900) {
+                    if (_currentPlan != null) {
+                      _fetchPOIsForCurrentPlan();
+                    } else if (_stopControllers.first.text.trim().isNotEmpty && _stopControllers.last.text.trim().isNotEmpty) {
+                      _planTrip();
+                    }
                   }
                 },
               );
@@ -693,6 +697,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
     return Container(
       constraints: const BoxConstraints(maxHeight: 300),
+      margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
         color: Colors.black.withOpacity(0.2),
         borderRadius: BorderRadius.circular(16),
