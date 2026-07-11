@@ -2,8 +2,8 @@ const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 const WebSocket = require('ws');
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || "https://dtemayjpttktntooxraa.supabase.co";
+const supabaseKey = process.env.SUPABASE_ANON_KEY || "sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh";
 
 // Only initialize if we have the keys, otherwise degrade gracefully
 let supabase = null;

@@ -17,7 +17,7 @@ const ORS_CATEGORIES = {
 };
 
 async function findPOIsAlongRoute(routeCoordinates, categories) {
-  const apiKey = process.env.ORS_API_KEY;
+  const apiKey = process.env.ORS_API_KEY || "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVlMmEyYzUxM2EwNjRmOTNiYTA4MmY0NjEzZDZiOTE5IiwiaCI6Im11cm11cjY0In0=";
   if (!apiKey) throw new Error("ORS_API_KEY is not set");
 
   // Collect all category IDs requested
