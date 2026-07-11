@@ -1,10 +1,7 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/trip_models.dart';
-import '../models/vehicles_data.dart';
-import '../services/api_service.dart';
-import 'trip_screen.dart';
-import 'saved_trips_screen.dart';
+import 'trip_planner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,467 +11,308 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _api = ApiService();
-
-  final List<TextEditingController> _stopControllers = [
-    TextEditingController(),
-    TextEditingController(),
+  final String _bgUrl = 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=2000&auto=format&fit=crop';
+  
+  final List<Map<String, String>> _destinations = [
+    {
+      'title': 'Indonesia',
+      'image': 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800&auto=format&fit=crop',
+    },
+    {
+      'title': 'Buddha temple, Thailand',
+      'image': 'https://images.unsplash.com/photo-1552465011-b4e21bf6e79a?q=80&w=800&auto=format&fit=crop',
+    },
+    {
+      'title': 'Broken Beach',
+      'image': 'https://images.unsplash.com/photo-1537551080512-bc78864f164d?q=80&w=800&auto=format&fit=crop',
+    },
   ];
-
-  final _efficiencyController = TextEditingController();
-  final _tankController = TextEditingController();
-  final _currentFuelController = TextEditingController(text: '30');
-
-  VehicleModel? _selectedVehicle;
-  final Set<String> _selectedPOIs = {'fuel', 'restaurant'};
-  bool _loading = false;
-  String? _error;
-
-  @override
-  void initState() {
-    super.initState();
-    // Default to first car
-    _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
-    _updateVehicleFields();
-  }
-
-  void _updateVehicleFields() {
-    if (_selectedVehicle != null) {
-      _efficiencyController.text = _selectedVehicle!.mileage.toString();
-      _tankController.text = _selectedVehicle!.tankCapacity.toString();
-    }
-  }
-
-  Future<void> _planTrip() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedVehicle == null) {
-      setState(() => _error = 'Please select a vehicle');
-      return;
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final List<GeoPoint> geocodedStops = [];
-      for (final controller in _stopControllers) {
-        final address = controller.text.trim();
-        if (address.isNotEmpty) {
-          final point = await _api.geocode(address);
-          geocodedStops.add(point);
-        }
-      }
-
-      if (geocodedStops.length < 2) {
-        throw Exception("Need at least a starting point and destination");
-      }
-
-      final start = geocodedStops.first;
-      final end = geocodedStops.last;
-      final waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
-
-      final vehicle = Vehicle(
-        type: _selectedVehicle!.type,
-        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-        tankCapacityLiters: double.parse(_tankController.text),
-        currentFuelLiters: double.parse(_currentFuelController.text),
-      );
-
-      final plan = await _api.planTrip(
-        start: start,
-        end: end,
-        waypoints: waypoints,
-        vehicle: vehicle,
-      );
-
-      if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TripScreen(
-            plan: plan,
-            startAddress: _stopControllers.first.text.trim(),
-            endAddress: _stopControllers.last.text.trim(),
-            vehicleType: _selectedVehicle!.type,
-            poiCategories: _selectedPOIs.toList(),
-            start: start,
-            end: end,
-            waypoints: waypoints,
-            vehicle: vehicle,
-          ),
-        ),
-      );
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _addStop() {
-    setState(() {
-      _stopControllers.insert(_stopControllers.length - 1, TextEditingController());
-    });
-  }
-
-  void _removeStop(int index) {
-    if (_stopControllers.length <= 2) return;
-    setState(() {
-      final controller = _stopControllers.removeAt(index);
-      controller.dispose();
-    });
-  }
-
-  @override
-  void dispose() {
-    for (var c in _stopControllers) {
-      c.dispose();
-    }
-    _efficiencyController.dispose();
-    _tankController.dispose();
-    _currentFuelController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
+    final userName = user?.email?.split('@').first ?? 'Traveler';
+    final size = MediaQuery.of(context).size;
+    final isDesktop = size.width > 800;
 
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Travel Planner', style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
-        foregroundColor: Theme.of(context).colorScheme.primary,
         elevation: 0,
-      ),
-      drawer: _buildDrawer(user),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+        leadingWidth: 200,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 24.0),
+          child: Row(
             children: [
-              _buildRouteCard(),
-              const SizedBox(height: 16),
-              _buildVehicleCard(),
-              const SizedBox(height: 16),
-              _buildPOICard(),
-              const SizedBox(height: 24),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red[50],
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red[200]!),
-                    ),
-                    child: Text(_error!, style: TextStyle(color: Colors.red[800])),
-                  ),
+              Icon(Icons.flight_takeoff, color: Colors.orange[400], size: 28),
+              const SizedBox(width: 8),
+              const Text(
+                'Foxico',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
                 ),
-              ElevatedButton(
-                onPressed: _loading ? null : _planTrip,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 2,
-                ),
-                child: _loading
-                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                    : const Text('PLAN TRIP', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
-              const SizedBox(height: 40),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildDrawer(User? user) {
-    return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),
-            accountName: const Text('Travel Planner', style: TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: Text(user?.email ?? 'Not logged in'),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Colors.grey),
+        title: isDesktop
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _navItem('News'),
+                  _navItem('Destinations', isActive: true),
+                  _navItem('Blog'),
+                  _navItem('Contact'),
+                ],
+              )
+            : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white),
+            onPressed: () {},
+          ),
+          const SizedBox(width: 16),
+          Center(
+            child: Text(
+              'Hello , $userName !',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 16),
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.map_outlined),
-            title: const Text('Saved Trips'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
-            },
+          const SizedBox(width: 24),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Background Image
+          Positioned.fill(
+            child: Image.network(
+              _bgUrl,
+              fit: BoxFit.cover,
+            ),
           ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Log out'),
-            onTap: () async {
-              await Supabase.instance.client.auth.signOut();
-            },
+          // Gradient Overlay
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.6),
+                    Colors.black.withOpacity(0.1),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
           ),
+          
+          // Main Content
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 40.0, vertical: 24.0),
+              child: Row(
+                children: [
+                  // Left Side: Hero Text
+                  Expanded(
+                    flex: 4,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'KERALA',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 100,
+                            height: 1.0,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'Kerala, a state on India\'s tropical Malabar Coast, has nearly 600km of Arabian Sea shoreline. It\'s known for its palm-lined beaches and backwaters, a network of canals. Inland are the Western Ghats, mountains whose slopes support tea, coffee and spice plantations as well as wildlife.',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                            height: 1.5,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const TripPlannerScreen()),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF2E75B6), // Deep blue from design
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Explore',
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(width: 8),
+                              Icon(Icons.arrow_forward_rounded, size: 20),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  // Right Side: Destination Cards
+                  if (isDesktop) const SizedBox(width: 40),
+                  if (isDesktop)
+                    Expanded(
+                      flex: 5,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            height: 380,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _destinations.length,
+                              itemBuilder: (context, index) {
+                                return _buildDestinationCard(_destinations[index]);
+                              },
+                            ),
+                          ),
+                          const SizedBox(height: 40),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Left Sidebar Progress (Decorative)
+          if (isDesktop)
+            Positioned(
+              left: 40,
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(width: 1, height: 100, color: Colors.white.withOpacity(0.3)),
+                    const SizedBox(height: 16),
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.3),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Center(
+                        child: Text('4', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Container(width: 1, height: 100, color: Colors.white.withOpacity(0.3)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildRouteCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.route, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                const Text('Your Route', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _stopControllers.length,
-              onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (newIndex > oldIndex) newIndex -= 1;
-                  final item = _stopControllers.removeAt(oldIndex);
-                  _stopControllers.insert(newIndex, item);
-                });
-              },
-              itemBuilder: (context, index) {
-                final isStart = index == 0;
-                final isEnd = index == _stopControllers.length - 1;
-                String label = isStart ? 'Starting point' : (isEnd ? 'Destination' : 'Stop ${index}');
-                IconData icon = isStart ? Icons.trip_origin : (isEnd ? Icons.location_on : Icons.adjust);
-                Color iconColor = isStart ? Colors.green : (isEnd ? Colors.red : Colors.orange);
+  Widget _navItem(String title, {bool isActive = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: isActive ? Colors.white : Colors.white.withOpacity(0.7),
+          fontSize: 14,
+          fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+        ),
+      ),
+    );
+  }
 
-                return Container(
-                  key: ValueKey(_stopControllers[index]),
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.drag_indicator, color: Colors.grey),
-                      const SizedBox(width: 8),
-                      Icon(icon, color: iconColor, size: 20),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _stopControllers[index],
-                          decoration: InputDecoration(
-                            labelText: label,
-                            filled: true,
-                            fillColor: Colors.grey[50],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                        ),
+  Widget _buildDestinationCard(Map<String, String> dest) {
+    return Container(
+      width: 240,
+      margin: const EdgeInsets.only(right: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            dest['title']!,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(
+              5,
+              (index) => Padding(
+                padding: const EdgeInsets.only(right: 4.0),
+                child: Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: index == 0 ? Colors.white : Colors.white.withOpacity(0.3),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Stack(
+                children: [
+                  Image.network(
+                    dest['image']!,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                  Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.8),
+                        shape: BoxShape.circle,
                       ),
-                      if (!isStart && !isEnd)
-                        IconButton(
-                          icon: const Icon(Icons.remove_circle_outline, color: Colors.red),
-                          onPressed: () => _removeStop(index),
-                        )
-                      else
-                        const SizedBox(width: 48), // Padding equivalent to icon button
-                    ],
-                  ),
-                );
-              },
-            ),
-            Center(
-              child: TextButton.icon(
-                onPressed: _addStop,
-                icon: const Icon(Icons.add_circle_outline),
-                label: const Text('Add Stop'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.secondary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVehicleCard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.directions_car, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                const Text('Vehicle Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<VehicleModel>(
-              value: _selectedVehicle,
-              isExpanded: true,
-              decoration: InputDecoration(
-                labelText: 'Select Vehicle',
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                prefixIcon: const Icon(Icons.commute),
-              ),
-              items: predefinedVehicles.map((v) {
-                return DropdownMenuItem(
-                  value: v,
-                  child: Text(v.name),
-                );
-              }).toList(),
-              onChanged: (value) {
-                setState(() {
-                  _selectedVehicle = value;
-                  _updateVehicleFields();
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _efficiencyController,
-                    decoration: InputDecoration(
-                      labelText: 'Efficiency (km/l)',
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.speed, size: 20),
+                      child: const Icon(Icons.bookmark, color: Colors.grey, size: 20),
                     ),
-                    keyboardType: TextInputType.number,
-                    validator: _numberValidator,
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _tankController,
-                    decoration: InputDecoration(
-                      labelText: 'Tank (L)',
-                      filled: true,
-                      fillColor: Colors.grey[50],
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.local_gas_station, size: 20),
-                    ),
-                    keyboardType: TextInputType.number,
-                    validator: _numberValidator,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _currentFuelController,
-              decoration: InputDecoration(
-                labelText: 'Current fuel in tank (L)',
-                filled: true,
-                fillColor: Colors.grey[50],
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                prefixIcon: const Icon(Icons.water_drop, size: 20),
+                ],
               ),
-              keyboardType: TextInputType.number,
-              validator: _numberValidator,
             ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String? _numberValidator(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Required';
-    final n = double.tryParse(v);
-    if (n == null || n <= 0) return 'Enter a valid number';
-    return null;
-  }
-
-  final List<Map<String, dynamic>> _poiOptions = [
-    {'id': 'fuel', 'label': 'Fuel Stations', 'icon': Icons.local_gas_station},
-    {'id': 'hotel', 'label': 'Hotels', 'icon': Icons.hotel},
-    {'id': 'restaurant', 'label': 'Restaurants', 'icon': Icons.restaurant},
-    {'id': 'attraction', 'label': 'Attractions', 'icon': Icons.photo_camera},
-    {'id': 'hills', 'label': 'Hills', 'icon': Icons.landscape},
-    {'id': 'temple', 'label': 'Temples', 'icon': Icons.account_balance},
-    {'id': 'lake', 'label': 'Lakes', 'icon': Icons.water},
-    {'id': 'river', 'label': 'Rivers', 'icon': Icons.waves},
-    {'id': 'viewpoint', 'label': 'Viewpoints', 'icon': Icons.visibility},
-  ];
-
-  Widget _buildPOICard() {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.place, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
-                const Text('Places to Visit Along Route', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8.0,
-              runSpacing: 8.0,
-              children: _poiOptions.map((option) {
-                final isSelected = _selectedPOIs.contains(option['id']);
-                return FilterChip(
-                  label: Text(option['label']),
-                  avatar: Icon(option['icon'], size: 16, color: isSelected ? Colors.white : Theme.of(context).colorScheme.primary),
-                  selected: isSelected,
-                  selectedColor: Theme.of(context).colorScheme.primary,
-                  labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        _selectedPOIs.add(option['id']);
-                      } else {
-                        _selectedPOIs.remove(option['id']);
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

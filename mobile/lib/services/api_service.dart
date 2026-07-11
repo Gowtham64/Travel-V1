@@ -15,11 +15,13 @@ class ApiService {
   /// physical device.
   final String baseUrl;
 
-  ApiService({this.baseUrl = 'http://localhost:3000'});
+  ApiService({this.baseUrl = 'https://travel-v1-mzia.onrender.com'});
 
   Future<GeoPoint> geocode(String address) async {
     final uri = Uri.parse('$baseUrl/api/geocode').replace(queryParameters: {'q': address});
-    final response = await http.get(uri);
+    final response = await http.get(uri).timeout(const Duration(seconds: 60), onTimeout: () {
+      throw ApiException('Server is waking up (can take up to 60s). Please try again in a moment!');
+    });
 
     if (response.statusCode == 404) {
       throw ApiException('Could not find a location for "$address"');
@@ -48,11 +50,18 @@ class ApiService {
         'start': {'lat': start.lat, 'lng': start.lng},
         'end': {'lat': end.lat, 'lng': end.lng},
         'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng}).toList(),
-        'vehicle': vehicle.toJson(),
+        'vehicle': {
+          'type': vehicle.type,
+          'efficiencyKmPerLiter': vehicle.efficiencyKmPerLiter,
+          'tankCapacityLiters': vehicle.tankCapacityLiters,
+          'currentFuelLiters': vehicle.currentFuelLiters,
+        },
         'dailyDrivingHours': dailyDrivingHours,
         'includePlaces': includePlaces,
       }),
-    );
+    ).timeout(const Duration(seconds: 90), onTimeout: () {
+      throw ApiException('Server is generating your plan (can take up to 90s). Please try again if it fails!');
+    });
 
     if (response.statusCode != 200) {
       throw ApiException('Trip planning failed (${response.statusCode}): ${response.body}');

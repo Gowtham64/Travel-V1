@@ -182,8 +182,15 @@ class _TripScreenState extends State<TripScreen> {
     final bounds = LatLngBounds.fromPoints(routePoints);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Your Trip'),
+        title: const Text('Your Trip', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: Colors.white.withOpacity(0.9),
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+        ),
         actions: [
           if (_saving || _recalculating)
             const Center(
@@ -193,10 +200,17 @@ class _TripScreenState extends State<TripScreen> {
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Save Trip',
-              onPressed: _saveTrip,
+            Container(
+              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E75B6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.bookmark_add, color: Color(0xFF2E75B6)),
+                tooltip: 'Save Trip',
+                onPressed: _saveTrip,
+              ),
             ),
         ],
       ),
@@ -204,20 +218,24 @@ class _TripScreenState extends State<TripScreen> {
         controller: _panelController,
         minHeight: 120, // To show the summary card always
         maxHeight: MediaQuery.of(context).size.height * 0.7,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         parallaxEnabled: true,
         parallaxOffset: .5,
+        color: Colors.white.withOpacity(0.95), // Slight glass feel
+        boxShadow: [
+          BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(0.15)),
+        ],
         panelBuilder: (sc) => _buildPanel(sc),
         body: Column(
           children: [
             Expanded(
               child: FlutterMap(
                 options: MapOptions(
-                  initialCameraFit: CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(40)),
+                  initialCameraFit: CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                    urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
                     userAgentPackageName: 'com.example.travel_app',
                     additionalOptions: const {
                       'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
@@ -225,7 +243,7 @@ class _TripScreenState extends State<TripScreen> {
                   ),
                   PolylineLayer(
                     polylines: [
-                      Polyline(points: routePoints, strokeWidth: 5, color: Theme.of(context).colorScheme.primary),
+                      Polyline(points: routePoints, strokeWidth: 6, color: const Color(0xFF2E75B6)),
                     ],
                   ),
                   MarkerLayer(markers: _buildMarkers(context)),
@@ -252,16 +270,18 @@ class _TripScreenState extends State<TripScreen> {
       children: [
         const SizedBox(height: 12),
         Container(
-          width: 40,
-          height: 5,
+          width: 50,
+          height: 6,
           decoration: BoxDecoration(
-            color: Colors.grey[300],
+            color: Colors.grey[400],
             borderRadius: BorderRadius.circular(12),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         _SummaryCard(plan: _currentPlan),
-        const Divider(),
+        const SizedBox(height: 8),
+        Divider(color: Colors.grey[300], thickness: 1, indent: 24, endIndent: 24),
+        const SizedBox(height: 8),
         Expanded(
           child: _loadingPOIs
               ? const Center(child: CircularProgressIndicator())
@@ -292,15 +312,41 @@ class _TripScreenState extends State<TripScreen> {
         final category = poi.key;
         final place = poi.value;
 
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: _getCategoryColor(category).withOpacity(0.2),
-            child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category), size: 20),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+            border: Border.all(color: Colors.grey[100]!),
           ),
-          title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis),
-          subtitle: Text(category.toUpperCase(), style: const TextStyle(fontSize: 10, color: Colors.grey)),
-          trailing: const Icon(Icons.add_location_alt, size: 20, color: Colors.blue),
-          onTap: () => _confirmAddPOI(place),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            leading: CircleAvatar(
+              backgroundColor: _getCategoryColor(category).withOpacity(0.15),
+              radius: 24,
+              child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category), size: 22),
+            ),
+            title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+            subtitle: Text(category.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
+            trailing: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF2E75B6).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.add_location_alt, size: 22, color: Color(0xFF2E75B6)),
+                onPressed: () => _confirmAddPOI(place),
+              ),
+            ),
+            onTap: () => _confirmAddPOI(place),
+          ),
         );
       },
     );
@@ -411,8 +457,9 @@ class _SummaryCard extends StatelessWidget {
   Widget _stat(String value, String label) {
     return Column(
       children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Color(0xFF2E75B6))),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
       ],
     );
   }

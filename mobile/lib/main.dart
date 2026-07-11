@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/home_screen.dart';
+import 'screens/trip_planner_screen.dart';
 import 'screens/login_screen.dart';
 
 const supabaseUrl = 'https://dtemayjpttktntooxraa.supabase.co';
@@ -90,6 +90,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return _isAuthenticated ? const HomeScreen() : const LoginScreen();
+    return _isAuthenticated ? const TripPlannerScreen() : const LoginScreen();
   }
 }
