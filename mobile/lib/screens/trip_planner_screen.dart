@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'trip_screen.dart';
 import 'saved_trips_screen.dart';
 
@@ -31,6 +33,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   final Set<String> _selectedPOIs = {'fuel', 'restaurant'};
   bool _loading = false;
   String? _error;
+  
+  TripPlan? _currentPlan;
+  GeoPoint? _currentStart;
+  GeoPoint? _currentEnd;
+  List<GeoPoint>? _currentWaypoints;
+  Vehicle? _currentVehicle;
   
   final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
@@ -93,21 +101,32 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       );
 
       if (!mounted) return;
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => TripScreen(
-            plan: plan,
-            startAddress: _stopControllers.first.text.trim(),
-            endAddress: _stopControllers.last.text.trim(),
-            vehicleType: _selectedVehicle!.type,
-            poiCategories: _selectedPOIs.toList(),
-            start: start,
-            end: end,
-            waypoints: waypoints,
-            vehicle: vehicle,
+
+      if (MediaQuery.of(context).size.width > 900) {
+        setState(() {
+          _currentPlan = plan;
+          _currentStart = start;
+          _currentEnd = end;
+          _currentWaypoints = waypoints;
+          _currentVehicle = vehicle;
+        });
+      } else {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TripScreen(
+              plan: plan,
+              startAddress: _stopControllers.first.text.trim(),
+              endAddress: _stopControllers.last.text.trim(),
+              vehicleType: _selectedVehicle!.type,
+              poiCategories: _selectedPOIs.toList(),
+              start: start,
+              end: end,
+              waypoints: waypoints,
+              vehicle: vehicle,
+            ),
           ),
-        ),
-      );
+        );
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -168,63 +187,129 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               color: Colors.black.withOpacity(0.5),
             ),
           ),
-          // Form Content
-          SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 800),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildRouteCard(),
-                        const SizedBox(height: 24),
-                        _buildVehicleCard(),
-                        const SizedBox(height: 24),
-                        _buildPOICard(),
-                        const SizedBox(height: 32),
-                        
-                        if (_error != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.red[300]!),
-                              ),
-                              child: Text(_error!, style: const TextStyle(color: Colors.white)),
-                            ),
-                          ),
-                          
-                        ElevatedButton(
-                          onPressed: _loading ? null : _planTrip,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E75B6),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                            elevation: 8,
-                            shadowColor: const Color(0xFF2E75B6).withOpacity(0.5),
-                          ),
-                          child: _loading
-                              ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                              : const Text('PLAN TRIP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
+          // Content Layout
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 900) {
+                return Row(
+                  children: [
+                    SizedBox(
+                      width: 450,
+                      child: SafeArea(child: _buildForm()),
+                    ),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), bottomLeft: Radius.circular(24)),
+                        child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
+                      ),
+                    ),
+                  ],
+                );
+              } else {
+                return SafeArea(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 800),
+                      child: _buildForm(),
                     ),
                   ),
-                ),
-              ),
-            ),
+                );
+              }
+            },
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildForm() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildRouteCard(),
+            const SizedBox(height: 24),
+            _buildVehicleCard(),
+            const SizedBox(height: 24),
+            _buildPOICard(),
+            const SizedBox(height: 32),
+            
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.red[300]!),
+                  ),
+                  child: Text(_error!, style: const TextStyle(color: Colors.white)),
+                ),
+              ),
+              
+            ElevatedButton(
+              onPressed: _loading ? null : _planTrip,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E75B6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 8,
+                shadowColor: const Color(0xFF2E75B6).withOpacity(0.5),
+              ),
+              child: _loading
+                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
+                  : const Text('PLAN TRIP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDefaultMap() {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('Trip Map', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+        backgroundColor: Colors.white.withOpacity(0.9),
+        elevation: 0,
+      ),
+      body: FlutterMap(
+        options: MapOptions(
+          initialCenter: const LatLng(20.5937, 78.9629), // Center of India
+          initialZoom: 4.5,
+        ),
+        children: [
+          TileLayer(
+            urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+            userAgentPackageName: 'com.example.travel_app',
+            additionalOptions: const {
+              'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+            },
+          ),
+          RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTripScreen() {
+    return TripScreen(
+      plan: _currentPlan!,
+      startAddress: _stopControllers.first.text.trim(),
+      endAddress: _stopControllers.last.text.trim(),
+      vehicleType: _selectedVehicle!.type,
+      poiCategories: _selectedPOIs.toList(),
+      start: _currentStart!,
+      end: _currentEnd!,
+      waypoints: _currentWaypoints!,
+      vehicle: _currentVehicle!,
     );
   }
 
