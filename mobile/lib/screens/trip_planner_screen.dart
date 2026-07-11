@@ -240,9 +240,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           children: [
             _buildRouteCard(),
             const SizedBox(height: 24),
-            _buildVehicleCard(),
-            const SizedBox(height: 24),
             _buildPOICard(),
+            const SizedBox(height: 24),
+            _buildVehicleCard(),
             const SizedBox(height: 32),
             
             if (_error != null)
