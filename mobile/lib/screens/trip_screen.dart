@@ -399,8 +399,10 @@ class _TripScreenState extends State<TripScreen> {
     markers.add(_pin(_currentPlan.coordinates.first.toLatLng(), Icons.trip_origin, Colors.green));
     markers.add(_pin(_currentPlan.coordinates.last.toLatLng(), Icons.flag, Colors.red));
 
-    for (final stop in _currentPlan.fuel.refuelStops) {
-      markers.add(_pin(stop.toLatLng(), Icons.local_gas_station, Colors.orange));
+    if (widget.poiCategories.contains('fuel')) {
+      for (final stop in _currentPlan.fuel.refuelStops) {
+        markers.add(_pin(stop.toLatLng(), Icons.local_gas_station, Colors.orange));
+      }
     }
 
     _pois.forEach((category, places) {

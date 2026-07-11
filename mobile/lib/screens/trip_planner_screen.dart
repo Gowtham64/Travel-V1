@@ -374,8 +374,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 shadowColor: const Color(0xFF2E75B6).withOpacity(0.5),
               ),
               child: _loading
-                  ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 3, color: Colors.white))
-                  : const Text('PLAN TRIP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('DONE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ),
             const SizedBox(height: 40),
           ],
@@ -733,13 +733,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                       _selectedPOIs.remove(option['id']);
                     }
                   });
-                  if (MediaQuery.of(context).size.width > 900) {
-                    if (_currentPlan != null) {
-                      _fetchPOIsForCurrentPlan();
-                    } else if (_stopControllers.first.text.trim().isNotEmpty && _stopControllers.last.text.trim().isNotEmpty) {
-                      _findPlacesBeforeTrip();
-                    }
-                  }
                 },
               );
             }).toList(),
