@@ -5,15 +5,15 @@ const ORS_POI_URL = "https://api.openrouteservice.org/pois";
 // Map our requested categories to ORS POI category IDs
 // See: https://github.com/GIScience/openrouteservice-docs#pois-category-list
 const ORS_CATEGORIES = {
-  fuel: [2601], // amenity=fuel
-  hotel: [2750], // tourism=hotel
-  restaurant: [5601, 5602, 5603], // restaurant, fast_food, cafe
-  attraction: [2700], // tourism (general)
-  hills: [200], // natural (general, since peak isn't isolated)
-  temple: [3100, 3105], // place_of_worship, hindu
-  lake: [200], // natural
-  river: [200], // natural
-  viewpoint: [2740], // tourism=viewpoint
+  fuel: [596], // transport -> fuel
+  hotel: [108], // accomodation -> hotel
+  restaurant: [570], // sustenance -> restaurant
+  attraction: [622], // tourism -> attraction
+  hills: [335], // natural -> peak
+  temple: [135], // arts_and_culture -> place_of_worship
+  lake: [340], // natural -> water
+  river: [340], // natural -> water
+  viewpoint: [627], // tourism -> viewpoint
 };
 
 async function findPOIsAlongRoute(routeCoordinates, categories) {
@@ -51,18 +51,26 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
     coordinates: sampled.map(c => [c.lng, c.lat])
   };
 
+  const requestBody = {
+    request: "pois",
+    geometry: {
+      geojson: geojson,
+      buffer: 1000 // 1km buffer around the route
+    },
+    limit: 100, // Return max 100 POIs so we don't overwhelm the mobile app
+    sortby: "distance"
+  };
+
+  if (categoryIds.size > 0) {
+    requestBody.filters = {
+      category_ids: Array.from(categoryIds)
+    };
+  }
+
   try {
     const response = await axios.post(
       ORS_POI_URL,
-      {
-        request: "pois",
-        geometry: {
-          geojson: geojson,
-          buffer: 1000 // 1km buffer around the route
-        },
-        limit: 100, // Return max 100 POIs so we don't overwhelm the mobile app
-        sortby: "distance"
-      },
+      requestBody,
       {
         headers: {
           Authorization: apiKey,
