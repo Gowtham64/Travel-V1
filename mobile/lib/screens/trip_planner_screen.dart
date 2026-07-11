@@ -40,6 +40,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   List<GeoPoint>? _currentWaypoints;
   Vehicle? _currentVehicle;
   
+  Map<String, List<PlaceOfInterest>> _pois = {};
+  bool _loadingPOIs = false;
+  
   final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
   @override
@@ -110,6 +113,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           _currentWaypoints = waypoints;
           _currentVehicle = vehicle;
         });
+        _fetchPOIsForCurrentPlan();
       } else {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -132,6 +136,33 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> _fetchPOIsForCurrentPlan() async {
+    if (_currentPlan == null) return;
+    setState(() => _loadingPOIs = true);
+    try {
+      final fetchedPois = await _api.fetchPOIs(
+        routeCoordinates: _currentPlan!.coordinates,
+        categories: _selectedPOIs.toList(),
+      );
+      if (mounted) {
+        setState(() {
+          _pois = fetchedPois;
+          _loadingPOIs = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingPOIs = false);
+    }
+  }
+
+  void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
+    setState(() {
+      final newController = TextEditingController(text: place.name);
+      _stopControllers.insert(_stopControllers.length - 1, newController);
+    });
+    _planTrip();
   }
 
   void _addStop() {
@@ -629,11 +660,64 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                       _selectedPOIs.remove(option['id']);
                     }
                   });
+                  if (_currentPlan != null && MediaQuery.of(context).size.width > 900) {
+                    _fetchPOIsForCurrentPlan();
+                  }
                 },
               );
             }).toList(),
           ),
+          if (_currentPlan != null && MediaQuery.of(context).size.width > 900) ...[
+            const SizedBox(height: 24),
+            if (_loadingPOIs)
+              const Center(child: CircularProgressIndicator())
+            else if (_pois.isNotEmpty)
+              _buildPOIList()
+            else if (_selectedPOIs.isNotEmpty)
+              const Center(child: Text("No places found.", style: TextStyle(color: Colors.white70))),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildPOIList() {
+    final allPois = <MapEntry<String, PlaceOfInterest>>[];
+    _pois.forEach((category, places) {
+      for (final p in places) {
+        allPois.add(MapEntry(category, p));
+      }
+    });
+
+    if (allPois.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 300),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.1)),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.all(8),
+        itemCount: allPois.length,
+        itemBuilder: (context, index) {
+          final poi = allPois[index];
+          final category = poi.key;
+          final place = poi.value;
+          final option = _poiOptions.firstWhere((o) => o['id'] == category, orElse: () => _poiOptions.first);
+
+          return ListTile(
+            leading: Icon(option['icon'], color: Colors.white70),
+            title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white)),
+            subtitle: Text(category.toUpperCase(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            trailing: IconButton(
+              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E75B6)),
+              onPressed: () => _confirmAddPOIFromPlanner(place),
+            ),
+          );
+        },
       ),
     );
   }
