@@ -198,9 +198,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                       child: SafeArea(child: _buildForm()),
                     ),
                     Expanded(
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.only(topLeft: Radius.circular(24), bottomLeft: Radius.circular(24)),
-                        child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
+                      child: SafeArea(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 24.0, bottom: 24.0, right: 24.0),
+                          child: _buildGlassCard(
+                            padding: EdgeInsets.zero,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(24),
+                              child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -275,9 +283,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   Widget _buildDefaultMap() {
     return Scaffold(
       extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Trip Map', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-        backgroundColor: Colors.white.withOpacity(0.9),
+        title: const Text('Trip Map', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        backgroundColor: Colors.black.withOpacity(0.4),
         elevation: 0,
       ),
       body: FlutterMap(
@@ -349,13 +358,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     );
   }
   
-  Widget _buildGlassCard({required Widget child}) {
+  Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
-          padding: const EdgeInsets.all(24.0),
+          padding: padding,
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.1),
             borderRadius: BorderRadius.circular(24),
