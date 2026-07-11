@@ -213,6 +213,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           _pois = fetchedPois;
           _hasSearchedPOIs = true;
           _currentPlan = tempPlan;
+          _currentStart = start;
+          _currentEnd = end;
+          _currentWaypoints = waypoints;
+          _currentVehicle = vehicle;
           _loadingPOIs = false;
         });
       }
