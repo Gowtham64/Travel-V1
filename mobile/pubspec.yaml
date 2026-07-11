@@ -1,0 +1,29 @@
+name: travel_app
+description: Travel itinerary planner - routing, fuel stops, tolls, and nearby places.
+publish_to: "none"
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  # flutter_map: pure-Dart, open-source OSM map widget (no native SDK setup required)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  http: ^1.2.2
+  provider: ^6.1.2
+  supabase_flutter: ^2.16.0
+  shared_preferences: ^2.5.5
+  google_fonts: ^8.1.0
+  sliding_up_panel: ^2.0.0+1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
