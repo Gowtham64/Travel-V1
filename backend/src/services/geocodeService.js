@@ -17,7 +17,7 @@ async function geocodeAddress(query) {
   }
 
   const response = await axios.get(ORS_GEOCODE_URL, {
-    params: { api_key: apiKey, text: query, size: 1 },
+    params: { api_key: apiKey, text: query, size: 1, "boundary.country": "IN" },
     timeout: 10000,
   });
 
