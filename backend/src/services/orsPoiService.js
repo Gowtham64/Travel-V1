@@ -57,7 +57,6 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
       {
         request: "pois",
         geometry: {
-          bbox: [[minLng, minLat], [maxLng, maxLat]],
           geojson: geojson,
           buffer: 1000 // 1km buffer around the route
         },
