@@ -12,6 +12,16 @@ class VehicleModel {
     required this.mileage,
     required this.tankCapacity,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VehicleModel &&
+          runtimeType == other.runtimeType &&
+          id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 const List<VehicleModel> predefinedVehicles = [
