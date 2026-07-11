@@ -42,6 +42,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _loadingPOIs = false;
+  bool _hasSearchedPOIs = false;
   
   final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
@@ -149,11 +150,79 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       if (mounted) {
         setState(() {
           _pois = fetchedPois;
+          _hasSearchedPOIs = true;
           _loadingPOIs = false;
         });
       }
     } catch (e) {
       if (mounted) setState(() => _loadingPOIs = false);
+    }
+  }
+
+  Future<void> _findPlacesBeforeTrip() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVehicle == null) {
+      setState(() => _error = 'Please select a vehicle');
+      return;
+    }
+
+    setState(() {
+      _loadingPOIs = true;
+      _error = null;
+    });
+
+    try {
+      final List<GeoPoint> geocodedStops = [];
+      for (final controller in _stopControllers) {
+        final address = controller.text.trim();
+        if (address.isNotEmpty) {
+          final point = await _api.geocode(address);
+          geocodedStops.add(point);
+        }
+      }
+
+      if (geocodedStops.length < 2) {
+        throw Exception("Need at least a starting point and destination");
+      }
+
+      final start = geocodedStops.first;
+      final end = geocodedStops.last;
+      final waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+
+      final vehicle = Vehicle(
+        type: _selectedVehicle!.type,
+        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
+        tankCapacityLiters: double.parse(_tankController.text),
+        currentFuelLiters: double.parse(_currentFuelController.text),
+      );
+
+      final tempPlan = await _api.planTrip(
+        start: start,
+        end: end,
+        waypoints: waypoints,
+        vehicle: vehicle,
+      );
+
+      final fetchedPois = await _api.fetchPOIs(
+        routeCoordinates: tempPlan.coordinates,
+        categories: _selectedPOIs.toList(),
+      );
+
+      if (mounted) {
+        setState(() {
+          _pois = fetchedPois;
+          _hasSearchedPOIs = true;
+          _currentPlan = tempPlan;
+          _loadingPOIs = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Failed to find places: $e';
+          _loadingPOIs = false;
+        });
+      }
     }
   }
 
@@ -271,9 +340,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           children: [
             _buildRouteCard(),
             const SizedBox(height: 24),
-            _buildPOICard(),
-            const SizedBox(height: 24),
             _buildVehicleCard(),
+            const SizedBox(height: 24),
+            _buildPOICard(),
             const SizedBox(height: 32),
             
             if (_error != null)
@@ -664,20 +733,36 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                     if (_currentPlan != null) {
                       _fetchPOIsForCurrentPlan();
                     } else if (_stopControllers.first.text.trim().isNotEmpty && _stopControllers.last.text.trim().isNotEmpty) {
-                      _planTrip();
+                      _findPlacesBeforeTrip();
                     }
                   }
                 },
               );
             }).toList(),
           ),
-          if (_currentPlan != null && MediaQuery.of(context).size.width > 900) ...[
+          const SizedBox(height: 24),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: _loadingPOIs ? null : _findPlacesBeforeTrip,
+              icon: _loadingPOIs 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.search),
+              label: Text(_loadingPOIs ? 'Searching...' : 'Find Places'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E75B6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          if (_hasSearchedPOIs) ...[
             const SizedBox(height: 24),
             if (_loadingPOIs)
               const Center(child: CircularProgressIndicator())
             else if (_pois.isNotEmpty)
               _buildPOIList()
-            else if (_selectedPOIs.isNotEmpty)
+            else
               const Center(child: Text("No places found.", style: TextStyle(color: Colors.white70))),
           ],
         ],

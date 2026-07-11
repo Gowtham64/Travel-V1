@@ -3,6 +3,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
+import 'package:share_plus/share_plus.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
 
@@ -119,6 +120,30 @@ class _TripScreenState extends State<TripScreen> {
     }
   }
 
+  void _shareTrip() {
+    final hours = _currentPlan.durationMin ~/ 60;
+    final minutes = _currentPlan.durationMin % 60;
+    
+    final StringBuffer sb = StringBuffer();
+    sb.writeln('🚗 Road Trip Plan!');
+    sb.writeln('From: ${widget.startAddress}');
+    sb.writeln('To: ${widget.endAddress}');
+    sb.writeln('Distance: ${_currentPlan.distanceKm.toStringAsFixed(0)} km');
+    sb.writeln('Duration: ${hours}h ${minutes}m');
+    sb.writeln('Vehicle: ${widget.vehicleType.toUpperCase()}');
+    if (_pois.isNotEmpty) {
+      sb.writeln('\n📍 Places to Visit:');
+      _pois.forEach((category, places) {
+        for (var place in places) {
+          sb.writeln('- ${place.name} ($category)');
+        }
+      });
+    }
+    sb.writeln('\nCreated with Travel Planner App 🌍');
+    
+    Share.share(sb.toString(), subject: 'My Trip to ${widget.endAddress}');
+  }
+
   void _confirmAddPOI(PlaceOfInterest place) {
     showDialog(
       context: context,
@@ -200,7 +225,20 @@ class _TripScreenState extends State<TripScreen> {
                 child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
               ),
             )
-          else
+          else ...[
+            Container(
+              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.share, color: Colors.white),
+                tooltip: 'Share Trip',
+                onPressed: _shareTrip,
+              ),
+            ),
             Container(
               margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
               decoration: BoxDecoration(
@@ -214,6 +252,7 @@ class _TripScreenState extends State<TripScreen> {
                 onPressed: _saveTrip,
               ),
             ),
+          ],
         ],
       ),
       body: SlidingUpPanel(
