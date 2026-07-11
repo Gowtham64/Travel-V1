@@ -85,6 +85,10 @@ router.post("/plan", async (req, res) => {
     });
   } catch (err) {
     console.error("Trip planning failed:", err.message);
+    if (err.response && err.response.data) {
+      console.error("ORS Error Detail:", JSON.stringify(err.response.data));
+      return res.status(502).json({ error: "Failed to plan trip", detail: err.response.data.error?.message || JSON.stringify(err.response.data) });
+    }
     res.status(502).json({ error: "Failed to plan trip", detail: err.message });
   }
 });
