@@ -54,6 +54,17 @@ class _TripScreenState extends State<TripScreen> {
     _fetchPOIs();
   }
 
+  @override
+  void didUpdateWidget(TripScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-fetch POIs if plan or categories changed
+    if (oldWidget.plan != widget.plan || oldWidget.poiCategories.join(',') != widget.poiCategories.join(',')) {
+      _currentPlan = widget.plan;
+      _currentWaypoints = List.from(widget.waypoints);
+      _fetchPOIs();
+    }
+  }
+
   Future<void> _fetchPOIs() async {
     try {
       final api = ApiService();
@@ -80,8 +91,18 @@ class _TripScreenState extends State<TripScreen> {
   Future<void> _saveTrip() async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('You must be logged in to save trips')),
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Login Required'),
+          content: const Text('You must be logged in to save trips. Please sign in from the main menu.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
       );
       return;
     }
@@ -120,7 +141,7 @@ class _TripScreenState extends State<TripScreen> {
     }
   }
 
-  void _shareTrip() {
+  void _shareTrip() async {
     final hours = _currentPlan.durationMin ~/ 60;
     final minutes = _currentPlan.durationMin % 60;
     
@@ -141,7 +162,22 @@ class _TripScreenState extends State<TripScreen> {
     }
     sb.writeln('\nCreated with Travel Planner App 🌍');
     
-    Share.share(sb.toString(), subject: 'My Trip to ${widget.endAddress}');
+    try {
+      await Share.share(sb.toString(), subject: 'My Trip to ${widget.endAddress}');
+    } catch (e) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Share Unavailable'),
+            content: Text('Sharing is not supported on this browser or device. Error: $e'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+            ],
+          ),
+        );
+      }
+    }
   }
 
   void _confirmAddPOI(PlaceOfInterest place) {
