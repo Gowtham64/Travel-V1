@@ -118,7 +118,7 @@ const { supabase } = require("../services/dbService");
 const { requireAuth } = require("../utils/authMiddleware");
 
 router.post("/save", requireAuth, async (req, res) => {
-  if (!supabase) return res.status(503).json({ error: "Supabase not configured" });
+  if (!req.supabase) return res.status(503).json({ error: "Supabase not configured" });
   
   const user_id = req.user?.id;
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
@@ -126,7 +126,7 @@ router.post("/save", requireAuth, async (req, res) => {
   const { name, startPoint, endPoint, vehicleType, waypoints } = req.body;
   
   try {
-    const { data, error } = await supabase.from('trips').insert({
+    const { data, error } = await req.supabase.from('trips').insert({
       user_id,
       name,
       start_point: startPoint,
@@ -146,7 +146,7 @@ router.post("/save", requireAuth, async (req, res) => {
         name: wp.name,
         order_index: i
       }));
-      await supabase.from('trip_stops').insert(stopsToInsert);
+      await req.supabase.from('trip_stops').insert(stopsToInsert);
     }
     
     res.json(data);
@@ -157,13 +157,13 @@ router.post("/save", requireAuth, async (req, res) => {
 });
 
 router.get("/saved", requireAuth, async (req, res) => {
-  if (!supabase) return res.status(503).json({ error: "Supabase not configured" });
+  if (!req.supabase) return res.status(503).json({ error: "Supabase not configured" });
   
   const user_id = req.user?.id;
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
   
   try {
-    const { data, error } = await supabase.from('trips').select(`
+    const { data, error } = await req.supabase.from('trips').select(`
       *,
       trip_stops (*)
     `).eq('user_id', user_id).order('created_at', { ascending: false });
