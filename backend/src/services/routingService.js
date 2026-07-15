@@ -48,11 +48,11 @@ async function getRoute(start, end, waypoints = []) {
   );
 
   const feature = response.data.features[0];
-  const segment = feature.properties.segments[0];
+  const summary = feature.properties.summary;
 
   const routeData = {
-    distanceKm: Math.round((segment.distance / 1000) * 10) / 10,
-    durationMin: Math.round(segment.duration / 60),
+    distanceKm: Math.round((summary.distance / 1000) * 10) / 10,
+    durationMin: Math.round(summary.duration / 60),
     // GeoJSON coordinates are [lng, lat] - convert to {lat, lng} for the rest of the app
     coordinates: feature.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
   };

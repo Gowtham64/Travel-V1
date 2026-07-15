@@ -31,6 +31,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
   VehicleModel? _selectedVehicle;
   final Set<String> _selectedPOIs = {'fuel', 'restaurant'};
+  List<String> _appliedPOIs = ['fuel', 'restaurant'];
   bool _loading = false;
   String? _error;
   
@@ -109,6 +110,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
           _currentPlan = plan;
+          _appliedPOIs = _selectedPOIs.toList();
           _currentStart = start;
           _currentEnd = end;
           _currentWaypoints = waypoints;
@@ -211,6 +213,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       if (mounted) {
         setState(() {
           _pois = fetchedPois;
+          _appliedPOIs = _selectedPOIs.toList();
           _hasSearchedPOIs = true;
           _currentPlan = tempPlan;
           _currentStart = start;
@@ -231,10 +234,38 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
-    setState(() {
-      final newController = TextEditingController(text: place.name);
-      _stopControllers.insert(_stopControllers.length - 1, newController);
-    });
+    if (_currentStart != null && _currentEnd != null) {
+      final routeNodes = [_currentStart!, ...(_currentWaypoints ?? []), _currentEnd!];
+      int bestIndex = 0;
+      double minDetour = double.infinity;
+      
+      double _dist(GeoPoint p1, GeoPoint p2) {
+        final dx = p1.lng - p2.lng;
+        final dy = p1.lat - p2.lat;
+        return dx * dx + dy * dy;
+      }
+
+      final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
+      for (int i = 0; i < routeNodes.length - 1; i++) {
+        final p1 = routeNodes[i];
+        final p2 = routeNodes[i + 1];
+        final detour = _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
+        if (detour < minDetour) {
+          minDetour = detour;
+          bestIndex = i;
+        }
+      }
+      
+      setState(() {
+        final newController = TextEditingController(text: place.name);
+        _stopControllers.insert(bestIndex + 1, newController);
+      });
+    } else {
+      setState(() {
+        final newController = TextEditingController(text: place.name);
+        _stopControllers.insert(_stopControllers.length - 1, newController);
+      });
+    }
     _planTrip();
   }
 
@@ -418,7 +449,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       startAddress: _stopControllers.first.text.trim(),
       endAddress: _stopControllers.last.text.trim(),
       vehicleType: _selectedVehicle!.type,
-      poiCategories: _selectedPOIs.toList(),
+      poiCategories: _appliedPOIs,
       start: _currentStart!,
       end: _currentEnd!,
       waypoints: _currentWaypoints!,

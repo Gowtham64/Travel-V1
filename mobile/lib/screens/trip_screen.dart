@@ -207,7 +207,29 @@ class _TripScreenState extends State<TripScreen> {
 
     try {
       final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
-      final updatedWaypoints = List<GeoPoint>.from(_currentWaypoints)..add(newWaypoint);
+      
+      final routeNodes = [widget.start, ..._currentWaypoints, widget.end];
+      int bestIndex = 0;
+      double minDetour = double.infinity;
+      
+      double _dist(GeoPoint p1, GeoPoint p2) {
+        final dx = p1.lng - p2.lng;
+        final dy = p1.lat - p2.lat;
+        return dx * dx + dy * dy;
+      }
+
+      for (int i = 0; i < routeNodes.length - 1; i++) {
+        final p1 = routeNodes[i];
+        final p2 = routeNodes[i + 1];
+        final detour = _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
+        if (detour < minDetour) {
+          minDetour = detour;
+          bestIndex = i;
+        }
+      }
+
+      final updatedWaypoints = List<GeoPoint>.from(_currentWaypoints);
+      updatedWaypoints.insert(bestIndex, newWaypoint);
 
       final api = ApiService();
       final newPlan = await api.planTrip(
