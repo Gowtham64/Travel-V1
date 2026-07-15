@@ -154,25 +154,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     }
   }
 
-  Future<void> _fetchPOIsForCurrentPlan() async {
-    if (_currentPlan == null) return;
-    setState(() => _loadingPOIs = true);
-    try {
-      final fetchedPois = await _api.fetchPOIs(
-        routeCoordinates: _currentPlan!.coordinates,
-        categories: _selectedPOIs.toList(),
-      );
-      if (mounted) {
-        setState(() {
-          _pois = fetchedPois;
-          _hasSearchedPOIs = true;
-          _loadingPOIs = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingPOIs = false);
-    }
-  }
+
 
   Future<void> _findPlacesBeforeTrip() async {
     if (!_formKey.currentState!.validate()) return;
