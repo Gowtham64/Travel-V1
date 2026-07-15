@@ -51,6 +51,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   bool _loadingPOIs = false;
   bool _hasSearchedPOIs = false;
   String? _userName;
+  final Map<String, String> _resolvedAddresses = {};
+  final Set<String> _requestedAddresses = {};
 
   final ScrollController _formScrollController = ScrollController();
   
@@ -1054,11 +1056,30 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           return ListTile(
             leading: Icon(option['icon'], color: Colors.white70),
             title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white)),
-            subtitle: Text(
-              place.address ?? category.toUpperCase(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            subtitle: Builder(
+              builder: (context) {
+                final poiKey = '${place.lat},${place.lng}';
+                final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? category.toUpperCase();
+                
+                final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
+                if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
+                  _requestedAddresses.add(poiKey);
+                  _api.reverseGeocode(place.lat, place.lng).then((addr) {
+                    if (addr != null && mounted) {
+                      setState(() {
+                        _resolvedAddresses[poiKey] = addr;
+                      });
+                    }
+                  });
+                }
+
+                return Text(
+                  displayAddress,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
+                );
+              },
             ),
             trailing: IconButton(
               icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E75B6)),
