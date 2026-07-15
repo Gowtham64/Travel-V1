@@ -54,7 +54,17 @@ class _TripScreenState extends State<TripScreen> {
     super.initState();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
-    if (widget.initialPois != null && widget.initialPois!.isNotEmpty) {
+    bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
+    if (hasAllCategories) {
+      for (final cat in widget.poiCategories) {
+        if (!widget.initialPois!.containsKey(cat) || widget.initialPois![cat] == null) {
+          hasAllCategories = false;
+          break;
+        }
+      }
+    }
+
+    if (hasAllCategories) {
       // Use pre-fetched POIs from the planner — no need to re-fetch
       _pois = widget.initialPois!;
       _loadingPOIs = false;

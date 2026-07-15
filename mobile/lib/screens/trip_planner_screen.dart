@@ -91,6 +91,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           } else {
             final point = await _api.geocode(address);
             geocodedStops.add(point);
+            _resolvedStopCoords[controller.hashCode] = point; // Cache it!
           }
         }
       }
@@ -196,6 +197,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           } else {
             final point = await _api.geocode(address);
             geocodedStops.add(point);
+            _resolvedStopCoords[controller.hashCode] = point; // Cache it!
           }
         }
       }
@@ -253,40 +255,46 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
     final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
 
-    if (_currentStart != null && _currentEnd != null) {
-      // Build route node list from current state (including previously added waypoints)
-      final currentWaypoints = _currentWaypoints ?? <GeoPoint>[];
-      final routeNodes = [_currentStart!, ...currentWaypoints, _currentEnd!];
+    // Get the currently resolved coordinates in order of the active controllers
+    final List<GeoPoint> resolvedNodes = [];
+    final List<TextEditingController> activeControllers = [];
+    for (final controller in _stopControllers) {
+      final coord = _resolvedStopCoords[controller.hashCode];
+      if (coord != null && controller.text.trim().isNotEmpty) {
+        resolvedNodes.add(coord);
+        activeControllers.add(controller);
+      }
+    }
+
+    if (resolvedNodes.length >= 2) {
+      // Find the best insertion index among the resolved nodes
       int bestIndex = 0;
       double minDetour = double.infinity;
-      
+
       double _dist(GeoPoint p1, GeoPoint p2) {
         final dx = p1.lng - p2.lng;
         final dy = p1.lat - p2.lat;
         return sqrt(dx * dx + dy * dy);
       }
 
-      for (int i = 0; i < routeNodes.length - 1; i++) {
-        final p1 = routeNodes[i];
-        final p2 = routeNodes[i + 1];
+      for (int i = 0; i < resolvedNodes.length - 1; i++) {
+        final p1 = resolvedNodes[i];
+        final p2 = resolvedNodes[i + 1];
         final detour = _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
         if (detour < minDetour) {
           minDetour = detour;
           bestIndex = i;
         }
       }
-      
-      // Update _currentWaypoints so next POI insertion uses the updated route
-      final updatedWaypoints = List<GeoPoint>.from(currentWaypoints);
-      updatedWaypoints.insert(bestIndex, newWaypoint);
-      _currentWaypoints = updatedWaypoints;
+
+      // Insert the new controller right after the controller corresponding to resolvedNodes[bestIndex]
+      final targetController = activeControllers[bestIndex];
+      final insertIndex = _stopControllers.indexOf(targetController) + 1;
 
       setState(() {
         final newController = TextEditingController(text: place.name);
         _resolvedStopCoords[newController.hashCode] = newWaypoint;
-        // bestIndex is relative to waypoints (0-based), controller insert is bestIndex + 1
-        // because controllers[0] = start, controllers[1..n-1] = waypoints, controllers[n] = end
-        _stopControllers.insert(bestIndex + 1, newController);
+        _stopControllers.insert(insertIndex, newController);
       });
     } else {
       setState(() {
