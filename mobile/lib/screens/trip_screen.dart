@@ -246,7 +246,6 @@ class _TripScreenState extends State<TripScreen> {
           _currentWaypoints = updatedWaypoints;
           _recalculating = false;
         });
-        _fetchPOIs(); // Optionally update POIs for the new route
       }
     } catch (e) {
       if (mounted) {

@@ -117,7 +117,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           _currentWaypoints = waypoints;
           _currentVehicle = vehicle;
         });
-        _fetchPOIsForCurrentPlan();
       } else {
         Navigator.of(context).push(
           MaterialPageRoute(
