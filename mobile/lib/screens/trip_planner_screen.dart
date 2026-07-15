@@ -296,6 +296,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         _resolvedStopCoords[newController.hashCode] = newWaypoint;
         _stopControllers.insert(insertIndex, newController);
       });
+
+      // Offset the scroll position by 76.0 (approx height of a stop input) so the POI card doesn't jump
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (_formScrollController.hasClients) {
+          _formScrollController.animateTo(
+            _formScrollController.offset + 76.0,
+            duration: const Duration(milliseconds: 150),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     } else {
       setState(() {
         final newController = TextEditingController(text: place.name);
@@ -880,6 +891,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
       child: ListView.builder(
+        key: const PageStorageKey('poi_list_scroll_key'),
         shrinkWrap: true,
         padding: const EdgeInsets.all(8),
         itemCount: allPois.length,
