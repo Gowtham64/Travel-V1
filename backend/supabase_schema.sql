@@ -79,3 +79,24 @@ CREATE POLICY "Users can delete their own trip stops" ON public.trip_stops FOR D
 ALTER TABLE public.route_cache ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Public can view route cache" ON public.route_cache FOR SELECT USING (true);
 CREATE POLICY "Public can insert route cache" ON public.route_cache FOR INSERT WITH CHECK (true);
+
+-- 5. User Details Table
+-- Stores custom user information collected on signup
+CREATE TABLE IF NOT EXISTS public.user_details (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    phone TEXT,
+    email TEXT,
+    password_hash TEXT,
+    location TEXT,
+    device_access TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.user_details ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view their own details" ON public.user_details FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert their own details" ON public.user_details FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update their own details" ON public.user_details FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete their own details" ON public.user_details FOR DELETE USING (auth.uid() = user_id);

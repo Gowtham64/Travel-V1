@@ -1,5 +1,6 @@
+import 'dart:io' show Platform;
 import 'dart:math';
-import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
@@ -58,6 +59,54 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     super.initState();
     _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
     _updateVehicleFields();
+    _recordUserSession();
+  }
+
+  String _getDeviceAccessInfo() {
+    if (kIsWeb) return 'Web Browser';
+    try {
+      if (Platform.isAndroid) return 'Android Device';
+      if (Platform.isIOS) return 'iOS Device';
+      if (Platform.isMacOS) return 'macOS App';
+      if (Platform.isWindows) return 'Windows App';
+      if (Platform.isLinux) return 'Linux App';
+      return 'Mobile App';
+    } catch (_) {
+      return 'Unknown Device';
+    }
+  }
+
+  Future<void> _recordUserSession() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    try {
+      // Check if user_details already exists for this user
+      final response = await Supabase.instance.client
+          .from('user_details')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (response == null) {
+        final name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'Traveler';
+        final email = user.email ?? '';
+        final phone = user.phone ?? '';
+        final deviceAccess = _getDeviceAccessInfo();
+        
+        await Supabase.instance.client.from('user_details').insert({
+          'user_id': user.id,
+          'name': name,
+          'phone': phone,
+          'email': email,
+          'password_hash': 'OAuth / Google',
+          'location': 'Not Provided',
+          'device_access': deviceAccess,
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to record user details: $e');
+    }
   }
 
   void _updateVehicleFields() {
@@ -541,13 +590,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.1),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.white.withOpacity(0.08),
+                Colors.white.withOpacity(0.02),
+              ],
+            ),
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.2)),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
           ),
           child: child,
         ),
@@ -567,28 +623,34 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
-      style: const TextStyle(color: Colors.white),
+      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-        prefixIcon: Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.7), size: 20),
+        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+        floatingLabelStyle: const TextStyle(color: Color(0xFF2E75B6), fontWeight: FontWeight.bold),
+        prefixIcon: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.6), size: 22),
+        ),
+        prefixIconConstraints: const BoxConstraints(minWidth: 40),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         filled: true,
-        fillColor: Colors.black.withOpacity(0.2),
+        fillColor: Colors.white.withOpacity(0.05),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.2)),
+          borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.white),
+          borderSide: const BorderSide(color: Color(0xFF2E75B6), width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.redAccent),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Colors.redAccent),
+          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
         ),
       ),
     );
