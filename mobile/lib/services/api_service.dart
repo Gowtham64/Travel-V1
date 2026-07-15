@@ -156,4 +156,18 @@ class ApiService {
 
     return jsonDecode(response.body) as List<dynamic>;
   }
+
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    final uri = Uri.parse('$baseUrl/api/trip/reverse-geocode?lat=$lat&lng=$lng');
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['address'] as String?;
+      }
+    } catch (_) {
+      // Ignore and fallback to null
+    }
+    return null;
+  }
 }

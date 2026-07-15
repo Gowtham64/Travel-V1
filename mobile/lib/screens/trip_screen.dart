@@ -43,6 +43,9 @@ class _TripScreenState extends State<TripScreen> {
   bool _loadingPOIs = true;
   bool _recalculating = false;
   Map<String, List<PlaceOfInterest>> _pois = {};
+  final Map<String, String> _resolvedAddresses = {};
+  final Set<String> _requestedAddresses = {};
+  final _api = ApiService();
   
   late TripPlan _currentPlan;
   late List<GeoPoint> _currentWaypoints;
@@ -456,11 +459,30 @@ class _TripScreenState extends State<TripScreen> {
               child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category), size: 22),
             ),
             title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-            subtitle: Text(
-              place.address ?? category.toUpperCase(),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+            subtitle: Builder(
+              builder: (context) {
+                final poiKey = '${place.lat},${place.lng}';
+                final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? category.toUpperCase();
+                
+                final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
+                if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
+                  _requestedAddresses.add(poiKey);
+                  _api.reverseGeocode(place.lat, place.lng).then((addr) {
+                    if (addr != null && mounted) {
+                      setState(() {
+                        _resolvedAddresses[poiKey] = addr;
+                      });
+                    }
+                  });
+                }
+
+                return Text(
+                  displayAddress,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                );
+              },
             ),
             trailing: Container(
               decoration: BoxDecoration(

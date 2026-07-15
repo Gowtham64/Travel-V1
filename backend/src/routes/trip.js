@@ -93,6 +93,26 @@ router.post("/plan", async (req, res) => {
   }
 });
 
+const axios = require("axios");
+
+router.get("/reverse-geocode", async (req, res) => {
+  const { lat, lng } = req.query;
+  if (!lat || !lng) return res.status(400).json({ error: "Missing lat or lng" });
+
+  const apiKey = process.env.ORS_API_KEY || "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVlMmEyYzUxM2EwNjRmOTNiYTA4MmY0NjEzZDZiOTE5IiwiaCI6Im11cm11cjY0In0=";
+
+  try {
+    const url = `https://api.openrouteservice.org/geocode/reverse?api_key=${apiKey}&point.lon=${lng}&point.lat=${lat}&size=1`;
+    const response = await axios.get(url, { timeout: 5000 });
+    const features = response.data?.features || [];
+    const address = features.length > 0 ? features[0].properties.label : null;
+    res.json({ address });
+  } catch (err) {
+    console.error("Reverse geocoding failed:", err.message);
+    res.status(500).json({ error: "Reverse geocoding failed", detail: err.message });
+  }
+});
+
 const { findPOIsAlongRoute } = require("../services/orsPoiService");
 
 router.post("/pois", async (req, res) => {
