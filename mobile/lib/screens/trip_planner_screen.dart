@@ -266,7 +266,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         _stopControllers.insert(_stopControllers.length - 1, newController);
       });
     }
-    _planTrip();
   }
 
   void _addStop() {
@@ -786,10 +785,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           ),
           if (_hasSearchedPOIs) ...[
             const SizedBox(height: 24),
-            if (_loadingPOIs)
+            if (_loadingPOIs && _pois.isEmpty)
               const Center(child: CircularProgressIndicator())
             else if (_pois.isNotEmpty)
-              _buildPOIList()
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  _buildPOIList(),
+                  if (_loadingPOIs)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withOpacity(0.5),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                    ),
+                ],
+              )
             else
               const Center(child: Text("No places found.", style: TextStyle(color: Colors.white70))),
           ],
