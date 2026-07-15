@@ -48,6 +48,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _loadingPOIs = false;
   bool _hasSearchedPOIs = false;
+
+  final ScrollController _formScrollController = ScrollController();
   
   final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
@@ -248,8 +250,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
+    final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
+
     if (_currentStart != null && _currentEnd != null) {
-      final routeNodes = [_currentStart!, ...(_currentWaypoints ?? []), _currentEnd!];
+      // Build route node list from current state (including previously added waypoints)
+      final currentWaypoints = _currentWaypoints ?? <GeoPoint>[];
+      final routeNodes = [_currentStart!, ...currentWaypoints, _currentEnd!];
       int bestIndex = 0;
       double minDetour = double.infinity;
       
@@ -259,7 +265,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         return sqrt(dx * dx + dy * dy);
       }
 
-      final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
       for (int i = 0; i < routeNodes.length - 1; i++) {
         final p1 = routeNodes[i];
         final p2 = routeNodes[i + 1];
@@ -270,18 +275,36 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         }
       }
       
+      // Update _currentWaypoints so next POI insertion uses the updated route
+      final updatedWaypoints = List<GeoPoint>.from(currentWaypoints);
+      updatedWaypoints.insert(bestIndex, newWaypoint);
+      _currentWaypoints = updatedWaypoints;
+
       setState(() {
         final newController = TextEditingController(text: place.name);
-        _resolvedStopCoords[newController.hashCode] = GeoPoint(lat: place.lat, lng: place.lng);
+        _resolvedStopCoords[newController.hashCode] = newWaypoint;
+        // bestIndex is relative to waypoints (0-based), controller insert is bestIndex + 1
+        // because controllers[0] = start, controllers[1..n-1] = waypoints, controllers[n] = end
         _stopControllers.insert(bestIndex + 1, newController);
       });
     } else {
       setState(() {
         final newController = TextEditingController(text: place.name);
-        _resolvedStopCoords[newController.hashCode] = GeoPoint(lat: place.lat, lng: place.lng);
+        _resolvedStopCoords[newController.hashCode] = newWaypoint;
         _stopControllers.insert(_stopControllers.length - 1, newController);
       });
     }
+
+    // Show confirmation without triggering a form rebuild that causes scroll jump
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✓ Added "${place.name}" as a stop'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: const Color(0xFF2E75B6),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void _addStop() {
@@ -307,6 +330,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     _efficiencyController.dispose();
     _tankController.dispose();
     _currentFuelController.dispose();
+    _formScrollController.dispose();
     super.dispose();
   }
 
@@ -383,6 +407,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
   Widget _buildForm() {
     return SingleChildScrollView(
+      controller: _formScrollController,
       padding: const EdgeInsets.all(24.0),
       child: Form(
         key: _formKey,
