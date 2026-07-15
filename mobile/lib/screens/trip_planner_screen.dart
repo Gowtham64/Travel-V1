@@ -49,6 +49,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _loadingPOIs = false;
   bool _hasSearchedPOIs = false;
+  String? _userName;
 
   final ScrollController _formScrollController = ScrollController();
   
@@ -551,37 +552,141 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   Widget _buildDrawer(User? user) {
+    final initials = (_userName != null && _userName!.isNotEmpty) 
+        ? _userName!.substring(0, 1).toUpperCase() 
+        : (user?.email != null && user!.email!.isNotEmpty)
+            ? user.email!.substring(0, 1).toUpperCase()
+            : 'T';
+
     return Drawer(
-      backgroundColor: const Color(0xFF1A1A1A),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          UserAccountsDrawerHeader(
-            decoration: const BoxDecoration(color: Color(0xFF2E75B6)),
-            accountName: const Text('Travel Planner', style: TextStyle(fontWeight: FontWeight.bold)),
-            accountEmail: Text(user?.email ?? 'Not logged in'),
-            currentAccountPicture: const CircleAvatar(
-              backgroundColor: Colors.white,
-              child: Icon(Icons.person, size: 40, color: Color(0xFF2E75B6)),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF1E293B), // Slate Dark
+              Color(0xFF0F172A), // Deep Obsidian
+            ],
+          ),
+        ),
+        child: Column(
+          children: [
+            // Custom Premium Header
+            Container(
+              padding: const EdgeInsets.only(top: 80, bottom: 32, left: 24, right: 24),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.08))),
+              ),
+              child: Row(
+                children: [
+                  // Circular Avatar with outer gradient ring
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        colors: [Color(0xFF2E75B6), Color(0xFF60A5FA)],
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 32,
+                      backgroundColor: const Color(0xFF0F172A),
+                      child: Text(
+                        initials,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _userName ?? 'Traveler',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          user?.email ?? 'Not logged in',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.map_outlined, color: Colors.white70),
-            title: const Text('Saved Trips', style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
-            },
-          ),
-          const Divider(color: Colors.white24),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.white70),
-            title: const Text('Log out', style: TextStyle(color: Colors.white)),
-            onTap: () async {
-              await Supabase.instance.client.auth.signOut();
-            },
-          ),
-        ],
+            const SizedBox(height: 24),
+            // Drawer Options
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white.withOpacity(0.03),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      leading: const Icon(Icons.map_outlined, color: Color(0xFF60A5FA), size: 24),
+                      title: const Text(
+                        'Saved Trips',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Spacer(),
+            // Log Out Button at Bottom
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
+                  color: Colors.redAccent.withOpacity(0.05),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 22),
+                  title: const Text(
+                    'Log out',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  onTap: () async {
+                    await Supabase.instance.client.auth.signOut();
+                  },
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
