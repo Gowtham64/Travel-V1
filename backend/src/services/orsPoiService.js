@@ -28,16 +28,6 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
     }
   }
 
-  // To avoid hitting geometry limits, we'll use a bounding box approach or simplified geometry
-  // For simplicity, let's use the bbox of the route.
-  const lats = routeCoordinates.map(c => c.lat);
-  const lngs = routeCoordinates.map(c => c.lng);
-  
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-
   // We can pass GeoJSON LineString to ORS. 
   // We'll downsample coordinates if there are too many (> 100)
   let sampled = routeCoordinates;
@@ -95,11 +85,24 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
       const catObj = f.properties.category_ids || {};
       const catIds = Object.keys(catObj).map(Number);
       
+      // Build address from available OSM tags
+      const addressParts = [];
+      if (tags['addr:street']) addressParts.push(tags['addr:street']);
+      if (tags['addr:housenumber']) addressParts.push(tags['addr:housenumber']);
+      if (tags['addr:city']) addressParts.push(tags['addr:city']);
+      if (tags['addr:state']) addressParts.push(tags['addr:state']);
+      if (tags['addr:postcode']) addressParts.push(tags['addr:postcode']);
+      
+      const address = addressParts.length > 0 
+        ? addressParts.join(', ') 
+        : `${point[1].toFixed(4)}°N, ${point[0].toFixed(4)}°E`;
+
       const place = {
         id: f.properties.osm_id,
         name: tags.name || 'Unnamed Place',
         lat: point[1],
-        lng: point[0]
+        lng: point[0],
+        address: address,
       };
 
       // Put it in the right bucket

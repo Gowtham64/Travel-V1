@@ -26,6 +26,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     TextEditingController(),
   ];
 
+  // Pre-resolved coordinates for stops added from POI list (keyed by controller hashCode)
+  final Map<int, GeoPoint> _resolvedStopCoords = {};
+
   final _efficiencyController = TextEditingController();
   final _tankController = TextEditingController();
   final _currentFuelController = TextEditingController(text: '30');
@@ -79,8 +82,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       for (final controller in _stopControllers) {
         final address = controller.text.trim();
         if (address.isNotEmpty) {
-          final point = await _api.geocode(address);
-          geocodedStops.add(point);
+          // Use pre-resolved coordinates if available (from POI selection)
+          final resolved = _resolvedStopCoords[controller.hashCode];
+          if (resolved != null) {
+            geocodedStops.add(resolved);
+          } else {
+            final point = await _api.geocode(address);
+            geocodedStops.add(point);
+          }
         }
       }
 
@@ -178,8 +187,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       for (final controller in _stopControllers) {
         final address = controller.text.trim();
         if (address.isNotEmpty) {
-          final point = await _api.geocode(address);
-          geocodedStops.add(point);
+          final resolved = _resolvedStopCoords[controller.hashCode];
+          if (resolved != null) {
+            geocodedStops.add(resolved);
+          } else {
+            final point = await _api.geocode(address);
+            geocodedStops.add(point);
+          }
         }
       }
 
@@ -258,11 +272,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       
       setState(() {
         final newController = TextEditingController(text: place.name);
+        _resolvedStopCoords[newController.hashCode] = GeoPoint(lat: place.lat, lng: place.lng);
         _stopControllers.insert(bestIndex + 1, newController);
       });
     } else {
       setState(() {
         final newController = TextEditingController(text: place.name);
+        _resolvedStopCoords[newController.hashCode] = GeoPoint(lat: place.lat, lng: place.lng);
         _stopControllers.insert(_stopControllers.length - 1, newController);
       });
     }
@@ -278,6 +294,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     if (_stopControllers.length <= 2) return;
     setState(() {
       final controller = _stopControllers.removeAt(index);
+      _resolvedStopCoords.remove(controller.hashCode);
       controller.dispose();
     });
   }
@@ -840,7 +857,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           return ListTile(
             leading: Icon(option['icon'], color: Colors.white70),
             title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white)),
-            subtitle: Text(category.toUpperCase(), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            subtitle: Text(
+              place.address ?? category.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             trailing: IconButton(
               icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E75B6)),
               onPressed: () => _confirmAddPOIFromPlanner(place),

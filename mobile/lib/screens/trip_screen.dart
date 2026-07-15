@@ -58,11 +58,10 @@ class _TripScreenState extends State<TripScreen> {
   @override
   void didUpdateWidget(TripScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-fetch POIs if plan or categories changed
-    if (oldWidget.plan != widget.plan || oldWidget.poiCategories.join(',') != widget.poiCategories.join(',')) {
+    // Only update plan data, do NOT re-fetch POIs to prevent jarring list refresh
+    if (oldWidget.plan != widget.plan) {
       _currentPlan = widget.plan;
       _currentWaypoints = List.from(widget.waypoints);
-      _fetchPOIs();
     }
   }
 
@@ -433,7 +432,12 @@ class _TripScreenState extends State<TripScreen> {
               child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category), size: 22),
             ),
             title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-            subtitle: Text(category.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+            subtitle: Text(
+              place.address ?? category.toUpperCase(),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
             trailing: Container(
               decoration: BoxDecoration(
                 color: const Color(0xFF2E75B6).withOpacity(0.1),
@@ -454,8 +458,8 @@ class _TripScreenState extends State<TripScreen> {
   List<Marker> _buildMarkers(BuildContext context) {
     final markers = <Marker>[];
 
-    markers.add(_pin(_currentPlan.coordinates.first.toLatLng(), Icons.trip_origin, Colors.green));
-    markers.add(_pin(_currentPlan.coordinates.last.toLatLng(), Icons.flag, Colors.red));
+    markers.add(_pin(_currentPlan.coordinates.first.toLatLng(), Icons.trip_origin, Colors.green, label: 'Start'));
+    markers.add(_pin(_currentPlan.coordinates.last.toLatLng(), Icons.flag, Colors.red, label: 'End'));
 
     if (widget.poiCategories.contains('fuel')) {
       for (final stop in _currentPlan.fuel.refuelStops) {
@@ -470,6 +474,7 @@ class _TripScreenState extends State<TripScreen> {
           _getCategoryIcon(category),
           _getCategoryColor(category),
           onTap: () => _confirmAddPOI(place),
+          label: place.name != 'Unnamed Place' ? place.name : null,
         ));
       }
     });
@@ -477,20 +482,45 @@ class _TripScreenState extends State<TripScreen> {
     return markers;
   }
 
-  Marker _pin(LatLng point, IconData icon, Color color, {VoidCallback? onTap}) {
+  Marker _pin(LatLng point, IconData icon, Color color, {VoidCallback? onTap, String? label}) {
     return Marker(
       point: point,
-      width: 32,
-      height: 32,
+      width: label != null ? 120 : 40,
+      height: label != null ? 60 : 40,
       child: GestureDetector(
         onTap: onTap,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            shape: BoxShape.circle,
-            boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2))],
-          ),
-          child: Icon(icon, color: color, size: 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (label != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, spreadRadius: 2),
+                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2)),
+                ],
+                border: Border.all(color: color, width: 2.5),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+          ],
         ),
       ),
     );
