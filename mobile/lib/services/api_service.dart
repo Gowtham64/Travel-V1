@@ -74,12 +74,25 @@ class ApiService {
     required List<GeoPoint> routeCoordinates,
     required List<String> categories,
   }) async {
+    // Downsample coordinates if there are too many to keep payload size small (resolves 413 Payload Too Large)
+    List<GeoPoint> sampledCoords = routeCoordinates;
+    if (sampledCoords.length > 150) {
+      final step = (sampledCoords.length / 150).ceil();
+      sampledCoords = [];
+      for (int i = 0; i < routeCoordinates.length; i += step) {
+        sampledCoords.add(routeCoordinates[i]);
+      }
+      if (sampledCoords.isEmpty || sampledCoords.last != routeCoordinates.last) {
+        sampledCoords.add(routeCoordinates.last);
+      }
+    }
+
     final uri = Uri.parse('$baseUrl/api/trip/pois');
     final response = await http.post(
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'coordinates': routeCoordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+        'coordinates': sampledCoords.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
         'categories': categories,
       }),
     );
