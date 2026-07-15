@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -215,7 +216,7 @@ class _TripScreenState extends State<TripScreen> {
       double _dist(GeoPoint p1, GeoPoint p2) {
         final dx = p1.lng - p2.lng;
         final dy = p1.lat - p2.lat;
-        return dx * dx + dy * dy;
+        return sqrt(dx * dx + dy * dy);
       }
 
       for (int i = 0; i < routeNodes.length - 1; i++) {

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -242,7 +243,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       double _dist(GeoPoint p1, GeoPoint p2) {
         final dx = p1.lng - p2.lng;
         final dy = p1.lat - p2.lat;
-        return dx * dx + dy * dy;
+        return sqrt(dx * dx + dy * dy);
       }
 
       final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
