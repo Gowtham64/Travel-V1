@@ -18,6 +18,7 @@ class TripScreen extends StatefulWidget {
   final GeoPoint end;
   final List<GeoPoint> waypoints;
   final Vehicle vehicle;
+  final Map<String, List<PlaceOfInterest>>? initialPois;
 
   const TripScreen({
     super.key,
@@ -30,6 +31,7 @@ class TripScreen extends StatefulWidget {
     required this.end,
     required this.waypoints,
     required this.vehicle,
+    this.initialPois,
   });
 
   @override
@@ -52,16 +54,28 @@ class _TripScreenState extends State<TripScreen> {
     super.initState();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
-    _fetchPOIs();
+    if (widget.initialPois != null && widget.initialPois!.isNotEmpty) {
+      // Use pre-fetched POIs from the planner — no need to re-fetch
+      _pois = widget.initialPois!;
+      _loadingPOIs = false;
+    } else {
+      _fetchPOIs();
+    }
   }
 
   @override
   void didUpdateWidget(TripScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only update plan data, do NOT re-fetch POIs to prevent jarring list refresh
     if (oldWidget.plan != widget.plan) {
       _currentPlan = widget.plan;
       _currentWaypoints = List.from(widget.waypoints);
+    }
+    // If new initialPois are provided, use them without re-fetching
+    if (widget.initialPois != null && widget.initialPois != oldWidget.initialPois) {
+      setState(() {
+        _pois = widget.initialPois!;
+        _loadingPOIs = false;
+      });
     }
   }
 

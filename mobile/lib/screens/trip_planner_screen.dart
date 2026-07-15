@@ -141,6 +141,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               end: end,
               waypoints: waypoints,
               vehicle: vehicle,
+              initialPois: _pois.isNotEmpty ? _pois : null,
             ),
           ),
         );
@@ -495,6 +496,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       end: _currentEnd!,
       waypoints: _currentWaypoints!,
       vehicle: _currentVehicle!,
+      initialPois: _pois.isNotEmpty ? _pois : null,
     );
   }
 
