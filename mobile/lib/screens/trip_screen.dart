@@ -341,7 +341,7 @@ class _TripScreenState extends State<TripScreen> {
       ),
       body: SlidingUpPanel(
         controller: _panelController,
-        minHeight: 280, // Show FASTag + Cash + Fuel card fully
+        minHeight: 310, // Show FASTag + Cash (with subtitle) + Fuel card fully
         maxHeight: MediaQuery.of(context).size.height * 0.7,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         parallaxEnabled: true,
@@ -704,6 +704,7 @@ class _SummaryCard extends StatelessWidget {
                   label: 'Cash Toll',
                   badge: 'CASH',
                   badgeColor: const Color(0xFFFF6B6B),
+                  subtitle: '2× FASTag rate (NHAI)',
                   value: toll == null
                       ? 'Checking...'
                       : (!toll.hasTolls
@@ -740,46 +741,74 @@ class _SummaryCard extends StatelessWidget {
     required String badge,
     required Color badgeColor,
     required String value,
+    String? subtitle,
   }) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.all(7),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.12),
-            borderRadius: BorderRadius.circular(9),
-          ),
-          child: Icon(icon, color: iconColor, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Row(
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.75),
-                      fontWeight: FontWeight.w500)),
-              const SizedBox(width: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: badgeColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(badge,
-                    style: TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: badgeColor,
-                        letterSpacing: 0.5)),
+        // ── Left side: icon + label + badge ──────────────────
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(9),
               ),
-            ],
+              child: Icon(icon, color: iconColor, size: 18),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.75),
+                            fontWeight: FontWeight.w500)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(badge,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: badgeColor,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withOpacity(0.4))),
+                ],
+              ],
+            ),
+          ],
+        ),
+        // ── Right side: value ────────────────────────────────
+        const SizedBox(width: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: iconColor,
           ),
         ),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
       ],
     );
   }
