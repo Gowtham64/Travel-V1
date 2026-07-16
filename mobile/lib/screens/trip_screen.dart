@@ -669,9 +669,9 @@ class _SummaryCard extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
-                    _stat('${hours}h ${minutes}m', 'Driving time'),
-                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length'),
+                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.start),
+                    _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center),
+                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.end),
                   ],
                 ),
               ),
@@ -826,8 +826,9 @@ class _SummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _stat(String value, String label) {
+  Widget _stat(String value, String label, [CrossAxisAlignment alignment = CrossAxisAlignment.center]) {
     return Column(
+      crossAxisAlignment: alignment,
       children: [
         Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
         const SizedBox(height: 4),
