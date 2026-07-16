@@ -656,93 +656,67 @@ class _SummaryCard extends StatelessWidget {
         ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
         : _estimateFuelCost(plan.distanceKm, vehicle, currency);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ── Stats Row: 3 equal-width columns ──
-          Row(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 500),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              // Stats Row perfectly aligned with the inner content of the card below
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('${plan.distanceKm.toStringAsFixed(0)} km',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text('Distance',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
+                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.start),
+                    _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center),
+                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.end),
                   ],
                 ),
               ),
-              Expanded(
+              const SizedBox(height: 16),
+              // ── Fee Card ──
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('${hours}h ${minutes}m',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text('Driving time',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}',
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
-                    const SizedBox(height: 4),
-                    Text('Trip length',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          // ── Fee Card ──
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.08)),
-            ),
-            child: Column(
-              children: [
-                _feeRow(
-                  icon: Icons.contactless,
-                  iconColor: const Color(0xFF00E5A0),
-                  label: 'FASTag Fees',
-                  badge: 'FASTAG',
-                  badgeColor: const Color(0xFF00E5A0),
-                  value: toll == null
-                      ? 'Checking...'
-                      : (!toll.hasTolls
-                          ? 'No Tolls'
-                          : (toll.fastagTollCost != null
-                              ? '$curr ${toll.fastagTollCost!.toStringAsFixed(0)}'
-                              : (toll.minTollCost != null
-                                  ? '$curr ${toll.minTollCost!.toStringAsFixed(0)}'
-                                  : 'Has Tolls'))),
-                ),
-                const Divider(color: Colors.white12, height: 16),
-                _feeRow(
-                  icon: Icons.toll,
-                  iconColor: const Color(0xFFFF6B6B),
-                  label: 'Cash Toll',
-                  badge: 'CASH',
-                  badgeColor: const Color(0xFFFF6B6B),
-                  subtitle: '2× FASTag rate (NHAI)',
-                  value: toll == null
-                      ? 'Checking...'
-                      : (!toll.hasTolls
-                          ? 'No Tolls'
-                          : (toll.cashTollCost != null
-                              ? '$curr ${toll.cashTollCost!.toStringAsFixed(0)}'
+                    _feeRow(
+                      icon: Icons.contactless,
+                      iconColor: const Color(0xFF00E5A0),
+                      label: 'FASTag Fees',
+                      badge: 'FASTAG',
+                      badgeColor: const Color(0xFF00E5A0),
+                      value: toll == null
+                          ? 'Checking...'
+                          : (!toll.hasTolls
+                              ? 'No Tolls'
+                              : (toll.fastagTollCost != null
+                                  ? '$curr ${toll.fastagTollCost!.toStringAsFixed(0)}'
+                                  : (toll.minTollCost != null
+                                      ? '$curr ${toll.minTollCost!.toStringAsFixed(0)}'
+                                      : 'Has Tolls'))),
+                    ),
+                    const Divider(color: Colors.white12, height: 16),
+                    _feeRow(
+                      icon: Icons.toll,
+                      iconColor: const Color(0xFFFF6B6B),
+                      label: 'Cash Toll',
+                      badge: 'CASH',
+                      badgeColor: const Color(0xFFFF6B6B),
+                      subtitle: '2× FASTag rate (NHAI)',
+                      value: toll == null
+                          ? 'Checking...'
+                          : (!toll.hasTolls
+                              ? 'No Tolls'
+                              : (toll.cashTollCost != null
+                                  ? '$curr ${toll.cashTollCost!.toStringAsFixed(0)}'
                               : (toll.minTollCost != null
                                   ? '$curr ${(toll.minTollCost! * 2).toStringAsFixed(0)}'
                                   : 'Has Tolls'))),
