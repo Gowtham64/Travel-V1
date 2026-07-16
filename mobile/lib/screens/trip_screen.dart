@@ -656,29 +656,56 @@ class _SummaryCard extends StatelessWidget {
         ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
         : _estimateFuelCost(plan.distanceKm, vehicle, currency);
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // ── Stats Row: 3 equal-width columns ──
+          Row(
             children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.start),
-                    _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center),
-                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.end),
+                    Text('${plan.distanceKm.toStringAsFixed(0)} km',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('Distance',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
                   ],
                 ),
               ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text('${hours}h ${minutes}m',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('Driving time',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text('Trip length',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[500])),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 16),
+          // ── Fee Card ──
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(16),
@@ -686,7 +713,6 @@ class _SummaryCard extends StatelessWidget {
             ),
             child: Column(
               children: [
-                // FASTag toll row
                 _feeRow(
                   icon: Icons.contactless,
                   iconColor: const Color(0xFF00E5A0),
@@ -704,7 +730,6 @@ class _SummaryCard extends StatelessWidget {
                                   : 'Has Tolls'))),
                 ),
                 const Divider(color: Colors.white12, height: 16),
-                // Cash toll row
                 _feeRow(
                   icon: Icons.toll,
                   iconColor: const Color(0xFFFF6B6B),
@@ -723,7 +748,6 @@ class _SummaryCard extends StatelessWidget {
                                   : 'Has Tolls'))),
                 ),
                 const Divider(color: Colors.white12, height: 16),
-                // Fuel cost row
                 _feeRow(
                   icon: Icons.local_gas_station,
                   iconColor: Colors.orangeAccent,
@@ -738,8 +762,6 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
-      ),
-      ),
     );
   }
 
@@ -752,14 +774,10 @@ class _SummaryCard extends StatelessWidget {
     required String value,
     String? subtitle,
   }) {
-    // We use a basic Row with Spacer. This is robust across mobile and desktop.
-    // We changed the label "FASTag Toll" to "FASTag Fees" (if passed) in the caller to verify cache busting.
     return Container(
       constraints: const BoxConstraints(minHeight: 40),
       margin: const EdgeInsets.symmetric(vertical: 4),
-      width: double.infinity,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Icon
           Container(
@@ -771,50 +789,53 @@ class _SummaryCard extends StatelessWidget {
             child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(width: 10),
-          // Label and badge
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(label,
-                      style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.75),
-                          fontWeight: FontWeight.w500)),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(4),
+          // Label and badge — takes remaining space
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(label,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.75),
+                              fontWeight: FontWeight.w500)),
                     ),
-                    child: Text(badge,
-                        style: TextStyle(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: badgeColor,
-                            letterSpacing: 0.5)),
-                  ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(badge,
+                          style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: badgeColor,
+                              letterSpacing: 0.5)),
+                    ),
+                  ],
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(subtitle,
+                      style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.white.withOpacity(0.4))),
                 ],
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 2),
-                Text(subtitle,
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withOpacity(0.4))),
               ],
-            ],
+            ),
           ),
-          // Takes up all remaining space
-          const Spacer(),
-          // Value
+          const SizedBox(width: 8),
+          // Price value — always visible on the right
           Text(
             value,
-            textAlign: TextAlign.right,
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.bold,
