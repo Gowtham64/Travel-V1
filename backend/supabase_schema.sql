@@ -97,6 +97,6 @@ CREATE TABLE IF NOT EXISTS public.user_details (
 ALTER TABLE public.user_details ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own details" ON public.user_details FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert their own details" ON public.user_details FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Public can insert details" ON public.user_details FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update their own details" ON public.user_details FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own details" ON public.user_details FOR DELETE USING (auth.uid() = user_id);

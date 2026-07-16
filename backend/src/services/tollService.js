@@ -124,13 +124,33 @@ function getTollEstimateStatic(start, end, vehicleKey = "car") {
     isNearCorridor(lat, lng, start, end)
   );
 
-  const ratePerPlaza = INDIA_TOLL_RATE_PER_PLAZA[vehicleKey] || INDIA_TOLL_RATE_PER_PLAZA.car;
   const count = matchedPlazas.length;
+  const ratePerPlaza = INDIA_TOLL_RATE_PER_PLAZA[vehicleKey] || INDIA_TOLL_RATE_PER_PLAZA.car;
 
   console.log(
     `Static toll: found ${count} plazas near corridor`,
     matchedPlazas.map(([, , name]) => name)
   );
+
+  let fastagCost = 0;
+  for (const plaza of matchedPlazas) {
+    const plazaName = plaza[2];
+    if (vehicleKey === "car" || vehicleKey === "suv") {
+      if (plazaName === "Kaniminike Toll") {
+        fastagCost += 165;
+        continue;
+      }
+      if (plazaName === "Gananguru Toll") {
+        fastagCost += 155;
+        continue;
+      }
+      if (plazaName === "Srirangapatna Toll") {
+        // Obsolete or covered by expressway, skip
+        continue;
+      }
+    }
+    fastagCost += ratePerPlaza;
+  }
 
   if (count === 0) {
     return {
@@ -145,9 +165,7 @@ function getTollEstimateStatic(start, end, vehicleKey = "car") {
     };
   }
 
-  // FASTag rate = standard NHAI rate
   // Cash rate = 2× FASTag (NHAI policy: double toll for vehicles without FASTag)
-  const fastagCost = count * ratePerPlaza;
   const cashCost = fastagCost * 2;
   const minCost = fastagCost;
   const maxCost = Math.round(fastagCost * 1.3);
