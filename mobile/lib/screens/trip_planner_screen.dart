@@ -392,15 +392,30 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
+    final isDesktop = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Trip Planner', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              title: const Text('Trip Planner', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              iconTheme: const IconThemeData(color: Colors.white),
+              flexibleSpace: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.6),
+                      Colors.black.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
       drawer: _buildDrawer(user),
       body: Stack(
         children: [
@@ -461,14 +476,39 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   Widget _buildForm() {
+    final isDesktop = MediaQuery.of(context).size.width > 900;
     return SingleChildScrollView(
       controller: _formScrollController,
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.only(
+        left: 24.0,
+        right: 24.0,
+        bottom: 24.0,
+        top: isDesktop ? 24.0 : kToolbarHeight + 24.0,
+      ),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (isDesktop) ...[
+              Builder(
+                builder: (context) => Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.menu, color: Colors.white),
+                      onPressed: () => Scaffold.of(context).openDrawer(),
+                      tooltip: 'Open Menu',
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Trip Planner',
+                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
             _buildRouteCard(),
             const SizedBox(height: 24),
             _buildVehicleCard(),
