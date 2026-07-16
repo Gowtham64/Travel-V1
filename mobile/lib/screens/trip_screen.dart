@@ -403,7 +403,7 @@ class _TripScreenState extends State<TripScreen> {
           ),
         ),
         const SizedBox(height: 16),
-        _SummaryCard(plan: _currentPlan),
+        _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
         const SizedBox(height: 8),
         const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
         const SizedBox(height: 8),
@@ -613,12 +613,25 @@ class _TripScreenState extends State<TripScreen> {
 
 class _SummaryCard extends StatelessWidget {
   final TripPlan plan;
-  const _SummaryCard({required this.plan});
+  final Vehicle vehicle;
+  
+  const _SummaryCard({required this.plan, required this.vehicle});
+
+  String _estimateFuelCost(double distance, Vehicle vehicle, String? currency) {
+    final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+    final liters = distance / eff;
+    final isUSD = currency == 'USD' || currency == 'USD ';
+    final fuelPrice = isUSD ? 1.05 : 102.0; // $1.05 per liter or ₹102 per liter
+    final cost = liters * fuelPrice;
+    final currSymbol = isUSD ? '\$' : '₹';
+    return '$currSymbol ${cost.toStringAsFixed(0)}';
+  }
 
   @override
   Widget build(BuildContext context) {
     final hours = plan.durationMin ~/ 60;
     final minutes = plan.durationMin % 60;
+    final currency = plan.toll?.currency;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -634,6 +647,52 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _statItem(
+                    context,
+                    Icons.toll,
+                    Colors.cyanAccent,
+                    'Toll Fees',
+                    plan.toll != null && plan.toll!.hasTolls
+                        ? (plan.toll!.minTollCost != null
+                            ? '${plan.toll!.currency} ${plan.toll!.minTollCost!.toStringAsFixed(0)}'
+                            : 'Yes (Estimating...)')
+                        : 'No Tolls',
+                  ),
+                ),
+                Container(
+                  height: 32,
+                  width: 1,
+                  color: Colors.white.withOpacity(0.1),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 16),
+                    child: _statItem(
+                      context,
+                      Icons.local_gas_station,
+                      Colors.orangeAccent,
+                      'Fuel Cost',
+                      plan.toll?.fuelCost != null && plan.toll!.fuelCost! > 0
+                          ? '${plan.toll!.currency} ${plan.toll!.fuelCost!.toStringAsFixed(0)}'
+                          : _estimateFuelCost(plan.distanceKm, vehicle, currency),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
@@ -645,6 +704,36 @@ class _SummaryCard extends StatelessWidget {
         Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
         const SizedBox(height: 4),
         Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+      ],
+    );
+  }
+
+  Widget _statItem(BuildContext context, IconData icon, Color iconColor, String label, String value) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
