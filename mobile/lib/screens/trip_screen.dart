@@ -341,7 +341,7 @@ class _TripScreenState extends State<TripScreen> {
       ),
       body: SlidingUpPanel(
         controller: _panelController,
-        minHeight: 120, // To show the summary card always
+        minHeight: 200, // To show the summary card always
         maxHeight: MediaQuery.of(context).size.height * 0.7,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         parallaxEnabled: true,
