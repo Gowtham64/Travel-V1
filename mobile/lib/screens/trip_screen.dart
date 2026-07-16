@@ -627,6 +627,23 @@ class _SummaryCard extends StatelessWidget {
     return '$currSymbol ${cost.toStringAsFixed(0)}';
   }
 
+  /// Returns display string for toll cost.
+  /// - null toll = data unavailable (API quota exhausted)
+  /// - hasTolls = false = confirmed no tolls on route
+  /// - hasTolls = true = shows estimated range
+  String _tollDisplay(TollEstimate? toll) {
+    if (toll == null) return 'Checking...';
+    if (!toll.hasTolls) return 'No Tolls';
+    final curr = toll.currency.isNotEmpty ? toll.currency : 'INR';
+    if (toll.minTollCost != null && toll.maxTollCost != null && toll.maxTollCost! > toll.minTollCost!) {
+      return '$curr ${toll.minTollCost!.toStringAsFixed(0)}–${toll.maxTollCost!.toStringAsFixed(0)}';
+    }
+    if (toll.minTollCost != null) {
+      return '~$curr ${toll.minTollCost!.toStringAsFixed(0)}';
+    }
+    return 'Has Tolls';
+  }
+
   @override
   Widget build(BuildContext context) {
     final hours = plan.durationMin ~/ 60;
@@ -663,11 +680,7 @@ class _SummaryCard extends StatelessWidget {
                     Icons.toll,
                     Colors.cyanAccent,
                     'Toll Fees',
-                    plan.toll != null && plan.toll!.hasTolls
-                        ? (plan.toll!.minTollCost != null
-                            ? '${plan.toll!.currency} ${plan.toll!.minTollCost!.toStringAsFixed(0)}'
-                            : 'Yes (Estimating...)')
-                        : 'No Tolls',
+                    _tollDisplay(plan.toll),
                   ),
                 ),
                 Container(
