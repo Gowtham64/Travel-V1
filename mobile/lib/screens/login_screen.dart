@@ -343,28 +343,39 @@ class _LoginScreenState extends State<LoginScreen> {
     bool isPassword = false,
     Function(String)? onSubmitted,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-        prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.7)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.white),
-        ),
-        filled: true,
-        fillColor: Colors.black.withOpacity(0.2),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.3)),
       ),
-      onSubmitted: onSubmitted,
+      child: Row(
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 12, right: 8),
+            child: Icon(icon, color: Colors.white.withOpacity(0.7)),
+          ),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              obscureText: isPassword,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                labelText: label,
+                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
+                hintText: hint,
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              onSubmitted: onSubmitted,
+            ),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
     );
   }
 }
