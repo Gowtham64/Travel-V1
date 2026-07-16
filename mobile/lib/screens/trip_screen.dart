@@ -651,7 +651,7 @@ class _SummaryCard extends StatelessWidget {
     final currency = plan.toll?.currency;
 
     final toll = plan.toll;
-    final curr = (toll?.currency.isNotEmpty == true) ? toll!.currency : 'INR';
+    final curr = (toll?.currency == 'INR' || toll?.currency == null) ? '₹' : toll!.currency;
     final fuelDisplay = toll?.fuelCost != null && toll!.fuelCost! > 0
         ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
         : _estimateFuelCost(plan.distanceKm, vehicle, currency);
@@ -664,14 +664,17 @@ class _SummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
-              _stat('${hours}h ${minutes}m', 'Driving time'),
-              _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length'),
-            ],
-          ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
+                    _stat('${hours}h ${minutes}m', 'Driving time'),
+                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length'),
+                  ],
+                ),
+              ),
           const SizedBox(height: 16),
           Container(
             width: double.infinity,

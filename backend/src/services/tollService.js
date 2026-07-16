@@ -36,9 +36,10 @@ const INDIA_TOLL_RATE_PER_PLAZA = {
  * Each entry: [lat, lng, name]
  */
 const INDIA_TOLL_PLAZAS = [
+  // Bengaluru-Mysuru Expressway
+  [12.8300, 77.4200, "Kaniminike Toll"],
+  [12.4300, 76.7300, "Gananguru Toll"],
   // NH-48 / NH-544 (Coimbatore - Bangalore via Salem / Mysuru corridor)
-  [12.6000, 77.3500, "Srirangapatna Toll"],
-  [12.4200, 76.6800, "Mysuru Bypass Toll"],
   [12.2500, 76.9000, "Gundlupet Toll"],
   [11.8500, 76.7500, "Bandipur Toll"],
   [11.6000, 76.9200, "Gudalur Toll"],
@@ -96,7 +97,7 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 
 /**
  * Check if a point is near the straight-line corridor between start and end.
- * Approx: within 50 km of the straight-line route.
+ * Approx: within 10 km of the straight-line route.
  */
 function isNearCorridor(plazaLat, plazaLng, start, end) {
   const distToStart = haversineKm(plazaLat, plazaLng, start.lat, start.lng);
@@ -104,8 +105,8 @@ function isNearCorridor(plazaLat, plazaLng, start, end) {
   const totalDist = haversineKm(start.lat, start.lng, end.lat, end.lng);
 
   // The plaza must be closer to both points than the total route distance
-  // and within 50 km of the corridor (triangle inequality check)
-  const BUFFER_KM = 50;
+  // and within 10 km of the corridor (triangle inequality check)
+  const BUFFER_KM = 10;
   return distToStart + distToEnd <= totalDist + BUFFER_KM;
 }
 
