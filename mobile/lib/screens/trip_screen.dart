@@ -656,12 +656,15 @@ class _SummaryCard extends StatelessWidget {
         ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
         : _estimateFuelCost(plan.distanceKm, vehicle, currency);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 600),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
