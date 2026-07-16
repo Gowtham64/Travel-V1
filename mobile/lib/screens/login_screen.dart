@@ -59,10 +59,12 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = true);
 
       try {
+        final currentUrl = Uri.base.toString().split('?').first;
         // Sign up with Supabase Auth
         final authResponse = await Supabase.instance.client.auth.signUp(
           email: email,
           password: password,
+          emailRedirectTo: currentUrl,
         );
 
         final user = authResponse.user;
