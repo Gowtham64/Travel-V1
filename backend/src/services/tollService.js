@@ -137,19 +137,27 @@ function getTollEstimateStatic(start, end, vehicleKey = "car") {
       currency: "INR",
       minTollCost: 0,
       maxTollCost: 0,
+      fastagTollCost: 0,
+      cashTollCost: 0,
       fuelCost: null,
       source: "static",
     };
   }
 
-  const minCost = count * ratePerPlaza;
-  const maxCost = Math.round(minCost * 1.3);
+  // FASTag rate = standard NHAI rate
+  // Cash rate = 2× FASTag (NHAI policy: double toll for vehicles without FASTag)
+  const fastagCost = count * ratePerPlaza;
+  const cashCost = fastagCost * 2;
+  const minCost = fastagCost;
+  const maxCost = Math.round(fastagCost * 1.3);
 
   return {
     hasTolls: true,
     currency: "INR",
     minTollCost: minCost,
     maxTollCost: maxCost,
+    fastagTollCost: fastagCost,
+    cashTollCost: cashCost,
     fuelCost: null,
     tollPlazaCount: count,
     source: "static",
@@ -191,11 +199,15 @@ async function getTollEstimate(start, end, vehicleKey = "car") {
       const route = response.data.routes && response.data.routes[0];
       if (route) {
         console.log("TollGuru succeeded:", JSON.stringify(route.summary));
+        const fastagCost = route.costs.minimumTollCost;
+        const cashCost = fastagCost != null ? Math.round(fastagCost * 2) : null;
         return {
           hasTolls: route.summary.hasTolls,
           currency: response.data.summary?.currency || "INR",
           minTollCost: route.costs.minimumTollCost,
           maxTollCost: route.costs.maximumTollCost,
+          fastagTollCost: fastagCost,
+          cashTollCost: cashCost,
           fuelCost: route.costs.fuel,
           source: "tollguru",
         };

@@ -341,7 +341,7 @@ class _TripScreenState extends State<TripScreen> {
       ),
       body: SlidingUpPanel(
         controller: _panelController,
-        minHeight: 200, // To show the summary card always
+        minHeight: 280, // Show FASTag + Cash + Fuel card fully
         maxHeight: MediaQuery.of(context).size.height * 0.7,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
         parallaxEnabled: true,
@@ -650,6 +650,12 @@ class _SummaryCard extends StatelessWidget {
     final minutes = plan.durationMin % 60;
     final currency = plan.toll?.currency;
 
+    final toll = plan.toll;
+    final curr = (toll?.currency.isNotEmpty == true) ? toll!.currency : 'INR';
+    final fuelDisplay = toll?.fuelCost != null && toll!.fuelCost! > 0
+        ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
+        : _estimateFuelCost(plan.distanceKm, vehicle, currency);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -665,42 +671,58 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.05),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: Colors.white.withOpacity(0.08)),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               children: [
-                Expanded(
-                  child: _statItem(
-                    context,
-                    Icons.toll,
-                    Colors.cyanAccent,
-                    'Toll Fees',
-                    _tollDisplay(plan.toll),
-                  ),
+                // FASTag toll row
+                _feeRow(
+                  icon: Icons.contactless,
+                  iconColor: const Color(0xFF00E5A0),
+                  label: 'FASTag Toll',
+                  badge: 'FASTAG',
+                  badgeColor: const Color(0xFF00E5A0),
+                  value: toll == null
+                      ? 'Checking...'
+                      : (!toll.hasTolls
+                          ? 'No Tolls'
+                          : (toll.fastagTollCost != null
+                              ? '$curr ${toll.fastagTollCost!.toStringAsFixed(0)}'
+                              : (toll.minTollCost != null
+                                  ? '$curr ${toll.minTollCost!.toStringAsFixed(0)}'
+                                  : 'Has Tolls'))),
                 ),
-                Container(
-                  height: 32,
-                  width: 1,
-                  color: Colors.white.withOpacity(0.1),
+                const Divider(color: Colors.white12, height: 16),
+                // Cash toll row
+                _feeRow(
+                  icon: Icons.toll,
+                  iconColor: const Color(0xFFFF6B6B),
+                  label: 'Cash Toll',
+                  badge: 'CASH',
+                  badgeColor: const Color(0xFFFF6B6B),
+                  value: toll == null
+                      ? 'Checking...'
+                      : (!toll.hasTolls
+                          ? 'No Tolls'
+                          : (toll.cashTollCost != null
+                              ? '$curr ${toll.cashTollCost!.toStringAsFixed(0)}'
+                              : (toll.minTollCost != null
+                                  ? '$curr ${(toll.minTollCost! * 2).toStringAsFixed(0)}'
+                                  : 'Has Tolls'))),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 16),
-                    child: _statItem(
-                      context,
-                      Icons.local_gas_station,
-                      Colors.orangeAccent,
-                      'Fuel Cost',
-                      plan.toll?.fuelCost != null && plan.toll!.fuelCost! > 0
-                          ? '${plan.toll!.currency} ${plan.toll!.fuelCost!.toStringAsFixed(0)}'
-                          : _estimateFuelCost(plan.distanceKm, vehicle, currency),
-                    ),
-                  ),
+                const Divider(color: Colors.white12, height: 16),
+                // Fuel cost row
+                _feeRow(
+                  icon: Icons.local_gas_station,
+                  iconColor: Colors.orangeAccent,
+                  label: 'Fuel Cost',
+                  badge: 'EST.',
+                  badgeColor: Colors.orangeAccent,
+                  value: fuelDisplay,
                 ),
               ],
             ),
@@ -708,6 +730,57 @@ class _SummaryCard extends StatelessWidget {
           const SizedBox(height: 8),
         ],
       ),
+    );
+  }
+
+  Widget _feeRow({
+    required IconData icon,
+    required Color iconColor,
+    required String label,
+    required String badge,
+    required Color badgeColor,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, color: iconColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Row(
+            children: [
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.75),
+                      fontWeight: FontWeight.w500)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(badge,
+                    style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: badgeColor,
+                        letterSpacing: 0.5)),
+              ),
+            ],
+          ),
+        ),
+        Text(value,
+            style: const TextStyle(
+                fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white)),
+      ],
     );
   }
 

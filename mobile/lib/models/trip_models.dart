@@ -75,6 +75,8 @@ class TollEstimate {
   final String currency;
   final double? minTollCost;
   final double? maxTollCost;
+  final double? fastagTollCost;
+  final double? cashTollCost;
   final double? fuelCost;
 
   const TollEstimate({
@@ -82,6 +84,8 @@ class TollEstimate {
     required this.currency,
     this.minTollCost,
     this.maxTollCost,
+    this.fastagTollCost,
+    this.cashTollCost,
     this.fuelCost,
   });
 
@@ -90,6 +94,8 @@ class TollEstimate {
         currency: json['currency'] as String? ?? '',
         minTollCost: (json['minTollCost'] as num?)?.toDouble(),
         maxTollCost: (json['maxTollCost'] as num?)?.toDouble(),
+        fastagTollCost: (json['fastagTollCost'] as num?)?.toDouble(),
+        cashTollCost: (json['cashTollCost'] as num?)?.toDouble(),
         fuelCost: (json['fuelCost'] as num?)?.toDouble(),
       );
 }
