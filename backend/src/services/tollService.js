@@ -119,10 +119,17 @@ function isNearCorridor(plazaLat, plazaLng, start, end) {
  * @param {string} vehicleKey
  * @returns {object}
  */
-function getTollEstimateStatic(start, end, vehicleKey = "car") {
-  const matchedPlazas = INDIA_TOLL_PLAZAS.filter(([lat, lng]) =>
-    isNearCorridor(lat, lng, start, end)
-  );
+function getTollEstimateStatic(start, end, vehicleKey = "car", routeCoordinates = null) {
+  const matchedPlazas = INDIA_TOLL_PLAZAS.filter(([lat, lng]) => {
+    if (routeCoordinates && routeCoordinates.length > 0) {
+      // Match if the plaza is within 3 km of any point on the actual route polyline
+      return routeCoordinates.some(
+        (pt) => haversineKm(lat, lng, pt.lat, pt.lng) <= 3.0
+      );
+    }
+    // Fallback to straight-line corridor check
+    return isNearCorridor(lat, lng, start, end);
+  });
 
   const count = matchedPlazas.length;
   const ratePerPlaza = INDIA_TOLL_RATE_PER_PLAZA[vehicleKey] || INDIA_TOLL_RATE_PER_PLAZA.car;
@@ -192,7 +199,7 @@ function getTollEstimateStatic(start, end, vehicleKey = "car") {
  * @param {keyof VEHICLE_TYPES} vehicleKey
  * @returns {Promise<object>}
  */
-async function getTollEstimate(start, end, vehicleKey = "car") {
+async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates = null) {
   const apiKey = process.env.TOLLGURU_API_KEY;
   const vehicleType = VEHICLE_TYPES[vehicleKey] || VEHICLE_TYPES.car;
 
@@ -239,9 +246,9 @@ async function getTollEstimate(start, end, vehicleKey = "car") {
     }
   }
 
-  // Fallback: use our curated static India toll plaza database
+  // Fallback: use our curated static India toll database
   console.log("Using static India toll database fallback...");
-  return getTollEstimateStatic(start, end, vehicleKey);
+  return getTollEstimateStatic(start, end, vehicleKey, routeCoordinates);
 }
 
 module.exports = { getTollEstimate, VEHICLE_TYPES };

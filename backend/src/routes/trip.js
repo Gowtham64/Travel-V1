@@ -56,7 +56,7 @@ router.post("/plan", async (req, res) => {
     // here should not break the rest of the trip plan.
     let toll = null;
     try {
-      toll = await getTollEstimate(start, end, vehicle.type);
+      toll = await getTollEstimate(start, end, vehicle.type, route.coordinates);
     } catch (err) {
       console.error("Toll lookup skipped:", err.message);
     }
