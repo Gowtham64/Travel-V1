@@ -224,14 +224,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           _buildTextField(
                             controller: _nameController,
                             label: 'Full Name',
-                            hint: 'Gowtham',
+                            hint: 'John Doe',
                             icon: Icons.person_outline,
                           ),
                           const SizedBox(height: 16),
                           _buildTextField(
                             controller: _emailController,
                             label: 'Email ID',
-                            hint: 'gowthampec64@gmail.com',
+                            hint: 'johndoe@example.com',
                             icon: Icons.mail_outline,
                           ),
                           const SizedBox(height: 16),
