@@ -288,7 +288,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
-    final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
+    final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
 
     // Get the currently resolved coordinates in order of the active controllers
     final List<GeoPoint> resolvedNodes = [];

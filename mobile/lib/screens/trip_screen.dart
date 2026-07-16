@@ -233,7 +233,7 @@ class _TripScreenState extends State<TripScreen> {
     });
 
     try {
-      final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng);
+      final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
       
       final routeNodes = [widget.start, ..._currentWaypoints, widget.end];
       int bestIndex = 0;
@@ -504,26 +504,34 @@ class _TripScreenState extends State<TripScreen> {
   List<Marker> _buildMarkers(BuildContext context) {
     final markers = <Marker>[];
 
-    markers.add(_pin(_currentPlan.coordinates.first.toLatLng(), Icons.trip_origin, Colors.green, label: 'Start'));
-    markers.add(_pin(_currentPlan.coordinates.last.toLatLng(), Icons.flag, Colors.red, label: 'End'));
+    // Start point pin
+    markers.add(_pin(
+      _currentPlan.coordinates.first.toLatLng(),
+      Icons.trip_origin,
+      Colors.green,
+      label: widget.startAddress.isNotEmpty ? widget.startAddress : 'Start',
+    ));
 
-    if (widget.poiCategories.contains('fuel')) {
-      for (final stop in _currentPlan.fuel.refuelStops) {
-        markers.add(_pin(stop.toLatLng(), Icons.local_gas_station, Colors.orange));
-      }
+    // End point pin
+    markers.add(_pin(
+      _currentPlan.coordinates.last.toLatLng(),
+      Icons.flag,
+      Colors.red,
+      label: widget.endAddress.isNotEmpty ? widget.endAddress : 'End',
+    ));
+
+    // Selected places to visit (waypoints) pins
+    for (int i = 0; i < _currentWaypoints.length; i++) {
+      final wp = _currentWaypoints[i];
+      final wpKey = '${wp.lat},${wp.lng}';
+      final name = wp.name ?? _resolvedAddresses[wpKey] ?? 'Stop ${i + 1}';
+      markers.add(_pin(
+        wp.toLatLng(),
+        Icons.location_on,
+        const Color(0xFF2E75B6),
+        label: name,
+      ));
     }
-
-    _pois.forEach((category, places) {
-      for (final place in places) {
-        markers.add(_pin(
-          place.toLatLng(),
-          _getCategoryIcon(category),
-          _getCategoryColor(category),
-          onTap: () => _confirmAddPOI(place),
-          label: place.name != 'Unnamed Place' ? place.name : null,
-        ));
-      }
-    });
 
     return markers;
   }

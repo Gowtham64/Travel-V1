@@ -49,7 +49,7 @@ class ApiService {
       body: jsonEncode({
         'start': {'lat': start.lat, 'lng': start.lng},
         'end': {'lat': end.lat, 'lng': end.lng},
-        'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng}).toList(),
+        'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
         'vehicle': {
           'type': vehicle.type,
           'efficiencyKmPerLiter': vehicle.efficiencyKmPerLiter,
@@ -131,7 +131,7 @@ class ApiService {
         'name': name,
         'startPoint': {'lat': start.lat, 'lng': start.lng},
         'endPoint': {'lat': end.lat, 'lng': end.lng},
-        'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng}).toList(),
+        'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
         'vehicleType': vehicleType,
       }),
     );

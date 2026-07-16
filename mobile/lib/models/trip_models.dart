@@ -3,11 +3,16 @@ import 'package:latlong2/latlong.dart';
 class GeoPoint {
   final double lat;
   final double lng;
+  final String? name;
 
-  const GeoPoint({required this.lat, required this.lng});
+  const GeoPoint({required this.lat, required this.lng, this.name});
 
   factory GeoPoint.fromJson(Map<String, dynamic> json) =>
-      GeoPoint(lat: (json['lat'] as num).toDouble(), lng: (json['lng'] as num).toDouble());
+      GeoPoint(
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+        name: json['name'] as String?,
+      );
 
   LatLng toLatLng() => LatLng(lat, lng);
 }
