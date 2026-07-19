@@ -3,6 +3,8 @@ const { getRoute } = require("../services/routingService");
 const { findRefuelStops, estimateTripDays } = require("../services/fuelService");
 const { getTollEstimate } = require("../services/tollService");
 const { findPlacesAlongRoute } = require("../services/placesService");
+const { getRouteWeather } = require("../services/weatherService");
+const { estimateBudget } = require("../services/budgetService");
 
 const router = express.Router();
 
@@ -61,6 +63,29 @@ router.post("/plan", async (req, res) => {
       console.error("Toll lookup skipped:", err.message);
     }
 
+    // Weather along the route is best-effort (free key-less API) - never let a
+    // slow/failed weather call break the trip plan.
+    let weather = null;
+    try {
+      weather = await getRouteWeather(route.coordinates);
+    } catch (err) {
+      console.error("Weather lookup skipped:", err.message);
+    }
+
+    // Full trip budget builds on the numbers we already have, so it can't fail.
+    let budget = null;
+    try {
+      budget = estimateBudget({
+        distanceKm: route.distanceKm,
+        estimatedDays: days,
+        vehicle,
+        toll,
+        options: req.body.travellers ? { travellers: req.body.travellers } : {},
+      });
+    } catch (err) {
+      console.error("Budget estimate skipped:", err.message);
+    }
+
     // POI lookups are opt-in per request since each one is a separate Overpass call.
     const places = {};
     for (const category of includePlaces) {
@@ -81,6 +106,8 @@ router.post("/plan", async (req, res) => {
       estimatedDays: days,
       fuel: fuelPlan,
       toll,
+      weather,
+      budget,
       places,
     });
   } catch (err) {

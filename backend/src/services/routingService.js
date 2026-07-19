@@ -26,9 +26,36 @@ async function getRoute(start, end, waypoints = []) {
     return cached;
   }
 
+  const mapboxKey = process.env.MAPBOX_API_KEY || "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
+  
+  try {
+    console.log("Fetching traffic-aware route from Mapbox Directions...");
+    const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&access_token=${mapboxKey}`;
+    
+    const response = await axios.get(url, { timeout: 15000 });
+    const route = response.data.routes[0];
+    
+    if (route) {
+      const routeData = {
+        distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+        durationMin: Math.round(route.duration / 60),
+        // GeoJSON coordinates are [lng, lat] - convert to {lat, lng} for the rest of the app
+        coordinates: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+      };
+      
+      // Save to cache asynchronously
+      cacheRoute(hash, routeData);
+      return routeData;
+    }
+  } catch (e) {
+    console.error("Mapbox Directions API failed, falling back to OpenRouteService:", e.message);
+  }
+
+  // Fallback to OpenRouteService
   const apiKey = process.env.ORS_API_KEY || "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVlMmEyYzUxM2EwNjRmOTNiYTA4MmY0NjEzZDZiOTE5IiwiaCI6Im11cm11cjY0In0=";
   if (!apiKey) {
-    throw new Error("ORS_API_KEY is not set - get a free key at https://openrouteservice.org/dev/#/signup");
+    throw new Error("Both Mapbox Directions and OpenRouteService APIs failed/unconfigured.");
   }
 
   // ORS expects coordinates as [lng, lat], in travel order
@@ -53,7 +80,6 @@ async function getRoute(start, end, waypoints = []) {
   const routeData = {
     distanceKm: Math.round((summary.distance / 1000) * 10) / 10,
     durationMin: Math.round(summary.duration / 60),
-    // GeoJSON coordinates are [lng, lat] - convert to {lat, lng} for the rest of the app
     coordinates: feature.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
   };
 

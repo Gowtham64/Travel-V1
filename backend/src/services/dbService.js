@@ -71,6 +71,7 @@ async function cacheRoute(hash, routeData) {
       distance_km: routeData.distanceKm,
       duration_min: routeData.durationMin,
       toll_data: routeData.tollData || null,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // Expire traffic-aware route in 10 minutes
     });
   } catch (err) {
     console.error("Error caching route:", err.message);
