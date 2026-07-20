@@ -5,6 +5,7 @@ const { getTollEstimate } = require("../services/tollService");
 const { findPlacesAlongRoute } = require("../services/placesService");
 const { getRouteWeather, getDepartureAdvice, suggestRestStops } = require("../services/weatherService");
 const { estimateBudget } = require("../services/budgetService");
+const { buildItinerary } = require("../services/itineraryService");
 
 const router = express.Router();
 
@@ -88,6 +89,14 @@ router.post("/plan", async (req, res) => {
       console.error("Rest-stop suggestion skipped:", err.message);
     }
 
+    // Multi-day breakdown (pure logic).
+    let itinerary = [];
+    try {
+      itinerary = buildItinerary(route.coordinates, route.durationMin, dailyDrivingHours);
+    } catch (err) {
+      console.error("Itinerary build skipped:", err.message);
+    }
+
     // Full trip budget builds on the numbers we already have, so it can't fail.
     let budget = null;
     try {
@@ -125,6 +134,7 @@ router.post("/plan", async (req, res) => {
       weather,
       departureAdvice,
       restStops,
+      itinerary,
       budget,
       places,
     });

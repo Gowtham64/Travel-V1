@@ -18,6 +18,7 @@ const CATEGORY_FILTERS = {
   lake:        '["natural"="water"]["water"="lake"]',
   river:       '["waterway"="river"]',
   viewpoint:   '["tourism"="viewpoint"]',
+  charging:    '["amenity"="charging_station"]',
 };
 
 /**
