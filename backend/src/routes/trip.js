@@ -3,7 +3,7 @@ const { getRoute } = require("../services/routingService");
 const { findRefuelStops, estimateTripDays } = require("../services/fuelService");
 const { getTollEstimate } = require("../services/tollService");
 const { findPlacesAlongRoute } = require("../services/placesService");
-const { getRouteWeather } = require("../services/weatherService");
+const { getRouteWeather, getDepartureAdvice, suggestRestStops } = require("../services/weatherService");
 const { estimateBudget } = require("../services/budgetService");
 
 const router = express.Router();
@@ -72,6 +72,22 @@ router.post("/plan", async (req, res) => {
       console.error("Weather lookup skipped:", err.message);
     }
 
+    // Best-departure advice (hourly rain at the start) — best-effort.
+    let departureAdvice = null;
+    try {
+      departureAdvice = await getDepartureAdvice(start);
+    } catch (err) {
+      console.error("Departure advice skipped:", err.message);
+    }
+
+    // Suggested rest breaks based on total drive time (pure logic).
+    let restStops = [];
+    try {
+      restStops = suggestRestStops(route.coordinates, route.durationMin);
+    } catch (err) {
+      console.error("Rest-stop suggestion skipped:", err.message);
+    }
+
     // Full trip budget builds on the numbers we already have, so it can't fail.
     let budget = null;
     try {
@@ -107,6 +123,8 @@ router.post("/plan", async (req, res) => {
       fuel: fuelPlan,
       toll,
       weather,
+      departureAdvice,
+      restStops,
       budget,
       places,
     });

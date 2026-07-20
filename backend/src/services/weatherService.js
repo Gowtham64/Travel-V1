@@ -127,4 +127,120 @@ async function getRouteWeather(routeCoordinates) {
   return { points, hasAlerts };
 }
 
-module.exports = { getRouteWeather, describeCode, sampleRoutePoints, WEATHER_CODES };
+/**
+ * Look at the hourly forecast at the start point over the next `hours` and
+ * recommend the driest departure window. Returns null on failure.
+ *
+ * @returns {Promise<{ bestOffsetHours:number, bestLabel:string, driestRainPct:number,
+ *   nowRainPct:number, recommendation:string, hourly:Array } | null>}
+ */
+async function getDepartureAdvice(start, hours = 12) {
+  if (!start || typeof start.lat !== "number" || typeof start.lng !== "number") {
+    return null;
+  }
+
+  const url =
+    `https://api.open-meteo.com/v1/forecast?latitude=${start.lat}&longitude=${start.lng}` +
+    `&hourly=precipitation_probability,weather_code,temperature_2m&forecast_days=2&timezone=auto`;
+
+  const response = await axios.get(url, { timeout: 8000 });
+  const h = response.data && response.data.hourly;
+  if (!h || !Array.isArray(h.time)) return null;
+
+  // Open-Meteo hourly arrays start at 00:00 today; find the index closest to now.
+  const nowIso = new Date().toISOString().slice(0, 13); // yyyy-mm-ddThh
+  let startIdx = h.time.findIndex((t) => t.slice(0, 13) >= nowIso);
+  if (startIdx < 0) startIdx = 0;
+
+  const window = [];
+  for (let i = 0; i < hours && startIdx + i < h.time.length; i += 1) {
+    const idx = startIdx + i;
+    const code = h.weather_code[idx] ?? 0;
+    window.push({
+      offsetHours: i,
+      time: h.time[idx],
+      rainChancePct: h.precipitation_probability[idx] ?? 0,
+      tempC: h.temperature_2m[idx] ?? null,
+      icon: describeCode(code).icon,
+      description: describeCode(code).label,
+    });
+  }
+  if (window.length === 0) return null;
+
+  const nowRainPct = window[0].rainChancePct;
+  // Pick the earliest hour whose rain chance is the minimum in the window.
+  let best = window[0];
+  for (const w of window) {
+    if (w.rainChancePct < best.rainChancePct) best = w;
+  }
+
+  function label(offset) {
+    if (offset === 0) return "now";
+    if (offset === 1) return "in 1 hour";
+    return `in ${offset} hours`;
+  }
+
+  let recommendation;
+  if (nowRainPct < 30) {
+    recommendation = "Good time to leave — low rain risk right now.";
+  } else if (best.offsetHours === 0 || best.rainChancePct >= nowRainPct - 15) {
+    recommendation = `Rain likely (${nowRainPct}%) — no clearly drier window in the next ${hours}h.`;
+  } else {
+    recommendation = `Leaving ${label(best.offsetHours)} cuts rain risk from ${nowRainPct}% to ${best.rainChancePct}%.`;
+  }
+
+  return {
+    bestOffsetHours: best.offsetHours,
+    bestLabel: label(best.offsetHours),
+    driestRainPct: best.rainChancePct,
+    nowRainPct,
+    recommendation,
+    hourly: window,
+  };
+}
+
+/**
+ * Suggest rest breaks based on total driving time. Drivers should stop roughly
+ * every `intervalHours`; we place a break at each interval and map it to a
+ * distance along the route (assuming roughly constant average speed).
+ *
+ * @returns {Array<{ afterHours:number, distanceFromStartKm:number, lat:number, lng:number, label:string }>}
+ */
+function suggestRestStops(routeCoordinates, durationMinutes, intervalHours = 2.5) {
+  if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2 || durationMinutes <= 0) {
+    return [];
+  }
+  const totalHours = durationMinutes / 60;
+  if (totalHours <= intervalHours) return [];
+
+  const annotated = annotateCumulativeDistance(routeCoordinates);
+  const totalKm = annotated[annotated.length - 1].cumulativeKm;
+
+  const stops = [];
+  for (let t = intervalHours; t < totalHours - 0.5; t += intervalHours) {
+    const fraction = t / totalHours;
+    const targetKm = totalKm * fraction;
+    // Find the route point nearest that cumulative distance.
+    let pt = annotated[0];
+    for (const p of annotated) {
+      if (p.cumulativeKm >= targetKm) { pt = p; break; }
+    }
+    stops.push({
+      afterHours: Math.round(t * 10) / 10,
+      distanceFromStartKm: Math.round(pt.cumulativeKm * 10) / 10,
+      lat: pt.lat,
+      lng: pt.lng,
+      label: `Suggested break after ${t % 1 === 0 ? t : t.toFixed(1)}h of driving`,
+    });
+  }
+  return stops;
+}
+
+module.exports = {
+  getRouteWeather,
+  getDepartureAdvice,
+  suggestRestStops,
+  describeCode,
+  sampleRoutePoints,
+  WEATHER_CODES,
+};
