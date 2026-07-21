@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
 import 'dart:ui' show ImageFilter;
@@ -9,8 +10,10 @@ import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'trip_screen.dart';
 import 'saved_trips_screen.dart';
+import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
   const TripPlannerScreen({super.key});
@@ -30,14 +33,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
   // Pre-resolved coordinates for stops added from POI list (keyed by controller hashCode)
   final Map<int, GeoPoint> _resolvedStopCoords = {};
+  final Map<int, bool> _loadingLocationForIndex = {};
 
   final _efficiencyController = TextEditingController();
   final _tankController = TextEditingController();
   final _currentFuelController = TextEditingController(text: '30');
 
   VehicleModel? _selectedVehicle;
-  final Set<String> _selectedPOIs = {'fuel', 'restaurant'};
-  List<String> _appliedPOIs = ['fuel', 'restaurant'];
+  int _travellers = 1;
+  final Set<String> _selectedPOIs = {'restaurant', 'attraction'};
+  List<String> _appliedPOIs = ['restaurant', 'attraction'];
   bool _loading = false;
   String? _error;
   
@@ -46,6 +51,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   GeoPoint? _currentEnd;
   List<GeoPoint>? _currentWaypoints;
   Vehicle? _currentVehicle;
+
+  // Temp plan from "Find Places" — does NOT trigger trip screen switch
+  TripPlan? _tempPlan;
+  GeoPoint? _tempStart;
+  GeoPoint? _tempEnd;
+  List<GeoPoint>? _tempWaypoints;
+  Vehicle? _tempVehicle;
   
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _loadingPOIs = false;
@@ -55,6 +67,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   final Set<String> _requestedAddresses = {};
 
   final ScrollController _formScrollController = ScrollController();
+  final MapController _mapController = MapController();
   
   final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
@@ -64,6 +77,87 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
     _updateVehicleFields();
     _recordUserSession();
+
+    // Automated test route search for headless integration testing
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final uri = Uri.base;
+        if (uri.toString().contains('test_route=true')) {
+          _runTestRoute();
+        }
+        // Open a trip shared via a "?trip=" link.
+        final tripParam = uri.queryParameters['trip'];
+        if (tripParam != null && tripParam.isNotEmpty) {
+          _openSharedTrip(tripParam);
+        }
+      });
+    }
+  }
+
+  /// Decodes a shared-trip payload from the URL and plans it directly from the
+  /// embedded coordinates (no geocoding needed), then opens the trip screen.
+  Future<void> _openSharedTrip(String encoded) async {
+    try {
+      final jsonStr = utf8.decode(base64Url.decode(base64Url.normalize(encoded)));
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      GeoPoint pt(List<dynamic> a, [String? name]) =>
+          GeoPoint(lat: (a[0] as num).toDouble(), lng: (a[1] as num).toDouble(), name: name);
+
+      final start = pt(data['s'] as List, data['sa'] as String?);
+      final end = pt(data['e'] as List, data['ea'] as String?);
+      final waypoints = ((data['w'] as List?) ?? []).map((w) => pt(w as List)).toList();
+      final v = data['v'] as Map<String, dynamic>;
+      final vehicle = Vehicle(
+        type: v['t'] as String? ?? 'car',
+        efficiencyKmPerLiter: (v['e'] as num?)?.toDouble() ?? 15,
+        tankCapacityLiters: (v['tk'] as num?)?.toDouble() ?? 40,
+        currentFuelLiters: (v['cf'] as num?)?.toDouble() ?? 30,
+      );
+
+      setState(() => _loading = true);
+      final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => TripScreen(
+          plan: plan,
+          startAddress: data['sa'] as String? ?? 'Start',
+          endAddress: data['ea'] as String? ?? 'Destination',
+          vehicleType: vehicle.type,
+          poiCategories: const [],
+          start: start,
+          end: end,
+          waypoints: waypoints,
+          vehicle: vehicle,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Could not open shared trip: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _runTestRoute() async {
+    print("RUNNING AUTOMATED TEST ROUTE SEARCH...");
+    _stopControllers[0].text = "Bangalore";
+    _stopControllers[1].text = "Mysore";
+    
+    // Seed pre-resolved coordinate values to bypass geocoding lookup
+    _resolvedStopCoords[_stopControllers[0].hashCode] = const GeoPoint(lat: 12.9716, lng: 77.5946, name: "Bangalore");
+    _resolvedStopCoords[_stopControllers[1].hashCode] = const GeoPoint(lat: 12.2958, lng: 76.6394, name: "Mysore");
+    
+    setState(() {
+      _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
+      _efficiencyController.text = "22";
+      _tankController.text = "37";
+      _currentFuelController.text = "30";
+      _selectedPOIs.clear();
+      _selectedPOIs.addAll(['restaurant', 'attraction']);
+    });
+    
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _findPlacesBeforeTrip();
   }
 
   String _getDeviceAccessInfo() {
@@ -81,10 +175,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   Future<void> _recordUserSession() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) return;
-
     try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+
       // Check if user_details already exists for this user
       final response = await Supabase.instance.client
           .from('user_details')
@@ -133,43 +227,59 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
 
     try {
-      final List<GeoPoint> geocodedStops = [];
-      for (final controller in _stopControllers) {
-        final address = controller.text.trim();
-        if (address.isNotEmpty) {
-          // Use pre-resolved coordinates if available (from POI selection)
-          final resolved = _resolvedStopCoords[controller.hashCode];
-          if (resolved != null) {
-            geocodedStops.add(resolved);
-          } else {
-            final point = await _api.geocode(address);
-            geocodedStops.add(point);
-            _resolvedStopCoords[controller.hashCode] = point; // Cache it!
+      // Reuse already-computed plan from "Find Places" if available
+      final TripPlan plan;
+      final GeoPoint start;
+      final GeoPoint end;
+      final List<GeoPoint> waypoints;
+      final Vehicle vehicle;
+
+      if (_tempPlan != null && _tempStart != null && _tempEnd != null &&
+          _tempWaypoints != null && _tempVehicle != null) {
+        plan = _tempPlan!;
+        start = _tempStart!;
+        end = _tempEnd!;
+        waypoints = _tempWaypoints!;
+        vehicle = _tempVehicle!;
+      } else {
+        final List<GeoPoint> geocodedStops = [];
+        for (final controller in _stopControllers) {
+          final address = controller.text.trim();
+          if (address.isNotEmpty) {
+            final resolved = _resolvedStopCoords[controller.hashCode];
+            if (resolved != null) {
+              geocodedStops.add(resolved);
+            } else {
+              final point = await _api.geocode(address);
+              geocodedStops.add(point);
+              _resolvedStopCoords[controller.hashCode] = point;
+            }
           }
         }
+
+        if (geocodedStops.length < 2) {
+          throw Exception("Need at least a starting point and destination");
+        }
+
+        start = geocodedStops.first;
+        end = geocodedStops.last;
+        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+
+        vehicle = Vehicle(
+          type: _selectedVehicle!.type,
+          efficiencyKmPerLiter: double.parse(_efficiencyController.text),
+          tankCapacityLiters: double.parse(_tankController.text),
+          currentFuelLiters: double.parse(_currentFuelController.text),
+        );
+
+        plan = await _api.planTrip(
+          start: start,
+          end: end,
+          waypoints: waypoints,
+          vehicle: vehicle,
+          travellers: _travellers,
+        );
       }
-
-      if (geocodedStops.length < 2) {
-        throw Exception("Need at least a starting point and destination");
-      }
-
-      final start = geocodedStops.first;
-      final end = geocodedStops.last;
-      final waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
-
-      final vehicle = Vehicle(
-        type: _selectedVehicle!.type,
-        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-        tankCapacityLiters: double.parse(_tankController.text),
-        currentFuelLiters: double.parse(_currentFuelController.text),
-      );
-
-      final plan = await _api.planTrip(
-        start: start,
-        end: end,
-        waypoints: waypoints,
-        vehicle: vehicle,
-      );
 
       if (!mounted) return;
 
@@ -181,6 +291,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           _currentEnd = end;
           _currentWaypoints = waypoints;
           _currentVehicle = vehicle;
+          // Clear temp plan once committed
+          _tempPlan = null;
+          _tempStart = null;
+          _tempEnd = null;
+          _tempWaypoints = null;
+          _tempVehicle = null;
         });
       } else {
         Navigator.of(context).push(
@@ -257,6 +373,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         end: end,
         waypoints: waypoints,
         vehicle: vehicle,
+        travellers: _travellers,
       );
 
       final fetchedPois = await _api.fetchPOIs(
@@ -269,12 +386,45 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           _pois = fetchedPois;
           _appliedPOIs = _selectedPOIs.toList();
           _hasSearchedPOIs = true;
-          _currentPlan = tempPlan;
-          _currentStart = start;
-          _currentEnd = end;
-          _currentWaypoints = waypoints;
-          _currentVehicle = vehicle;
+          // Save as TEMP plan — does NOT switch the right panel to TripScreen
+          _tempPlan = tempPlan;
+          _tempStart = start;
+          _tempEnd = end;
+          _tempWaypoints = waypoints;
+          _tempVehicle = vehicle;
           _loadingPOIs = false;
+        });
+
+        // Center map camera on the route bounds
+        if (tempPlan.coordinates.isNotEmpty) {
+          final routePoints = tempPlan.coordinates.map((c) => c.toLatLng()).toList();
+          final lats = routePoints.map((p) => p.latitude).toList();
+          final lngs = routePoints.map((p) => p.longitude).toList();
+          final midLat = lats.reduce((a, b) => a + b) / lats.length;
+          final midLng = lngs.reduce((a, b) => a + b) / lngs.length;
+          final mapCenter = LatLng(midLat, midLng);
+
+          final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
+          final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+          final span = latSpan > lngSpan ? latSpan : lngSpan;
+          final mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+
+          try {
+            _mapController.move(mapCenter, mapZoom);
+          } catch (e) {
+            print("MapController not ready yet: $e");
+          }
+        }
+
+        // Auto scroll to reveal search results after layout settles
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted && _formScrollController.hasClients) {
+            _formScrollController.animateTo(
+              _formScrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOut,
+            );
+          }
         });
       }
     } catch (e) {
@@ -377,6 +527,120 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     });
   }
 
+  Future<Position> _determinePosition() async {
+    if (kIsWeb) {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+    }
+
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw 'Location services are disabled.';
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw 'Location permissions are denied';
+      }
+    }
+    
+    if (permission == LocationPermission.deniedForever) {
+      throw 'Location permissions are permanently denied.';
+    } 
+
+    return await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high,
+      timeLimit: const Duration(seconds: 10),
+    );
+  }
+
+  Future<void> _useCurrentLocation(int index) async {
+    setState(() => _loadingLocationForIndex[index] = true);
+    try {
+      final position = await _determinePosition();
+      final address = await _api.reverseGeocode(position.latitude, position.longitude);
+      
+      if (!mounted) return;
+      
+      final displayName = address ?? '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      final controller = _stopControllers[index];
+      
+      setState(() {
+        controller.text = displayName;
+        _resolvedStopCoords[controller.hashCode] = GeoPoint(
+          lat: position.latitude,
+          lng: position.longitude,
+          name: displayName,
+        );
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Updated to current location: $displayName'),
+          backgroundColor: const Color(0xFF2E75B6),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error getting location: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingLocationForIndex[index] = false);
+      }
+    }
+  }
+
+  Future<void> _pickOnMap(int index) async {
+    LatLng? initialCenter;
+    try {
+      final pos = await Geolocator.getLastKnownPosition();
+      if (pos != null) {
+        initialCenter = LatLng(pos.latitude, pos.longitude);
+      }
+    } catch (_) {}
+    
+    final controller = _stopControllers[index];
+    final existingPoint = _resolvedStopCoords[controller.hashCode];
+    if (existingPoint != null) {
+      initialCenter = LatLng(existingPoint.lat, existingPoint.lng);
+    }
+
+    if (!mounted) return;
+
+    final GeoPoint? selectedPoint = await Navigator.of(context).push<GeoPoint>(
+      MaterialPageRoute(
+        builder: (_) => MapLocationPickerScreen(
+          initialCenter: initialCenter,
+          label: index == 0 ? 'Starting point' : (index == _stopControllers.length - 1 ? 'Destination' : 'Stop $index'),
+        ),
+      ),
+    );
+
+    if (selectedPoint != null && mounted) {
+      setState(() {
+        controller.text = selectedPoint.name ?? '${selectedPoint.lat.toStringAsFixed(4)}, ${selectedPoint.lng.toStringAsFixed(4)}';
+        _resolvedStopCoords[controller.hashCode] = selectedPoint;
+      });
+    }
+  }
+
   @override
   void dispose() {
     for (var c in _stopControllers) {
@@ -391,7 +655,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
+    User? user;
+    try {
+      user = Supabase.instance.client.auth.currentUser;
+    } catch (_) {}
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
     return Scaffold(
@@ -552,27 +819,91 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   Widget _buildDefaultMap() {
+    // When a temp plan exists (after Find Places), show route preview
+    final hasRoute = _tempPlan != null && _tempPlan!.coordinates.isNotEmpty;
+    final routePoints = hasRoute
+        ? _tempPlan!.coordinates.map((c) => c.toLatLng()).toList()
+        : <LatLng>[];
+
+    // Compute map center and zoom from route bounding box
+    LatLng mapCenter = const LatLng(20.5937, 78.9629);
+    double mapZoom = 4.5;
+    if (hasRoute && routePoints.length >= 2) {
+      final lats = routePoints.map((p) => p.latitude).toList();
+      final lngs = routePoints.map((p) => p.longitude).toList();
+      final midLat = (lats.reduce((a, b) => a + b)) / lats.length;
+      final midLng = (lngs.reduce((a, b) => a + b)) / lngs.length;
+      mapCenter = LatLng(midLat, midLng);
+      final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
+      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+      final span = latSpan > lngSpan ? latSpan : lngSpan;
+      mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: const Text('Trip Map', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(hasRoute ? 'Route Preview' : 'Trip Map',
+            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.black.withOpacity(0.4),
         elevation: 0,
       ),
       body: FlutterMap(
+        key: const ValueKey('default_trip_map'),
+        mapController: _mapController,
         options: MapOptions(
-          initialCenter: const LatLng(20.5937, 78.9629), // Center of India
-          initialZoom: 4.5,
+          initialCenter: mapCenter,
+          initialZoom: mapZoom,
         ),
         children: [
           TileLayer(
-            urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+            urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.travel_app',
-            additionalOptions: const {
-              'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
-            },
           ),
+          if (hasRoute) ...([
+            PolylineLayer(
+              polylines: [
+                Polyline(
+                  points: routePoints,
+                  strokeWidth: 5.0,
+                  color: const Color(0xFF6C63FF),
+                  borderStrokeWidth: 2.0,
+                  borderColor: Colors.white.withOpacity(0.5),
+                ),
+              ],
+            ),
+            MarkerLayer(
+              markers: [
+                Marker(
+                  point: routePoints.first,
+                  width: 36,
+                  height: 36,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4CAF50),
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                    ),
+                    child: const Icon(Icons.trip_origin, color: Colors.white, size: 20),
+                  ),
+                ),
+                Marker(
+                  point: routePoints.last,
+                  width: 36,
+                  height: 36,
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFE53935),
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                    ),
+                    child: const Icon(Icons.flag, color: Colors.white, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ]),
           RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
         ],
       ),
@@ -580,17 +911,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   }
 
   Widget _buildTripScreen() {
-    return TripScreen(
-      plan: _currentPlan!,
-      startAddress: _stopControllers.first.text.trim(),
-      endAddress: _stopControllers.last.text.trim(),
-      vehicleType: _selectedVehicle!.type,
-      poiCategories: _appliedPOIs,
-      start: _currentStart!,
-      end: _currentEnd!,
-      waypoints: _currentWaypoints!,
-      vehicle: _currentVehicle!,
-      initialPois: _pois.isNotEmpty ? _pois : null,
+    return SizedBox(
+      width: double.infinity,
+      height: double.infinity,
+      child: TripScreen(
+        plan: _currentPlan!,
+        startAddress: _stopControllers.first.text.trim(),
+        endAddress: _stopControllers.last.text.trim(),
+        vehicleType: _selectedVehicle!.type,
+        poiCategories: _appliedPOIs,
+        start: _currentStart!,
+        end: _currentEnd!,
+        waypoints: _currentWaypoints!,
+        vehicle: _currentVehicle!,
+        initialPois: _pois.isNotEmpty ? _pois : null,
+        isEmbedded: true,
+      ),
     );
   }
 
@@ -766,6 +1102,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     Color? iconColor,
     TextInputType? keyboardType,
     String? Function(String?)? validator,
+    Widget? suffixIcon,
   }) {
     return TextFormField(
       controller: controller,
@@ -781,6 +1118,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           child: Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.6), size: 22),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 40),
+        suffixIcon: suffixIcon,
         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
@@ -849,6 +1187,37 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                         icon: icon,
                         iconColor: iconColor,
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _loadingLocationForIndex[index] == true
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12.0),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    icon: const Icon(Icons.my_location, color: Colors.greenAccent, size: 20),
+                                    onPressed: () => _useCurrentLocation(index),
+                                    tooltip: 'Use current location',
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                            IconButton(
+                              icon: const Icon(Icons.map, color: Colors.blueAccent, size: 20),
+                              onPressed: () => _pickOnMap(index),
+                              tooltip: 'Pick on map',
+                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     if (!isStart && !isEnd)
@@ -953,7 +1322,65 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             keyboardType: TextInputType.number,
             validator: _numberValidator,
           ),
+          const SizedBox(height: 16),
+          _buildTravellersRow(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTravellersRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.groups, color: Colors.white.withOpacity(0.7)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Travellers',
+                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                const SizedBox(height: 2),
+                Text('For the trip budget estimate',
+                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
+              ],
+            ),
+          ),
+          _stepBtn(Icons.remove, _travellers > 1
+              ? () => setState(() => _travellers--)
+              : null),
+          Container(
+            width: 34,
+            alignment: Alignment.center,
+            child: Text('$_travellers',
+                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          ),
+          _stepBtn(Icons.add, _travellers < 12
+              ? () => setState(() => _travellers++)
+              : null),
+        ],
+      ),
+    );
+  }
+
+  Widget _stepBtn(IconData icon, VoidCallback? onTap) {
+    return Material(
+      color: onTap == null ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.12),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(6),
+          child: Icon(icon, size: 20, color: onTap == null ? Colors.white24 : Colors.white),
+        ),
       ),
     );
   }
@@ -967,6 +1394,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
 
   final List<Map<String, dynamic>> _poiOptions = [
     {'id': 'fuel', 'label': 'Fuel Stations', 'icon': Icons.local_gas_station},
+    {'id': 'charging', 'label': 'EV Charging', 'icon': Icons.ev_station},
     {'id': 'hotel', 'label': 'Hotels', 'icon': Icons.hotel},
     {'id': 'restaurant', 'label': 'Restaurants', 'icon': Icons.restaurant},
     {'id': 'attraction', 'label': 'Attractions', 'icon': Icons.photo_camera},
@@ -1093,9 +1521,25 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           final place = poi.value;
           final option = _poiOptions.firstWhere((o) => o['id'] == category, orElse: () => _poiOptions.first);
 
+          final cleanName = place.name.toLowerCase().startsWith('unnamed')
+              ? (category == 'fuel'
+                  ? 'Petrol Bunk'
+                  : category == 'hotel'
+                      ? 'Hotel / Stay'
+                      : category == 'restaurant'
+                          ? 'Restaurant / Cafe'
+                          : category == 'attraction'
+                              ? 'Tourist Attraction'
+                              : category == 'temple'
+                                  ? 'Temple / Worship'
+                                  : category == 'viewpoint'
+                                      ? 'Scenic Viewpoint'
+                                      : '${category[0].toUpperCase()}${category.substring(1)}')
+              : place.name;
+
           return ListTile(
             leading: Icon(option['icon'], color: Colors.white70),
-            title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white)),
+            title: Text(cleanName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
             subtitle: Builder(
               builder: (context) {
                 final poiKey = '${place.lat},${place.lng}';

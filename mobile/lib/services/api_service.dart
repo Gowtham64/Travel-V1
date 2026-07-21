@@ -40,6 +40,7 @@ class ApiService {
     List<GeoPoint> waypoints = const [],
     required Vehicle vehicle,
     double dailyDrivingHours = 7,
+    int travellers = 1,
     List<String> includePlaces = const [],
   }) async {
     final uri = Uri.parse('$baseUrl/api/trip/plan');
@@ -57,6 +58,7 @@ class ApiService {
           'currentFuelLiters': vehicle.currentFuelLiters,
         },
         'dailyDrivingHours': dailyDrivingHours,
+        'travellers': travellers,
         'includePlaces': includePlaces,
       }),
     ).timeout(const Duration(seconds: 90), onTimeout: () {

@@ -1,12 +1,16 @@
+import 'dart:convert';
 import 'dart:math';
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:sliding_up_panel/sliding_up_panel.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../widgets/three_d_map.dart';
 
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
@@ -19,6 +23,7 @@ class TripScreen extends StatefulWidget {
   final List<GeoPoint> waypoints;
   final Vehicle vehicle;
   final Map<String, List<PlaceOfInterest>>? initialPois;
+  final bool isEmbedded;
 
   const TripScreen({
     super.key,
@@ -32,25 +37,47 @@ class TripScreen extends StatefulWidget {
     required this.waypoints,
     required this.vehicle,
     this.initialPois,
+    this.isEmbedded = false,
   });
 
   @override
   State<TripScreen> createState() => _TripScreenState();
 }
 
-class _TripScreenState extends State<TripScreen> {
+enum MapStyle { outdoors2D, satellite2D, satellite3D }
+
+class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _saving = false;
   bool _loadingPOIs = true;
   bool _recalculating = false;
+  MapStyle _mapStyle = MapStyle.satellite3D;
   Map<String, List<PlaceOfInterest>> _pois = {};
+  
+  final MapController _mapController = MapController();
+  bool _isPlayingAnimation = false;
+  bool _isPreviewMode = false;
+  int _animationIndex = 0;
+  LatLng? _animatedVehiclePosition;
+  double _vehicleRotation = 0.0;
+  double _currentSpeedModifier = 1.0;
+  Timer? _animationTimer;
+  Ticker? _ticker;
+  bool _isSlowingDown = false;
+  bool _isTurningLeft = false;
+  bool _isTurningRight = false;
+  final Set<String> _visitedStops = {};
+  int _pauseTicksRemaining = 0;
+  PlaceOfInterest? _activeStopHighlight;
+  bool _isTollStop = false;
+  bool _showCinematicOverlay = false;
+  double _eventZoom = 15.5;
+  double _tripProgressPercent = 0.0;
   final Map<String, String> _resolvedAddresses = {};
   final Set<String> _requestedAddresses = {};
   final _api = ApiService();
   
   late TripPlan _currentPlan;
   late List<GeoPoint> _currentWaypoints;
-
-  final PanelController _panelController = PanelController();
 
   @override
   void initState() {
@@ -74,6 +101,13 @@ class _TripScreenState extends State<TripScreen> {
     } else {
       _fetchPOIs();
     }
+  }
+
+  @override
+  void dispose() {
+    _animationTimer?.cancel();
+    _ticker?.dispose();
+    super.dispose();
   }
 
   @override
@@ -168,6 +202,30 @@ class _TripScreenState extends State<TripScreen> {
     }
   }
 
+  /// Builds a self-contained shareable URL that encodes the whole trip (start,
+  /// end, waypoints, vehicle) so anyone who opens it re-plans the same trip.
+  String? _buildShareLink() {
+    try {
+      final payload = {
+        's': [widget.start.lat, widget.start.lng],
+        'e': [widget.end.lat, widget.end.lng],
+        'w': widget.waypoints.map((w) => [w.lat, w.lng]).toList(),
+        'v': {
+          't': widget.vehicle.type,
+          'e': widget.vehicle.efficiencyKmPerLiter,
+          'tk': widget.vehicle.tankCapacityLiters,
+          'cf': widget.vehicle.currentFuelLiters,
+        },
+        'sa': widget.startAddress,
+        'ea': widget.endAddress,
+      };
+      final encoded = base64Url.encode(utf8.encode(jsonEncode(payload)));
+      return 'https://gowtham64.github.io/Travel-V1/app/?trip=$encoded';
+    } catch (_) {
+      return null;
+    }
+  }
+
   void _shareTrip() async {
     final hours = _currentPlan.durationMin ~/ 60;
     final minutes = _currentPlan.durationMin % 60;
@@ -187,8 +245,13 @@ class _TripScreenState extends State<TripScreen> {
         }
       });
     }
+    final link = _buildShareLink();
+    if (link != null) {
+      sb.writeln('\n🔗 Open this trip:');
+      sb.writeln(link);
+    }
     sb.writeln('\nCreated with Travel Planner App 🌍');
-    
+
     try {
       await Share.share(sb.toString(), subject: 'My Trip to ${widget.endAddress}');
     } catch (e) {
@@ -287,136 +350,404 @@ class _TripScreenState extends State<TripScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final routePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
-    final bounds = LatLngBounds.fromPoints(routePoints);
+    final fullRoutePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+    
+    // Mathematically calculate initial center and zoom to bypass layout race conditions
+    LatLng mapCenter = const LatLng(20.5937, 78.9629);
+    double mapZoom = 4.5;
+    if (fullRoutePoints.length >= 2) {
+      final lats = fullRoutePoints.map((p) => p.latitude).toList();
+      final lngs = fullRoutePoints.map((p) => p.longitude).toList();
+      final midLat = lats.reduce((a, b) => a + b) / lats.length;
+      final midLng = lngs.reduce((a, b) => a + b) / lngs.length;
+      mapCenter = LatLng(midLat, midLng);
+      
+      final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
+      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+      final span = latSpan > lngSpan ? latSpan : lngSpan;
+      mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+    }
 
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Your Trip', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-        backgroundColor: Colors.black.withOpacity(0.4),
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-        ),
-        actions: [
-          if (_saving || _recalculating)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-              ),
-            )
-          else ...[
-            Container(
-              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.share, color: Colors.white),
-                tooltip: 'Share Trip',
-                onPressed: _shareTrip,
-              ),
+    final routePoints = _isPlayingAnimation 
+        ? fullRoutePoints.take(_animationIndex + 1).toList() 
+        : fullRoutePoints;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth > 900;
+    final isMobile = !isDesktop;
+
+    final Widget rawMapWidget = _mapStyle == MapStyle.satellite3D
+        ? ThreeDMap(
+            key: const ValueKey('mapbox-3d-map'),
+            routePoints: _currentPlan.coordinates,
+            pois: _pois,
+            start: widget.start,
+            end: widget.end,
+            waypoints: _currentWaypoints,
+            useSatellite: true,
+            vehicleType: widget.vehicle.type,
+            animatedVehiclePosition: _animatedVehiclePosition != null
+                ? GeoPoint(lat: _animatedVehiclePosition!.latitude, lng: _animatedVehiclePosition!.longitude)
+                : null,
+            vehicleRotation: _vehicleRotation,
+            speed: _currentSpeedModifier,
+            customZoom: _eventZoom,
+            onAddWaypoint: (place) {
+              _confirmAddPOI(place);
+            },
+          )
+        : FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: mapCenter,
+              initialZoom: mapZoom,
             ),
-            Container(
-              margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withOpacity(0.2)),
+            children: [
+              TileLayer(
+                urlTemplate: _mapStyle == MapStyle.satellite2D
+                    ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ'
+                    : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                userAgentPackageName: 'com.example.travel_app',
+                additionalOptions: const {
+                  'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                },
               ),
-              child: IconButton(
-                icon: const Icon(Icons.bookmark_add, color: Colors.white),
-                tooltip: 'Save Trip',
-                onPressed: _saveTrip,
+              PolylineLayer(
+                polylines: [
+                  Polyline(points: routePoints, strokeWidth: 6, color: const Color(0xFF2E75B6)),
+                ],
               ),
-            ),
-          ],
-        ],
+              MarkerLayer(markers: _buildMarkers(context)),
+              RichAttributionWidget(
+                attributions: [
+                  TextSourceAttribution(
+                    'OpenStreetMap contributors',
+                    onTap: () {},
+                  ),
+                ],
+              ),
+            ],
+          );
+
+    final mapWidget = rawMapWidget;
+
+    if (widget.isEmbedded) {
+      return _buildMapStackWithOverlays(mapWidget, topPadding: 24.0, rightPadding: 24.0);
+    }
+
+    final appBarWidget = AppBar(
+      title: const Text('Your Trip', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+      backgroundColor: Colors.black.withOpacity(0.4),
+      elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
       ),
-      body: SlidingUpPanel(
-        controller: _panelController,
-        minHeight: 310, // Show FASTag + Cash (with subtitle) + Fuel card fully
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        parallaxEnabled: true,
-        parallaxOffset: .5,
-        color: const Color(0xFF1A1A1A).withOpacity(0.9), // Dark glass feel
-        boxShadow: [
-          BoxShadow(blurRadius: 20, color: Colors.black.withOpacity(0.5)),
+      actions: [
+        if (_saving || _recalculating)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          )
+        else ...[
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.share, color: Colors.white),
+              tooltip: 'Share Trip',
+              onPressed: _shareTrip,
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.bookmark_add, color: Colors.white),
+              tooltip: 'Save Trip',
+              onPressed: _saveTrip,
+            ),
+          ),
         ],
-        panelBuilder: (sc) => _buildPanel(sc),
-        body: Column(
+      ],
+    );
+
+    if (isDesktop) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF121212),
+        appBar: appBarWidget,
+        body: Row(
           children: [
-            Expanded(
-              child: FlutterMap(
-                options: MapOptions(
-                  initialCameraFit: CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(80)),
-                ),
+            // Left sidebar: Details (Summary + POIs)
+            Container(
+              width: 420,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                border: Border(right: BorderSide(color: Colors.white.withOpacity(0.1))),
+              ),
+              child: Column(
                 children: [
-                  TileLayer(
-                    urlTemplate: 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
-                    userAgentPackageName: 'com.example.travel_app',
-                    additionalOptions: const {
-                      'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
-                    },
-                  ),
-                  PolylineLayer(
-                    polylines: [
-                      Polyline(points: routePoints, strokeWidth: 6, color: const Color(0xFF2E75B6)),
-                    ],
-                  ),
-                  MarkerLayer(markers: _buildMarkers(context)),
-                  RichAttributionWidget(
-                    attributions: [
-                      TextSourceAttribution(
-                        'OpenStreetMap contributors',
-                        onTap: () {},
-                      ),
-                    ],
+                  const SizedBox(height: 20),
+                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
+                  const SizedBox(height: 12),
+                  _buildDriveActions(),
+                  const SizedBox(height: 10),
+                  _buildTripActions(),
+                  const SizedBox(height: 8),
+                  const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
+                  const SizedBox(height: 8),
+                  Expanded(
+                    child: _loadingPOIs
+                        ? const Center(child: CircularProgressIndicator())
+                        : _buildPOIList(null),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 120), // Padding for the panel
+            // Right side: Map
+            Expanded(
+              child: _buildMapStackWithOverlays(mapWidget, topPadding: 24.0, rightPadding: 24.0),
+            ),
           ],
+        ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: appBarWidget,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Top portion: Map
+          Expanded(
+            flex: 50, // 50% height for Map
+            child: _buildMapStackWithOverlays(mapWidget, topPadding: 16.0, rightPadding: 16.0),
+          ),
+          // Bottom portion: Details (Summary + POIs)
+          Expanded(
+            flex: 50, // 50% height for Details
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+              ),
+              child: (_isPlayingAnimation && (_activeStopHighlight != null || _isTollStop))
+                  ? Center(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: isMobile ? 4 : 12),
+                        child: _buildStopHighlightCard(0.0),
+                      ),
+                    )
+                  // Whole details panel scrolls as one unit so the weather strip and
+                  // budget card below the summary are always reachable on small screens.
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
+                          const SizedBox(height: 12),
+                          _buildDriveActions(),
+                          const SizedBox(height: 10),
+                          _buildTripActions(),
+                          const SizedBox(height: 8),
+                          const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
+                          const SizedBox(height: 8),
+                          if (_loadingPOIs)
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 28),
+                              child: Column(
+                                children: [
+                                  CircularProgressIndicator(),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    "Finding nearby food, fuel & stays...",
+                                    style: TextStyle(color: Colors.white60, fontSize: 13),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            _buildPOIList(null, shrinkWrap: true),
+                          const SizedBox(height: 16),
+                        ],
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMapStyleSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Widget buildStyleCard(MapStyle style, String title, IconData icon, String description) {
+              final isSelected = _mapStyle == style;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      _mapStyle = style;
+                    });
+                    setModalState(() {});
+                    Navigator.pop(context);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFF2E75B6).withOpacity(0.15) : Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isSelected ? const Color(0xFF2E75B6) : Colors.white.withOpacity(0.1),
+                        width: isSelected ? 2.0 : 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          icon,
+                          color: isSelected ? const Color(0xFF2E75B6) : Colors.white70,
+                          size: 32,
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.4),
+                            fontSize: 9,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Select Map Style",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      buildStyleCard(
+                        MapStyle.outdoors2D,
+                        "2D Map",
+                        Icons.map,
+                        "Standard view",
+                      ),
+                      buildStyleCard(
+                        MapStyle.satellite2D,
+                        "Satellite",
+                        Icons.satellite_alt,
+                        "High res photo",
+                      ),
+                      buildStyleCard(
+                        MapStyle.satellite3D,
+                        "3D Map",
+                        Icons.terrain,
+                        "3D navigation",
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildLayersButton() {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A1A).withOpacity(0.9),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: _showMapStyleSheet,
+          child: const Icon(
+            Icons.layers,
+            color: Colors.white,
+            size: 20,
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildPanel(ScrollController sc) {
-    return Column(
-      children: [
-        const SizedBox(height: 12),
-        Container(
-          width: 50,
-          height: 6,
-          decoration: BoxDecoration(
-            color: Colors.grey[600],
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        const SizedBox(height: 16),
-        _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
-        const SizedBox(height: 8),
-        const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _loadingPOIs
-              ? const Center(child: CircularProgressIndicator())
-              : _buildPOIList(sc),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildPOIList(ScrollController sc) {
+
+  Widget _buildPOIList(ScrollController? sc, {bool shrinkWrap = false}) {
     final allPois = <MapEntry<String, PlaceOfInterest>>[];
     _pois.forEach((category, places) {
       for (final p in places) {
@@ -425,11 +756,16 @@ class _TripScreenState extends State<TripScreen> {
     });
 
     if (allPois.isEmpty) {
-      return const Center(child: Text("No places of interest found nearby.", style: TextStyle(color: Colors.white70)));
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 32),
+        child: Center(child: Text("No places of interest found nearby.", style: TextStyle(color: Colors.white70))),
+      );
     }
 
     return ListView.builder(
       controller: sc,
+      shrinkWrap: shrinkWrap,
+      physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: allPois.length,
       itemBuilder: (context, index) {
@@ -512,17 +848,21 @@ class _TripScreenState extends State<TripScreen> {
       label: widget.startAddress.isNotEmpty ? widget.startAddress : 'Start',
     ));
 
-    // End point pin
-    markers.add(_pin(
-      _currentPlan.coordinates.last.toLatLng(),
-      Icons.flag,
-      Colors.red,
-      label: widget.endAddress.isNotEmpty ? widget.endAddress : 'End',
-    ));
+    // End point pin (pop up when reached)
+    if (!_isPlayingAnimation || _animationIndex >= _currentPlan.coordinates.length - 2) {
+      markers.add(_pin(
+        _currentPlan.coordinates.last.toLatLng(),
+        Icons.flag,
+        Colors.red,
+        label: widget.endAddress.isNotEmpty ? widget.endAddress : 'End',
+      ));
+    }
 
-    // Selected places to visit (waypoints) pins
+    // Selected places to visit (waypoints) pins (pop up as passed)
     for (int i = 0; i < _currentWaypoints.length; i++) {
       final wp = _currentWaypoints[i];
+      if (!_isPointVisited(wp)) continue;
+      
       final wpKey = '${wp.lat},${wp.lng}';
       final name = wp.name ?? _resolvedAddresses[wpKey] ?? 'Stop ${i + 1}';
       markers.add(_pin(
@@ -530,6 +870,93 @@ class _TripScreenState extends State<TripScreen> {
         Icons.location_on,
         const Color(0xFF2E75B6),
         label: name,
+      ));
+    }
+
+    // Animated vehicle marker using 3D Asset or Emoji and Pulsing Ring
+    if (_animatedVehiclePosition != null) {
+      final isCar = widget.vehicle.type.toLowerCase() == 'car' || widget.vehicle.type.toLowerCase() == 'suv';
+      markers.add(Marker(
+        point: _animatedVehiclePosition!,
+        width: 50,
+        height: 50,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            const _PulsingRing(),
+            // Soft contact shadow so the vehicle reads as sitting on the road.
+            Positioned(
+              bottom: 6,
+              child: Container(
+                width: 24,
+                height: 7,
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.28),
+                  borderRadius: BorderRadius.circular(50),
+                ),
+              ),
+            ),
+            _DrivingWobble(
+              child: isCar
+                  ? Transform.rotate(
+                      angle: (_isPlayingAnimation ? 0.0 : _vehicleRotation) + (3 * pi / 4), // 135 degree offset for SW isometric car
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          Image.asset(
+                            'assets/images/isometric_car.png',
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.contain,
+                          ),
+                          // Subtle rear brake lights (UR corner of SW car)
+                          if (_isSlowingDown)
+                            Positioned(
+                              top: 2,
+                              right: 2,
+                              child: Container(
+                                width: 5,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.red.withOpacity(0.8),
+                                      blurRadius: 4,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          // Left Indicator (bottom-right front corner of SW car)
+                          if (_isTurningLeft)
+                            const Positioned(
+                              bottom: 3,
+                              right: 3,
+                              child: _BlinkingIndicator(),
+                            ),
+                          // Right Indicator (top-left front corner of SW car)
+                          if (_isTurningRight)
+                            const Positioned(
+                              top: 3,
+                              left: 3,
+                              child: _BlinkingIndicator(),
+                            ),
+                        ],
+                      ),
+                    )
+                  : Transform.rotate(
+                      angle: (_isPlayingAnimation ? 0.0 : _vehicleRotation) + (pi / 2), // 90 degree offset for emojis
+                      child: Text(
+                        _getVehicleEmoji(widget.vehicle.type),
+                        style: const TextStyle(fontSize: 26),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ));
     }
 
@@ -583,6 +1010,7 @@ class _TripScreenState extends State<TripScreen> {
   IconData _getCategoryIcon(String category) {
     switch (category) {
       case 'fuel': return Icons.local_gas_station;
+      case 'charging': return Icons.ev_station;
       case 'hotel': return Icons.hotel;
       case 'restaurant': return Icons.restaurant;
       case 'attraction': return Icons.photo_camera;
@@ -598,6 +1026,7 @@ class _TripScreenState extends State<TripScreen> {
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'fuel': return Colors.orange;
+      case 'charging': return Colors.greenAccent;
       case 'hotel': return Colors.purple;
       case 'restaurant': return Colors.brown;
       case 'attraction': return Colors.teal;
@@ -608,6 +1037,1379 @@ class _TripScreenState extends State<TripScreen> {
       case 'viewpoint': return Colors.indigo;
       default: return Colors.grey;
     }
+  }
+
+
+  /// Drives the route. In [preview] mode it is a fast aerial fly-through of the
+  /// whole route — no stopover / toll / arrival pauses — so the user can quickly
+  /// see the journey before committing to the full simulated drive.
+  void _startAnimation({bool preview = false}) {
+    final routePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+    if (routePoints.isEmpty) return;
+
+    _stopAnimation(); // Clean up if any
+    
+    // Calculate cumulative distances
+    final List<double> cumulativeDistances = [0.0];
+    for (int i = 1; i < routePoints.length; i++) {
+      cumulativeDistances.add(
+        cumulativeDistances[i - 1] + 
+        _getDistance(routePoints[i - 1], routePoints[i])
+      );
+    }
+    
+    final totalDistance = cumulativeDistances.last;
+    if (totalDistance == 0.0) return;
+
+    setState(() {
+      _isPlayingAnimation = true;
+      _isPreviewMode = preview;
+      _animationIndex = 0;
+      _animatedVehiclePosition = routePoints.first;
+      _vehicleRotation = 0.0;
+      _currentSpeedModifier = 1.0;
+      _isSlowingDown = false;
+      _isTurningLeft = false;
+      _isTurningRight = false;
+      _visitedStops.clear();
+      _pauseTicksRemaining = 0;
+      _activeStopHighlight = null;
+      _isTollStop = false;
+      _tripProgressPercent = 0.0;
+    });
+
+    double currentDistance = 0.0;
+    double currentHeading = 0.0;
+    bool isFirstTick = true;
+    Duration? lastElapsed;
+    int leftTurnTicks = 0;
+    int rightTurnTicks = 0;
+    int slowDownTicks = 0;
+    
+    LatLng cameraPosition = routePoints.first;
+
+    // Flutter native Ticker for smooth 60fps/120fps physics updates
+    _ticker = createTicker((elapsed) {
+      if (!mounted) {
+        _ticker?.stop();
+        return;
+      }
+
+      if (lastElapsed == null) {
+        lastElapsed = elapsed;
+        return;
+      }
+
+      final double dt = (elapsed.inMicroseconds - lastElapsed!.inMicroseconds) / 1000000.0;
+      lastElapsed = elapsed;
+
+      // Event processing during active stops or tolls
+      if (_pauseTicksRemaining > 0) {
+        _pauseTicksRemaining--;
+        
+        // Dynamic camera zoom calculations (Dive & Flyout Transitions)
+        double currentZoom = 15.5;
+        bool showOverlay = false;
+
+        if (_pauseTicksRemaining > 105) {
+          // 1. Dive zoom (first 15 ticks: 120 -> 105)
+          double progress = ((120 - _pauseTicksRemaining) / 15.0).clamp(0.0, 1.0);
+          currentZoom = 15.5 + (18.8 - 15.5) * progress;
+        } else if (_pauseTicksRemaining <= 105 && _pauseTicksRemaining > 20) {
+          // 2. Cinematic overlay (middle 85 ticks: 105 -> 20)
+          currentZoom = 18.8;
+          showOverlay = true;
+        } else {
+          // 3. Flyout zoom (last 20 ticks: 20 -> 0)
+          double progress = ((20 - _pauseTicksRemaining) / 20.0).clamp(0.0, 1.0);
+          currentZoom = 18.8 - (18.8 - 15.5) * progress;
+        }
+
+        setState(() {
+          _eventZoom = currentZoom;
+          _showCinematicOverlay = showOverlay;
+        });
+
+        // Move and rotate 2D Map camera dynamically during dive/flyout
+        if (_mapStyle != MapStyle.satellite3D) {
+          final double rotationDeg = -_vehicleRotation * (180 / pi);
+          try {
+            _mapController.moveAndRotate(cameraPosition, currentZoom, rotationDeg);
+          } catch (e) {
+            try {
+              _mapController.move(cameraPosition, currentZoom);
+            } catch (e2) {
+              print("Trip MapController not ready yet: $e2");
+            }
+          }
+        }
+
+        if (_pauseTicksRemaining == 0) {
+          setState(() {
+            _activeStopHighlight = null;
+            _isTollStop = false;
+            _showCinematicOverlay = false;
+            _eventZoom = 15.5;
+          });
+        }
+        return;
+      }
+
+      if (currentDistance >= totalDistance) {
+        // If we reached the end and haven't triggered arrival popup yet.
+        // Preview mode skips the celebratory pause and just ends the fly-through.
+        if (!_isPreviewMode && !_visitedStops.contains("destination_arrival")) {
+          _visitedStops.add("destination_arrival");
+          setState(() {
+            _activeStopHighlight = PlaceOfInterest(
+              id: 999,
+              name: widget.end.name ?? "Destination",
+              lat: widget.end.lat,
+              lng: widget.end.lng,
+              address: "Welcome! Trip completed successfully.",
+            );
+            _pauseTicksRemaining = 160; // 5.3 seconds celebratory pause
+            _currentSpeedModifier = 0.0;
+            _isSlowingDown = true;
+          });
+          return;
+        }
+        _stopAnimation();
+        return;
+      }
+
+      // Find segment index where currentDistance lies
+      int segmentIdx = 0;
+      for (int i = 0; i < cumulativeDistances.length - 1; i++) {
+        if (currentDistance >= cumulativeDistances[i] && 
+            currentDistance <= cumulativeDistances[i + 1]) {
+          segmentIdx = i;
+          break;
+        }
+      }
+
+      final p1 = routePoints[segmentIdx];
+      final p2 = routePoints[segmentIdx + 1];
+      
+      final segLength = cumulativeDistances[segmentIdx + 1] - cumulativeDistances[segmentIdx];
+      final segProgress = currentDistance - cumulativeDistances[segmentIdx];
+      final double t = segLength > 0 ? (segProgress / segLength).clamp(0.0, 1.0) : 0.0;
+
+      // Coordinate interpolation
+      final lat = p1.latitude + (p2.latitude - p1.latitude) * t;
+      final lng = p1.longitude + (p2.longitude - p1.longitude) * t;
+      final currentLatLng = LatLng(lat, lng);
+
+      // Bearing
+      final segmentBearing = atan2(
+        p2.longitude - p1.longitude,
+        p2.latitude - p1.latitude,
+      );
+
+      if (isFirstTick) {
+        currentHeading = segmentBearing;
+        isFirstTick = false;
+      } else {
+        double diff = segmentBearing - currentHeading;
+        while (diff < -pi) diff += 2 * pi;
+        while (diff > pi) diff -= 2 * pi;
+        currentHeading += diff * 0.15; // Smooth rotation interpolation
+      }
+
+      // Turn indicator & Speed controller (look ahead 20m)
+      double speedModifier = 1.0;
+      bool turningLeft = false;
+      bool turningRight = false;
+      bool slowingDown = false;
+
+      // Look ahead to next segments
+      if (segmentIdx < routePoints.length - 2) {
+        final p3 = routePoints[segmentIdx + 2];
+        final nextBearing = atan2(
+          p3.longitude - p2.longitude,
+          p3.latitude - p2.latitude,
+        );
+        double bearingChange = nextBearing - segmentBearing;
+        while (bearingChange < -pi) bearingChange += 2 * pi;
+        while (bearingChange > pi) bearingChange -= 2 * pi;
+
+        if (bearingChange.abs() > 0.17) {
+          slowingDown = true;
+          speedModifier = 0.45;
+          
+          if (bearingChange > 0) {
+            turningRight = true;
+          } else {
+            turningLeft = true;
+          }
+        }
+      }
+
+      // Look ahead for user stopover waypoints (pause at waypoint).
+      // Skipped in preview mode for an uninterrupted fly-through.
+      if (!_isPreviewMode) for (final wp in _currentWaypoints) {  // ignore: curly_braces_in_flow_control_structures
+        final wpLatLng = wp.toLatLng();
+        final dist = _getDistance(currentLatLng, wpLatLng);
+        final stopId = "stop_${wp.lat}_${wp.lng}";
+        if (dist < 0.0025 && !_visitedStops.contains(stopId)) {
+          _visitedStops.add(stopId);
+          setState(() {
+            _activeStopHighlight = PlaceOfInterest(
+              id: DateTime.now().millisecondsSinceEpoch,
+              name: wp.name ?? "Way Point Stop",
+              lat: wp.lat,
+              lng: wp.lng,
+              address: "Scheduled Stopover",
+            );
+            _pauseTicksRemaining = 120; // ~3.6 seconds pause
+            _currentSpeedModifier = 0.0;
+            _isSlowingDown = true;
+          });
+          return;
+        }
+      }
+
+      // Look ahead for Toll Plazas (at 33% and 66% progress). Skipped in preview.
+      final double progressPercent = (currentDistance / totalDistance).clamp(0.0, 1.0);
+      if (!_isPreviewMode &&
+          ((progressPercent >= 0.33 && progressPercent <= 0.35) ||
+           (progressPercent >= 0.66 && progressPercent <= 0.68)) &&
+          !_visitedStops.contains("toll_${(progressPercent * 10).round()}")) {
+        _visitedStops.add("toll_${(progressPercent * 10).round()}");
+        setState(() {
+          _isTollStop = true;
+          _pauseTicksRemaining = 120; // ~3.6 seconds pause for FASTag toll payment
+          _currentSpeedModifier = 0.0;
+          _isSlowingDown = true;
+        });
+        return;
+      }
+
+      // Advance simulated distance using delta time. Preview completes in ~15s;
+      // the full simulated drive takes ~45s.
+      final double baseSpeed = totalDistance / (_isPreviewMode ? 15.0 : 45.0);
+      currentDistance += baseSpeed * speedModifier * dt;
+
+      // Camera trails the vehicle with a snappy follow (0.12 lerp) — tight enough
+      // to feel like live navigation, loose enough to stay smooth.
+      cameraPosition = LatLng(
+        cameraPosition.latitude + (currentLatLng.latitude - cameraPosition.latitude) * 0.12,
+        cameraPosition.longitude + (currentLatLng.longitude - cameraPosition.longitude) * 0.12,
+      );
+
+      if (turningLeft) {
+        leftTurnTicks = 45; // Hold state for ~0.75s at 60fps
+      } else if (leftTurnTicks > 0) {
+        leftTurnTicks--;
+      }
+
+      if (turningRight) {
+        rightTurnTicks = 45; // Hold state for ~0.75s at 60fps
+      } else if (rightTurnTicks > 0) {
+        rightTurnTicks--;
+      }
+
+      if (slowingDown) {
+        slowDownTicks = 45;
+      } else if (slowDownTicks > 0) {
+        slowDownTicks--;
+      }
+
+      setState(() {
+        _animationIndex = segmentIdx;
+        _animatedVehiclePosition = currentLatLng;
+        _vehicleRotation = currentHeading;
+        _currentSpeedModifier = slowDownTicks > 0 ? 0.45 : 1.0;
+        _isSlowingDown = slowDownTicks > 0;
+        _isTurningLeft = leftTurnTicks > 0;
+        _isTurningRight = rightTurnTicks > 0;
+        _tripProgressPercent = progressPercent;
+      });
+
+      // Move and rotate camera smoothly to face the direction of travel (like Google Maps Navigation).
+      // The camera targets a point AHEAD of the vehicle (along the heading) so the car sits in the
+      // lower third of the screen with the road ahead visible — the classic turn-by-turn framing.
+      if (_mapStyle != MapStyle.satellite3D) {
+        final double dynamicZoom = 16.6 - (speedModifier - 0.45) * (1.2 / 0.55);
+        final double zoom = dynamicZoom.clamp(15.4, 17.0);
+        final double rotationDeg = -currentHeading * (180 / pi);
+
+        // Look-ahead offset: ~0.24 km in the direction of travel (heading measured
+        // as atan2(dLng, dLat), so 0 = north, increasing clockwise toward east).
+        const double lookAheadDeg = 0.0022;
+        final double cosLat = cos(lat * pi / 180).clamp(0.2, 1.0);
+        final LatLng camTarget = LatLng(
+          cameraPosition.latitude + cos(currentHeading) * lookAheadDeg,
+          cameraPosition.longitude + sin(currentHeading) * lookAheadDeg / cosLat,
+        );
+
+        try {
+          _mapController.moveAndRotate(camTarget, zoom, rotationDeg);
+        } catch (e) {
+          try {
+            _mapController.move(camTarget, zoom);
+          } catch (e2) {
+            print("Trip MapController not ready yet: $e2");
+          }
+        }
+      }
+    });
+
+    _ticker?.start();
+  }
+
+  double _getDistance(LatLng p1, LatLng p2) {
+    return sqrt(
+      (p1.latitude - p2.latitude) * (p1.latitude - p2.latitude) +
+      (p1.longitude - p2.longitude) * (p1.longitude - p2.longitude)
+    );
+  }
+
+  void _stopAnimation() {
+    _animationTimer?.cancel();
+    _animationTimer = null;
+    _ticker?.stop();
+    try {
+      _mapController.rotate(0.0);
+    } catch (e) {
+      print("Error resetting rotation: $e");
+    }
+    setState(() {
+      _isPlayingAnimation = false;
+      _isPreviewMode = false;
+      _animatedVehiclePosition = null;
+      _isSlowingDown = false;
+      _isTurningLeft = false;
+      _isTurningRight = false;
+      _activeStopHighlight = null;
+      _isTollStop = false;
+      _tripProgressPercent = 0.0;
+    });
+  }
+
+  /// Preview + Start buttons for the animated journey. Preview is a fast aerial
+  /// fly-through of the whole route; Start runs the full simulated drive with
+  /// stopover, toll and arrival cards. While playing, this collapses to a single
+  /// Stop button.
+  Widget _buildDriveActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: _isPlayingAnimation
+          ? SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _stopAnimation,
+                icon: const Icon(Icons.stop, size: 18),
+                label: Text(_isPreviewMode ? 'Stop Preview' : 'Stop Trip'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _startAnimation(preview: true),
+                    icon: const Icon(Icons.visibility, size: 18),
+                    label: const Text('Preview Trip'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _startAnimation(preview: false),
+                    icon: const Icon(Icons.play_arrow, size: 20),
+                    label: const Text('Start Trip'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2E75B6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  /// Save + Share buttons shown directly in the details panel so they are
+  /// always reachable — the app-bar copies are hidden in the embedded/desktop
+  /// layout, which previously left no way to save or share a trip.
+  Widget _buildTripActions() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _shareTrip,
+              icon: const Icon(Icons.share, size: 18),
+              label: const Text('Share'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: _saving ? null : _saveTrip,
+              icon: _saving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.bookmark_add, size: 18),
+              label: Text(_saving ? 'Saving…' : 'Save Trip'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E75B6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMapStackWithOverlays(Widget mapWidget, {double topPadding = 24.0, double rightPadding = 24.0}) {
+    final isDesktop = MediaQuery.of(context).size.width > 900;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Positioned.fill(child: mapWidget),
+        Positioned(
+          right: rightPadding,
+          top: topPadding,
+          child: !isDesktop
+              ? Column(
+                  children: [
+                    _buildMapDriveCluster(false),
+                    const SizedBox(height: 10),
+                    _buildLayersButton(),
+                  ],
+                )
+              : Row(
+                  children: [
+                    _buildLayersButton(),
+                    const SizedBox(width: 10),
+                    _buildMapDriveCluster(true),
+                  ],
+                ),
+        ),
+        _buildTopHUD(topPadding),
+        _buildBottomHUD(),
+        if (isDesktop && (_activeStopHighlight != null || _isTollStop))
+          Positioned(
+            left: 16,
+            top: topPadding + 65,
+            child: _buildStopHighlightCard(topPadding),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTollAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/toll_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 105,
+      ),
+    );
+  }
+
+  Widget _buildFuelAnimation() {
+    final double progress = ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
+    final bool isFilling = progress > 0.35 && progress < 0.85;
+    final int tankPercent = isFilling 
+        ? (35 + (progress - 0.35) * 120).round().clamp(35, 100)
+        : (progress >= 0.85 ? 100 : 35);
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/images/fuel_cartoon.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 8,
+          right: 8,
+          bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.65),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.local_gas_station, color: Colors.orange, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  "Refueling: $tankPercent%",
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: tankPercent / 100.0,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation(Colors.orange),
+                      minHeight: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEVAnimation() {
+    final double progress = ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
+    final bool isPlugged = progress > 0.2;
+    final int batteryPercent = isPlugged 
+        ? (30 + (progress - 0.2) * 62.5).round().clamp(30, 80)
+        : 30;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.asset(
+              'assets/images/ev_cartoon.png',
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+        Positioned(
+          left: 8,
+          right: 8,
+          bottom: 8,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.65),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.bolt, color: Colors.cyan, size: 14),
+                const SizedBox(width: 6),
+                Text(
+                  "Charging: $batteryPercent%",
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(2),
+                    child: LinearProgressIndicator(
+                      value: batteryPercent / 100.0,
+                      backgroundColor: Colors.white24,
+                      valueColor: const AlwaysStoppedAnimation(Colors.cyan),
+                      minHeight: 4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiningAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/dining_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 100,
+      ),
+    );
+  }
+
+  Widget _buildRefreshmentAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/tea_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 100,
+      ),
+    );
+  }
+
+  Widget _buildHotelAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/hotel_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 100,
+      ),
+    );
+  }
+
+  Widget _buildViewpointAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/viewpoint_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 100,
+      ),
+    );
+  }
+
+  Widget _buildSightseeingAnimation() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.asset(
+        'assets/images/attraction_cartoon.png',
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: 100,
+      ),
+    );
+  }
+
+  Widget _buildTopHUD(double topPadding) {
+    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    String bannerText = _isPreviewMode ? "Previewing route…" : "Drive straight on highway";
+    IconData leadingIcon = _isPreviewMode ? Icons.visibility : Icons.navigation;
+    Color iconColor = _isPreviewMode ? Colors.tealAccent : Colors.blueAccent;
+
+    if (_isTollStop) {
+      bannerText = "🛂 FASTag Toll Plaza: Auto-paying toll...";
+      leadingIcon = Icons.payment;
+      iconColor = Colors.amber;
+    } else if (_activeStopHighlight != null) {
+      if (_activeStopHighlight!.name == (widget.end.name ?? "Destination")) {
+        bannerText = "🎉 Welcome! Arrived at destination!";
+        leadingIcon = Icons.celebration;
+        iconColor = Colors.green;
+      } else {
+        bannerText = "🛑 Stopover: ${_activeStopHighlight!.name}";
+        leadingIcon = Icons.place;
+        iconColor = Colors.redAccent;
+      }
+    } else if (_isTurningLeft) {
+      bannerText = "↩️ In 150m: Turn left onto next highway";
+      leadingIcon = Icons.turn_left;
+      iconColor = Colors.orange;
+    } else if (_isTurningRight) {
+      bannerText = "↪️ In 150m: Turn right onto next highway";
+      leadingIcon = Icons.turn_right;
+      iconColor = Colors.orange;
+    } else if (_currentSpeedModifier < 0.6) {
+      bannerText = "⚠️ Sharp Bend: Decelerating...";
+      leadingIcon = Icons.warning;
+      iconColor = Colors.redAccent;
+    }
+
+    return Positioned(
+      left: 16,
+      top: topPadding,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A1A).withOpacity(0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.15)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(leadingIcon, color: iconColor, size: 24),
+            const SizedBox(width: 12),
+            Text(
+              bannerText,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomHUD() {
+    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    final speedKmh = _isTollStop || _activeStopHighlight != null 
+        ? 0 
+        : (_currentSpeedModifier * 80).round();
+    final remainingDistanceKm = ((1.0 - _tripProgressPercent) * 140.0).toStringAsFixed(1);
+    final remainingMinutes = ((1.0 - _tripProgressPercent) * 110.0).round();
+
+    return Positioned(
+      left: 16,
+      right: 80,
+      bottom: 24,
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A1A).withOpacity(0.9),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _activeStopHighlight?.name == (widget.end.name ?? "Destination") 
+                            ? "Arrived!" 
+                            : "$remainingMinutes min left",
+                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        "$remainingDistanceKm km • ETA 3:45 PM",
+                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blueAccent.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      "$speedKmh km/h",
+                      style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: _tripProgressPercent,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                  minHeight: 6,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStopHighlightCard(double topPadding) {
+    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    if (_activeStopHighlight == null && !_isTollStop) return const SizedBox.shrink();
+
+    final bool isMobile = MediaQuery.of(context).size.width < 1000;
+
+    // 1. Toll plaza gate receipt card
+    if (_isTollStop) {
+      final double gateProgress = ((60.0 - _pauseTicksRemaining) / 60.0).clamp(0.0, 1.0);
+      final String gateStatus = gateProgress < 0.4 ? "Paying Toll... 🪙" : (gateProgress < 0.8 ? "Gate Opening... 🔓" : "Gate Open! Go 🟢");
+      
+      return Container(
+        width: 290,
+        padding: isMobile ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.amber.withOpacity(0.6), width: 1.8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.55),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 4 : 10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.payment, color: Colors.amber, size: isMobile ? 22 : 36),
+              ),
+              SizedBox(height: isMobile ? 2 : 12),
+              Text(
+                "FASTag Toll Plaza",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 18),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                "National Highway Authority",
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 9 : 12),
+              ),
+              SizedBox(height: isMobile ? 4 : 12),
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: isMobile ? 2 : 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.withOpacity(0.2)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("Toll Paid:", style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13)),
+                    Text("₹120.00", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: isMobile ? 12 : 15)),
+                  ],
+                ),
+              ),
+              if (!isMobile) ...[
+                const SizedBox(height: 12),
+                const Divider(color: Colors.white12, thickness: 1),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 105,
+                  child: _buildTollAnimation(),
+                ),
+              ],
+              SizedBox(height: isMobile ? 4 : 6),
+              Text(
+                gateStatus,
+                style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13, fontWeight: FontWeight.w500),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+    }
+
+    // 2. Normal waypoint / Arrival cards
+    final isDest = _activeStopHighlight!.name == (widget.end.name ?? "Destination");
+    final category = isDest ? 'arrival' : _determineStopCategory(_activeStopHighlight!.name);
+
+    if (category == 'arrival') {
+      final double totalDistance = _currentPlan.distanceKm;
+      final int totalDuration = _currentPlan.durationMin;
+      final String durationText = totalDuration > 60 
+          ? "${(totalDuration ~/ 60)}h ${(totalDuration % 60)}m" 
+          : "$totalDuration mins";
+      final double tollCost = _currentPlan.toll?.fastagTollCost ?? 240.0;
+      final double fuelCost = _currentPlan.toll?.fuelCost ?? 980.0;
+      final stopsCount = _currentWaypoints.length;
+ 
+      return Container(
+        width: 310,
+        padding: EdgeInsets.all(isMobile ? 14 : 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: Colors.green.withOpacity(0.7), width: 2.0),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.6),
+              blurRadius: 25,
+              spreadRadius: 3,
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+              Container(
+                padding: EdgeInsets.all(isMobile ? 8 : 12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.celebration, color: Colors.green, size: isMobile ? 30 : 40),
+              ),
+              SizedBox(height: isMobile ? 8 : 12),
+              Text(
+                "Trip Completed!",
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 17 : 19),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                "Welcome to ${_activeStopHighlight!.name}",
+                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: isMobile ? 12 : 13),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isMobile ? 10 : 16),
+              const Divider(color: Colors.white24, thickness: 1),
+              SizedBox(height: isMobile ? 8 : 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildStatItem("Distance", "${totalDistance.toStringAsFixed(1)} km", Icons.space_bar),
+                  _buildStatItem("Duration", durationText, Icons.timer),
+                ],
+              ),
+              SizedBox(height: isMobile ? 10 : 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildStatItem("Tolls Cost", "₹${tollCost.toStringAsFixed(0)}", Icons.payment),
+                  _buildStatItem("Fuel Cost", "₹${fuelCost.toStringAsFixed(0)}", Icons.local_gas_station),
+                ],
+              ),
+              SizedBox(height: isMobile ? 10 : 16),
+              const Divider(color: Colors.white24, thickness: 1),
+              SizedBox(height: isMobile ? 8 : 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.place, color: Colors.grey, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    "Stops Visited: $stopsCount stops",
+                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: isMobile ? 12 : 13, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+    }
+
+    IconData stopIcon = Icons.place;
+    Color themeColor = Colors.redAccent;
+    String headingText = "Scheduled Stopover";
+    String detailsText = "Rest Time: 30 Mins";
+    String progressText = "Relaxing... 🚗";
+    double progressPercent = 0.0;
+
+    switch (category) {
+      case 'arrival':
+        stopIcon = Icons.celebration;
+        themeColor = Colors.green;
+        headingText = "Welcome! Trip Completed";
+        detailsText = "Final Destination Reached!";
+        progressText = "Enjoy your trip! 🎉";
+        progressPercent = 1.0;
+        break;
+      case 'fuel':
+        stopIcon = Icons.local_gas_station;
+        themeColor = Colors.orange;
+        headingText = "Fuel Station Stop";
+        detailsText = "Refueling Vehicle Tank";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Parking beside fuel pump... ⛽";
+          progressPercent = 0.15;
+        } else if (elapsed < 80) {
+          final int fillPercent = (40 + (elapsed - 30) * 1.1).round().clamp(40, 95);
+          progressText = "Refueling tank: $fillPercent%... ⛽";
+          progressPercent = 0.3 + (elapsed - 30) / 100;
+        } else {
+          progressText = "Refueling complete! 🟢";
+          progressPercent = 1.0;
+        }
+        break;
+      case 'ev':
+        stopIcon = Icons.bolt;
+        themeColor = Colors.cyan;
+        headingText = "EV Charging Station";
+        detailsText = "Charging Battery Pack";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 25) {
+          progressText = "Plugging in charging cable... 🔌";
+          progressPercent = 0.1;
+        } else if (elapsed < 80) {
+          final int chargePercent = (35 + (elapsed - 25) * 0.8).round().clamp(35, 80);
+          progressText = "Charging: $chargePercent%... ⚡";
+          progressPercent = 0.2 + (elapsed - 25) / 100;
+        } else {
+          progressText = "Charging done! Disconnecting... 🔌";
+          progressPercent = 1.0;
+        }
+        break;
+      case 'restaurant':
+        stopIcon = Icons.restaurant;
+        themeColor = Colors.brown;
+        headingText = "Dining Stopover";
+        detailsText = "Rest & Meal Break";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Parking vehicle... 🍽️";
+        } else if (elapsed < 80) {
+          progressText = "Enjoying lunch at restaurant... 🍛🍕";
+        } else {
+          progressText = "Bill paid. Boarding vehicle... 🚗";
+        }
+        progressPercent = elapsed / 100.0;
+        break;
+      case 'tea':
+        stopIcon = Icons.coffee;
+        themeColor = Colors.orangeAccent;
+        headingText = "Tea/Coffee Break";
+        detailsText = "Quick Tea & Refreshment";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Stopping at cafe... ☕";
+        } else if (elapsed < 80) {
+          progressText = "Enjoying hot tea & cookies... ☕🍪";
+        } else {
+          progressText = "Continuing journey... 🚗";
+        }
+        progressPercent = elapsed / 100.0;
+        break;
+      case 'viewpoint':
+        stopIcon = Icons.photo_camera;
+        themeColor = Colors.teal;
+        headingText = "Scenic Viewpoint";
+        detailsText = "Beautiful Panoramic View";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Stopping to enjoy view... 🌄";
+        } else if (elapsed < 80) {
+          progressText = "Taking photos... 📸⛰️";
+        } else {
+          progressText = "Resuming route... 🚗";
+        }
+        progressPercent = elapsed / 100.0;
+        break;
+      case 'attraction':
+        stopIcon = Icons.star;
+        themeColor = Colors.amber;
+        headingText = "Sightseeing Point";
+        detailsText = "Visiting Landmark Attraction";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Approaching landmark... 🏛️";
+        } else if (elapsed < 80) {
+          progressText = "Cinematic landmark orbiting... 🚁";
+        } else {
+          progressText = "Sightseeing done! Resuming... 🚗";
+        }
+        progressPercent = elapsed / 100.0;
+        break;
+      case 'hotel':
+        stopIcon = Icons.hotel;
+        themeColor = Colors.purple;
+        headingText = "Hotel Check-in";
+        detailsText = "Checking into your stay";
+        final int elapsed = 100 - _pauseTicksRemaining;
+        if (elapsed < 30) {
+          progressText = "Entering hotel driveway... 🏨";
+        } else if (elapsed < 80) {
+          progressText = "Unloading luggage & check-in... 🧳";
+        } else {
+          progressText = "Checked in successfully! 🔑";
+        }
+        progressPercent = elapsed / 100.0;
+        break;
+      default:
+        stopIcon = Icons.place;
+        themeColor = Colors.redAccent;
+        headingText = _activeStopHighlight!.name;
+        detailsText = "Scheduled Stopover";
+        progressText = "Resting... 🚗";
+        progressPercent = (100 - _pauseTicksRemaining) / 100.0;
+    }
+
+    Widget? cardAnimation;
+    if (category == 'fuel') {
+      cardAnimation = _buildFuelAnimation();
+    } else if (category == 'ev') {
+      cardAnimation = _buildEVAnimation();
+    } else if (category == 'restaurant') {
+      cardAnimation = _buildDiningAnimation();
+    } else if (category == 'tea') {
+      cardAnimation = _buildRefreshmentAnimation();
+    } else if (category == 'hotel') {
+      cardAnimation = _buildHotelAnimation();
+    } else if (category == 'viewpoint') {
+      cardAnimation = _buildViewpointAnimation();
+    } else if (category == 'attraction') {
+      cardAnimation = _buildSightseeingAnimation();
+    }
+
+    return Container(
+      width: 290,
+      padding: isMobile ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: themeColor.withOpacity(0.6), width: 1.8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.55),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+            Container(
+              padding: EdgeInsets.all(isMobile ? 4 : 10),
+              decoration: BoxDecoration(
+                color: themeColor.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(stopIcon, color: themeColor, size: isMobile ? 22 : 36),
+            ),
+            SizedBox(height: isMobile ? 2 : 12),
+            Text(
+              headingText,
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 17),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              detailsText,
+              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 9 : 12),
+              textAlign: TextAlign.center,
+            ),
+            if (!isMobile) ...[
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white12, thickness: 1),
+              if (cardAnimation != null) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 100,
+                  child: cardAnimation,
+                ),
+              ],
+            ] else ...[
+              SizedBox(height: isMobile ? 6 : 12),
+            ],
+            SizedBox(height: isMobile ? 2 : 8),
+            Text(
+              progressText,
+              style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13, fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: isMobile ? 4 : 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progressPercent,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+                minHeight: isMobile ? 2.5 : 4,
+              ),
+            ),
+          ],
+        ),
+      );
+  }
+
+  String _determineStopCategory(String name) {
+    final n = name.toLowerCase();
+    if (n.contains('fuel') || n.contains('petrol') || n.contains('gas') || n.contains('shell')) return 'fuel';
+    if (n.contains('ev ') || n.contains('charging') || n.contains('charge') || n.contains('station')) return 'ev';
+    if (n.contains('restaurant') || n.contains('dhaba') || n.contains('meals') || n.contains('food') || n.contains('dining') || n.contains('veg')) return 'restaurant';
+    if (n.contains('tea') || n.contains('coffee') || n.contains('chai') || n.contains('refreshment') || n.contains('break')) return 'tea';
+    if (n.contains('hotel') || n.contains('resort') || n.contains('lodge') || n.contains('stay') || n.contains('inn') || n.contains('villa')) return 'hotel';
+    if (n.contains('view') || n.contains('valley') || n.contains('peak') || n.contains('hills') || n.contains('viewpoint')) return 'viewpoint';
+    if (n.contains('temple') || n.contains('palace') || n.contains('fort') || n.contains('falls') || n.contains('lake') || n.contains('museum') || n.contains('zoo') || n.contains('sightseeing')) return 'attraction';
+    return 'other';
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
+    return SizedBox(
+      width: 125,
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.white38, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Map-overlay Preview + Start controls. Collapses to a single Stop control
+  /// while an animation is playing. [isDesktop] chooses pill vs circle style.
+  Widget _buildMapDriveCluster(bool isDesktop) {
+    const darkBg = Color(0xFF1A1A1A);
+    if (isDesktop) {
+      if (_isPlayingAnimation) {
+        return _mapPillButton(
+          icon: Icons.stop,
+          label: _isPreviewMode ? 'Stop Preview' : 'Stop Trip',
+          bg: Colors.red,
+          onTap: _stopAnimation,
+        );
+      }
+      return Row(
+        children: [
+          _mapPillButton(
+            icon: Icons.visibility,
+            label: 'Preview',
+            bg: darkBg,
+            onTap: () => _startAnimation(preview: true),
+          ),
+          const SizedBox(width: 10),
+          _mapPillButton(
+            icon: Icons.play_arrow,
+            label: 'Start Trip',
+            bg: darkBg,
+            onTap: () => _startAnimation(preview: false),
+          ),
+        ],
+      );
+    }
+    // Mobile: stacked circular buttons.
+    if (_isPlayingAnimation) {
+      return _mapCircleButton(icon: Icons.stop, bg: Colors.redAccent, onTap: _stopAnimation);
+    }
+    return Column(
+      children: [
+        _mapCircleButton(icon: Icons.visibility, bg: darkBg, onTap: () => _startAnimation(preview: true)),
+        const SizedBox(height: 10),
+        _mapCircleButton(icon: Icons.play_arrow, bg: darkBg, onTap: () => _startAnimation(preview: false)),
+      ],
+    );
+  }
+
+  Widget _mapPillButton({required IconData icon, required String label, required Color bg, required VoidCallback onTap}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: bg.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mapCircleButton({required IconData icon, required Color bg, required VoidCallback onTap}) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        color: bg.withOpacity(0.9),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
+  }
+
+  String _getVehicleEmoji(String type) {
+    switch (type.toLowerCase()) {
+      case 'car': return '🚗';
+      case 'suv': return '🚙';
+      case 'motorcycle': return '🏍️';
+      case 'bus': return '🚌';
+      case 'rv': return '🚐';
+      case 'truck2axle': return '🚚';
+      case 'truck3axle': return '🚛';
+      default: return '🚗';
+    }
+  }
+
+  bool _isPointVisited(GeoPoint point) {
+    if (!_isPlayingAnimation) return true;
+    int closestIdx = 0;
+    double minDistance = double.infinity;
+    for (int i = 0; i < _currentPlan.coordinates.length; i++) {
+      final p = _currentPlan.coordinates[i];
+      final dist = (p.lat - point.lat) * (p.lat - point.lat) + (p.lng - point.lng) * (p.lng - point.lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestIdx = i;
+      }
+    }
+    return _animationIndex >= closestIdx;
   }
 }
 
@@ -733,11 +2535,33 @@ class _SummaryCard extends StatelessWidget {
               ],
             ),
           ),
+          if (plan.weather != null && plan.weather!.points.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _WeatherStrip(weather: plan.weather!),
+          ],
+          if (plan.departureAdvice != null && plan.departureAdvice!.recommendation.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _DepartureBanner(advice: plan.departureAdvice!),
+          ],
+          if (plan.restStops.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _RestStopsCard(stops: plan.restStops),
+          ],
+          if (plan.itinerary.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _ItineraryCard(days: plan.itinerary),
+          ],
+          if (plan.budget != null) ...[
+            const SizedBox(height: 12),
+            _BudgetCard(budget: plan.budget!),
+          ],
           const SizedBox(height: 8),
         ],
       ),
-    );
-  }
+    ),
+  ),
+  );
+}
 
   Widget _feeRow({
     required IconData icon,
@@ -859,6 +2683,584 @@ class _SummaryCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Multi-day breakdown of the drive, one row per driving day.
+class _ItineraryCard extends StatelessWidget {
+  final List<DayPlan> days;
+  const _ItineraryCard({required this.days});
+
+  String _h(double h) => h % 1 == 0 ? '${h.toInt()}h' : '${h.toStringAsFixed(1)}h';
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.calendar_month, color: Color(0xFFB39DDB), size: 16),
+              const SizedBox(width: 6),
+              Text('${days.length}-day itinerary',
+                  style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75), fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final d in days)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFB39DDB).withOpacity(0.18),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text('D${d.day}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFB39DDB))),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          d.isFinal
+                              ? 'Drive ${d.distanceKm.toStringAsFixed(0)} km → arrive at destination'
+                              : 'Drive ${d.distanceKm.toStringAsFixed(0)} km, then overnight stop',
+                          style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500),
+                        ),
+                        Text('${_h(d.driveHours)} driving · ${d.fromKm.toStringAsFixed(0)}–${d.toKm.toStringAsFixed(0)} km',
+                            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Best-departure-time advice based on the hourly rain forecast at the start.
+class _DepartureBanner extends StatelessWidget {
+  final DepartureAdvice advice;
+  const _DepartureBanner({required this.advice});
+
+  @override
+  Widget build(BuildContext context) {
+    final waiting = advice.suggestsWaiting;
+    final color = waiting ? const Color(0xFFFFB74D) : const Color(0xFF00E5A0);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(waiting ? Icons.schedule : Icons.check_circle, color: color, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Best time to leave',
+                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(advice.recommendation,
+                    style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Suggested rest breaks along the route, derived from total driving time.
+class _RestStopsCard extends StatelessWidget {
+  final List<RestBreak> stops;
+  const _RestStopsCard({required this.stops});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.local_cafe, color: Color(0xFF9AD0EC), size: 16),
+              const SizedBox(width: 6),
+              Text('Suggested rest breaks',
+                  style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75), fontWeight: FontWeight.w600)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (final s in stops)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Container(
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9AD0EC).withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text('${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF9AD0EC))),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('Break after driving ${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
+                        style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.75))),
+                  ),
+                  Text('${s.distanceFromStartKm.toStringAsFixed(0)} km',
+                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Horizontal strip of weather readings sampled along the route, with a
+/// warning banner when rain/storms are expected on any segment.
+class _WeatherStrip extends StatelessWidget {
+  final RouteWeather weather;
+  const _WeatherStrip({required this.weather});
+
+  static const Map<String, IconData> _icons = {
+    'clear': Icons.wb_sunny,
+    'partly_cloudy': Icons.wb_cloudy,
+    'cloudy': Icons.cloud,
+    'fog': Icons.foggy,
+    'drizzle': Icons.grain,
+    'rain': Icons.umbrella,
+    'snow': Icons.ac_unit,
+    'thunderstorm': Icons.thunderstorm,
+  };
+
+  static const Map<String, Color> _colors = {
+    'clear': Color(0xFFFFC93C),
+    'partly_cloudy': Color(0xFF9AD0EC),
+    'cloudy': Color(0xFFB0BEC5),
+    'fog': Color(0xFFB0BEC5),
+    'drizzle': Color(0xFF64B5F6),
+    'rain': Color(0xFF4FC3F7),
+    'snow': Color(0xFFE1F5FE),
+    'thunderstorm': Color(0xFF9575CD),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final points = weather.points;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.thermostat, color: Color(0xFF4FC3F7), size: 16),
+              const SizedBox(width: 6),
+              Text('Weather on route',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.75),
+                      fontWeight: FontWeight.w600)),
+            ],
+          ),
+          if (weather.hasAlerts) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFF4FC3F7).withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFF4FC3F7), size: 14),
+                  const SizedBox(width: 6),
+                  Flexible(
+                    child: Text('Rain or storms expected on part of your route',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.85))),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (int i = 0; i < points.length; i++) _tile(points[i], i, points.length),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tile(WeatherPoint p, int index, int total) {
+    final label = index == 0
+        ? 'Start'
+        : index == total - 1
+            ? 'End'
+            : '${p.distanceFromStartKm.toStringAsFixed(0)}km';
+    final color = _colors[p.icon] ?? Colors.white70;
+    return Expanded(
+      child: Column(
+        children: [
+          Icon(_icons[p.icon] ?? Icons.cloud, color: color, size: 22),
+          const SizedBox(height: 4),
+          Text(p.tempC != null ? '${p.tempC!.toStringAsFixed(0)}°' : '--',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+          const SizedBox(height: 2),
+          Text(label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.5))),
+          if ((p.rainChancePct ?? 0) >= 40)
+            Text('${p.rainChancePct}%',
+                style: const TextStyle(fontSize: 9, color: Color(0xFF4FC3F7), fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+  }
+}
+
+/// All-in trip budget card: fuel + tolls + food + stay + buffer, with a total.
+class _BudgetCard extends StatelessWidget {
+  final TripBudget budget;
+  const _BudgetCard({required this.budget});
+
+  String _fmt(int v) {
+    // Indian-style grouping (e.g. 1,20,000) kept simple for typical trip sizes.
+    final s = v.toString();
+    if (s.length <= 3) return s;
+    final last3 = s.substring(s.length - 3);
+    var rest = s.substring(0, s.length - 3);
+    final buf = StringBuffer();
+    while (rest.length > 2) {
+      buf.write(',${rest.substring(rest.length - 2)}');
+      rest = rest.substring(0, rest.length - 2);
+    }
+    return '$rest$buf,$last3';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = <List<dynamic>>[
+      ['Fuel', budget.fuel, Icons.local_gas_station, Colors.orangeAccent],
+      if (budget.tolls > 0) ['Tolls', budget.tolls, Icons.toll, const Color(0xFFFF6B6B)],
+      ['Food (${budget.days}d)', budget.food, Icons.restaurant, const Color(0xFFFFB74D)],
+      if (budget.stay > 0)
+        ['Stay (${budget.nights} night${budget.nights == 1 ? '' : 's'})', budget.stay, Icons.hotel, const Color(0xFF64B5F6)],
+      ['Buffer', budget.buffer, Icons.more_horiz, Colors.white54],
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFF00E5A0).withOpacity(0.10), Colors.white.withOpacity(0.03)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFF00E5A0).withOpacity(0.25)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.account_balance_wallet, color: Color(0xFF00E5A0), size: 16),
+              const SizedBox(width: 6),
+              Text('Estimated trip budget',
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.75),
+                      fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text('₹${_fmt(budget.total)}',
+                  style: const TextStyle(
+                      fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF00E5A0))),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text('≈ ₹${_fmt(budget.perDay)}/day · ${budget.travellers} traveller${budget.travellers == 1 ? '' : 's'}',
+                style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+          ),
+          const Divider(color: Colors.white12, height: 20),
+          for (final r in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                children: [
+                  Icon(r[2] as IconData, color: r[3] as Color, size: 15),
+                  const SizedBox(width: 8),
+                  Text(r[0] as String,
+                      style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.7))),
+                  const Spacer(),
+                  Text('₹${_fmt(r[1] as int)}',
+                      style: const TextStyle(
+                          fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PulsingRing extends StatefulWidget {
+  const _PulsingRing();
+
+  @override
+  State<_PulsingRing> createState() => _PulsingRingState();
+}
+
+class _PulsingRingState extends State<_PulsingRing> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Container(
+          width: 50 * _controller.value,
+          height: 50 * _controller.value,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: const Color(0xFF2E75B6).withOpacity(1.0 - _controller.value),
+            border: Border.all(
+              color: const Color(0xFF2E75B6).withOpacity(1.0 - _controller.value),
+              width: 2.5,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DrivingWobble extends StatefulWidget {
+  final Widget child;
+  const _DrivingWobble({required this.child});
+
+  @override
+  State<_DrivingWobble> createState() => _DrivingWobbleState();
+}
+
+class _DrivingWobbleState extends State<_DrivingWobble> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  final List<_SmokeParticle> _particles = [];
+  final Random _random = Random();
+  int _ticks = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    )..repeat();
+
+    _controller.addListener(() {
+      _updateParticles();
+    });
+  }
+
+  void _updateParticles() {
+    _ticks++;
+    // Spawn smoke particle
+    if (_ticks % 3 == 0) {
+      _particles.add(_SmokeParticle(
+        x: 10.0,
+        y: 8.0,
+        vx: 0.8 + _random.nextDouble() * 1.2,
+        vy: 0.4 + _random.nextDouble() * 0.8,
+        maxRadius: 5.0 + _random.nextDouble() * 5.0,
+      ));
+    }
+
+    // Update existing particles
+    for (int i = _particles.length - 1; i >= 0; i--) {
+      final p = _particles[i];
+      p.progress += 0.05;
+      if (p.progress >= 1.0) {
+        _particles.removeAt(i);
+      } else {
+        p.x += p.vx;
+        p.y += p.vy;
+      }
+    }
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final double wobble = sin(_controller.value * 2 * pi) * 0.08;
+    final double bounce = sin(_controller.value * 2 * pi * 2).abs() * -4.0;
+    
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Smoke Particles
+        ..._particles.map((p) {
+          final currentSize = 3.0 + (p.maxRadius - 3.0) * p.progress;
+          final currentOpacity = (1.0 - p.progress) * 0.6;
+          return Positioned(
+            left: 25 + p.x - (currentSize / 2),
+            top: 25 + p.y - (currentSize / 2),
+            child: Container(
+              width: currentSize,
+              height: currentSize,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.grey.withOpacity(currentOpacity),
+              ),
+            ),
+          );
+        }),
+        // Vehicle Body
+        Transform.translate(
+          offset: Offset(0, bounce),
+          child: Transform.rotate(
+            angle: wobble,
+            child: widget.child,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SmokeParticle {
+  double x, y;
+  double vx, vy;
+  double maxRadius;
+  double progress = 0.0;
+
+  _SmokeParticle({
+    required this.x,
+    required this.y,
+    required this.vx,
+    required this.vy,
+    required this.maxRadius,
+  });
+}
+
+class _BlinkingIndicator extends StatefulWidget {
+  const _BlinkingIndicator();
+
+  @override
+  State<_BlinkingIndicator> createState() => _BlinkingIndicatorState();
+}
+
+class _BlinkingIndicatorState extends State<_BlinkingIndicator> with SingleTickerProviderStateMixin {
+  late AnimationController _blinkController;
+
+  @override
+  void initState() {
+    super.initState();
+    _blinkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _blinkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _blinkController,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _blinkController.value > 0.5 ? 1.0 : 0.0,
+          child: Container(
+            width: 4,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.amber,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.orange.withOpacity(0.8),
+                  blurRadius: 3,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

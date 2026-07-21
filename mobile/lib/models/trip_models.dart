@@ -120,6 +120,189 @@ class PlaceOfInterest {
   LatLng toLatLng() => LatLng(lat, lng);
 }
 
+class WeatherPoint {
+  final double lat;
+  final double lng;
+  final double distanceFromStartKm;
+  final double? tempC;
+  final String description;
+  final String icon; // clear | partly_cloudy | cloudy | fog | drizzle | rain | snow | thunderstorm
+  final int? windKph;
+  final int? humidity;
+  final int? rainChancePct;
+
+  const WeatherPoint({
+    required this.lat,
+    required this.lng,
+    required this.distanceFromStartKm,
+    required this.tempC,
+    required this.description,
+    required this.icon,
+    required this.windKph,
+    required this.humidity,
+    required this.rainChancePct,
+  });
+
+  factory WeatherPoint.fromJson(Map<String, dynamic> json) => WeatherPoint(
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+        distanceFromStartKm: (json['distanceFromStartKm'] as num?)?.toDouble() ?? 0,
+        tempC: (json['tempC'] as num?)?.toDouble(),
+        description: json['description'] as String? ?? 'Unknown',
+        icon: json['icon'] as String? ?? 'cloudy',
+        windKph: (json['windKph'] as num?)?.toInt(),
+        humidity: (json['humidity'] as num?)?.toInt(),
+        rainChancePct: (json['rainChancePct'] as num?)?.toInt(),
+      );
+
+  LatLng toLatLng() => LatLng(lat, lng);
+}
+
+class RouteWeather {
+  final bool hasAlerts;
+  final List<WeatherPoint> points;
+
+  const RouteWeather({required this.hasAlerts, required this.points});
+
+  factory RouteWeather.fromJson(Map<String, dynamic> json) => RouteWeather(
+        hasAlerts: json['hasAlerts'] as bool? ?? false,
+        points: (json['points'] as List? ?? [])
+            .map((e) => WeatherPoint.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
+
+class TripBudget {
+  final String currency;
+  final int days;
+  final int nights;
+  final int travellers;
+  final int fuel;
+  final int tolls;
+  final int food;
+  final int stay;
+  final int buffer;
+  final int total;
+  final int perDay;
+
+  const TripBudget({
+    required this.currency,
+    required this.days,
+    required this.nights,
+    required this.travellers,
+    required this.fuel,
+    required this.tolls,
+    required this.food,
+    required this.stay,
+    required this.buffer,
+    required this.total,
+    required this.perDay,
+  });
+
+  factory TripBudget.fromJson(Map<String, dynamic> json) {
+    final b = (json['breakdown'] as Map<String, dynamic>? ?? {});
+    return TripBudget(
+      currency: json['currency'] as String? ?? 'INR',
+      days: (json['days'] as num?)?.toInt() ?? 1,
+      nights: (json['nights'] as num?)?.toInt() ?? 0,
+      travellers: (json['travellers'] as num?)?.toInt() ?? 1,
+      fuel: (b['fuel'] as num?)?.toInt() ?? 0,
+      tolls: (b['tolls'] as num?)?.toInt() ?? 0,
+      food: (b['food'] as num?)?.toInt() ?? 0,
+      stay: (b['stay'] as num?)?.toInt() ?? 0,
+      buffer: (b['buffer'] as num?)?.toInt() ?? 0,
+      total: (json['total'] as num?)?.toInt() ?? 0,
+      perDay: (json['perDay'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
+class DepartureAdvice {
+  final int bestOffsetHours;
+  final String bestLabel;
+  final int driestRainPct;
+  final int nowRainPct;
+  final String recommendation;
+
+  const DepartureAdvice({
+    required this.bestOffsetHours,
+    required this.bestLabel,
+    required this.driestRainPct,
+    required this.nowRainPct,
+    required this.recommendation,
+  });
+
+  factory DepartureAdvice.fromJson(Map<String, dynamic> json) => DepartureAdvice(
+        bestOffsetHours: (json['bestOffsetHours'] as num?)?.toInt() ?? 0,
+        bestLabel: json['bestLabel'] as String? ?? 'now',
+        driestRainPct: (json['driestRainPct'] as num?)?.toInt() ?? 0,
+        nowRainPct: (json['nowRainPct'] as num?)?.toInt() ?? 0,
+        recommendation: json['recommendation'] as String? ?? '',
+      );
+
+  /// True when leaving later meaningfully reduces rain risk.
+  bool get suggestsWaiting => bestOffsetHours > 0 && driestRainPct < nowRainPct - 15;
+}
+
+class RestBreak {
+  final double afterHours;
+  final double distanceFromStartKm;
+  final double lat;
+  final double lng;
+  final String label;
+
+  const RestBreak({
+    required this.afterHours,
+    required this.distanceFromStartKm,
+    required this.lat,
+    required this.lng,
+    required this.label,
+  });
+
+  factory RestBreak.fromJson(Map<String, dynamic> json) => RestBreak(
+        afterHours: (json['afterHours'] as num?)?.toDouble() ?? 0,
+        distanceFromStartKm: (json['distanceFromStartKm'] as num?)?.toDouble() ?? 0,
+        lat: (json['lat'] as num?)?.toDouble() ?? 0,
+        lng: (json['lng'] as num?)?.toDouble() ?? 0,
+        label: json['label'] as String? ?? 'Rest break',
+      );
+
+  LatLng toLatLng() => LatLng(lat, lng);
+}
+
+class DayPlan {
+  final int day;
+  final double fromKm;
+  final double toKm;
+  final double distanceKm;
+  final double driveHours;
+  final double endLat;
+  final double endLng;
+  final bool isFinal;
+
+  const DayPlan({
+    required this.day,
+    required this.fromKm,
+    required this.toKm,
+    required this.distanceKm,
+    required this.driveHours,
+    required this.endLat,
+    required this.endLng,
+    required this.isFinal,
+  });
+
+  factory DayPlan.fromJson(Map<String, dynamic> json) => DayPlan(
+        day: (json['day'] as num?)?.toInt() ?? 1,
+        fromKm: (json['fromKm'] as num?)?.toDouble() ?? 0,
+        toKm: (json['toKm'] as num?)?.toDouble() ?? 0,
+        distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0,
+        driveHours: (json['driveHours'] as num?)?.toDouble() ?? 0,
+        endLat: (json['endLat'] as num?)?.toDouble() ?? 0,
+        endLng: (json['endLng'] as num?)?.toDouble() ?? 0,
+        isFinal: json['isFinal'] as bool? ?? false,
+      );
+}
+
 class TripPlan {
   final double distanceKm;
   final int durationMin;
@@ -127,6 +310,11 @@ class TripPlan {
   final int estimatedDays;
   final FuelPlan fuel;
   final TollEstimate? toll;
+  final RouteWeather? weather;
+  final DepartureAdvice? departureAdvice;
+  final List<RestBreak> restStops;
+  final List<DayPlan> itinerary;
+  final TripBudget? budget;
   final Map<String, List<PlaceOfInterest>> places;
 
   const TripPlan({
@@ -136,6 +324,11 @@ class TripPlan {
     required this.estimatedDays,
     required this.fuel,
     required this.toll,
+    required this.weather,
+    required this.departureAdvice,
+    required this.restStops,
+    required this.itinerary,
+    required this.budget,
     required this.places,
   });
 
@@ -152,6 +345,17 @@ class TripPlan {
       estimatedDays: json['estimatedDays'] as int,
       fuel: FuelPlan.fromJson(json['fuel'] as Map<String, dynamic>),
       toll: json['toll'] != null ? TollEstimate.fromJson(json['toll'] as Map<String, dynamic>) : null,
+      weather: json['weather'] != null ? RouteWeather.fromJson(json['weather'] as Map<String, dynamic>) : null,
+      departureAdvice: json['departureAdvice'] != null
+          ? DepartureAdvice.fromJson(json['departureAdvice'] as Map<String, dynamic>)
+          : null,
+      restStops: (json['restStops'] as List? ?? [])
+          .map((e) => RestBreak.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      itinerary: (json['itinerary'] as List? ?? [])
+          .map((e) => DayPlan.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      budget: json['budget'] != null ? TripBudget.fromJson(json['budget'] as Map<String, dynamic>) : null,
       places: placesJson.map(
         (key, value) => MapEntry(
           key,
