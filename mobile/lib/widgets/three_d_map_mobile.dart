@@ -206,10 +206,14 @@ class _ThreeDMapState extends State<ThreeDMap> {
     final fullLatLngPoints = widget.routePoints.map((c) => c.toLatLng()).toList();
     final bounds = LatLngBounds.fromPoints(fullLatLngPoints);
 
-    // Dynamic Route Line: slice coordinates up to vehicle position if animating
-    final visibleLatLngPoints = widget.animatedVehiclePosition == null
-        ? fullLatLngPoints
+    // Slice route lines: traveled (gray) and remaining (blue)
+    final traveledLatLngPoints = widget.animatedVehiclePosition == null
+        ? <LatLng>[]
         : fullLatLngPoints.take(_getClosestIndex(widget.animatedVehiclePosition!) + 1).toList();
+
+    final remainingLatLngPoints = widget.animatedVehiclePosition == null
+        ? fullLatLngPoints
+        : fullLatLngPoints.skip(_getClosestIndex(widget.animatedVehiclePosition!)).toList();
 
     return FlutterMap(
       mapController: _mapController,
@@ -228,7 +232,17 @@ class _ThreeDMapState extends State<ThreeDMap> {
         ),
         PolylineLayer(
           polylines: [
-            Polyline(points: visibleLatLngPoints, strokeWidth: 6, color: const Color(0xFF2E75B6)),
+            if (traveledLatLngPoints.isNotEmpty)
+              Polyline(
+                points: traveledLatLngPoints,
+                strokeWidth: 5,
+                color: Colors.grey.withOpacity(0.5),
+              ),
+            Polyline(
+              points: remainingLatLngPoints,
+              strokeWidth: 6,
+              color: const Color(0xFF2E75B6),
+            ),
           ],
         ),
         MarkerLayer(markers: _buildMarkers(context)),
