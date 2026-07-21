@@ -22,8 +22,15 @@ async function getRoute(start, end, waypoints = []) {
   // Try to get from cache first
   const cached = await getCachedRoute(hash);
   if (cached) {
-    console.log("Serving route from Supabase cache...");
-    return cached;
+    const coordinatesCount = cached.coordinates ? cached.coordinates.length : 0;
+    const distance = cached.distanceKm || 0;
+    const isSimplified = distance > 2 && coordinatesCount < 45;
+
+    if (!isSimplified) {
+      console.log("Serving route from Supabase cache...");
+      return cached;
+    }
+    console.log("Cached route is simplified (low-resolution). Bypassing cache to fetch high-resolution route...");
   }
 
   const mapboxKey = process.env.MAPBOX_API_KEY || "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
@@ -31,7 +38,7 @@ async function getRoute(start, end, waypoints = []) {
   try {
     console.log("Fetching traffic-aware route from Mapbox Directions...");
     const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&access_token=${mapboxKey}`;
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&access_token=${mapboxKey}`;
     
     const response = await axios.get(url, { timeout: 15000 });
     const route = response.data.routes[0];
