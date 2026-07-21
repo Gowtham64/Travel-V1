@@ -154,19 +154,30 @@ router.get("/reverse-geocode", async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: "Missing lat or lng" });
 
+  const MAPBOX_TOKEN =
+    process.env.MAPBOX_TOKEN ||
+    "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
   try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`;
-    const response = await axios.get(url, {
-      headers: {
-        "User-Agent": "TravelApp/1.0",
-      },
-      timeout: 5000,
-    });
-    const address = response.data?.display_name || null;
-    res.json({ address });
+    // Mapbox reverse geocoding — reliable from cloud IPs (Nominatim 429s).
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&limit=1&language=en`;
+    const response = await axios.get(url, { timeout: 8000 });
+    const feature = response.data?.features?.[0];
+    res.json({ address: feature ? feature.place_name : null });
   } catch (err) {
-    console.error("Reverse geocoding failed:", err.message);
-    res.status(500).json({ error: "Reverse geocoding failed", detail: err.message });
+    // Fall back to Nominatim with a descriptive UA.
+    try {
+      const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`;
+      const response = await axios.get(url, {
+        headers: {
+          "User-Agent": "TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/)",
+        },
+        timeout: 5000,
+      });
+      res.json({ address: response.data?.display_name || null });
+    } catch (err2) {
+      console.error("Reverse geocoding failed:", err2.message);
+      res.status(500).json({ error: "Reverse geocoding failed", detail: err2.message });
+    }
   }
 });
 

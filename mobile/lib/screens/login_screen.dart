@@ -1,8 +1,8 @@
 import 'dart:io' show Platform;
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/app_design.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -167,41 +167,21 @@ class _LoginScreenState extends State<LoginScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.network(
-              _bgUrl,
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Dark Overlay
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withOpacity(0.4),
-            ),
-          ),
-          // Content
-          Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                  child: Container(
-                    width: 400,
-                    padding: const EdgeInsets.all(32.0),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: Colors.white.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+      body: AnimatedBackground(
+        imageUrl: _bgUrl,
+        overlayOpacity: 0.45,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: RevealIn(
+              child: SizedBox(
+                width: 400,
+                child: GlassCard(
+                  padding: const EdgeInsets.all(32.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: RevealIn.stagger([
                         Text(
                           _isSignUp ? 'Create Account' : 'Welcome Back',
                           textAlign: TextAlign.center,
@@ -325,15 +305,14 @@ class _LoginScreenState extends State<LoginScreen> {
                             backgroundColor: Colors.white.withOpacity(0.05),
                           ),
                         ),
-                      ],
+                      ]),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
     );
   }
 

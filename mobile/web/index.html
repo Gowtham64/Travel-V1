@@ -18,6 +18,10 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <!-- Force the browser to revalidate this HTML so inline map JS updates land. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta name="description" content="A new Flutter project.">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -136,14 +140,27 @@
       const map = new mapboxgl.Map({
         container: containerId,
         style: styleUrl,
+        projection: 'globe', // render Earth as a 3D globe floating in space
+        // Always open from space so the globe is clearly visible, then fly in.
         center: routePoints.length > 0 ? routePoints[0] : [78.9629, 20.5937],
-        zoom: 12,
-        pitch: 60,
-        bearing: -20,
+        zoom: 1.7,
+        pitch: 0,
+        bearing: 0,
         antialias: true
       });
 
       map.on('style.load', () => {
+        // "Globe in the solar system" — atmosphere halo + deep-space starfield.
+        try {
+          map.setFog({
+            'color': 'rgb(186, 210, 235)',      // near-surface atmosphere
+            'high-color': 'rgb(36, 92, 223)',   // upper-atmosphere blue
+            'horizon-blend': 0.02,              // crisp horizon
+            'space-color': 'rgb(8, 10, 24)',    // dark space behind the globe
+            'star-intensity': 0.65              // visible stars
+          });
+        } catch (e) { console.warn('setFog unsupported:', e); }
+
         // Add DEM terrain
         map.addSource('mapbox-dem', {
           'type': 'raster-dem',
@@ -201,6 +218,23 @@
 
       // Add route polyline
       map.on('load', () => {
+        // Cinematic intro: hold on the globe in space, then fly down to the
+        // start of the route. Skipped when there is no route to fly to.
+        if (routePoints.length > 0 && !window.__globeIntroDone) {
+          window.__globeIntroDone = true;
+          setTimeout(() => {
+            map.flyTo({
+              center: routePoints[0],
+              zoom: 12,
+              pitch: 60,
+              bearing: -20,
+              duration: 4500,
+              essential: true,
+              curve: 1.6
+            });
+          }, 1800);
+        }
+
         map.addSource('route', {
           'type': 'geojson',
           'data': {
@@ -208,7 +242,7 @@
             'properties': {},
             'geometry': {
               'type': 'LineString',
-              'coordinates': []
+              'coordinates': routePoints
             }
           }
         });
@@ -225,6 +259,34 @@
             'line-color': '#2E75B6',
             'line-width': 6,
             'line-opacity': 0.85
+          }
+        });
+
+        // Traveled route behind (grayed out)
+        map.addSource('traveled', {
+          'type': 'geojson',
+          'data': {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': []
+            }
+          }
+        });
+
+        map.addLayer({
+          'id': 'traveled-line',
+          'type': 'line',
+          'source': 'traveled',
+          'layout': {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          'paint': {
+            'line-color': '#a0a0a0',
+            'line-width': 5,
+            'line-opacity': 0.5
           }
         });
       });
@@ -519,6 +581,11 @@
           : [];
         traveledCoords.push(position);
 
+        const remainingCoords = window.currentRoutePoints
+          ? window.currentRoutePoints.slice(closestIdx)
+          : [];
+        remainingCoords.unshift(position);
+
         // Clear markers when starting fresh
         if (closestIdx === 0) {
           if (window.mapboxMarkers) {
@@ -526,10 +593,23 @@
           }
         }
 
-        // Grow route line dynamically
-        const source = map.getSource('route');
-        if (source) {
-          source.setData({
+        // Update active route line (remaining path ahead)
+        const activeSource = map.getSource('route');
+        if (activeSource) {
+          activeSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': remainingCoords
+            }
+          });
+        }
+
+        // Update traveled route line (path behind)
+        const traveledSource = map.getSource('traveled');
+        if (traveledSource) {
+          traveledSource.setData({
             'type': 'Feature',
             'properties': {},
             'geometry': {
@@ -621,15 +701,27 @@
       }
       
       // Restore full route line
-      if (window.currentMapInstance && window.currentRoutePoints) {
-        const source = window.currentMapInstance.getSource('route');
-        if (source) {
-          source.setData({
+      if (window.currentMapInstance) {
+        const map = window.currentMapInstance;
+        const activeSource = map.getSource('route');
+        if (activeSource && window.currentRoutePoints) {
+          activeSource.setData({
             'type': 'Feature',
             'properties': {},
             'geometry': {
               'type': 'LineString',
               'coordinates': window.currentRoutePoints
+            }
+          });
+        }
+        const traveledSource = map.getSource('traveled');
+        if (traveledSource) {
+          traveledSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': []
             }
           });
         }

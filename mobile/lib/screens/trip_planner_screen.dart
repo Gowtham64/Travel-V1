@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +12,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'trip_screen.dart';
 import 'saved_trips_screen.dart';
+import '../widgets/app_design.dart';
 import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
@@ -22,9 +22,11 @@ class TripPlannerScreen extends StatefulWidget {
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
 }
 
-class _TripPlannerScreenState extends State<TripPlannerScreen> {
+class _TripPlannerScreenState extends State<TripPlannerScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _api = ApiService();
+  late final AnimationController _bgController;
 
   final List<TextEditingController> _stopControllers = [
     TextEditingController(),
@@ -74,6 +76,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
   @override
   void initState() {
     super.initState();
+    _bgController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 34),
+    )..repeat(reverse: true);
     _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
     _updateVehicleFields();
     _recordUserSession();
@@ -247,7 +253,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
           final address = controller.text.trim();
           if (address.isNotEmpty) {
             final resolved = _resolvedStopCoords[controller.hashCode];
-            if (resolved != null) {
+            final isMatch = resolved != null &&
+                resolved.name != null &&
+                (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
+                 address.toLowerCase().contains(resolved.name!.toLowerCase()));
+            if (resolved != null && isMatch) {
               geocodedStops.add(resolved);
             } else {
               final point = await _api.geocode(address);
@@ -343,7 +353,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
         final address = controller.text.trim();
         if (address.isNotEmpty) {
           final resolved = _resolvedStopCoords[controller.hashCode];
-          if (resolved != null) {
+          final isMatch = resolved != null &&
+              resolved.name != null &&
+              (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
+               address.toLowerCase().contains(resolved.name!.toLowerCase()));
+          if (resolved != null && isMatch) {
             geocodedStops.add(resolved);
           } else {
             final point = await _api.geocode(address);
@@ -650,6 +664,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     _tankController.dispose();
     _currentFuelController.dispose();
     _formScrollController.dispose();
+    _bgController.dispose();
     super.dispose();
   }
 
@@ -684,80 +699,168 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               ),
             ),
       drawer: _buildDrawer(user),
-      body: Stack(
-        children: [
-          // Background Image
-          Positioned.fill(
-            child: Image.network(
-              _bgUrl,
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Dark Overlay
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withOpacity(0.5),
-            ),
-          ),
-          // Content Layout
-          LayoutBuilder(
-            builder: (context, constraints) {
-              if (constraints.maxWidth > 900) {
-                return Row(
-                  children: [
-                    SizedBox(
-                      width: 450,
-                      child: SafeArea(child: _buildForm()),
-                    ),
-                    Expanded(
-                      child: SafeArea(
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 24.0, bottom: 24.0, right: 24.0),
-                          child: _buildGlassCard(
-                            padding: EdgeInsets.zero,
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(24),
-                              child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
-                            ),
-                          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth > 900) {
+            // Desktop: full-bleed map with a floating glass control panel.
+            return Stack(
+              children: [
+                // 1. Map fills the entire screen edge-to-edge.
+                Positioned.fill(
+                  child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
+                ),
+                // 2. Left-edge scrim so the floating panel stays legible.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                          colors: [
+                            Colors.black.withOpacity(0.55),
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.42],
                         ),
                       ),
                     ),
-                  ],
-                );
-              } else {
-                return SafeArea(
+                  ),
+                ),
+                // 3. Floating glass control panel.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  bottom: 0,
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: SizedBox(
+                        width: 430,
+                        child: RevealIn(
+                          offsetX: -32,
+                          offsetY: 0,
+                          child: _buildFloatingPanel(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          } else {
+            // Mobile: cinematic background with the form centered on top.
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: AnimatedBuilder(
+                    animation: _bgController,
+                    builder: (context, child) {
+                      final t = Curves.easeInOut.transform(_bgController.value);
+                      return Transform.scale(
+                        scale: 1.04 + 0.035 * t,
+                        alignment: Alignment(-0.3 + 0.6 * t, -0.2 + 0.4 * t),
+                        child: child,
+                      );
+                    },
+                    child: Image.network(_bgUrl, fit: BoxFit.cover),
+                  ),
+                ),
+                Positioned.fill(
+                  child: Container(color: Colors.black.withOpacity(0.5)),
+                ),
+                SafeArea(
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 800),
                       child: _buildForm(),
                     ),
                   ),
-                );
-              }
-            },
+                ),
+              ],
+            );
+          }
+        },
+      ),
+    );
+  }
+
+  /// Desktop floating control panel: a fixed header (menu + title) atop a
+  /// scrollable form body, wrapped in the frosted-glass surface.
+  Widget _buildFloatingPanel() {
+    return _buildGlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            child: Row(
+              children: [
+                Builder(
+                  builder: (context) => InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                    child: Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                      ),
+                      child: const Icon(Icons.menu, color: Colors.white, size: 22),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Trip Planner',
+                      style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          height: 1.1),
+                    ),
+                    Text(
+                      'Plan your perfect road trip',
+                      style: TextStyle(
+                          fontSize: 13, color: Colors.white.withOpacity(0.6)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
+          Divider(color: Colors.white.withOpacity(0.10), height: 1),
+          // Scrollable body
+          Expanded(child: _buildForm(embedded: true)),
         ],
       ),
     );
   }
 
-  Widget _buildForm() {
+  Widget _buildForm({bool embedded = false}) {
     final isDesktop = MediaQuery.of(context).size.width > 900;
     return SingleChildScrollView(
       controller: _formScrollController,
       padding: EdgeInsets.only(
-        left: 24.0,
-        right: 24.0,
-        bottom: 24.0,
-        top: isDesktop ? 24.0 : kToolbarHeight + 24.0,
+        left: embedded ? 20.0 : 24.0,
+        right: embedded ? 20.0 : 24.0,
+        bottom: embedded ? 28.0 : 24.0,
+        top: embedded ? 20.0 : (isDesktop ? 24.0 : kToolbarHeight + 24.0),
       ),
       child: Form(
         key: _formKey,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            if (isDesktop) ...[
+            if (isDesktop && !embedded) ...[
               Builder(
                 builder: (context) => Row(
                   children: [
@@ -776,13 +879,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
               ),
               const SizedBox(height: 24),
             ],
-            _buildRouteCard(),
+            RevealIn(delay: const Duration(milliseconds: 40), child: _buildRouteCard()),
             const SizedBox(height: 24),
-            _buildVehicleCard(),
+            RevealIn(delay: const Duration(milliseconds: 100), child: _buildVehicleCard()),
             const SizedBox(height: 24),
-            _buildPOICard(),
+            RevealIn(delay: const Duration(milliseconds: 160), child: _buildPOICard()),
             const SizedBox(height: 32),
-            
+
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -797,19 +900,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                 ),
               ),
               
-            ElevatedButton(
-              onPressed: _loading ? null : _planTrip,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E75B6),
-                foregroundColor: Colors.white,
+            RevealIn(
+              delay: const Duration(milliseconds: 220),
+              child: AccentButton(
+                onPressed: _loading ? null : _planTrip,
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 8,
-                shadowColor: const Color(0xFF2E75B6).withOpacity(0.5),
+                child: _loading
+                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text('DONE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
               ),
-              child: _loading
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('DONE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
             ),
             const SizedBox(height: 40),
           ],
@@ -876,7 +975,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
             MarkerLayer(
               markers: [
                 Marker(
-                  point: routePoints.first,
+                  point: _tempStart != null ? LatLng(_tempStart!.lat, _tempStart!.lng) : routePoints.first,
                   width: 36,
                   height: 36,
                   child: Container(
@@ -888,8 +987,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
                     child: const Icon(Icons.trip_origin, color: Colors.white, size: 20),
                   ),
                 ),
+                if (_tempWaypoints != null)
+                  ..._tempWaypoints!.map((wp) => Marker(
+                    point: LatLng(wp.lat, wp.lng),
+                    width: 36,
+                    height: 36,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2E75B6),
+                        shape: BoxShape.circle,
+                        boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                      ),
+                      child: const Icon(Icons.location_on, color: Colors.white, size: 20),
+                    ),
+                  )),
                 Marker(
-                  point: routePoints.last,
+                  point: _tempEnd != null ? LatLng(_tempEnd!.lat, _tempEnd!.lng) : routePoints.last,
                   width: 36,
                   height: 36,
                   child: Container(
@@ -1070,29 +1183,37 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
     );
   }
   
-  Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding,
+  Widget _buildSectionHeader(IconData icon, String title) {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.08),
-                Colors.white.withOpacity(0.02),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
+            gradient: AppColors.accentGradient,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withOpacity(0.45),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          child: child,
+          child: Icon(icon, color: Colors.white, size: 22),
         ),
-      ),
+        const SizedBox(width: 14),
+        Text(
+          title,
+          style: const TextStyle(
+              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+      ],
     );
+  }
+
+  Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
+    return GlassCard(padding: padding, child: child);
   }
 
   Widget _buildTextField({
@@ -1147,13 +1268,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.route, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Your Route', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
+          _buildSectionHeader(Icons.route, 'Your Route'),
           const SizedBox(height: 24),
           ReorderableListView.builder(
             shrinkWrap: true,
@@ -1255,13 +1370,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.directions_car, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Vehicle Details', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
+          _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
           const SizedBox(height: 24),
           DropdownButtonFormField<VehicleModel>(
             value: _selectedVehicle,
@@ -1410,13 +1519,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.place, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Places to Visit', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
+          _buildSectionHeader(Icons.place, 'Places to Visit'),
           const SizedBox(height: 24),
           Wrap(
             spacing: 12.0,

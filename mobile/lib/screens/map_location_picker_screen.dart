@@ -1,4 +1,3 @@
-import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -6,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../widgets/app_design.dart';
 
 class MapLocationPickerScreen extends StatefulWidget {
   final LatLng? initialCenter;
@@ -121,28 +121,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
   }
 
   Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.08),
-                Colors.white.withOpacity(0.02),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.12)),
-          ),
-          child: child,
-        ),
-      ),
-    );
+    return GlassCard(padding: padding, child: child);
   }
 
   @override
@@ -203,7 +182,9 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 16,
-            child: _buildGlassCard(
+            child: RevealIn(
+              offsetY: -24,
+              child: _buildGlassCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
@@ -223,6 +204,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                     ),
                   ),
                 ],
+              ),
               ),
             ),
           ),
@@ -246,7 +228,9 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
             bottom: 24,
             left: 16,
             right: 16,
-            child: _buildGlassCard(
+            child: RevealIn(
+              delay: const Duration(milliseconds: 90),
+              child: _buildGlassCard(
               padding: const EdgeInsets.all(20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -337,6 +321,7 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
                     ),
                   ],
                 ],
+              ),
               ),
             ),
           ),

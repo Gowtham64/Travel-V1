@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:http/http.dart' as http;
 import '../models/trip_models.dart';
 
@@ -10,12 +11,19 @@ class ApiException implements Exception {
 }
 
 class ApiService {
-  /// Point this at your backend. Use 10.0.2.2 instead of localhost when
-  /// running on the Android emulator; use your machine's LAN IP for a
-  /// physical device.
+  /// Backend endpoint.
+  ///
+  /// Web builds and release builds always use the hosted backend. Only a
+  /// local debug run on the Android emulator falls back to `10.0.2.2:3000`
+  /// (use your machine's LAN IP for a physical device). Pass [baseUrl]
+  /// explicitly to override for local development.
   final String baseUrl;
 
-  ApiService({this.baseUrl = 'https://travel-v1-mzia.onrender.com'});
+  static const String _prodBackend = 'https://travel-v1-mzia.onrender.com';
+
+  ApiService({String? baseUrl})
+      : baseUrl = baseUrl ??
+            ((kIsWeb || kReleaseMode) ? _prodBackend : 'http://10.0.2.2:3000');
 
   Future<GeoPoint> geocode(String address) async {
     final uri = Uri.parse('$baseUrl/api/geocode').replace(queryParameters: {'q': address});
@@ -31,7 +39,11 @@ class ApiService {
     }
 
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    return GeoPoint(lat: (body['lat'] as num).toDouble(), lng: (body['lng'] as num).toDouble());
+    return GeoPoint(
+      lat: (body['lat'] as num).toDouble(),
+      lng: (body['lng'] as num).toDouble(),
+      name: body['displayName'] as String? ?? address,
+    );
   }
 
   Future<TripPlan> planTrip({

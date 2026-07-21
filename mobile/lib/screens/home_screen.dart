@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/app_design.dart';
 import 'trip_planner_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -10,9 +11,27 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   final String _bgUrl = 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?q=80&w=2000&auto=format&fit=crop';
-  
+
+  late final AnimationController _kenBurns;
+
+  @override
+  void initState() {
+    super.initState();
+    _kenBurns = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 36),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _kenBurns.dispose();
+    super.dispose();
+  }
+
   final List<Map<String, String>> _destinations = [
     {
       'title': 'Indonesia',
@@ -87,11 +106,19 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Stack(
         children: [
-          // Background Image
+          // Background Image (slow Ken-Burns motion)
           Positioned.fill(
-            child: Image.network(
-              _bgUrl,
-              fit: BoxFit.cover,
+            child: AnimatedBuilder(
+              animation: _kenBurns,
+              builder: (context, child) {
+                final t = Curves.easeInOut.transform(_kenBurns.value);
+                return Transform.scale(
+                  scale: 1.04 + 0.04 * t,
+                  alignment: Alignment(0.2 - 0.4 * t, -0.1),
+                  child: child,
+                );
+              },
+              child: Image.network(_bgUrl, fit: BoxFit.cover),
             ),
           ),
           // Gradient Overlay
@@ -123,56 +150,58 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text(
-                          'KERALA',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 100,
-                            height: 1.0,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 4,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'Kerala, a state on India\'s tropical Malabar Coast, has nearly 600km of Arabian Sea shoreline. It\'s known for its palm-lined beaches and backwaters, a network of canals. Inland are the Western Ghats, mountains whose slopes support tea, coffee and spice plantations as well as wildlife.',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 16,
-                            height: 1.5,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const TripPlannerScreen()),
-                            );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E75B6), // Deep blue from design
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                      children: RevealIn.stagger(
+                        offsetY: 36,
+                        [
+                          const Text(
+                            'KERALA',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 100,
+                              height: 1.0,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 4,
                             ),
                           ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Explore',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                              ),
-                              SizedBox(width: 8),
-                              Icon(Icons.arrow_forward_rounded, size: 20),
-                            ],
+                          const SizedBox(height: 24),
+                          Text(
+                            'Kerala, a state on India\'s tropical Malabar Coast, has nearly 600km of Arabian Sea shoreline. It\'s known for its palm-lined beaches and backwaters, a network of canals. Inland are the Western Ghats, mountains whose slopes support tea, coffee and spice plantations as well as wildlife.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 16,
+                              height: 1.5,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 40),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: AccentButton(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 40, vertical: 20),
+                              radius: 12,
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const TripPlannerScreen()),
+                                );
+                              },
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Explore',
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold)),
+                                  SizedBox(width: 8),
+                                  Icon(Icons.arrow_forward_rounded, size: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   
@@ -191,7 +220,14 @@ class _HomeScreenState extends State<HomeScreen> {
                               scrollDirection: Axis.horizontal,
                               itemCount: _destinations.length,
                               itemBuilder: (context, index) {
-                                return _buildDestinationCard(_destinations[index]);
+                                return RevealIn(
+                                  delay: Duration(
+                                      milliseconds: 120 + index * 70),
+                                  offsetX: 40,
+                                  offsetY: 0,
+                                  child: _buildDestinationCard(
+                                      _destinations[index]),
+                                );
                               },
                             ),
                           ),

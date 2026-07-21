@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/trip_models.dart';
@@ -56,6 +57,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   final MapController _mapController = MapController();
   bool _isPlayingAnimation = false;
   bool _isPreviewMode = false;
+  // Live GPS navigation (Start Trip) — driven by the device location stream
+  // rather than the simulated ticker used by Preview.
+  bool _isLiveNavigating = false;
+  StreamSubscription<Position>? _positionStream;
+  double _liveSpeedKmh = 0.0;
+  double _liveRemainingKm = 0.0;
+  int _liveRemainingMin = 0;
   int _animationIndex = 0;
   LatLng? _animatedVehiclePosition;
   double _vehicleRotation = 0.0;
@@ -107,6 +115,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   void dispose() {
     _animationTimer?.cancel();
     _ticker?.dispose();
+    _positionStream?.cancel();
     super.dispose();
   }
 
@@ -368,8 +377,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
     }
 
-    final routePoints = _isPlayingAnimation 
-        ? fullRoutePoints.take(_animationIndex + 1).toList() 
+    // During the simulated preview we draw a growing trail; during live GPS
+    // navigation we keep the full route visible so the road ahead is shown.
+    final routePoints = (_isPlayingAnimation && !_isLiveNavigating)
+        ? fullRoutePoints.take(_animationIndex + 1).toList()
         : fullRoutePoints;
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
@@ -1040,6 +1051,161 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
 
+  /// Ensures location services are on and permission is granted before
+  /// starting live navigation. Throws a human-readable message on failure.
+  Future<void> _ensureLocationPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw 'Location services are disabled. Enable GPS/location and try again.';
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw 'Location permission denied.';
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw 'Location permission permanently denied. Enable it in settings.';
+    }
+  }
+
+  /// Starts REAL navigation: follows the device's live GPS position along the
+  /// route, moving the vehicle marker and camera as the user actually moves,
+  /// and updating live speed / remaining distance / ETA.
+  Future<void> _startLiveNavigation() async {
+    _stopAnimation(); // clean up any preview/sim in progress
+
+    try {
+      await _ensureLocationPermission();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+        );
+      }
+      return;
+    }
+
+    final routePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+    if (routePoints.isEmpty) return;
+
+    setState(() {
+      _isPlayingAnimation = true;
+      _isLiveNavigating = true;
+      _isPreviewMode = false;
+      _animationIndex = 0;
+      _visitedStops.clear();
+      _tripProgressPercent = 0.0;
+      _liveSpeedKmh = 0.0;
+    });
+
+    // Snap camera to the user immediately using the last/first fix.
+    try {
+      final first = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 10),
+      );
+      _onLivePosition(first, routePoints);
+    } catch (_) {
+      // Stream will deliver a fix shortly; ignore a slow first read.
+    }
+
+    const settings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5, // metres between updates
+    );
+    _positionStream =
+        Geolocator.getPositionStream(locationSettings: settings).listen(
+      (pos) => _onLivePosition(pos, routePoints),
+      onError: (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('GPS error: $e'), backgroundColor: Colors.redAccent),
+          );
+        }
+      },
+    );
+  }
+
+  /// Handles one live GPS fix: projects it onto the route, updates the marker,
+  /// heading, camera, and the live trip stats.
+  void _onLivePosition(Position pos, List<LatLng> routePoints) {
+    if (!mounted || !_isLiveNavigating) return;
+
+    final here = LatLng(pos.latitude, pos.longitude);
+
+    // Nearest route vertex → progress along the planned route.
+    int nearestIdx = 0;
+    double minDist = double.infinity;
+    for (int i = 0; i < routePoints.length; i++) {
+      final d = _getDistance(here, routePoints[i]);
+      if (d < minDist) {
+        minDist = d;
+        nearestIdx = i;
+      }
+    }
+    final double progress = routePoints.length > 1
+        ? (nearestIdx / (routePoints.length - 1)).clamp(0.0, 1.0)
+        : 0.0;
+
+    final double totalKm = _currentPlan.distanceKm;
+    final double remainingKm = ((1.0 - progress) * totalKm).clamp(0.0, totalKm);
+
+    // Live speed (m/s → km/h); heading in degrees clockwise from north.
+    final double speedKmh = (pos.speed.isFinite && pos.speed > 0) ? pos.speed * 3.6 : 0.0;
+    final double headingRad = (pos.heading.isFinite && pos.heading >= 0)
+        ? pos.heading * pi / 180.0
+        : _vehicleRotation;
+
+    // ETA from current speed, falling back to the planned pace when stationary.
+    final double paceKmh = speedKmh > 5 ? speedKmh : (totalKm > 0 && _currentPlan.durationMin > 0
+        ? totalKm / (_currentPlan.durationMin / 60.0)
+        : 40.0);
+    final int remainingMin = paceKmh > 0 ? (remainingKm / paceKmh * 60).round() : 0;
+
+    setState(() {
+      _animatedVehiclePosition = here;
+      _vehicleRotation = headingRad;
+      _animationIndex = nearestIdx;
+      _tripProgressPercent = progress;
+      _liveSpeedKmh = speedKmh;
+      _liveRemainingKm = remainingKm;
+      _liveRemainingMin = remainingMin;
+    });
+
+    // Follow camera on the 2D maps (the 3D map follows the marker internally).
+    if (_mapStyle != MapStyle.satellite3D) {
+      try {
+        _mapController.moveAndRotate(here, 16.5, pos.heading.isFinite ? -pos.heading : 0.0);
+      } catch (_) {
+        try {
+          _mapController.move(here, 16.5);
+        } catch (_) {}
+      }
+    }
+
+    // Arrival: within ~120 m of the destination.
+    final destDist = _getDistance(here, routePoints.last);
+    if (destDist < 0.0011 && !_visitedStops.contains('live_arrival')) {
+      _visitedStops.add('live_arrival');
+      setState(() {
+        _activeStopHighlight = PlaceOfInterest(
+          id: 999,
+          name: widget.end.name ?? 'Destination',
+          lat: widget.end.lat,
+          lng: widget.end.lng,
+          address: 'You have arrived!',
+        );
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('🎉 You have arrived at your destination!')),
+        );
+      }
+    }
+  }
+
   /// Drives the route. In [preview] mode it is a fast aerial fly-through of the
   /// whole route — no stopover / toll / arrival pauses — so the user can quickly
   /// see the journey before committing to the full simulated drive.
@@ -1369,6 +1535,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _animationTimer?.cancel();
     _animationTimer = null;
     _ticker?.stop();
+    _positionStream?.cancel();
+    _positionStream = null;
     try {
       _mapController.rotate(0.0);
     } catch (e) {
@@ -1377,6 +1545,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     setState(() {
       _isPlayingAnimation = false;
       _isPreviewMode = false;
+      _isLiveNavigating = false;
       _animatedVehiclePosition = null;
       _isSlowingDown = false;
       _isTurningLeft = false;
@@ -1427,8 +1596,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => _startAnimation(preview: false),
-                    icon: const Icon(Icons.play_arrow, size: 20),
+                    onPressed: _startLiveNavigation,
+                    icon: const Icon(Icons.navigation, size: 20),
                     label: const Text('Start Trip'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2E75B6),
@@ -1706,9 +1875,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _buildTopHUD(double topPadding) {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
-    String bannerText = _isPreviewMode ? "Previewing route…" : "Drive straight on highway";
+    String bannerText = _isPreviewMode
+        ? "Previewing route…"
+        : (_isLiveNavigating ? "Live navigation • following your GPS" : "Drive straight on highway");
     IconData leadingIcon = _isPreviewMode ? Icons.visibility : Icons.navigation;
-    Color iconColor = _isPreviewMode ? Colors.tealAccent : Colors.blueAccent;
+    Color iconColor = _isPreviewMode
+        ? Colors.tealAccent
+        : (_isLiveNavigating ? Colors.greenAccent : Colors.blueAccent);
 
     if (_isTollStop) {
       bannerText = "🛂 FASTag Toll Plaza: Auto-paying toll...";
@@ -1774,13 +1947,32 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Formats an arrival clock time [minutesFromNow] into the future, e.g. "ETA 3:45 PM".
+  String _formatEta(int minutesFromNow) {
+    final eta = DateTime.now().add(Duration(minutes: minutesFromNow));
+    final h24 = eta.hour;
+    final period = h24 >= 12 ? 'PM' : 'AM';
+    final h12 = h24 % 12 == 0 ? 12 : h24 % 12;
+    final mm = eta.minute.toString().padLeft(2, '0');
+    return 'ETA $h12:$mm $period';
+  }
+
   Widget _buildBottomHUD() {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
-    final speedKmh = _isTollStop || _activeStopHighlight != null 
-        ? 0 
-        : (_currentSpeedModifier * 80).round();
-    final remainingDistanceKm = ((1.0 - _tripProgressPercent) * 140.0).toStringAsFixed(1);
-    final remainingMinutes = ((1.0 - _tripProgressPercent) * 110.0).round();
+    // Live navigation uses real GPS-derived values; the simulation uses its
+    // internal progress model.
+    final int speedKmh = _isLiveNavigating
+        ? _liveSpeedKmh.round()
+        : (_isTollStop || _activeStopHighlight != null ? 0 : (_currentSpeedModifier * 80).round());
+    final String remainingDistanceKm = _isLiveNavigating
+        ? _liveRemainingKm.toStringAsFixed(1)
+        : ((1.0 - _tripProgressPercent) * 140.0).toStringAsFixed(1);
+    final int remainingMinutes = _isLiveNavigating
+        ? _liveRemainingMin
+        : ((1.0 - _tripProgressPercent) * 110.0).round();
+    final String etaText = _isLiveNavigating
+        ? _formatEta(remainingMinutes)
+        : 'ETA 3:45 PM';
 
     return Positioned(
       left: 16,
@@ -1819,7 +2011,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        "$remainingDistanceKm km • ETA 3:45 PM",
+                        "$remainingDistanceKm km • $etaText",
                         style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
                       ),
                     ],
@@ -2309,10 +2501,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(width: 10),
           _mapPillButton(
-            icon: Icons.play_arrow,
+            icon: Icons.navigation,
             label: 'Start Trip',
             bg: darkBg,
-            onTap: () => _startAnimation(preview: false),
+            onTap: _startLiveNavigation,
           ),
         ],
       );
@@ -2325,7 +2517,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       children: [
         _mapCircleButton(icon: Icons.visibility, bg: darkBg, onTap: () => _startAnimation(preview: true)),
         const SizedBox(height: 10),
-        _mapCircleButton(icon: Icons.play_arrow, bg: darkBg, onTap: () => _startAnimation(preview: false)),
+        _mapCircleButton(icon: Icons.navigation, bg: darkBg, onTap: _startLiveNavigation),
       ],
     );
   }
