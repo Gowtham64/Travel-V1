@@ -129,6 +129,7 @@
 
       window.currentRoutePoints = routePoints;
       window.mapboxMarkers = [];
+      window.animatedRouteCoords = [];
 
       mapboxgl.accessToken = accessToken;
 
@@ -476,6 +477,7 @@
     };
 
     window.update3DVehiclePosition = function(lng, lat, rotationRad, speedModifier, customZoom) {
+      if (lng === 0 && lat === 0) return;
       // Feed the real 3D model layer.
       if (window.vehicleState) {
         window.vehicleState.lng = lng;
@@ -500,19 +502,30 @@
         window.currentVehicleMarker.setLngLat(position);
         window.currentVehicleMarker.setRotation(rotationDeg);
         
-        if (!window.animatedRouteCoords) {
-          window.animatedRouteCoords = [];
+        let closestIdx = 0;
+        let minDist = Infinity;
+        if (window.currentRoutePoints) {
+          window.currentRoutePoints.forEach((p, rIdx) => {
+            const dist = Math.pow(p[0] - lng, 2) + Math.pow(p[1] - lat, 2);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = rIdx;
+            }
+          });
         }
-        
+
+        const traveledCoords = window.currentRoutePoints
+          ? window.currentRoutePoints.slice(0, closestIdx + 1)
+          : [];
+        traveledCoords.push(position);
+
         // Clear markers when starting fresh
-        if (window.animatedRouteCoords.length === 0) {
+        if (closestIdx === 0) {
           if (window.mapboxMarkers) {
             window.mapboxMarkers.forEach(m => m.remove());
           }
         }
-        
-        window.animatedRouteCoords.push(position);
-        
+
         // Grow route line dynamically
         const source = map.getSource('route');
         if (source) {
@@ -521,16 +534,15 @@
             'properties': {},
             'geometry': {
               'type': 'LineString',
-              'coordinates': window.animatedRouteCoords
+              'coordinates': traveledCoords
             }
           });
         }
 
         // Pop up markers dynamically as vehicle passes
-        const currentIdx = window.animatedRouteCoords.length;
         if (window.mapboxMarkers) {
           window.mapboxMarkers.forEach(marker => {
-            if (currentIdx >= marker.closestRouteIdx) {
+            if (closestIdx >= marker.closestRouteIdx) {
               if (!marker.getElement().parentElement) {
                 marker.addTo(map);
                 const el = marker.getElement();
