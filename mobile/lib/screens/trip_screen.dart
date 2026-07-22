@@ -13,6 +13,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
+import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
 import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
@@ -33,6 +34,8 @@ class TripScreen extends StatefulWidget {
   /// Optional finer-grained key for choosing the 3D model (e.g. 'scooter' vs the
   /// generic 'motorcycle'). Falls back to [vehicle].type when null.
   final String? modelSubtype;
+  /// Number of travellers, used to split the trip cost. Defaults to 1.
+  final int travellers;
 
   const TripScreen({
     super.key,
@@ -48,6 +51,7 @@ class TripScreen extends StatefulWidget {
     this.initialPois,
     this.isEmbedded = false,
     this.modelSubtype,
+    this.travellers = 1,
   });
 
   @override
@@ -100,6 +104,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   
   late TripPlan _currentPlan;
   late List<GeoPoint> _currentWaypoints;
+  // How many ways to split the trip cost (cost-split feature).
+  late int _splitCount;
 
   @override
   void initState() {
@@ -110,6 +116,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     )..forward();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
+    _splitCount = widget.travellers < 1 ? 1 : widget.travellers;
     bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
     if (hasAllCategories) {
       for (final cat in widget.poiCategories) {
@@ -545,6 +552,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   _buildDriveActions(),
                   const SizedBox(height: 10),
                   _buildTripActions(),
+                  const SizedBox(height: 12),
+                  _buildTripToolkit(),
                   const SizedBox(height: 8),
                   const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
                   const SizedBox(height: 8),
@@ -602,6 +611,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                           _buildDriveActions(),
                           const SizedBox(height: 10),
                           _buildTripActions(),
+                          const SizedBox(height: 12),
+                          _buildTripToolkit(),
                           const SizedBox(height: 8),
                           const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
                           const SizedBox(height: 8),
@@ -1706,6 +1717,324 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // ─────────────────────────  Trip toolkit  ─────────────────────────
+  // Fuel-stop planner, per-traveller cost split, and itinerary export.
+
+  /// Returns (fuelCost, tollCost, currencySymbol) as best-available numbers.
+  ({double fuel, double toll, String symbol}) _tripCosts() {
+    final t = _currentPlan.toll;
+    final symbol = (t?.currency == null || t?.currency == 'INR') ? '₹' : '${t!.currency} ';
+    final eff = widget.vehicle.efficiencyKmPerLiter > 0 ? widget.vehicle.efficiencyKmPerLiter : 15.0;
+    final isUSD = t?.currency == 'USD';
+    final fuel = (t?.fuelCost != null && t!.fuelCost! > 0)
+        ? t.fuelCost!
+        : (_currentPlan.distanceKm / eff) * (isUSD ? 1.05 : 102.0);
+    final toll = (t == null || !t.hasTolls)
+        ? 0.0
+        : (t.fastagTollCost ?? t.minTollCost ?? 0.0);
+    return (fuel: fuel, toll: toll, symbol: symbol);
+  }
+
+  /// Computes where along the route the tank would run low, using the entered
+  /// current fuel, tank size and mileage. Refuels are planned at 90% of range.
+  List<({double km, String near})> _computeFuelStops() {
+    final v = widget.vehicle;
+    final eff = v.efficiencyKmPerLiter;
+    final coords = _currentPlan.coordinates;
+    final stops = <({double km, String near})>[];
+    if (eff <= 0 || v.tankCapacityLiters <= 0 || coords.length < 2) return stops;
+
+    final total = _currentPlan.distanceKm;
+    final firstRange = v.currentFuelLiters * eff;
+    final fullRange = v.tankCapacityLiters * eff;
+    if (fullRange <= 0) return stops;
+
+    const dist = Distance();
+    const safety = 0.9;
+    double nextRefuel = firstRange * safety;
+    double cumulative = 0.0;
+
+    for (int i = 1; i < coords.length && nextRefuel < total; i++) {
+      cumulative += dist.as(LengthUnit.Kilometer, coords[i - 1].toLatLng(), coords[i].toLatLng());
+      while (cumulative >= nextRefuel && nextRefuel < total) {
+        stops.add((km: nextRefuel, near: _nearestFuelName(coords[i])));
+        nextRefuel += fullRange * safety;
+      }
+    }
+    return stops;
+  }
+
+  String _nearestFuelName(GeoPoint at) {
+    final fuels = _pois['fuel'];
+    if (fuels == null || fuels.isEmpty) return 'find a fuel station';
+    const dist = Distance();
+    PlaceOfInterest? best;
+    double min = double.infinity;
+    for (final p in fuels) {
+      final d = dist.as(LengthUnit.Kilometer, at.toLatLng(), LatLng(p.lat, p.lng));
+      if (d < min) { min = d; best = p; }
+    }
+    final name = (best?.name.toLowerCase().startsWith('unnamed') ?? true) ? 'Fuel station' : best!.name;
+    return '$name (~${min.toStringAsFixed(0)} km away)';
+  }
+
+  Widget _buildTripToolkit() {
+    final costs = _tripCosts();
+    final fuelStops = _computeFuelStops();
+    final v = widget.vehicle;
+    final firstRange = v.currentFuelLiters * v.efficiencyKmPerLiter;
+    final perPerson = (costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Fuel-stop planner
+          _toolkitCard(
+            icon: Icons.local_gas_station,
+            color: Colors.orangeAccent,
+            title: 'Fuel-stop planner',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  v.efficiencyKmPerLiter <= 0
+                      ? 'Enter vehicle mileage to plan fuel stops.'
+                      : 'Current fuel gets you ~${firstRange.toStringAsFixed(0)} km · full tank ~${(v.tankCapacityLiters * v.efficiencyKmPerLiter).toStringAsFixed(0)} km.',
+                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12.5),
+                ),
+                const SizedBox(height: 8),
+                if (fuelStops.isEmpty)
+                  Row(children: [
+                    const Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text('No refuel needed — you can reach on current fuel.',
+                        style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13))),
+                  ])
+                else
+                  ...fuelStops.asMap().entries.map((e) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(children: [
+                          Container(
+                            width: 20, height: 20, alignment: Alignment.center,
+                            decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(0.2), shape: BoxShape.circle),
+                            child: Text('${e.key + 1}', style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text('Refuel by ~${e.value.km.toStringAsFixed(0)} km — ${e.value.near}',
+                              style: const TextStyle(color: Colors.white, fontSize: 13))),
+                        ]),
+                      )),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Cost split
+          _toolkitCard(
+            icon: Icons.groups,
+            color: const Color(0xFF60A5FA),
+            title: 'Split the cost',
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: Text('Split $_splitCount way${_splitCount > 1 ? 's' : ''}',
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))),
+                    _splitBtn(Icons.remove, _splitCount > 1 ? () => setState(() => _splitCount--) : null),
+                    Container(width: 30, alignment: Alignment.center, child: Text('$_splitCount', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
+                    _splitBtn(Icons.add, _splitCount < 12 ? () => setState(() => _splitCount++) : null),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(color: const Color(0xFF60A5FA).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Fuel + tolls per person', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                      Text('${costs.symbol}${perPerson.toStringAsFixed(0)}',
+                          style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 18, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text('Total ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}  (fuel ${costs.symbol}${costs.fuel.toStringAsFixed(0)} · tolls ${costs.symbol}${costs.toll.toStringAsFixed(0)})',
+                    style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          // Export itinerary
+          OutlinedButton.icon(
+            onPressed: _showItinerarySheet,
+            icon: const Icon(Icons.description_outlined, size: 18),
+            label: const Text('Export itinerary'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white,
+              side: BorderSide(color: Colors.white.withOpacity(0.25)),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toolkitCard({required IconData icon, required Color color, required String title, required Widget child}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 10),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _splitBtn(IconData icon, VoidCallback? onTap) {
+    return Material(
+      color: onTap == null ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.12),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(5),
+          child: Icon(icon, size: 18, color: onTap == null ? Colors.white24 : Colors.white),
+        ),
+      ),
+    );
+  }
+
+  /// Builds a clean, copy/share-able itinerary sheet.
+  String _buildItineraryText() {
+    final p = _currentPlan;
+    final costs = _tripCosts();
+    final hours = p.durationMin ~/ 60;
+    final mins = p.durationMin % 60;
+    final sb = StringBuffer();
+    sb.writeln('VOYPLAN — TRIP ITINERARY');
+    sb.writeln('════════════════════════');
+    sb.writeln('From:  ${widget.startAddress}');
+    sb.writeln('To:    ${widget.endAddress}');
+    sb.writeln('');
+    sb.writeln('Distance:  ${p.distanceKm.toStringAsFixed(0)} km');
+    sb.writeln('Drive:     ${hours}h ${mins}m  ·  ${p.estimatedDays} day${p.estimatedDays > 1 ? 's' : ''}');
+    sb.writeln('Vehicle:   ${widget.vehicleType.toUpperCase()}');
+    sb.writeln('');
+    sb.writeln('COSTS');
+    sb.writeln('  Fuel:   ${costs.symbol}${costs.fuel.toStringAsFixed(0)}');
+    sb.writeln('  Tolls:  ${costs.symbol}${costs.toll.toStringAsFixed(0)}');
+    sb.writeln('  Total:  ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}'
+        '  (${costs.symbol}${((costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount)).toStringAsFixed(0)} each ÷ $_splitCount)');
+    final fuelStops = _computeFuelStops();
+    if (fuelStops.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('FUEL STOPS');
+      for (var i = 0; i < fuelStops.length; i++) {
+        sb.writeln('  ${i + 1}. by ~${fuelStops[i].km.toStringAsFixed(0)} km — ${fuelStops[i].near}');
+      }
+    }
+    if (_currentWaypoints.isNotEmpty) {
+      sb.writeln('');
+      sb.writeln('STOPS');
+      for (var i = 0; i < _currentWaypoints.length; i++) {
+        sb.writeln('  ${i + 1}. ${_currentWaypoints[i].name ?? 'Stop ${i + 1}'}');
+      }
+    }
+    final link = _buildShareLink();
+    if (link != null) {
+      sb.writeln('');
+      sb.writeln('Open this trip: $link');
+    }
+    sb.writeln('');
+    sb.writeln('Planned with Voyplan 🧭');
+    return sb.toString();
+  }
+
+  void _showItinerarySheet() {
+    final text = _buildItineraryText();
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A1A),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 16,
+          bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+            const SizedBox(height: 16),
+            const Text('Trip itinerary', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.35), borderRadius: BorderRadius.circular(12)),
+                  child: SelectableText(text, style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.5, fontFamily: 'monospace')),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: text));
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itinerary copied')));
+                      Navigator.pop(ctx);
+                    },
+                    icon: const Icon(Icons.copy, size: 18),
+                    label: const Text('Copy'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withOpacity(0.25)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      try {
+                        await Share.share(text, subject: 'Voyplan itinerary — ${widget.endAddress}');
+                      } catch (_) {}
+                    },
+                    icon: const Icon(Icons.ios_share, size: 18),
+                    label: const Text('Share'),
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E75B6), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

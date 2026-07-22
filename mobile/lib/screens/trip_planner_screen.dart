@@ -349,6 +349,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               vehicle: vehicle,
               initialPois: _pois.isNotEmpty ? _pois : null,
               modelSubtype: model3DKey(_selectedVehicle!),
+              travellers: _travellers,
             ),
           ),
         );
@@ -1359,6 +1360,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         initialPois: _pois.isNotEmpty ? _pois : null,
         isEmbedded: true,
         modelSubtype: model3DKey(_selectedVehicle!),
+        travellers: _travellers,
       ),
     );
   }
