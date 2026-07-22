@@ -1,0 +1,33 @@
+<!-- ==========================================================================
+     Apple CarPlay — additions for mobile/ios/Runner/Info.plist
+     Adds a SECOND scene (the CarPlay window) alongside the default app scene.
+     Merge the UIApplicationSceneManifest below into Info.plist.
+     ========================================================================== -->
+
+<key>UIApplicationSceneManifest</key>
+<dict>
+    <key>UIApplicationSupportsMultipleScenes</key>
+    <true/>
+    <key>UISceneConfigurations</key>
+    <dict>
+        <!-- CarPlay scene -->
+        <key>CPTemplateApplicationSceneSessionRoleApplication</key>
+        <array>
+            <dict>
+                <key>UISceneClassName</key>
+                <string>CPTemplateApplicationScene</string>
+                <key>UISceneConfigurationName</key>
+                <string>CarPlay</string>
+                <key>UISceneDelegateClassName</key>
+                <string>$(PRODUCT_MODULE_NAME).CarPlaySceneDelegate</string>
+            </dict>
+        </array>
+    </dict>
+</dict>
+
+<!-- The CarPlay entitlement itself goes in ios/Runner/Runner.entitlements
+     (enabled on the App ID after Apple approves the request):
+
+     <key>com.apple.developer.carplay-maps</key>
+     <true/>
+-->

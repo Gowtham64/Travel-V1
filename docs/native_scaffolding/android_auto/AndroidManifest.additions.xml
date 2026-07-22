@@ -1,0 +1,34 @@
+<!-- ==========================================================================
+     Android Auto — additions for mobile/android/app/src/main/AndroidManifest.xml
+     Merge these into the existing manifest.
+     ========================================================================== -->
+
+<!-- Inside <manifest>, alongside the existing uses-permission lines: -->
+<uses-feature
+    android:name="android.hardware.type.automotive"
+    android:required="false" />
+<uses-feature
+    android:name="android.software.car.templates_host"
+    android:required="false" />
+
+<!-- Inside <application>, alongside the existing <activity>: -->
+<service
+    android:name="io.github.gowtham64.travelapp.car.TravelCarAppService"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="androidx.car.app.CarAppService" />
+        <category android:name="androidx.car.app.category.NAVIGATION" />
+    </intent-filter>
+</service>
+
+<!-- Also inside <application>: declares Android Auto app metadata. -->
+<meta-data
+    android:name="androidx.car.app.minCarApiLevel"
+    android:value="1" />
+
+<!-- Create mobile/android/app/src/main/res/xml/automotive_app_desc.xml with:
+     <automotiveApp><uses name="navigation" /></automotiveApp>
+     and reference it: -->
+<meta-data
+    android:name="com.google.android.gms.car.application"
+    android:resource="@xml/automotive_app_desc" />

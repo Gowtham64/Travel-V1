@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'trip_models.dart';
 
 enum ManeuverType {
   straight,
@@ -55,6 +56,21 @@ class ManeuverInstruction {
     }
     return '${distanceMeters.round()} m';
   }
+}
+
+/// A single maneuver at a fixed point along the route, with its distance from
+/// the route start. The ordered list of these drives the CarPlay / Android Auto
+/// upcoming-steps list (which is computed ahead of time, not just live).
+class RouteStep {
+  final ManeuverInstruction maneuver;
+  final GeoPoint location;
+  final double distanceFromStartMeters;
+
+  const RouteStep({
+    required this.maneuver,
+    required this.location,
+    required this.distanceFromStartMeters,
+  });
 }
 
 class CarTelemetry {
