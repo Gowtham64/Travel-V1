@@ -1775,11 +1775,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Vertical stack of round glass control buttons (reference: right rail).
   Widget _buildNavControlStack() {
-    Widget btn(IconData icon, VoidCallback onTap, {String? tip}) {
+    Widget btn(IconData icon, VoidCallback onTap, {Color? bg}) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Material(
-          color: Colors.black.withOpacity(0.45),
+          color: bg ?? Colors.black.withOpacity(0.45),
           shape: const CircleBorder(),
           child: InkWell(
             customBorder: const CircleBorder(),
@@ -1795,6 +1795,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     return Column(
       children: [
+        // Always-visible Save + Share on the map (also in the side panel).
+        btn(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
+        btn(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
+            _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
         btn(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             () => setState(() => _navSoundOn = !_navSoundOn)),
         btn(Icons.explore_outlined, _recenterMap),
