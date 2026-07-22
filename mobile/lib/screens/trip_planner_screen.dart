@@ -137,6 +137,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       setState(() => _loading = true);
       final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;
+      // Same trip summary (tolls, fuel, times) shown after DONE.
+      await _showTripSummaryDialog(plan, vehicle);
+      if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => TripScreen(
           plan: plan,
@@ -307,6 +310,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
       if (!mounted) return;
 
+      // Trip summary (toll details, fuel price, times) right after DONE, so the
+      // user reviews the estimate before the drive.
+      await _showTripSummaryDialog(plan, vehicle);
+      if (!mounted) return;
+
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
           _currentPlan = plan;
@@ -336,6 +344,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               waypoints: waypoints,
               vehicle: vehicle,
               initialPois: _pois.isNotEmpty ? _pois : null,
+              modelSubtype: model3DKey(_selectedVehicle!),
             ),
           ),
         );
@@ -347,7 +356,151 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
   }
 
+  /// Trip summary shown after DONE: toll details, fuel price, and times.
+  Future<void> _showTripSummaryDialog(TripPlan plan, Vehicle vehicle) async {
+    final toll = plan.toll;
+    final double fastag = toll?.fastagTollCost ?? 0;
+    final double cash = toll?.cashTollCost ?? 0;
+    final double? minT = toll?.minTollCost;
+    final double? maxT = toll?.maxTollCost;
+    final double litres = vehicle.efficiencyKmPerLiter > 0
+        ? plan.distanceKm / vehicle.efficiencyKmPerLiter
+        : 0;
+    // Fall back to litres x current pump price when the plan omits a fuel cost,
+    // so the estimate is always meaningful (matches the trip screen's figure).
+    const double defaultPumpPrice = 102.0; // ₹/L (petrol, India)
+    double fuelCost = toll?.fuelCost ?? 0;
+    if (fuelCost <= 0) fuelCost = litres * defaultPumpPrice;
+    final double pricePerL = litres > 0 ? fuelCost / litres : defaultPumpPrice;
 
+    final now = DateTime.now();
+    final eta = now.add(Duration(minutes: plan.durationMin));
+    final String durText = plan.durationMin >= 60
+        ? '${plan.durationMin ~/ 60}h ${plan.durationMin % 60}m'
+        : '${plan.durationMin} min';
+    String clock(DateTime t) {
+      final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+      final m = t.minute.toString().padLeft(2, '0');
+      return '$h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
+    }
+
+    Widget sectionTitle(IconData icon, String label) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(children: [
+            Icon(icon, color: AppColors.accentLight, size: 18),
+            const SizedBox(width: 8),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.3)),
+          ]),
+        );
+    Widget row(String k, String v, {Color? valueColor, bool strong = false}) =>
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(k, style: TextStyle(color: Colors.white.withOpacity(0.62), fontSize: 13)),
+              Text(v,
+                  style: TextStyle(
+                      color: valueColor ?? Colors.white,
+                      fontSize: strong ? 15 : 13.5,
+                      fontWeight: strong ? FontWeight.bold : FontWeight.w600)),
+            ],
+          ),
+        );
+    Widget card(Widget child) => Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: child,
+        );
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF12161F),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+        ),
+        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.of(ctx).padding.bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 42,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text('Trip Summary',
+                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 2),
+              Text('${plan.distanceKm.toStringAsFixed(1)} km route',
+                  style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
+              const SizedBox(height: 18),
+
+              // Times
+              card(Column(children: [
+                sectionTitle(Icons.schedule, 'Times'),
+                row('Driving time', durText),
+                row('Departure', clock(now)),
+                row('Arrival (ETA)', clock(eta), valueColor: Colors.greenAccent, strong: true),
+              ])),
+
+              // Toll details
+              card(Column(children: [
+                sectionTitle(Icons.receipt_long, 'Toll Details'),
+                row('FASTag toll', '₹${fastag.toStringAsFixed(0)}'),
+                row('Cash toll', '₹${cash.toStringAsFixed(0)}'),
+                if (minT != null && maxT != null)
+                  row('Estimated range', '₹${minT.toStringAsFixed(0)} – ₹${maxT.toStringAsFixed(0)}'),
+                const Divider(color: Colors.white12, height: 18),
+                row('You pay (FASTag)', '₹${fastag.toStringAsFixed(0)}',
+                    valueColor: AppColors.accentLight, strong: true),
+              ])),
+
+              // Fuel
+              card(Column(children: [
+                sectionTitle(Icons.local_gas_station, 'Fuel'),
+                row('Fuel needed', '${litres.toStringAsFixed(1)} L'),
+                row('Price / litre (est.)', '₹${pricePerL.toStringAsFixed(1)}'),
+                row('Mileage', '${vehicle.efficiencyKmPerLiter.toStringAsFixed(0)} km/L'),
+                const Divider(color: Colors.white12, height: 18),
+                row('Fuel cost', '₹${fuelCost.toStringAsFixed(0)}',
+                    valueColor: Colors.orangeAccent, strong: true),
+              ])),
+
+              const SizedBox(height: 4),
+              AccentButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: const Text('Start Trip',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Future<void> _findPlacesBeforeTrip() async {
     if (!_formKey.currentState!.validate()) return;
