@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
-// Web speech synthesis support conditionally
-import 'dart:html' as html if (dart.library.io) 'car_guidance_speech_stub.dart';
+// Web speech synthesis support, conditionally. The stub is the default so native
+// builds never reference dart:html; only web (dart.library.html) pulls dart:html.
+import 'car_guidance_speech_stub.dart'
+    if (dart.library.html) 'dart:html' as html;
 
 class CarGuidanceService {
   final Distance _distance = const Distance();
