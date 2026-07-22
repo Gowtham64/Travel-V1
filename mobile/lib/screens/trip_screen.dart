@@ -53,6 +53,8 @@ class TripScreen extends StatefulWidget {
 enum MapStyle { outdoors2D, satellite2D, satellite3D }
 
 class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
+  // Drives the staggered slide/fade entrance of the map control overlays.
+  late final AnimationController _overlayCtrl;
   bool _saving = false;
   bool _loadingPOIs = true;
   bool _recalculating = false;
@@ -96,6 +98,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    _overlayCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    )..forward();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
     bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
@@ -129,6 +135,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _overlayCtrl.dispose();
     _animationTimer?.cancel();
     _ticker?.dispose();
     _positionStream?.cancel();
@@ -1700,40 +1707,52 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       fit: StackFit.expand,
       children: [
         Positioned.fill(child: mapWidget),
-        Positioned(
-          right: rightPadding,
-          top: topPadding,
-          child: !isDesktop
-              ? Column(
-                  children: [
-                    _buildMapDriveCluster(false),
-                    const SizedBox(height: 10),
-                    _buildLayersButton(),
-                  ],
-                )
-              : Row(
-                  children: [
-                    _buildLayersButton(),
-                    const SizedBox(width: 10),
-                    _buildMapDriveCluster(true),
-                  ],
-                ),
-        ),
+
+        if (isDesktop) ...[
+          // Desktop has width for a top row + a control stack below it.
+          Positioned(
+            right: rightPadding,
+            top: topPadding,
+            child: Row(
+              children: [
+                _buildLayersButton(),
+                const SizedBox(width: 10),
+                _buildMapDriveCluster(true),
+              ],
+            ),
+          ),
+          Positioned(
+            right: rightPadding,
+            top: topPadding + 70,
+            child: _buildNavControlStack(),
+          ),
+        ] else
+          // Mobile: ONE unified right rail so the controls never overlap, with a
+          // staggered slide-in entrance.
+          Positioned(
+            right: rightPadding,
+            top: topPadding,
+            child: _buildMobileControlRail(),
+          ),
+
         _buildTopHUD(topPadding),
         _buildBottomHUD(),
-        // Driver-cluster speedometer (bottom-left) during preview/navigation.
+
+        // Driver-cluster speedometer during preview/navigation. On mobile it sits
+        // ABOVE the bottom info banner (not on top of it) and is a touch smaller.
         if (_isPlayingAnimation)
           Positioned(
-            left: 20,
-            bottom: 24,
-            child: _buildSpeedometer(),
+            left: 16,
+            bottom: isDesktop ? 24 : 132,
+            child: ScaleTransition(
+              scale: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOutBack),
+              child: FadeTransition(
+                opacity: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOut),
+                child: _buildSpeedometer(compact: !isDesktop),
+              ),
+            ),
           ),
-        // Extra nav control buttons (right side, below layers/drive controls).
-        Positioned(
-          right: rightPadding,
-          top: topPadding + 70,
-          child: _buildNavControlStack(),
-        ),
+
         if (isDesktop && (_activeStopHighlight != null || _isTollStop))
           Positioned(
             left: 16,
@@ -1741,6 +1760,60 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: _buildStopHighlightCard(topPadding),
           ),
       ],
+    );
+  }
+
+  /// Single, non-overlapping vertical rail of controls for mobile, each sliding
+  /// in from the right with a staggered fade for a dynamic entrance.
+  Widget _buildMobileControlRail() {
+    Widget railItem(int i, Widget child) {
+      final double begin = (i * 0.07).clamp(0.0, 0.6);
+      final anim = CurvedAnimation(
+        parent: _overlayCtrl,
+        curve: Interval(begin, (begin + 0.4).clamp(0.0, 1.0), curve: Curves.easeOut),
+      );
+      return SlideTransition(
+        position: Tween<Offset>(begin: const Offset(0.7, 0), end: Offset.zero).animate(anim),
+        child: FadeTransition(opacity: anim, child: child),
+      );
+    }
+
+    final items = <Widget>[
+      _buildMapDriveCluster(false),
+      _buildLayersButton(),
+      _navCircle(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
+      _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
+          _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
+      _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+          () => setState(() => _navSoundOn = !_navSoundOn)),
+      _navCircle(Icons.explore_outlined, _recenterMap),
+      _navCircle(Icons.settings_outlined, _showMapStyleSheet),
+    ];
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (int i = 0; i < items.length; i++) ...[
+          if (i != 0) const SizedBox(height: 10),
+          railItem(i, items[i]),
+        ],
+      ],
+    );
+  }
+
+  /// A single round glass control button (shared by the rails).
+  Widget _navCircle(IconData icon, VoidCallback onTap, {Color? bg}) {
+    return Material(
+      color: bg ?? Colors.black.withOpacity(0.45),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(icon, color: Colors.white, size: 22),
+        ),
+      ),
     );
   }
 
@@ -1752,11 +1825,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   /// Driver-cluster style speedometer gauge (reference: instrument cluster).
-  Widget _buildSpeedometer() {
+  Widget _buildSpeedometer({bool compact = false}) {
     final speed = _displaySpeedKmh;
+    final double size = compact ? 116 : 150;
+    final double numSize = compact ? 34 : 44;
     return Container(
-      width: 150,
-      height: 150,
+      width: size,
+      height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: const RadialGradient(
@@ -1773,26 +1848,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const SizedBox(height: 8),
+              SizedBox(height: compact ? 6 : 8),
               Text(
                 '$speed',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 44,
+                  fontSize: numSize,
                   fontWeight: FontWeight.w800,
                   height: 1.0,
                 ),
               ),
-              Text('km/h', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
-              const SizedBox(height: 6),
+              Text('km/h', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: compact ? 10 : 12)),
+              SizedBox(height: compact ? 4 : 6),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1a73e8).withOpacity(0.25),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text('D',
-                    style: TextStyle(color: Color(0xFF60A5FA), fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 2)),
+                child: Text('D',
+                    style: TextStyle(color: const Color(0xFF60A5FA), fontWeight: FontWeight.bold, fontSize: compact ? 11 : 13, letterSpacing: 2)),
               ),
             ],
           ),
@@ -2127,9 +2202,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ? _formatEta(remainingMinutes)
         : 'ETA 3:45 PM';
 
+    final bool isDesktop = MediaQuery.of(context).size.width > 900;
     return Positioned(
       left: 16,
-      right: 80,
+      // Desktop keeps a right gap (speedometer sits bottom-left); mobile uses the
+      // full width because the speedometer now sits above this banner.
+      right: isDesktop ? 80 : 16,
       bottom: 24,
       child: Center(
         child: Container(
