@@ -70,19 +70,18 @@ jobs:
 
       - run: flutter --version
       - run: flutter pub get
-      # Builds the app without code signing (no Apple account needed to verify it
-      # compiles). Signing/distribution comes in Phase 5.
-      - run: flutter build ios --release --no-codesign
+      # Build for the SIMULATOR: verifies the iOS app compiles with zero Apple
+      # account / signing team (a device build demands a Development Team even
+      # with --no-codesign). Real device signing/distribution is Phase 5.
+      - run: flutter build ios --debug --simulator
 
-      - name: Package unsigned .app
+      - name: Package simulator .app
         run: |
-          cd build/ios/iphoneos
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r ../../../travel-app-ios-nosign.zip Payload >/dev/null
+          cd build/ios/iphonesimulator
+          zip -r ../../../travel-app-ios-sim.zip Runner.app >/dev/null
 
       - uses: actions/upload-artifact@v4
         with:
-          name: travel-app-ios-nosign
-          path: mobile/travel-app-ios-nosign.zip
+          name: travel-app-ios-sim
+          path: mobile/travel-app-ios-sim.zip
           if-no-files-found: error
