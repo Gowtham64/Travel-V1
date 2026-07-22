@@ -297,6 +297,45 @@
             gap: 0.7rem;
         }
 
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.9rem;
+            margin-top: 1.8rem;
+        }
+
+        .hero-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.85rem 1.6rem;
+            border-radius: 100px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.98rem;
+            transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.2s ease;
+        }
+
+        .hero-btn svg { width: 19px; height: 19px; }
+
+        .hero-btn.primary {
+            background: linear-gradient(100deg, var(--teal), var(--teal-deep));
+            color: #04211d;
+            box-shadow: 0 10px 30px rgba(45, 212, 191, 0.3);
+        }
+
+        .hero-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(45, 212, 191, 0.42); }
+
+        .hero-btn.ghost {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .hero-btn.ghost:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.16); }
+
         .chip {
             display: inline-flex;
             align-items: center;
@@ -879,6 +918,7 @@
                 <li><a href="#tech-stack">Tech</a></li>
                 <li><a href="https://github.com/gowtham64/Travel-V1" target="_blank"
                         rel="noopener noreferrer">GitHub</a></li>
+                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">Download APK</a></li>
                 <li class="nav-cta"><a href="#hero">Sign In</a></li>
             </ul>
         </nav>
@@ -922,6 +962,13 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><path d="M8 19v1M12 19v2M16 19v1"></path></svg>
                                 Route weather
                             </span>
+                        </div>
+                        <div class="hero-actions word" style="animation-delay:.95s">
+                            <a class="hero-btn primary" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
+                            <a class="hero-btn ghost" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
+                                Download for Android
+                            </a>
                         </div>
                     </div>
 
