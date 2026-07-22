@@ -116,4 +116,55 @@ wait can extend this).
 
 A phone **"Car Mode"**: fullscreen, high-contrast, extra-large buttons, big ETA
 and next-maneuver text, voice prompts — for the phone mounted on the dash. Not
-CarPlay/Android Auto, but usable in the car today. (Offered as a fallback.)
+CarPlay/Android Auto, but usable in the car today. **✅ Built & shipped** — see
+`car_mode_overlay.dart` / `car_guidance_service.dart`.
+
+## 10. Free / open-source stack (avoid the paid Mapbox Navigation SDK)
+
+Everything except the app-store fees can be done with free, open-source tools.
+This replaces §3/§8's paid Mapbox Navigation SDK.
+
+### Maps (free, no token)
+- **MapLibre GL** — open-source fork of Mapbox GL, free, no token. Flutter:
+  `maplibre_gl`; native: MapLibre Native iOS/Android.
+- **Tiles:** [OpenFreeMap](https://openfreemap.org/) — completely free, no key, no
+  request limits; or [MapTiler](https://www.maptiler.com/cloud/pricing/) free tier
+  (100k req/mo). Both serve MapLibre-compatible vector tiles.
+
+### Turn-by-turn navigation SDK (free, open-source)
+- **MapLibre Navigation** —
+  [android](https://github.com/maplibre/maplibre-navigation-android) + iOS. A
+  community fork of the old open Mapbox Nav SDK (v0.19) with **voice guidance,
+  route simulation, and a drop-in nav UI**. This is the free replacement for the
+  paid Mapbox Navigation SDK. (Caveat: it ships the phone nav UI; the CarPlay /
+  Android Auto surface we still wire ourselves onto the free OS frameworks.)
+
+### Routing / directions + maneuvers (free)
+- **OpenRouteService** hosted API — free tier **2,500 req/day, 40k/mo**, returns
+  turn-by-turn maneuvers. No self-hosting. https://openrouteservice.org/restrictions/
+- **Valhalla** public server — [valhalla.openstreetmap.de](https://valhalla.openstreetmap.de),
+  free, full-planet, turn-by-turn narrative. Self-host later to scale.
+- Alternatives to self-host at scale: **OSRM**, **GraphHopper**, **Valhalla**
+  (all open-source, no per-request fees).
+
+### Car frameworks (free)
+- Android Auto `androidx.car.app` and iOS `CarPlay` framework are **free** parts
+  of the platform SDKs. Test Android Auto free with the **Desktop Head Unit
+  (DHU)** + sideloading (no Play account needed for local testing).
+
+### The only unavoidable costs (store distribution)
+| Item | Cost | Avoidable? |
+|---|---|---|
+| Apple Developer Program (ship to App Store **+ CarPlay entitlement**) | $99 / yr | No, to publish/entitle CarPlay |
+| Google Play Console (publish Android Auto app) | $25 once | No, to publish |
+| Everything else (maps, routing, nav SDK, frameworks) | **$0** | Yes — use the stack above |
+
+On-device dev testing is free (iOS 7-day provisioning, Android sideload + DHU);
+only public release and the CarPlay entitlement require the paid Apple program.
+
+### Revised recommended stack
+- `maplibre_gl` (free native map) + OpenFreeMap tiles
+- **MapLibre Navigation** (free turn-by-turn, voice)
+- **OpenRouteService** / **Valhalla** for routes + maneuvers (free)
+- `pigeon` for Flutter⇄native channels (free)
+- iOS `CarPlay` + Android `androidx.car.app` (free frameworks)
