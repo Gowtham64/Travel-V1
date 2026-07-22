@@ -41,6 +41,10 @@ sed -i '' "s/main.dart.js/main.dart.${TIMESTAMP}.js/" flutter_bootstrap.js
 # Delete service worker file to disable caching of stale JS files
 rm -f flutter_service_worker.js
 
+# Stamp the build number into index.html so the on-map HUD can confirm the
+# browser loaded the latest (non-cached) index.html.
+sed -i '' "s/__BUILD__/${TIMESTAMP}/g" index.html
+
 cd ../.. # back to project root
 
 echo "=== Step 5: Preparing gh-pages Deployment ==="

@@ -9,3 +9,6 @@ mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/ios/Pods/
 mobile/android/.gradle/
+
+# Web deploy build artifact (force-pushed to gh-pages by deploy_web.sh)
+gh-pages-deploy/

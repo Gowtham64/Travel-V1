@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' show Platform;
 import 'dart:math';
+import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,6 +15,7 @@ import 'package:geolocator/geolocator.dart';
 import 'trip_screen.dart';
 import 'saved_trips_screen.dart';
 import '../widgets/app_design.dart';
+import '../widgets/globe_preview.dart';
 import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
@@ -59,6 +62,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   GeoPoint? _tempStart;
   GeoPoint? _tempEnd;
   List<GeoPoint>? _tempWaypoints;
+
+  // Start location the preview globe should fly to (web only).
+  GeoPoint? _startFocusPoint;
+
+  // Mapbox Search autocomplete: suggestions per stop index + debounce timer.
+  final Map<int, List<Map<String, dynamic>>> _suggestions = {};
+  int? _activeSuggestIndex;
+  Timer? _suggestDebounce;
+  static const String _mapboxToken =
+      'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
   Vehicle? _tempVehicle;
   
   Map<String, List<PlaceOfInterest>> _pois = {};
@@ -575,6 +588,107 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
+  /// Mapbox Search autocomplete for a stop field. Debounced; results show as a
+  /// suggestion list under the field.
+  void _onStopQueryChanged(int index, String query) {
+    _suggestDebounce?.cancel();
+    final q = query.trim();
+    if (q.length < 3) {
+      setState(() {
+        _suggestions.remove(index);
+        _activeSuggestIndex = null;
+      });
+      return;
+    }
+    _suggestDebounce = Timer(const Duration(milliseconds: 320), () async {
+      try {
+        final uri = Uri.parse(
+          'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(q)}.json',
+        ).replace(queryParameters: {
+          'autocomplete': 'true',
+          'limit': '5',
+          'country': 'in',
+          'language': 'en',
+          'access_token': _mapboxToken,
+        });
+        final res = await http.get(uri).timeout(const Duration(seconds: 8));
+        if (res.statusCode != 200) return;
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final feats = (body['features'] as List?) ?? [];
+        final list = feats.map((f) {
+          final c = (f['center'] as List);
+          return {
+            'name': f['place_name'] as String? ?? '',
+            'lng': (c[0] as num).toDouble(),
+            'lat': (c[1] as num).toDouble(),
+          };
+        }).toList();
+        if (!mounted) return;
+        setState(() {
+          _suggestions[index] = list;
+          _activeSuggestIndex = index;
+        });
+      } catch (_) {/* ignore transient search errors */}
+    });
+  }
+
+  void _selectSuggestion(int index, Map<String, dynamic> s) {
+    final controller = _stopControllers[index];
+    final pt = GeoPoint(
+      lat: s['lat'] as double,
+      lng: s['lng'] as double,
+      name: s['name'] as String,
+    );
+    setState(() {
+      controller.text = s['name'] as String;
+      _resolvedStopCoords[controller.hashCode] = pt;
+      if (index == 0) _startFocusPoint = pt;
+      _suggestions.remove(index);
+      _activeSuggestIndex = null;
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  Widget _buildSuggestions(int index) {
+    final list = _suggestions[index];
+    if (list == null || list.isEmpty || _activeSuggestIndex != index) {
+      return const SizedBox.shrink();
+    }
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 4, left: 32),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13233B).withOpacity(0.96),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        children: [
+          for (final s in list)
+            InkWell(
+              onTap: () => _selectSuggestion(index, s),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                child: Row(
+                  children: [
+                    const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        s['name'] as String,
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _useCurrentLocation(int index) async {
     setState(() => _loadingLocationForIndex[index] = true);
     try {
@@ -588,11 +702,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       
       setState(() {
         controller.text = displayName;
-        _resolvedStopCoords[controller.hashCode] = GeoPoint(
+        final pt = GeoPoint(
           lat: position.latitude,
           lng: position.longitude,
           name: displayName,
         );
+        _resolvedStopCoords[controller.hashCode] = pt;
+        if (index == 0) _startFocusPoint = pt;
       });
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -651,6 +767,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       setState(() {
         controller.text = selectedPoint.name ?? '${selectedPoint.lat.toStringAsFixed(4)}, ${selectedPoint.lng.toStringAsFixed(4)}';
         _resolvedStopCoords[controller.hashCode] = selectedPoint;
+        if (index == 0) _startFocusPoint = selectedPoint;
       });
     }
   }
@@ -665,6 +782,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     _currentFuelController.dispose();
     _formScrollController.dispose();
     _bgController.dispose();
+    _suggestDebounce?.cancel();
     super.dispose();
   }
 
@@ -709,43 +827,70 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 Positioned.fill(
                   child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
                 ),
-                // 2. Left-edge scrim so the floating panel stays legible.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            Colors.black.withOpacity(0.55),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.42],
+                // The planning panel is only shown while planning. Once a trip
+                // is active the navigation view takes the whole screen so its
+                // own controls aren't overlapped.
+                if (_currentPlan == null) ...[
+                  // 2. Left-edge scrim so the floating panel stays legible.
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                            colors: [
+                              Colors.black.withOpacity(0.55),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 0.42],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                // 3. Floating glass control panel.
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  bottom: 0,
-                  child: SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: SizedBox(
-                        width: 430,
-                        child: RevealIn(
-                          offsetX: -32,
-                          offsetY: 0,
-                          child: _buildFloatingPanel(),
+                  // 3. Floating glass control panel.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    bottom: 0,
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(20),
+                        child: SizedBox(
+                          width: 430,
+                          child: RevealIn(
+                            offsetX: -32,
+                            offsetY: 0,
+                            child: _buildFloatingPanel(),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                ] else
+                  // Active trip: a compact "back to planner" button.
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    child: SafeArea(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Material(
+                          color: Colors.black.withOpacity(0.45),
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => setState(() => _currentPlan = null),
+                            child: const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: Icon(Icons.arrow_back, color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             );
           } else {
@@ -920,6 +1065,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   Widget _buildDefaultMap() {
     // When a temp plan exists (after Find Places), show route preview
     final hasRoute = _tempPlan != null && _tempPlan!.coordinates.isNotEmpty;
+
+    // Web + idle (no route preview yet): show the 3D globe in space. It flies
+    // down to the start location once the user picks one.
+    if (kIsWeb && !hasRoute) {
+      return Scaffold(
+        extendBodyBehindAppBar: true,
+        backgroundColor: const Color(0xFF080A18),
+        appBar: AppBar(
+          title: const Text('Trip Map',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          backgroundColor: Colors.black.withOpacity(0.25),
+          elevation: 0,
+        ),
+        body: GlobePreview(focusPoint: _startFocusPoint),
+      );
+    }
     final routePoints = hasRoute
         ? _tempPlan!.coordinates.map((c) => c.toLatLng()).toList()
         : <LatLng>[];
@@ -1224,11 +1385,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     TextInputType? keyboardType,
     String? Function(String?)? validator,
     Widget? suffixIcon,
+    void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
       validator: validator,
+      onChanged: onChanged,
       style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
@@ -1291,7 +1454,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               return Container(
                 key: ValueKey(_stopControllers[index]),
                 margin: const EdgeInsets.only(bottom: 16),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                Row(
                   children: [
                     Icon(Icons.drag_indicator, color: Colors.white.withOpacity(0.5)),
                     const SizedBox(width: 8),
@@ -1302,6 +1468,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                         icon: icon,
                         iconColor: iconColor,
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        onChanged: (v) => _onStopQueryChanged(index, v),
                         suffixIcon: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -1342,6 +1509,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       )
                     else
                       const SizedBox(width: 48), // Padding equivalent to icon button
+                  ],
+                ),
+                _buildSuggestions(index),
                   ],
                 ),
               );

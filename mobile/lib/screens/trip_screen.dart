@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -62,6 +63,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _isLiveNavigating = false;
   StreamSubscription<Position>? _positionStream;
   double _liveSpeedKmh = 0.0;
+  bool _navSoundOn = true;
   double _liveRemainingKm = 0.0;
   int _liveRemainingMin = 0;
   int _animationIndex = 0;
@@ -108,6 +110,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _loadingPOIs = false;
     } else {
       _fetchPOIs();
+    }
+
+    // Headless test hook: auto-start the 3D preview so screenshots can verify
+    // the 3D vehicle without needing to tap the CanvasKit-painted button.
+    if (kIsWeb && Uri.base.toString().contains('test_preview=true')) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(seconds: 3), () {
+          if (mounted) _startAnimation(preview: true);
+        });
+      });
     }
   }
 
@@ -1451,9 +1463,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return;
       }
 
-      // Advance simulated distance using delta time. Preview completes in ~15s;
-      // the full simulated drive takes ~45s.
-      final double baseSpeed = totalDistance / (_isPreviewMode ? 15.0 : 45.0);
+      // Advance simulated distance using delta time. Preview is a relaxed
+      // fly-through (~40s); the full simulated drive takes ~60s.
+      final double baseSpeed = totalDistance / (_isPreviewMode ? 40.0 : 60.0);
       currentDistance += baseSpeed * speedModifier * dt;
 
       // Camera trails the vehicle with a snappy follow (0.12 lerp) — tight enough
@@ -1681,6 +1693,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ),
         _buildTopHUD(topPadding),
         _buildBottomHUD(),
+        // Driver-cluster speedometer (bottom-left) during preview/navigation.
+        if (_isPlayingAnimation)
+          Positioned(
+            left: 20,
+            bottom: 24,
+            child: _buildSpeedometer(),
+          ),
+        // Extra nav control buttons (right side, below layers/drive controls).
+        Positioned(
+          right: rightPadding,
+          top: topPadding + 70,
+          child: _buildNavControlStack(),
+        ),
         if (isDesktop && (_activeStopHighlight != null || _isTollStop))
           Positioned(
             left: 16,
@@ -1691,6 +1716,102 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Current display speed in km/h from the active model (real values only).
+  int get _displaySpeedKmh {
+    if (_isLiveNavigating) return _liveSpeedKmh.round();
+    if (_isTollStop || _activeStopHighlight != null) return 0;
+    return (_currentSpeedModifier * 80).round();
+  }
+
+  /// Driver-cluster style speedometer gauge (reference: instrument cluster).
+  Widget _buildSpeedometer() {
+    final speed = _displaySpeedKmh;
+    return Container(
+      width: 150,
+      height: 150,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          colors: [Color(0xE61C2233), Color(0xF20B0F1A)],
+        ),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 22, offset: const Offset(0, 10)),
+        ],
+      ),
+      child: CustomPaint(
+        painter: _SpeedGaugePainter(speed: speed, maxSpeed: 120),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Text(
+                '$speed',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 44,
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
+                ),
+              ),
+              Text('km/h', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1a73e8).withOpacity(0.25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text('D',
+                    style: TextStyle(color: Color(0xFF60A5FA), fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 2)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Vertical stack of round glass control buttons (reference: right rail).
+  Widget _buildNavControlStack() {
+    Widget btn(IconData icon, VoidCallback onTap, {String? tip}) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: Colors.black.withOpacity(0.45),
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        btn(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            () => setState(() => _navSoundOn = !_navSoundOn)),
+        btn(Icons.explore_outlined, _recenterMap),
+        btn(Icons.settings_outlined, _showMapStyleSheet),
+      ],
+    );
+  }
+
+  void _recenterMap() {
+    // Recenter the 2D map on the current position (3D map auto-follows).
+    final pos = _animatedVehiclePosition;
+    if (pos != null && _mapStyle != MapStyle.satellite3D) {
+      try { _mapController.move(pos, 16.5); } catch (_) {}
+    }
+  }
+
+  /// Small live minimap inset showing the whole route + current position.
   Widget _buildTollAnimation() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -3455,4 +3576,42 @@ class _BlinkingIndicatorState extends State<_BlinkingIndicator> with SingleTicke
       },
     );
   }
+}
+
+/// Arc speedometer for the driver-cluster overlay: a background track plus a
+/// colored progress arc that sweeps with the current speed.
+class _SpeedGaugePainter extends CustomPainter {
+  final int speed;
+  final int maxSpeed;
+  _SpeedGaugePainter({required this.speed, required this.maxSpeed});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 10;
+    const startAngle = 2.356; // 135° (bottom-left)
+    const sweep = 4.712;      // 270° total travel
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..color = Colors.white.withOpacity(0.12);
+    canvas.drawArc(rect, startAngle, sweep, false, track);
+
+    final frac = (speed / maxSpeed).clamp(0.0, 1.0);
+    final progress = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6
+      ..strokeCap = StrokeCap.round
+      ..shader = const SweepGradient(
+        colors: [Color(0xFF60A5FA), Color(0xFF1a73e8)],
+      ).createShader(rect);
+    canvas.drawArc(rect, startAngle, sweep * frac, false, progress);
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpeedGaugePainter old) =>
+      old.speed != speed || old.maxSpeed != maxSpeed;
 }

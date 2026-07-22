@@ -78,6 +78,16 @@ class _ThreeDMapState extends State<ThreeDMap> {
   DateTime? _lastCallTime;
 
   @override
+  void dispose() {
+    // Tear down the Mapbox map + its render loop so disposed previews don't
+    // keep running behind the current one (which caused animation stutter).
+    try {
+      js.context.callMethod('removeMapbox3D', [_containerId]);
+    } catch (_) {}
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(ThreeDMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.animatedVehiclePosition != oldWidget.animatedVehiclePosition ||
@@ -86,8 +96,8 @@ class _ThreeDMapState extends State<ThreeDMap> {
       if (widget.animatedVehiclePosition != null) {
         final now = DateTime.now();
         // Throttle JS calls to max 30 FPS (every 33ms) to prevent WebGL/JS bridge congestion
-        if (_lastCallTime == null || 
-            now.difference(_lastCallTime!).inMilliseconds > 33 || 
+        if (_lastCallTime == null ||
+            now.difference(_lastCallTime!).inMilliseconds > 16 ||
             widget.speed == 0.0) {
           _lastCallTime = now;
           js.context.callMethod('update3DVehiclePosition', [
@@ -124,11 +134,9 @@ class _ThreeDMapState extends State<ThreeDMap> {
     final poisJson = jsonEncode(flatPois);
 
     const accessToken = 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
-    // Clean, stylized vector navigation style (roads/buildings, not satellite
-    // photos) to match the Google-Maps-style 3D drive look.
-    final styleUrl = widget.useSatellite
-        ? 'mapbox://styles/mapbox/navigation-day-v1'
-        : 'mapbox://styles/mapbox/standard';
+    // Mapbox Standard: 3D buildings + clean day lighting for the cinematic
+    // turn-by-turn look (matches the reference navigation view).
+    const styleUrl = 'mapbox://styles/mapbox/standard';
 
     // Invoke the JS global helper
     js.context.callMethod('initMapbox3D', [

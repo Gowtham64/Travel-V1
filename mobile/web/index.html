@@ -82,11 +82,44 @@
       transform-origin: center bottom;
     }
   </style>
-  <script src="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.js"></script>
-  <link href="https://api.mapbox.com/mapbox-gl-js/v3.4.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css" rel="stylesheet" />
+  <!-- SunCalc: real sun/moon position and moon phase for the globe -->
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
   <!-- Three.js: renders a real 3D vehicle (built from primitives at real-world
        metre dimensions) on the Mapbox v3 map via a native custom layer. -->
   <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <!-- GLTFLoader + DRACOLoader: load real (incl. Draco-compressed) .glb vehicle
+       models into the Three.js custom layer. -->
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+  <script>
+    // Hidden build marker (not displayed) — lets a curl/automated check confirm
+    // which index.html build the CDN is serving. The quoted token is stamped by
+    // deploy_web.sh.
+    window.__BUILD_NO = '__BUILD__';
+    window.DRACO_DECODER_PATH = 'https://unpkg.com/three@0.128.0/examples/js/libs/draco/gltf/';
+    // Real 3D vehicle models per type (glTF-Binary, CORS-enabled, verified to
+    // render via the Three.js custom layer). A sports car for car/SUV, the
+    // Cesium truck for large vehicles. `null` → procedural box mesh (motorcycle).
+    const FERRARI = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/models/gltf/ferrari.glb';
+    const TRUCK   = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb';
+    window.VEHICLE_MODEL_GLB = {
+      car: FERRARI, suv: FERRARI, motorcycle: null,
+      bus: TRUCK, rv: TRUCK, truck2axle: TRUCK, truck3axle: TRUCK
+    };
+    // Per-type render exaggeration (model metres × factor) so each reads at the
+    // right relative size at nav zoom.
+    window.VEHICLE_MODEL_SCALE = {
+      car: 7, suv: 8, motorcycle: 5, bus: 11, rv: 10, truck2axle: 10, truck3axle: 12
+    };
+    // Per-model yaw correction (radians) so the nose points along travel. Ferrari
+    // and the truck use different forward axes; tuned by on-map screenshot test.
+    window.VEHICLE_MODEL_YAW = {
+      car: 0, suv: 0, motorcycle: 0,
+      bus: 0, rv: 0, truck2axle: 0, truck3axle: 0
+    };
+  </script>
   <script>
     // Approximate real-world size (metres) + colour per vehicle type. The model
     // is built at these dimensions and scaled via meterInMercatorCoordinateUnits,
@@ -126,6 +159,194 @@
       return `<div class="vehicle-emoji-container" style="font-size:40px; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.45));">${getVehicleEmoji(type)}</div>`;
     }
 
+    // ---- Trip Planner preview globe (Earth in space) ----
+    window.initPlannerGlobe = function(containerId, accessToken) {
+      mapboxgl.accessToken = accessToken;
+      const map = new mapboxgl.Map({
+        container: containerId,
+        style: 'mapbox://styles/mapbox/standard',
+        projection: 'globe',
+        center: [78.9629, 22.0],
+        zoom: 1.4,
+        pitch: 0,
+        bearing: 0,
+        antialias: true,
+        interactive: false // decorative preview: no scroll-zoom / drag hijacking
+      });
+      window.plannerGlobe = map;
+      window.plannerGlobeSpin = true;
+      window.plannerGlobeMarker = null;
+
+      map.on('style.load', () => {
+        // Offset the center right so the globe is centered in the visible area
+        // (the floating control panel covers the left ~460px).
+        try { map.setPadding({ top: 0, right: 0, bottom: 0, left: 460 }); } catch (e) {}
+        // Apply real-time sun/moon lighting + sky bodies, refresh each minute.
+        window.updatePlannerCelestial();
+        if (window.__celestialTimer) clearInterval(window.__celestialTimer);
+        window.__celestialTimer = setInterval(window.updatePlannerCelestial, 60000);
+      });
+
+      // Gentle continuous rotation while idle (stops on interaction / fly-in).
+      function spinGlobe() {
+        if (!window.plannerGlobe || !window.plannerGlobeSpin) return;
+        if (map.getZoom() > 5) return;
+        const c = map.getCenter();
+        c.lng -= 3.0;
+        map.easeTo({ center: c, duration: 1000, easing: (n) => n });
+      }
+      map.on('moveend', () => {
+        if (window.plannerGlobeSpin) setTimeout(spinGlobe, 5);
+      });
+      const stopSpin = () => { window.plannerGlobeSpin = false; };
+      map.on('mousedown', stopSpin);
+      map.on('touchstart', stopSpin);
+      map.on('wheel', stopSpin);
+      setTimeout(spinGlobe, 1200);
+    };
+
+    // Fly the preview globe down from space to a chosen start location.
+    window.plannerGlobeFlyTo = function(lng, lat) {
+      const map = window.plannerGlobe;
+      if (!map) return;
+      window.plannerGlobeSpin = false;
+      if (window.plannerGlobeMarker) window.plannerGlobeMarker.remove();
+      window.plannerGlobeMarker = new mapboxgl.Marker({ color: '#2ecc71' })
+        .setLngLat([lng, lat])
+        .addTo(map);
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 11,
+        pitch: 45,
+        bearing: 0,
+        duration: 4200,
+        curve: 1.7,
+        essential: true
+      });
+      // Immediately apply the day/night effect for the destination, and again
+      // once the camera settles there.
+      window.updatePlannerCelestial(lat, lng);
+      map.once('moveend', () => window.updatePlannerCelestial(lat, lng));
+    };
+
+    // Apply real-time sun/moon: day-night lighting on the globe, a sun sprite
+    // while the sun is up, and a moon sprite drawn with its real current phase.
+    window.updatePlannerCelestial = function(atLat, atLng) {
+      const map = window.plannerGlobe;
+      if (!map || typeof SunCalc === 'undefined') return;
+
+      // Use the place currently in view (or an explicit target during a fly-in)
+      // so the day/night effect matches real local time at THAT location.
+      // While idle at globe zoom the view is spinning, so anchor to a fixed
+      // reference point instead of the moving center to avoid flip-flopping.
+      const c = map.getCenter();
+      let lat, lng;
+      if (typeof atLat === 'number') {
+        lat = atLat; lng = atLng;
+      } else if (map.getZoom() < 5) {
+        lat = 22.0; lng = 78.9629; // India anchor for the idle globe
+      } else {
+        lat = c.lat; lng = c.lng;
+      }
+      const now = new Date();
+      const sun = SunCalc.getPosition(now, lat, lng);
+      const sunAlt = sun.altitude * 180 / Math.PI;      // degrees above horizon at that place
+      // Sun-based local morning/evening (independent of the browser timezone).
+      const times = SunCalc.getTimes(now, lat, lng);
+      const beforeNoon = now < times.solarNoon;
+
+      // Time-of-day preset + starfield strength for the real sun altitude there.
+      let preset, star, space;
+      if (sunAlt > 6) { preset = 'day'; star = 0.1; space = 'rgb(22, 28, 58)'; }
+      else if (sunAlt > -6) { preset = beforeNoon ? 'dawn' : 'dusk'; star = 0.55; space = 'rgb(12, 14, 34)'; }
+      else { preset = 'night'; star = 0.95; space = 'rgb(6, 8, 20)'; }
+
+      try {
+        map.setConfigProperty('basemap', 'lightPreset', preset);
+      } catch (e) { console.warn('lightPreset failed', e); }
+      try {
+        map.setFog({
+          'color': 'rgb(186, 210, 235)',
+          'high-color': 'rgb(36, 92, 223)',
+          'horizon-blend': 0.02,
+          'space-color': space,
+          'star-intensity': star
+        });
+      } catch (e) {}
+
+      // Sky overlay with the sun sprite (created once, updated after).
+      const el = map.getContainer();
+      let layer = el.querySelector('.pg-sky');
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'pg-sky';
+        layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3;';
+        const sunEl = document.createElement('div'); sunEl.className = 'pg-sun'; layer.appendChild(sunEl);
+        el.appendChild(layer);
+      }
+      const sunEl = layer.querySelector('.pg-sun');
+
+      // Sun — visible while up (with soft twilight fade near the horizon).
+      const sunUp = sunAlt > -2;
+      sunEl.style.cssText =
+        'position:absolute; right:15%; top:11%; width:96px; height:96px; border-radius:50%;' +
+        'background: radial-gradient(circle at 50% 50%, #fff7d8 0%, #ffd257 46%, rgba(255,180,60,0) 72%);' +
+        'filter: drop-shadow(0 0 34px rgba(255,205,90,0.85));' +
+        'opacity:' + (sunUp ? 1 : 0) + '; transition:opacity 1.5s;';
+    };
+
+    // ---- Native Mapbox v3 3D vehicle (glTF model layer) ----
+    // glTF car model (CORS-enabled via jsDelivr).
+    window.VEHICLE_MODEL_URI = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/ToyCar/glTF-Binary/ToyCar.glb';
+    // Per-type scale for the shared model (tunable).
+    window.VEHICLE_MODEL_SCALE = {
+      car: 30, suv: 35, motorcycle: 20, bus: 55, rv: 48, truck2axle: 50, truck3axle: 60
+    };
+
+    // Uses the Mapbox v3 "model" SOURCE (per the animate-along-route example):
+    // the model is declared in the source's `models` map and repositioned each
+    // frame via source.setModels(). This is the API that actually renders a
+    // moving 3D model, unlike the geojson/model-id approach.
+    window.addMapboxVehicleModel = function(map, vehicleType, origin) {
+      if (map.getSource('vehicle-model-src')) return;
+      const s = window.VEHICLE_MODEL_SCALE[(vehicleType || 'car').toLowerCase()] || 30;
+      map.addSource('vehicle-model-src', {
+        type: 'model',
+        models: {
+          car: {
+            uri: window.VEHICLE_MODEL_URI,
+            position: origin || [78.9629, 20.5937],
+            orientation: [0, 0, 0]
+          }
+        }
+      });
+      map.addLayer({
+        id: 'vehicle-3d-model',
+        type: 'model',
+        source: 'vehicle-model-src',
+        slot: 'top',
+        paint: {
+          'model-scale': ['literal', [s, s, s]],
+          'model-type': 'location-indicator',
+          'model-cast-shadows': true
+        }
+      });
+      window.__vehicleModelActive = true;
+    };
+
+    window.updateMapboxVehicleModel = function(map, lng, lat, bearingDeg) {
+      const src = map.getSource('vehicle-model-src');
+      if (!src || typeof src.setModels !== 'function') return;
+      src.setModels({
+        car: {
+          uri: window.VEHICLE_MODEL_URI,
+          position: [lng, lat],
+          // orientation = [pitch, roll, yaw]; yaw aligns nose to travel.
+          orientation: [0, 0, (bearingDeg + 90) % 360]
+        }
+      });
+    };
+
     window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType) {
       const routePoints = JSON.parse(routeJson);
       const waypoints = JSON.parse(waypointsJson);
@@ -140,99 +361,102 @@
       const map = new mapboxgl.Map({
         container: containerId,
         style: styleUrl,
-        projection: 'globe', // render Earth as a 3D globe floating in space
-        // Always open from space so the globe is clearly visible, then fly in.
+        // Mercator (not globe) so the custom 3D vehicle layer renders correctly.
+        projection: 'mercator',
         center: routePoints.length > 0 ? routePoints[0] : [78.9629, 20.5937],
-        zoom: 1.7,
-        pitch: 0,
-        bearing: 0,
+        zoom: routePoints.length > 0 ? 13.5 : 5,
+        pitch: 55,
+        bearing: -18,
         antialias: true
       });
 
+      // Track the map by container so it can be torn down when the Flutter
+      // widget is disposed — otherwise each preview leaks a live map + render
+      // loop, and several running at once make the animation stutter.
+      window.__maps = window.__maps || {};
+      // Remove any prior map that was left in this same container.
+      if (window.__maps[containerId]) {
+        try { window.__maps[containerId].remove(); } catch (e) {}
+      }
+      window.__maps[containerId] = map;
+
       map.on('style.load', () => {
-        // "Globe in the solar system" — atmosphere halo + deep-space starfield.
+        // Bright day lighting to match the cinematic reference navigation view.
+        try { map.setConfigProperty('basemap', 'lightPreset', 'day'); } catch (e) {}
+
+        // Atmospheric depth: a light sky + horizon haze so the 3D scene reads
+        // with real distance falloff (a subtle but genuine 3D effect).
         try {
           map.setFog({
-            'color': 'rgb(186, 210, 235)',      // near-surface atmosphere
-            'high-color': 'rgb(36, 92, 223)',   // upper-atmosphere blue
-            'horizon-blend': 0.02,              // crisp horizon
-            'space-color': 'rgb(8, 10, 24)',    // dark space behind the globe
-            'star-intensity': 0.65              // visible stars
+            'range': [1.0, 12.0],
+            'color': 'rgb(220, 232, 245)',
+            'high-color': 'rgb(150, 190, 235)',
+            'horizon-blend': 0.12,
+            'space-color': 'rgb(190, 215, 240)',
+            'star-intensity': 0.0
           });
-        } catch (e) { console.warn('setFog unsupported:', e); }
+        } catch (e) {}
 
-        // Add DEM terrain
-        map.addSource('mapbox-dem', {
-          'type': 'raster-dem',
-          'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-          'tileSize': 512
-        });
-        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        // The Mapbox Standard style already ships 3D buildings + terrain, so the
+        // manual layers below are only needed on classic styles. Guard them so
+        // they degrade gracefully on Standard (where 'composite' isn't exposed).
+        // NOTE: no exaggerated DEM terrain here. The 3D vehicle model is placed
+        // at altitude 0 (sea level); with terrain on, high-elevation cities like
+        // Bangalore (~920m × 1.8 exaggeration) push the ground far above the car,
+        // burying it underground. Flat ground keeps the vehicle on the surface.
+        // (Mapbox Standard still renders 3D buildings without a DEM.)
+        try { map.setTerrain(null); } catch (e) {}
 
-        // Add 3D Building Layer
-        const layers = map.getStyle().layers;
-        const labelLayerId = layers.find(
-          (layer) => layer.type === 'symbol' && layer.layout['text-field']
-        )?.id;
+        try {
+          const layers = map.getStyle().layers;
+          const labelLayerId = layers.find(
+            (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
+          )?.id;
+          if (map.getSource('composite')) {
+            map.addLayer(
+              {
+                'id': 'add-3d-buildings',
+                'source': 'composite',
+                'source-layer': 'building',
+                'filter': ['==', 'extrude', 'true'],
+                'type': 'fill-extrusion',
+                'minzoom': 14,
+                'paint': {
+                  'fill-extrusion-color': '#d6dae2',
+                  'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'height']],
+                  'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'min_height']],
+                  'fill-extrusion-opacity': 0.85
+                }
+              },
+              labelLayerId
+            );
+          }
+        } catch (e) { /* Standard has built-in 3D buildings */ }
 
-        map.addLayer(
-          {
-            'id': 'add-3d-buildings',
-            'source': 'composite',
-            'source-layer': 'building',
-            'filter': ['==', 'extrude', 'true'],
-            'type': 'fill-extrusion',
-            'minzoom': 15,
-            'paint': {
-              'fill-extrusion-color': '#aaa',
-              'fill-extrusion-height': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                15,
-                0,
-                15.05,
-                ['get', 'height']
-              ],
-              'fill-extrusion-base': [
-                'interpolate',
-                ['linear'],
-                ['zoom'],
-                15,
-                0,
-                15.05,
-                ['get', 'min_height']
-              ],
-              'fill-extrusion-opacity': 0.6
-            }
-          },
-          labelLayerId
-        );
-
-        // NOTE: a Three.js custom-layer 3D model was tried here, but Mapbox GL
-        // v3 changed its custom-layer projection API and distorted the mesh into
-        // a vertical streak. We use the reliable 3D-rendered car sprite (the DOM
-        // marker below) instead, which renders correctly on the tilted map.
-        // window.addVehicle3DModelLayer(map, vehicleType);
+        // 3D vehicle via the Three.js custom layer (the technique proven to
+        // render in model_test.html). Loads a real glb model, with a procedural
+        // box-car fallback so a 3D vehicle always appears.
+        try {
+          window.addVehicle3DModelLayer(map, vehicleType);
+        } catch (e) { console.warn('3D vehicle layer failed', e); }
       });
 
       // Add route polyline
       map.on('load', () => {
-        // Cinematic intro: hold on the globe in space, then fly down to the
-        // start of the route. Skipped when there is no route to fly to.
-        if (routePoints.length > 0 && !window.__globeIntroDone) {
-          window.__globeIntroDone = true;
+        // Gentle intro: ease from the overview down to the route start.
+        if (routePoints.length > 0 && !window.__navIntroDone) {
+          window.__navIntroDone = true;
           setTimeout(() => {
             map.flyTo({
               center: routePoints[0],
-              zoom: 12,
+              zoom: 15,
               pitch: 60,
-              bearing: -20,
-              duration: 4500,
+              bearing: -18,
+              duration: 3200,
               essential: true,
-              curve: 1.6
+              curve: 1.5
             });
-          }, 1800);
+          }, 600);
         }
 
         map.addSource('route', {
@@ -247,18 +471,34 @@
           }
         });
 
+        // White casing beneath, so the route reads as a highlighted lane.
+        // slot:'top' keeps it above the Standard style's own road layers.
+        map.addLayer({
+          'id': 'route-casing',
+          'type': 'line',
+          'source': 'route',
+          'slot': 'top',
+          'layout': { 'line-join': 'round', 'line-cap': 'round' },
+          'paint': {
+            'line-color': '#ffffff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 7, 17, 18],
+            'line-opacity': 0.95
+          }
+        });
+
         map.addLayer({
           'id': 'route-line',
           'type': 'line',
           'source': 'route',
+          'slot': 'top',
           'layout': {
             'line-join': 'round',
             'line-cap': 'round'
           },
           'paint': {
-            'line-color': '#2E75B6',
-            'line-width': 6,
-            'line-opacity': 0.85
+            'line-color': '#1a73e8',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 17, 12],
+            'line-opacity': 1.0
           }
         });
 
@@ -483,10 +723,24 @@
         return;
       }
       if (map.getLayer('vehicle-3d-model')) return;
-      const spec = getVehicle3DSpec(vehicleType);
-      const EXAGGERATION = 6; // draw the vehicle larger than life so it reads at nav zoom
+      const type = (vehicleType || 'car').toLowerCase();
+      const spec = getVehicle3DSpec(type);
+      // Per-type exaggeration (model metres × factor) so the vehicle reads at the
+      // right relative size at nav zoom without engulfing the close chase camera.
+      const EXAGGERATION = (window.VEHICLE_MODEL_SCALE || {})[type] || 7;
+      // Per-model yaw correction so the nose points along travel.
+      const YAW = (window.VEHICLE_MODEL_YAW || {})[type] || 0;
+      // `undefined` (type missing from map) → default car; explicit `null` (e.g.
+      // motorcycle) → procedural mesh.
+      const glbMap = window.VEHICLE_MODEL_GLB || {};
+      const glbUrl = (type in glbMap) ? glbMap[type] : glbMap.car;
       window.vehicleState = { lng: 0, lat: 0, bearingRad: 0, visible: false };
-      console.log('[3D vehicle] adding custom layer', spec);
+      console.log('[3D vehicle] adding custom layer', type, glbUrl, '×' + EXAGGERATION);
+
+      const hideSprite = () => {
+        const wob = document.querySelector('#vehicle-marker .driving-wobble');
+        if (wob) wob.style.display = 'none';
+      };
 
       const layer = {
         id: 'vehicle-3d-model',
@@ -498,37 +752,81 @@
             this.scene = new THREE.Scene();
             const d1 = new THREE.DirectionalLight(0xffffff, 1.0); d1.position.set(50, -70, 100).normalize(); this.scene.add(d1);
             const d2 = new THREE.DirectionalLight(0xffffff, 0.6); d2.position.set(-50, 70, 60).normalize(); this.scene.add(d2);
-            this.scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-            this.model = buildVehicleMesh(spec);
-            this.scene.add(this.model);
+            this.scene.add(new THREE.AmbientLight(0xffffff, 0.9));
             this.map = m;
             this.renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true });
             this.renderer.autoClear = false;
-            // Real 3D vehicle exists — hide the flat DOM sprite so they don't overlap.
-            const wob = document.querySelector('#vehicle-marker .driving-wobble');
-            if (wob) wob.style.display = 'none';
-            console.log('[3D vehicle] onAdd OK — renderer + model ready');
+            this.isGlb = false;
+            this.model = null;
+
+            const useProcedural = () => {
+              this.model = buildVehicleMesh(spec);
+              this.isGlb = false;
+              this.scene.add(this.model);
+              hideSprite();
+              console.log('[3D vehicle] using procedural mesh');
+            };
+
+            // Primary path (proven in model_test.html): load a real glb model,
+            // with Draco support for compressed models (e.g. the Ferrari car).
+            // Any failure — no loader, network, parse — falls back to the
+            // procedural box mesh so a 3D vehicle ALWAYS renders.
+            if (glbUrl && typeof THREE.GLTFLoader === 'function') {
+              try {
+                const loader = new THREE.GLTFLoader();
+                if (typeof THREE.DRACOLoader === 'function') {
+                  const draco = new THREE.DRACOLoader();
+                  draco.setDecoderPath(window.DRACO_DECODER_PATH);
+                  loader.setDRACOLoader(draco);
+                }
+                loader.load(
+                  glbUrl,
+                  (g) => {
+                    this.model = g.scene;
+                    this.isGlb = true;
+                    this.scene.add(this.model);
+                    hideSprite();
+                    console.log('[3D vehicle] glb model loaded ✓', type);
+                    if (this.map) this.map.triggerRepaint();
+                  },
+                  undefined,
+                  (err) => { console.warn('[3D vehicle] glb load failed, falling back', err); useProcedural(); }
+                );
+              } catch (e) { console.warn('[3D vehicle] loader threw, falling back', e); useProcedural(); }
+            } else {
+              useProcedural();
+            }
+            console.log('[3D vehicle] onAdd OK — renderer ready');
           } catch (e) {
             console.error('[3D vehicle] onAdd failed:', e);
           }
         },
         render: function (gl, matrix) {
           const s = window.vehicleState;
-          if (!s || !s.visible || !this.model || !this.renderer) return;
+          if (!s || !s.visible || !this.model || !this.renderer) {
+            if (this.map) this.map.triggerRepaint();
+            return;
+          }
           if (!this._loggedRender) {
             this._loggedRender = true;
-            console.log('[3D vehicle] first render at', s.lng, s.lat);
+            console.log('[3D vehicle] first render at', s.lng, s.lat, 'glb=', this.isGlb);
           }
           const merc = mapboxgl.MercatorCoordinate.fromLngLat([s.lng, s.lat], 0);
           const scale = merc.meterInMercatorCoordinateUnits() * EXAGGERATION;
-          // Model is already Z-up; only rotate about Z for heading. Dart bearing =
-          // atan2(dLng,dLat) (0=N, clockwise); tune the offset if it faces wrong.
-          const heading = -s.bearingRad;
-          const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), heading);
-          const l = new THREE.Matrix4()
+          // Heading: rotate about Z by travel bearing. Dart passes bearing in rad
+          // (0 = N, clockwise), so negate to match Three.js CCW-positive Z. YAW is
+          // a per-model correction so the nose points along travel.
+          const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), -s.bearingRad + YAW);
+          let l = new THREE.Matrix4()
             .makeTranslation(merc.x, merc.y, merc.z)
             .scale(new THREE.Vector3(scale, -scale, scale))
             .multiply(rotZ);
+          // glTF models are authored Y-up; tip them into Mapbox's Z-up frame
+          // (procedural mesh is already built Z-up, so it skips this).
+          if (this.isGlb) {
+            const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+            l = l.multiply(rotX);
+          }
           this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix).multiply(l);
           this.renderer.resetState();
           this.renderer.render(this.scene, this.camera);
@@ -563,7 +861,7 @@
 
         window.currentVehicleMarker.setLngLat(position);
         window.currentVehicleMarker.setRotation(rotationDeg);
-        
+
         let closestIdx = 0;
         let minDist = Infinity;
         if (window.currentRoutePoints) {
@@ -648,8 +946,9 @@
         // Steady "chase camera" like Google Maps / the reference clip: fixed tilt,
         // bearing locked to the direction of travel, car framed in the lower third
         // with the road ahead. A gentle orbit only when parked at a stop.
-        let pitchVal = 62;   // 3D tilt
-        let zoomVal = 17.2;  // close, navigation-style
+        let pitchVal = 66;   // low, cinematic 3D tilt (reference look)
+        let zoomVal = 17.4;  // pulled back so the exaggerated 3D vehicle is framed
+                             // in view rather than engulfing the close camera
         let targetBearing = motionDeg;
 
         if (speed === 0.0) {
@@ -669,13 +968,35 @@
         // Push the focal point down so the car sits low and the road ahead fills
         // the frame (padding.top reserves space, moving the centered car lower).
         const h = map.getContainer().clientHeight || 600;
+        const w = map.getContainer().clientWidth || 1200;
+        // Offset right past the floating panel on wide screens so the car and
+        // the road ahead sit in the open, visible part of the map.
+        const leftPad = w > 900 ? 300 : 0;
         map.jumpTo({
           center: position,
           zoom: zoomVal,
           pitch: pitchVal,
           bearing: bearingVal,
-          padding: { top: Math.round(h * 0.42), bottom: 0, left: 0, right: 0 }
+          padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
         });
+
+        // Move the 3D model LAST and fully guarded, so a model error can never
+        // interrupt the sprite update or the camera follow above.
+        if (window.__vehicleModelActive) {
+          try {
+            window.updateMapboxVehicleModel(map, lng, lat, motionDeg);
+          } catch (e) { /* never let the model break navigation */ }
+        }
+      }
+    };
+
+    // Tear down a map when its Flutter widget is disposed, stopping its render
+    // loop so old previews don't keep thrashing the GPU behind the new one.
+    window.removeMapbox3D = function(containerId) {
+      const m = window.__maps && window.__maps[containerId];
+      if (m) {
+        try { m.remove(); } catch (e) {}
+        delete window.__maps[containerId];
       }
     };
 

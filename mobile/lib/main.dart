@@ -26,19 +26,54 @@ class TravelApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Fallback fonts so Indic-script text (e.g. Kannada/Hindi/Tamil POI
+    // addresses) renders instead of tofu boxes, silencing the "missing Noto
+    // fonts" warning. Loaded via google_fonts, chained after Poppins.
+    final indicFallback = <String>[
+      GoogleFonts.notoSansKannada().fontFamily!,
+      GoogleFonts.notoSansDevanagari().fontFamily!,
+      GoogleFonts.notoSansTamil().fontFamily!,
+      GoogleFonts.notoSansTelugu().fontFamily!,
+    ];
+    final baseTextTheme = GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
+    final textTheme = _withFontFallback(baseTextTheme, indicFallback);
+
     return MaterialApp(
       title: 'Travel app',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E3192)), // Deep Indigo
         useMaterial3: true,
-        textTheme: GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme),
+        textTheme: textTheme,
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 0,
         ),
       ),
       home: const AuthStateWrapper(),
+    );
+  }
+
+  /// Applies [fallback] font families to every style in [t] so glyphs missing
+  /// from the primary font fall through to the Noto Indic fonts.
+  TextTheme _withFontFallback(TextTheme t, List<String> fallback) {
+    TextStyle? f(TextStyle? s) => s?.copyWith(fontFamilyFallback: fallback);
+    return TextTheme(
+      displayLarge: f(t.displayLarge),
+      displayMedium: f(t.displayMedium),
+      displaySmall: f(t.displaySmall),
+      headlineLarge: f(t.headlineLarge),
+      headlineMedium: f(t.headlineMedium),
+      headlineSmall: f(t.headlineSmall),
+      titleLarge: f(t.titleLarge),
+      titleMedium: f(t.titleMedium),
+      titleSmall: f(t.titleSmall),
+      bodyLarge: f(t.bodyLarge),
+      bodyMedium: f(t.bodyMedium),
+      bodySmall: f(t.bodySmall),
+      labelLarge: f(t.labelLarge),
+      labelMedium: f(t.labelMedium),
+      labelSmall: f(t.labelSmall),
     );
   }
 }
