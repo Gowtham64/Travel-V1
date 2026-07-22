@@ -11,8 +11,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/trip_models.dart';
+import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
+import '../services/car_guidance_service.dart';
+import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
+import '../widgets/car_mode_overlay.dart';
 
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
@@ -60,6 +64,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _recalculating = false;
   MapStyle _mapStyle = MapStyle.satellite3D;
   Map<String, List<PlaceOfInterest>> _pois = {};
+  bool _isCarMode = false;
+  final CarGuidanceService _carGuidance = CarGuidanceService();
   
   final MapController _mapController = MapController();
   bool _isPlayingAnimation = false;
@@ -130,6 +136,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           if (mounted) _startAnimation(preview: true);
         });
       });
+    }
+    if (kIsWeb && Uri.base.toString().contains('car_mode=true')) {
+      _isCarMode = true;
     }
   }
 
@@ -1702,6 +1711,65 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMapStackWithOverlays(Widget mapWidget, {double topPadding = 24.0, double rightPadding = 24.0}) {
+    if (_isCarMode) {
+      final currentPos = _animatedVehiclePosition ?? widget.start.toLatLng();
+      final maneuver = _carGuidance.calculateManeuver(
+        currentPos: currentPos,
+        routePoints: _currentPlan.coordinates,
+        end: widget.end,
+        waypoints: _currentWaypoints,
+      );
+      if (_isPlayingAnimation || _isLiveNavigating) {
+        _carGuidance.announceManeuver(maneuver);
+      }
+      final v = widget.vehicle;
+      final double litresNeeded =
+          v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
+      final telemetry = CarTelemetry(
+        speedKmh: _displaySpeedKmh.toDouble(),
+        remainingDistanceKm: max(0.0, (1 - _tripProgressPercent) * _currentPlan.distanceKm),
+        remainingDurationMin: max(0, ((1 - _tripProgressPercent) * _currentPlan.durationMin).round()),
+        progressPercent: _tripProgressPercent,
+        hasTollAhead: (_currentPlan.toll?.fastagTollCost ?? 0) > 0,
+        needsRefuel: v.currentFuelLiters < litresNeeded,
+      );
+
+      CarPlatformChannel.updateNavigation(maneuver: maneuver, telemetry: telemetry);
+
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned.fill(child: mapWidget),
+          Positioned.fill(
+            child: CarModeOverlay(
+              maneuver: maneuver,
+              telemetry: telemetry,
+              isPlayingAnimation: _isPlayingAnimation,
+              speechMuted: _carGuidance.speechMuted,
+              onTogglePlayPause: () {
+                if (_isPlayingAnimation) {
+                  _stopAnimation();
+                } else {
+                  _startAnimation(preview: true);
+                }
+              },
+              onToggleMute: () {
+                setState(() {
+                  _carGuidance.speechMuted = !_carGuidance.speechMuted;
+                });
+              },
+              onRecenterMap: _recenterMap,
+              onExitCarMode: () {
+                setState(() {
+                  _isCarMode = false;
+                });
+              },
+            ),
+          ),
+        ],
+      );
+    }
+
     final isDesktop = MediaQuery.of(context).size.width > 900;
     return Stack(
       fit: StackFit.expand,
@@ -1780,6 +1848,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     final items = <Widget>[
       _buildMapDriveCluster(false),
+      _navCircle(Icons.directions_car_rounded, () => setState(() => _isCarMode = !_isCarMode), bg: const Color(0xFF10B981)),
       _buildLayersButton(),
       _navCircle(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
       _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
@@ -1898,6 +1967,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     return Column(
       children: [
+        btn(Icons.directions_car_rounded, () => setState(() => _isCarMode = !_isCarMode), bg: const Color(0xFF10B981)),
         // Always-visible Save + Share on the map (also in the side panel).
         btn(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
         btn(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,

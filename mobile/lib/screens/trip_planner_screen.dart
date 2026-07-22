@@ -137,9 +137,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       setState(() => _loading = true);
       final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;
-      // Same trip summary (tolls, fuel, times) shown after DONE.
-      await _showTripSummaryDialog(plan, vehicle);
-      if (!mounted) return;
+      // Same trip summary (tolls, fuel, times) shown after DONE. Skipped for the
+      // headless preview test hook so it can drive straight into the trip.
+      if (!(kIsWeb && Uri.base.toString().contains('test_preview=true'))) {
+        await _showTripSummaryDialog(plan, vehicle);
+        if (!mounted) return;
+      }
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => TripScreen(
           plan: plan,
