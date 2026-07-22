@@ -1,12 +1,12 @@
 {
-    "name": "RoadTrip Planner",
-    "short_name": "RoadTrip",
+    "name": "Voyplan",
+    "short_name": "Voyplan",
     "start_url": ".",
     "scope": ".",
     "display": "standalone",
     "background_color": "#0F172A",
     "theme_color": "#2E75B6",
-    "description": "Plan road trips with live 3D navigation, tolls, fuel and weather.",
+    "description": "Voyplan — plan the whole road trip: route, stops, tolls, fuel, weather and live navigation.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

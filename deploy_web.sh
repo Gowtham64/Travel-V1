@@ -20,6 +20,9 @@ cp index.html $DEPLOY_DIR/
 if [ -f "favicon.png" ]; then
     cp favicon.png $DEPLOY_DIR/
 fi
+if [ -f "favicon.svg" ]; then
+    cp favicon.svg $DEPLOY_DIR/
+fi
 if [ -f "preview.png" ]; then
     cp preview.png $DEPLOY_DIR/
 fi

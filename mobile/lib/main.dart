@@ -40,7 +40,7 @@ class TravelApp extends StatelessWidget {
     final textTheme = _withFontFallback(baseTextTheme, indicFallback);
 
     return MaterialApp(
-      title: 'Travel app',
+      title: 'Voyplan',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E3192)), // Deep Indigo
