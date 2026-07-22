@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/trip_planner_screen.dart';
 import 'screens/login_screen.dart';
+import 'utils/landing_redirect.dart';
 
 const supabaseUrl = 'https://dtemayjpttktntooxraa.supabase.co';
 const supabaseAnonKey = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
@@ -175,6 +176,14 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    return _isAuthenticated ? const TripPlannerScreen() : const LoginScreen();
+    if (_isAuthenticated) return const TripPlannerScreen();
+    // Not signed in: on web there is no in-app login screen — send the user to
+    // the static landing page (which hosts the login card). Show a spinner while
+    // the browser navigates. Native builds fall back to the in-app LoginScreen.
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => redirectToLanding());
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    return const LoginScreen();
   }
 }

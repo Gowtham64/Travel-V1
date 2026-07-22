@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
+import '../utils/landing_redirect.dart';
 import '../services/api_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -1492,6 +1493,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   ),
                   onTap: () async {
                     await Supabase.instance.client.auth.signOut();
+                    // Return to the landing page (which hosts login) on web.
+                    redirectToLanding();
                   },
                 ),
               ),
