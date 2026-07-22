@@ -30,13 +30,14 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="travel_app">
+  <meta name="apple-mobile-web-app-title" content="RoadTrip">
+  <meta name="theme-color" content="#2E75B6">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>travel_app</title>
+  <title>RoadTrip Planner</title>
   <link rel="manifest" href="manifest.json">
   <style>
     @keyframes ripple {
@@ -1049,17 +1050,13 @@
   </script>
 
   <script>
-    // Force unregister all service workers to bust cache
+    // Register a lightweight, network-first service worker. It makes the app an
+    // installable PWA (users can "Install / Add to Home Screen" from the site)
+    // WITHOUT the stale-cache problem: it always fetches from the network first
+    // and only falls back to cache when offline.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (var registration of registrations) {
-          registration.unregister();
-        }
-      });
-      caches.keys().then(function(names) {
-        for (var name of names) {
-          caches.delete(name);
-        }
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('pwa_sw.js').catch(function () {});
       });
     }
   </script>
@@ -1074,5 +1071,55 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <!-- Install-app affordance: a floating button that appears when the browser
+       says the app is installable, plus an iOS "Add to Home Screen" hint. -->
+  <script>
+    (function () {
+      var deferredPrompt = null, btn = null;
+      function makeBtn() {
+        if (btn) return btn;
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText =
+          'position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:2147483647;' +
+          'padding:12px 22px;border:none;border-radius:999px;cursor:pointer;' +
+          'font:600 15px -apple-system,system-ui,sans-serif;color:#fff;' +
+          'background:linear-gradient(90deg,#2E75B6,#60A5FA);' +
+          'box-shadow:0 8px 26px rgba(0,0,0,0.4);display:none;';
+        document.body.appendChild(btn);
+        return btn;
+      }
+      function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+      function standalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      }
+      // Chromium/Android/desktop: real install prompt.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        var b = makeBtn();
+        b.textContent = '⬇  Install App';
+        b.onclick = async function () {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          b.style.display = 'none';
+        };
+        b.style.display = 'block';
+      });
+      window.addEventListener('appinstalled', function () { if (btn) btn.style.display = 'none'; });
+      // iOS Safari has no beforeinstallprompt — guide the manual gesture.
+      window.addEventListener('load', function () {
+        if (isIos() && !standalone()) {
+          var b = makeBtn();
+          b.textContent = '⬇  Install: Share → Add to Home Screen';
+          b.onclick = function () { b.style.display = 'none'; };
+          setTimeout(function () { b.style.display = 'block'; }, 2500);
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
