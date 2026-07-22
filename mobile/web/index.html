@@ -114,7 +114,7 @@
     // right relative size at nav zoom. Two-wheelers use a larger factor because
     // their base mesh is physically small.
     window.VEHICLE_MODEL_SCALE = {
-      car: 4.75, suv: 5.5, motorcycle: 7, scooter: 7,
+      car: 14, suv: 16.5, motorcycle: 7, scooter: 7,
       bus: 7.5, rv: 6.5, truck2axle: 6.5, truck3axle: 8
     };
     // Per-model yaw correction (radians) so the nose points along travel. Ferrari
@@ -297,58 +297,6 @@
         'background: radial-gradient(circle at 50% 50%, #fff7d8 0%, #ffd257 46%, rgba(255,180,60,0) 72%);' +
         'filter: drop-shadow(0 0 34px rgba(255,205,90,0.85));' +
         'opacity:' + (sunUp ? 1 : 0) + '; transition:opacity 1.5s;';
-    };
-
-    // ---- Native Mapbox v3 3D vehicle (glTF model layer) ----
-    // glTF car model (CORS-enabled via jsDelivr).
-    window.VEHICLE_MODEL_URI = 'https://cdn.jsdelivr.net/gh/KhronosGroup/glTF-Sample-Models@master/2.0/ToyCar/glTF-Binary/ToyCar.glb';
-    // Per-type scale for the shared model (tunable).
-    window.VEHICLE_MODEL_SCALE = {
-      car: 30, suv: 35, motorcycle: 20, bus: 55, rv: 48, truck2axle: 50, truck3axle: 60
-    };
-
-    // Uses the Mapbox v3 "model" SOURCE (per the animate-along-route example):
-    // the model is declared in the source's `models` map and repositioned each
-    // frame via source.setModels(). This is the API that actually renders a
-    // moving 3D model, unlike the geojson/model-id approach.
-    window.addMapboxVehicleModel = function(map, vehicleType, origin) {
-      if (map.getSource('vehicle-model-src')) return;
-      const s = window.VEHICLE_MODEL_SCALE[(vehicleType || 'car').toLowerCase()] || 30;
-      map.addSource('vehicle-model-src', {
-        type: 'model',
-        models: {
-          car: {
-            uri: window.VEHICLE_MODEL_URI,
-            position: origin || [78.9629, 20.5937],
-            orientation: [0, 0, 0]
-          }
-        }
-      });
-      map.addLayer({
-        id: 'vehicle-3d-model',
-        type: 'model',
-        source: 'vehicle-model-src',
-        slot: 'top',
-        paint: {
-          'model-scale': ['literal', [s, s, s]],
-          'model-type': 'location-indicator',
-          'model-cast-shadows': true
-        }
-      });
-      window.__vehicleModelActive = true;
-    };
-
-    window.updateMapboxVehicleModel = function(map, lng, lat, bearingDeg) {
-      const src = map.getSource('vehicle-model-src');
-      if (!src || typeof src.setModels !== 'function') return;
-      src.setModels({
-        car: {
-          uri: window.VEHICLE_MODEL_URI,
-          position: [lng, lat],
-          // orientation = [pitch, roll, yaw]; yaw aligns nose to travel.
-          orientation: [0, 0, (bearingDeg + 90) % 360]
-        }
-      });
     };
 
     window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType) {
@@ -1037,14 +985,6 @@
           bearing: bearingVal,
           padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
         });
-
-        // Move the 3D model LAST and fully guarded, so a model error can never
-        // interrupt the sprite update or the camera follow above.
-        if (window.__vehicleModelActive) {
-          try {
-            window.updateMapboxVehicleModel(map, lng, lat, motionDeg);
-          } catch (e) { /* never let the model break navigation */ }
-        }
       }
     };
 
