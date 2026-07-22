@@ -29,7 +29,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          # AGP 8.7 is validated against JDK 17.
+          # AGP 8.11 builds fine on JDK 17.
           java-version: '17'
 
       - uses: subosito/flutter-action@v2
@@ -85,3 +85,33 @@ jobs:
           name: travel-app-ios-sim
           path: mobile/travel-app-ios-sim.zip
           if-no-files-found: error
+
+  # Publishes the freshly-built APK to a rolling "android-latest" GitHub Release
+  # so the landing page's "Download for Android" button
+  # (releases/latest/download/app-release.apk) always serves the newest build.
+  # Only runs on a push to main — never on PRs — so releases stay under your
+  # control and a PR can't publish anything.
+  release:
+    name: Publish APK release
+    needs: android
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: travel-app-android-apk
+          path: apk
+
+      - name: Publish / update rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Latest Android build
+          body: >
+            Auto-published Android APK from the latest main build.
+            Sideload on Android (enable "Install from unknown sources").
+          files: apk/app-release.apk
+          fail_on_unmatched_files: true
+          make_latest: true

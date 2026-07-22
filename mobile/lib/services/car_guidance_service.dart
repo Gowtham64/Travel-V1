@@ -101,6 +101,78 @@ class CarGuidanceService {
     );
   }
 
+  /// Builds the full ordered list of maneuvers for the whole route, so the car
+  /// screen (CarPlay `CPTrip`/`CPRouteChoice`, Android Auto step list) can show
+  /// upcoming turns ahead of time rather than only the single next maneuver.
+  /// Detects significant bearing changes and records each turn's location and
+  /// cumulative distance from the start.
+  List<RouteStep> buildManeuverList(List<GeoPoint> routePoints, {GeoPoint? end}) {
+    final steps = <RouteStep>[];
+    if (routePoints.length < 2) return steps;
+
+    double cumulative = 0.0;
+    for (int i = 0; i < routePoints.length - 1; i++) {
+      final p1 = routePoints[i].toLatLng();
+      final p2 = routePoints[i + 1].toLatLng();
+      cumulative += _distance.as(LengthUnit.Meter, p1, p2);
+
+      if (i + 2 >= routePoints.length) break;
+      final p3 = routePoints[i + 2].toLatLng();
+      final b1 = _distance.bearing(p1, p2);
+      final b2 = _distance.bearing(p2, p3);
+      double angleDiff = (b2 - b1 + 360) % 360;
+      if (angleDiff > 180) angleDiff -= 360;
+      if (angleDiff.abs() <= 25) continue;
+
+      ManeuverType type;
+      String action;
+      if (angleDiff > 60) {
+        type = ManeuverType.turnRight;
+        action = 'Turn right';
+      } else if (angleDiff > 25) {
+        type = ManeuverType.slightRight;
+        action = 'Slight right';
+      } else if (angleDiff < -60) {
+        type = ManeuverType.turnLeft;
+        action = 'Turn left';
+      } else {
+        type = ManeuverType.slightLeft;
+        action = 'Slight left';
+      }
+
+      steps.add(RouteStep(
+        maneuver: ManeuverInstruction(type: type, instruction: action, distanceMeters: 0),
+        location: routePoints[i + 1],
+        distanceFromStartMeters: cumulative,
+      ));
+    }
+
+    final dest = end ?? routePoints.last;
+    steps.add(RouteStep(
+      maneuver: ManeuverInstruction(
+        type: ManeuverType.destination,
+        instruction: 'Arrive at ${dest.name ?? "destination"}',
+        distanceMeters: 0,
+      ),
+      location: dest,
+      distanceFromStartMeters: cumulative,
+    ));
+    return steps;
+  }
+
+  /// True when the vehicle has strayed further than [thresholdMeters] from the
+  /// nearest point on the planned route — the signal to request a reroute.
+  bool isOffRoute(LatLng currentPos, List<GeoPoint> routePoints,
+      {double thresholdMeters = 50}) {
+    if (routePoints.isEmpty) return false;
+    double minDist = double.infinity;
+    for (final p in routePoints) {
+      final d = _distance.as(LengthUnit.Meter, currentPos, p.toLatLng());
+      if (d < minDist) minDist = d;
+    }
+    return minDist > thresholdMeters;
+  }
+
   /// Trigger voice announcement for maneuver
   void announceManeuver(ManeuverInstruction maneuver) {
     if (speechMuted) return;
