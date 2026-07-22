@@ -1,0 +1,83 @@
+name: Mobile Build
+
+# Phase 1 (mobilize) — build the native iOS & Android apps on CI, since local
+# native toolchains aren't always available. Produces an installable Android APK
+# and an unsigned iOS .app you can download from the run's Artifacts.
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-build.yml'
+  pull_request:
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/mobile-build.yml'
+  workflow_dispatch:
+
+jobs:
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+      - run: flutter pub get
+      # Lints are informational here so a warning/info doesn't fail the build;
+      # real compile errors still fail.
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: travel-app-android-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  ios:
+    name: iOS (no codesign)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter --version
+      - run: flutter pub get
+      # Builds the app without code signing (no Apple account needed to verify it
+      # compiles). Signing/distribution comes in Phase 5.
+      - run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned .app
+        run: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r ../../../travel-app-ios-nosign.zip Payload >/dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: travel-app-ios-nosign
+          path: mobile/travel-app-ios-nosign.zip
+          if-no-files-found: error
