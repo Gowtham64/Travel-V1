@@ -1427,9 +1427,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         }
       }
 
-      // Look ahead for user stopover waypoints (pause at waypoint).
-      // Skipped in preview mode for an uninterrupted fly-through.
-      if (!_isPreviewMode) for (final wp in _currentWaypoints) {  // ignore: curly_braces_in_flow_control_structures
+      // Pause length: shorter in preview so the fly-through still stops to show
+      // each stop-point animation (toll, fuel, stopover) without dragging.
+      final int stopPause = _isPreviewMode ? 70 : 120;
+
+      // Look ahead for user stopover waypoints (pause at waypoint). Now shown in
+      // preview too so the journey's stop points are visible during the preview.
+      for (final wp in _currentWaypoints) {
         final wpLatLng = wp.toLatLng();
         final dist = _getDistance(currentLatLng, wpLatLng);
         final stopId = "stop_${wp.lat}_${wp.lng}";
@@ -1443,7 +1447,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               lng: wp.lng,
               address: "Scheduled Stopover",
             );
-            _pauseTicksRemaining = 120; // ~3.6 seconds pause
+            _pauseTicksRemaining = stopPause;
             _currentSpeedModifier = 0.0;
             _isSlowingDown = true;
           });
@@ -1451,16 +1455,36 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         }
       }
 
-      // Look ahead for Toll Plazas (at 33% and 66% progress). Skipped in preview.
       final double progressPercent = (currentDistance / totalDistance).clamp(0.0, 1.0);
-      if (!_isPreviewMode &&
-          ((progressPercent >= 0.33 && progressPercent <= 0.35) ||
+
+      // Automatic fuel-station stop near the midpoint — pulls up and refuels with
+      // the fuel-pump animation ('fuel' category shows _buildFuelAnimation).
+      if (progressPercent >= 0.49 && progressPercent <= 0.52 &&
+          !_visitedStops.contains("fuel_stop")) {
+        _visitedStops.add("fuel_stop");
+        setState(() {
+          _activeStopHighlight = PlaceOfInterest(
+            id: DateTime.now().millisecondsSinceEpoch,
+            name: "Highway Fuel Station",
+            lat: currentLatLng.latitude,
+            lng: currentLatLng.longitude,
+            address: "Refuel stop",
+          );
+          _pauseTicksRemaining = stopPause;
+          _currentSpeedModifier = 0.0;
+          _isSlowingDown = true;
+        });
+        return;
+      }
+
+      // Look ahead for Toll Plazas (at 33% and 66% progress) — shown in preview too.
+      if (((progressPercent >= 0.33 && progressPercent <= 0.35) ||
            (progressPercent >= 0.66 && progressPercent <= 0.68)) &&
           !_visitedStops.contains("toll_${(progressPercent * 10).round()}")) {
         _visitedStops.add("toll_${(progressPercent * 10).round()}");
         setState(() {
           _isTollStop = true;
-          _pauseTicksRemaining = 120; // ~3.6 seconds pause for FASTag toll payment
+          _pauseTicksRemaining = stopPause;
           _currentSpeedModifier = 0.0;
           _isSlowingDown = true;
         });
