@@ -148,6 +148,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           end: end,
           waypoints: waypoints,
           vehicle: vehicle,
+          modelSubtype: data['sub'] as String?,
         ),
       ));
     } catch (e) {
@@ -1200,6 +1201,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         vehicle: _currentVehicle!,
         initialPois: _pois.isNotEmpty ? _pois : null,
         isEmbedded: true,
+        modelSubtype: model3DKey(_selectedVehicle!),
       ),
     );
   }

@@ -26,6 +26,9 @@ class TripScreen extends StatefulWidget {
   final Vehicle vehicle;
   final Map<String, List<PlaceOfInterest>>? initialPois;
   final bool isEmbedded;
+  /// Optional finer-grained key for choosing the 3D model (e.g. 'scooter' vs the
+  /// generic 'motorcycle'). Falls back to [vehicle].type when null.
+  final String? modelSubtype;
 
   const TripScreen({
     super.key,
@@ -40,6 +43,7 @@ class TripScreen extends StatefulWidget {
     required this.vehicle,
     this.initialPois,
     this.isEmbedded = false,
+    this.modelSubtype,
   });
 
   @override
@@ -407,7 +411,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             end: widget.end,
             waypoints: _currentWaypoints,
             useSatellite: true,
-            vehicleType: widget.vehicle.type,
+            vehicleType: widget.modelSubtype ?? widget.vehicle.type,
             animatedVehiclePosition: _animatedVehiclePosition != null
                 ? GeoPoint(lat: _animatedVehiclePosition!.latitude, lng: _animatedVehiclePosition!.longitude)
                 : null,

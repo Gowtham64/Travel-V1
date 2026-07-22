@@ -104,19 +104,23 @@
     // Cesium truck for large vehicles. `null` → procedural box mesh (motorcycle).
     const FERRARI = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/models/gltf/ferrari.glb';
     const TRUCK   = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb';
+    // `null` → built procedurally (two-wheelers: motorcycle = bike, scooter =
+    // step-through) so no external model dependency for bikes/scooters.
     window.VEHICLE_MODEL_GLB = {
-      car: FERRARI, suv: FERRARI, motorcycle: null,
+      car: FERRARI, suv: FERRARI, motorcycle: null, scooter: null,
       bus: TRUCK, rv: TRUCK, truck2axle: TRUCK, truck3axle: TRUCK
     };
     // Per-type render exaggeration (model metres × factor) so each reads at the
-    // right relative size at nav zoom.
+    // right relative size at nav zoom. Two-wheelers use a larger factor because
+    // their base mesh is physically small.
     window.VEHICLE_MODEL_SCALE = {
-      car: 4.75, suv: 5.5, motorcycle: 3.5, bus: 7.5, rv: 6.5, truck2axle: 6.5, truck3axle: 8
+      car: 4.75, suv: 5.5, motorcycle: 7, scooter: 7,
+      bus: 7.5, rv: 6.5, truck2axle: 6.5, truck3axle: 8
     };
     // Per-model yaw correction (radians) so the nose points along travel. Ferrari
     // and the truck use different forward axes; tuned by on-map screenshot test.
     window.VEHICLE_MODEL_YAW = {
-      car: 0, suv: 0, motorcycle: 0,
+      car: 0, suv: 0, motorcycle: 0, scooter: 0,
       bus: 0, rv: 0, truck2axle: 0, truck3axle: 0
     };
   </script>
@@ -715,6 +719,58 @@
       return group;
     }
 
+    // Builds a recognizable two-wheeler (bike or scooter) from Three.js
+    // primitives, Z-up with length along +Y (travel), so the render matrix
+    // treats it like the box car (no axis-swap needed).
+    function buildTwoWheeler(kind) {
+      const scooter = kind === 'scooter';
+      const group = new THREE.Group();
+      const paint = new THREE.MeshStandardMaterial({ color: scooter ? 0x1E88E5 : 0xC62828, metalness: 0.4, roughness: 0.45 });
+      const dark  = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.85 });
+      const metal = new THREE.MeshStandardMaterial({ color: 0x9099a3, metalness: 0.85, roughness: 0.3 });
+      const seatM = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.7 });
+
+      const wheelR = scooter ? 0.30 : 0.38;
+      const wheelW = 0.14;
+      const base = scooter ? 1.15 : 1.4; // axle-to-axle distance (along Y)
+      const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, wheelW, 22);
+      const hubGeo = new THREE.CylinderGeometry(wheelR * 0.34, wheelR * 0.34, wheelW + 0.02, 12);
+      const addWheel = (y) => {
+        const w = new THREE.Mesh(wheelGeo, dark); w.rotation.z = Math.PI / 2; w.position.set(0, y, wheelR); group.add(w);
+        const h = new THREE.Mesh(hubGeo, metal);  h.rotation.z = Math.PI / 2; h.position.set(0, y, wheelR); group.add(h);
+      };
+      addWheel(base / 2);   // front
+      addWheel(-base / 2);  // rear
+
+      const box = (w, l, h, mat, y, z, rx) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, l, h), mat);
+        m.position.set(0, y, z); if (rx) m.rotation.x = rx; group.add(m); return m;
+      };
+      const cyl = (r, len, mat, y, z, axis, rx) => {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat);
+        if (axis === 'x') m.rotation.z = Math.PI / 2;
+        if (rx) m.rotation.x = rx;
+        m.position.set(0, y, z); group.add(m); return m;
+      };
+
+      if (scooter) {
+        box(0.34, 0.72, 0.10, paint, -0.02, wheelR * 0.7);          // floorboard deck
+        box(0.38, 0.66, 0.46, paint, -0.42, wheelR + 0.30);          // rear body/engine cowl
+        box(0.36, 0.16, 0.62, paint, 0.44, wheelR + 0.38);           // front leg-shield apron
+        box(0.36, 0.52, 0.12, seatM, -0.34, wheelR + 0.58);          // seat
+        cyl(0.045, 0.62, metal, 0.5, wheelR + 0.62, 'y', -0.18);     // handlebar post
+        cyl(0.028, 0.5, dark, 0.5, wheelR + 0.9, 'x');               // handlebar
+      } else {
+        cyl(0.07, base * 0.92, metal, 0.0, wheelR + 0.34, 'y');      // frame beam
+        box(0.30, 0.5, 0.28, paint, 0.16, wheelR + 0.5);             // fuel tank
+        box(0.32, 0.42, 0.36, dark, -0.04, wheelR + 0.12);           // engine block
+        box(0.26, 0.6, 0.12, seatM, -0.36, wheelR + 0.52);           // seat
+        cyl(0.04, 0.72, metal, base / 2 - 0.05, wheelR + 0.34, 'y', 0.32); // front fork
+        cyl(0.028, 0.56, dark, base / 2 + 0.06, wheelR + 0.64, 'x');       // handlebar
+      }
+      return group;
+    }
+
     // Native Mapbox-v3 custom layer that renders the 3D vehicle. Position and
     // heading are read each frame from window.vehicleState.
     window.addVehicle3DModelLayer = function(map, vehicleType) {
@@ -760,11 +816,13 @@
             this.model = null;
 
             const useProcedural = () => {
-              this.model = buildVehicleMesh(spec);
+              this.model = (type === 'scooter' || type === 'motorcycle')
+                  ? buildTwoWheeler(type === 'scooter' ? 'scooter' : 'bike')
+                  : buildVehicleMesh(spec);
               this.isGlb = false;
               this.scene.add(this.model);
               hideSprite();
-              console.log('[3D vehicle] using procedural mesh');
+              console.log('[3D vehicle] using procedural mesh', type);
             };
 
             // Primary path (proven in model_test.html): load a real glb model,

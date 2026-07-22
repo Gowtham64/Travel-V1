@@ -24,6 +24,19 @@ class VehicleModel {
   int get hashCode => id.hashCode;
 }
 
+/// IDs of the two-wheelers that are scooters (step-through) rather than
+/// motorcycles. Used to pick a scooter 3D model instead of the bike model.
+const Set<String> kScooterIds = {
+  'activa', 'dio', 'jupiter', 'ntorq', 'fascino', 'activa_125', 'access', 'burgman',
+};
+
+/// Finer-grained key for choosing the 3D vehicle model: distinguishes a
+/// 'scooter' from a 'motorcycle'; otherwise returns the vehicle's own type.
+String model3DKey(VehicleModel v) {
+  if (v.type == 'motorcycle' && kScooterIds.contains(v.id)) return 'scooter';
+  return v.type;
+}
+
 const List<VehicleModel> predefinedVehicles = [
   // Bikes
   VehicleModel(id: 'activa', name: 'Honda Activa 6G', type: 'motorcycle', mileage: 45.0, tankCapacity: 5.3),
