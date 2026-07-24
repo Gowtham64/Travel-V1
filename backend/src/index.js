@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const tripRouter = require("./routes/trip");
 const geocodeRouter = require("./routes/geocode");
+const aiRouter = require("./routes/ai");
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.use("/api/trip", tripRouter);
 app.use("/api/geocode", geocodeRouter);
+app.use("/api/ai", aiRouter);
 
 const PORT = process.env.PORT || 3000;
 

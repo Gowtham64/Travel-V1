@@ -1953,6 +1953,258 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     FocusScope.of(context).unfocus();
   }
 
+  /// Geocodes an AI-suggested place name and adds it to the route.
+  Future<bool> _addAiPlace(String name, String area) async {
+    final query = area.isNotEmpty ? '$name, $area' : name;
+    try {
+      final pt = await _api.geocode(query);
+      _confirmAddPOIFromPlanner(PlaceOfInterest(
+        id: DateTime.now().millisecondsSinceEpoch,
+        name: name,
+        lat: pt.lat,
+        lng: pt.lng,
+        address: pt.name,
+      ));
+      return true;
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Couldn\'t locate "$name" on the map.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+      return false;
+    }
+  }
+
+  /// AI Assistant sheet — Gemini-powered stop recommendations, natural-language
+  /// place search, and a trip assistant / itinerary writer.
+  void _showAiAssistant() {
+    final searchCtl = TextEditingController();
+    final askCtl = TextEditingController();
+    final start = _stopControllers.first.text.trim();
+    final end = _stopControllers.last.text.trim();
+    int tab = 0; // 0 = Discover, 1 = Ask
+    bool busy = false;
+    String? error;
+    List<Map<String, String>> places = [];
+    final Set<String> added = {};
+    String answer = '';
+
+    const accent = Color(0xFF60A5FA);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF13233B),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (sheetCtx, setSheet) {
+            Future<void> run(Future<void> Function() fn) async {
+              setSheet(() { busy = true; error = null; });
+              try {
+                await fn();
+              } catch (e) {
+                error = e.toString().replaceFirst('ApiException: ', '');
+              } finally {
+                if (context.mounted) setSheet(() => busy = false);
+              }
+            }
+
+            Widget seg(String label, IconData icon, int i) => Expanded(
+                  child: GestureDetector(
+                    onTap: () => setSheet(() => tab = i),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: tab == i ? accent : Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(icon, size: 16, color: Colors.white),
+                        const SizedBox(width: 6),
+                        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                      ]),
+                    ),
+                  ),
+                );
+
+            Widget placeCard(Map<String, String> p) {
+              final key = '${p['name']}|${p['area']}';
+              final isAdded = added.contains(key);
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(p['name'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          if ((p['area'] ?? '').isNotEmpty)
+                            Text(p['area']!, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                          if ((p['why'] ?? '').isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(p['why']!, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12.5)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    isAdded
+                        ? const Icon(Icons.check_circle, color: Colors.greenAccent, size: 26)
+                        : IconButton(
+                            icon: const Icon(Icons.add_circle, color: accent),
+                            tooltip: 'Add to route',
+                            onPressed: () async {
+                              final ok = await _addAiPlace(p['name'] ?? '', p['area'] ?? '');
+                              if (ok) setSheet(() => added.add(key));
+                            },
+                          ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(left: 18, right: 18, top: 14, bottom: 14 + MediaQuery.of(sheetCtx).viewInsets.bottom),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 14),
+                  Row(children: [
+                    const Icon(Icons.auto_awesome, color: accent, size: 20),
+                    const SizedBox(width: 8),
+                    const Text('AI Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Spacer(),
+                    const Text('Gemini', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
+                  ]),
+                  const SizedBox(height: 14),
+                  Row(children: [seg('Discover places', Icons.explore, 0), const SizedBox(width: 8), seg('Ask', Icons.chat_bubble_outline, 1)]),
+                  const SizedBox(height: 16),
+
+                  if (tab == 0) ...[
+                    ElevatedButton.icon(
+                      onPressed: (busy || start.isEmpty || end.isEmpty)
+                          ? null
+                          : () => run(() async {
+                                places = await _api.aiRecommendStops(start: start, end: end);
+                              }),
+                      icon: const Icon(Icons.route, size: 18),
+                      label: Text(start.isEmpty || end.isEmpty ? 'Enter start & destination first' : 'Recommend stops on my route'),
+                      style: ElevatedButton.styleFrom(backgroundColor: accent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 13)),
+                    ),
+                    const SizedBox(height: 10),
+                    _aiInputRow(searchCtl, 'e.g. waterfalls near Chikmagalur', busy, () {
+                      final q = searchCtl.text.trim();
+                      if (q.isEmpty) return;
+                      run(() async {
+                        places = await _api.aiSearchPlaces(query: q, near: start.isNotEmpty ? start : null);
+                      });
+                    }),
+                  ] else ...[
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      _aiChip('Plan my itinerary', busy, () => run(() async {
+                            answer = await _api.aiAsk(
+                              question: 'Write a day-by-day itinerary for this road trip.',
+                              context: {'from': start, 'to': end, 'vehicle': _selectedVehicle?.name, 'travellers': _travellers},
+                            );
+                          })),
+                      _aiChip('Best time to leave?', busy, () => run(() async {
+                            answer = await _api.aiAsk(question: 'What is the best time to start this drive and why?', context: {'from': start, 'to': end});
+                          })),
+                    ]),
+                    const SizedBox(height: 10),
+                    _aiInputRow(askCtl, 'Ask anything about your trip…', busy, () {
+                      final q = askCtl.text.trim();
+                      if (q.isEmpty) return;
+                      run(() async {
+                        answer = await _api.aiAsk(question: q, context: {'from': start, 'to': end, 'vehicle': _selectedVehicle?.name, 'travellers': _travellers});
+                      });
+                    }),
+                  ],
+
+                  const SizedBox(height: 14),
+                  if (busy)
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: accent)))
+                  else if (error != null)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+                      child: Text(error!, style: const TextStyle(color: Color(0xFFFFB4A8), fontSize: 13)),
+                    )
+                  else
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: tab == 0
+                            ? Column(children: places.map(placeCard).toList())
+                            : (answer.isEmpty
+                                ? Text('Ask a question or tap a suggestion above.', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13))
+                                : SelectableText(answer, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5))),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      searchCtl.dispose();
+      askCtl.dispose();
+    });
+  }
+
+  Widget _aiInputRow(TextEditingController ctl, String hint, bool busy, VoidCallback onSend) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Row(children: [
+        const SizedBox(width: 14),
+        Expanded(
+          child: TextField(
+            controller: ctl,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            textInputAction: TextInputAction.send,
+            onSubmitted: (_) => onSend(),
+            decoration: InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
+            ),
+          ),
+        ),
+        IconButton(icon: const Icon(Icons.send, color: Color(0xFF60A5FA)), onPressed: busy ? null : onSend),
+      ]),
+    );
+  }
+
+  Widget _aiChip(String label, bool busy, VoidCallback onTap) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+      backgroundColor: Colors.white.withOpacity(0.08),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withOpacity(0.15))),
+      onPressed: busy ? null : onTap,
+    );
+  }
+
   Widget _buildPlaceSearchField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2115,6 +2367,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _showAiAssistant,
+              icon: const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF60A5FA)),
+              label: const Text('AI Assistant', style: TextStyle(color: Color(0xFF60A5FA))),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF60A5FA)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
           ),
           if (_hasSearchedPOIs) ...[
             const SizedBox(height: 24),

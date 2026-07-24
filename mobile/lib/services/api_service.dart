@@ -184,4 +184,77 @@ class ApiService {
     }
     return null;
   }
+
+  // ───────────────────────── AI (Google Gemini via backend) ─────────────────
+
+  List<Map<String, String>> _parseAiPlaces(http.Response response) {
+    if (response.statusCode == 503) {
+      throw ApiException('AI isn\'t enabled yet. Ask the server admin to set GEMINI_API_KEY.');
+    }
+    if (response.statusCode != 200) {
+      throw ApiException('AI request failed (${response.statusCode})');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final list = (body['places'] as List?) ?? [];
+    return list
+        .map((e) => {
+              'name': (e['name'] ?? '').toString(),
+              'area': (e['area'] ?? '').toString(),
+              'why': (e['why'] ?? '').toString(),
+            })
+        .where((m) => m['name']!.isNotEmpty)
+        .toList();
+  }
+
+  /// AI: notable stops along a route (names + reasons; geocode on add).
+  Future<List<Map<String, String>>> aiRecommendStops({
+    required String start,
+    required String end,
+    List<String> waypoints = const [],
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/recommend'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'start': start, 'end': end, 'waypoints': waypoints}),
+        )
+        .timeout(const Duration(seconds: 40));
+    return _parseAiPlaces(response);
+  }
+
+  /// AI: natural-language place search, optionally anchored near a location.
+  Future<List<Map<String, String>>> aiSearchPlaces({
+    required String query,
+    String? near,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/search'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'query': query, if (near != null) 'near': near}),
+        )
+        .timeout(const Duration(seconds: 40));
+    return _parseAiPlaces(response);
+  }
+
+  /// AI: free-form trip assistant / itinerary writer (returns text).
+  Future<String> aiAsk({
+    required String question,
+    Map<String, dynamic>? context,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/ask'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'question': question, if (context != null) 'context': context}),
+        )
+        .timeout(const Duration(seconds: 60));
+    if (response.statusCode == 503) {
+      throw ApiException('AI isn\'t enabled yet. Ask the server admin to set GEMINI_API_KEY.');
+    }
+    if (response.statusCode != 200) {
+      throw ApiException('AI request failed (${response.statusCode})');
+    }
+    return (jsonDecode(response.body) as Map<String, dynamic>)['text'] as String? ?? '';
+  }
 }
