@@ -56,6 +56,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   final _placeSearchController = TextEditingController();
   bool _searchingPlace = false;
   bool _suggestingPopular = false;
+  // Live autocomplete for the place-search box.
+  List<Map<String, dynamic>> _placeSuggestions = [];
+  Timer? _placeSearchDebounce;
   
   TripPlan? _currentPlan;
   GeoPoint? _currentStart;
@@ -948,6 +951,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     _tankController.dispose();
     _currentFuelController.dispose();
     _placeSearchController.dispose();
+    _placeSearchDebounce?.cancel();
     _formScrollController.dispose();
     _bgController.dispose();
     _suggestDebounce?.cancel();
@@ -1900,44 +1904,134 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
   }
 
+  /// Live autocomplete for the place-search box (reuses the Mapbox geocoder).
+  void _onPlaceSearchChanged(String query) {
+    _placeSearchDebounce?.cancel();
+    final q = query.trim();
+    if (q.length < 3) {
+      setState(() => _placeSuggestions = []);
+      return;
+    }
+    _placeSearchDebounce = Timer(const Duration(milliseconds: 320), () async {
+      try {
+        final uri = Uri.parse(
+          'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(q)}.json',
+        ).replace(queryParameters: {
+          'autocomplete': 'true',
+          'limit': '6',
+          'country': 'in',
+          'language': 'en',
+          'access_token': _mapboxToken,
+        });
+        final res = await http.get(uri).timeout(const Duration(seconds: 8));
+        if (res.statusCode != 200) return;
+        final feats = ((jsonDecode(res.body) as Map<String, dynamic>)['features'] as List?) ?? [];
+        final list = feats.map((f) {
+          final c = f['center'] as List;
+          return {
+            'name': f['place_name'] as String? ?? '',
+            'lng': (c[0] as num).toDouble(),
+            'lat': (c[1] as num).toDouble(),
+          };
+        }).toList();
+        if (mounted) setState(() => _placeSuggestions = list);
+      } catch (_) {/* ignore transient search errors */}
+    });
+  }
+
+  void _selectPlaceSuggestion(Map<String, dynamic> s) {
+    final place = PlaceOfInterest(
+      id: DateTime.now().millisecondsSinceEpoch,
+      name: s['name'] as String,
+      lat: s['lat'] as double,
+      lng: s['lng'] as double,
+      address: s['name'] as String,
+    );
+    _confirmAddPOIFromPlanner(place);
+    setState(() => _placeSuggestions = []);
+    _placeSearchController.clear();
+    FocusScope.of(context).unfocus();
+  }
+
   Widget _buildPlaceSearchField() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 14),
-          Icon(Icons.search, color: Colors.white.withOpacity(0.6), size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: _placeSearchController,
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _addManualPlace(),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: 'Search a place to add…',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
+          ),
+          child: Row(
+            children: [
+              const SizedBox(width: 14),
+              Icon(Icons.search, color: Colors.white.withOpacity(0.6), size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _placeSearchController,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  textInputAction: TextInputAction.search,
+                  onChanged: _onPlaceSearchChanged,
+                  onSubmitted: (_) => _addManualPlace(),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: 'Search a place to add…',
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                  ),
+                ),
               ),
+              _searchingPlace
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                    )
+                  : IconButton(
+                      icon: const Icon(Icons.add_circle, color: Color(0xFF2E75B6)),
+                      tooltip: 'Add this place',
+                      onPressed: _addManualPlace,
+                    ),
+            ],
+          ),
+        ),
+        if (_placeSuggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13233B).withOpacity(0.96),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+            ),
+            child: Column(
+              children: [
+                for (final s in _placeSuggestions)
+                  InkWell(
+                    onTap: () => _selectPlaceSuggestion(s),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              s['name'] as String,
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const Icon(Icons.add, color: Colors.white38, size: 18),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
-          _searchingPlace
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
-                )
-              : IconButton(
-                  icon: const Icon(Icons.add_circle, color: Color(0xFF2E75B6)),
-                  tooltip: 'Add this place',
-                  onPressed: _addManualPlace,
-                ),
-        ],
-      ),
+      ],
     );
   }
 
