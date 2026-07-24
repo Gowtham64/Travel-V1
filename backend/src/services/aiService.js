@@ -1,59 +1,71 @@
 const axios = require("axios");
 
-// Google Gemini (free tier). Set GEMINI_API_KEY in the backend environment.
-// Model is configurable; defaults to a fast, free-tier model.
+// Provider-agnostic AI. Pick one with AI_PROVIDER = gemini | groq | openrouter.
+// All have a free tier; Groq and OpenRouter need no billing/credit card.
+const PROVIDER = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
-const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
+const GROQ_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
+
+const ACTIVE_MODEL = PROVIDER === "groq" ? GROQ_MODEL : PROVIDER === "openrouter" ? OPENROUTER_MODEL : GEMINI_MODEL;
 
 class AiConfigError extends Error {}
 
-/**
- * Low-level Gemini call. Returns the model's text output.
- * @param {string} prompt
- * @param {{system?:string, json?:boolean, schema?:object}} [opts]
- */
-async function generate(prompt, opts = {}) {
-  if (!GEMINI_KEY) {
-    throw new AiConfigError("GEMINI_API_KEY is not set on the server");
-  }
-  const url = `${BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${GEMINI_KEY}`;
-  const body = {
-    contents: [{ role: "user", parts: [{ text: prompt }] }],
-    generationConfig: { temperature: 0.7 },
-  };
-  if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
-  if (opts.json) {
-    body.generationConfig.responseMimeType = "application/json";
-    if (opts.schema) body.generationConfig.responseSchema = opts.schema;
-  }
-
-  const res = await axios.post(url, body, {
-    headers: { "Content-Type": "application/json" },
-    timeout: 30000,
-  });
-
-  const parts = res.data?.candidates?.[0]?.content?.parts || [];
-  return parts.map((p) => p.text || "").join("").trim();
+function activeKey() {
+  if (PROVIDER === "groq") return GROQ_KEY;
+  if (PROVIDER === "openrouter") return OPENROUTER_KEY;
+  return GEMINI_KEY;
 }
 
-// Gemini responseSchema for a list of places.
-const PLACES_SCHEMA = {
-  type: "ARRAY",
-  items: {
-    type: "OBJECT",
-    properties: {
-      name: { type: "STRING" },
-      area: { type: "STRING" },
-      why: { type: "STRING" },
-    },
-    required: ["name", "why"],
-  },
-};
+/** Low-level text generation, dispatched to the configured provider. */
+async function generate(prompt, opts = {}) {
+  const key = activeKey();
+  if (!key) throw new AiConfigError(`No API key set for AI provider "${PROVIDER}"`);
+  return PROVIDER === "gemini"
+    ? geminiGenerate(prompt, opts, key)
+    : openaiCompatGenerate(prompt, opts, key);
+}
 
+async function geminiGenerate(prompt, opts, key) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${key}`;
+  const body = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } };
+  if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
+  if (opts.json) body.generationConfig.responseMimeType = "application/json";
+  const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" }, timeout: 30000 });
+  return (res.data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
+}
+
+// Groq and OpenRouter both speak the OpenAI chat-completions format.
+async function openaiCompatGenerate(prompt, opts, key) {
+  const base = PROVIDER === "groq" ? "https://api.groq.com/openai/v1" : "https://openrouter.ai/api/v1";
+  const model = PROVIDER === "groq" ? GROQ_MODEL : OPENROUTER_MODEL;
+  const messages = [];
+  if (opts.system) messages.push({ role: "system", content: opts.system });
+  messages.push({ role: "user", content: prompt });
+  const body = { model, messages, temperature: 0.7 };
+  if (opts.json) body.response_format = { type: "json_object" };
+  const res = await axios.post(`${base}/chat/completions`, body, {
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${key}`,
+      // OpenRouter likes these (optional but recommended).
+      "HTTP-Referer": "https://gowtham64.github.io/Travel-V1/",
+      "X-Title": "Voyplan",
+    },
+    timeout: 30000,
+  });
+  return (res.data?.choices?.[0]?.message?.content || "").trim();
+}
+
+// Accepts a bare JSON array OR an object like {"places":[...]}.
 function safeParsePlaces(text) {
   try {
-    const data = JSON.parse(text);
+    let data = JSON.parse(text);
+    if (data && !Array.isArray(data) && Array.isArray(data.places)) data = data.places;
     if (Array.isArray(data)) {
       return data
         .filter((p) => p && p.name)
@@ -64,37 +76,30 @@ function safeParsePlaces(text) {
   return [];
 }
 
-/** Recommend notable stops along a route. */
+const PLACES_JSON_HINT =
+  'Respond ONLY with JSON of the form {"places":[{"name":"","area":"","why":""}]} — no prose, no markdown.';
+
 async function recommendStops({ start, end, waypoints = [] }) {
   const via = waypoints.length ? ` via ${waypoints.join(", ")}` : "";
   const prompt =
     `Suggest up to 8 genuinely notable, popular places to stop and visit on a road trip ` +
     `from "${start}" to "${end}"${via}. Prefer well-known attractions, viewpoints, temples, ` +
-    `forts, waterfalls, lakes and towns that are roughly on or near the route. ` +
-    `For each: "name" (specific place name), "area" (town/region), and "why" (one short sentence).`;
-  const text = await generate(prompt, {
+    `forts, waterfalls, lakes and towns roughly on or near the route. ${PLACES_JSON_HINT}`;
+  return safeParsePlaces(await generate(prompt, {
     system: "You are a concise, accurate India-aware road-trip guide. Only suggest real places.",
     json: true,
-    schema: PLACES_SCHEMA,
-  });
-  return safeParsePlaces(text);
+  }));
 }
 
-/** Natural-language place search, optionally anchored near a location. */
 async function searchPlaces({ query, near }) {
   const anchor = near ? ` near ${near}` : "";
-  const prompt =
-    `Find real places matching this request${anchor}: "${query}". ` +
-    `Return up to 8 specific, real places. For each: "name", "area" (town/region), "why" (one short sentence).`;
-  const text = await generate(prompt, {
+  const prompt = `Find up to 8 real, specific places matching this request${anchor}: "${query}". ${PLACES_JSON_HINT}`;
+  return safeParsePlaces(await generate(prompt, {
     system: "You are a concise, accurate travel search assistant. Only return real, specific places.",
     json: true,
-    schema: PLACES_SCHEMA,
-  });
-  return safeParsePlaces(text);
+  }));
 }
 
-/** Free-form trip assistant / itinerary writer. Returns plain text (markdown-ish). */
 async function ask({ question, context }) {
   const ctx = context
     ? `\n\nTrip context:\n${Object.entries(context)
@@ -102,22 +107,27 @@ async function ask({ question, context }) {
         .map(([k, v]) => `- ${k}: ${v}`)
         .join("\n")}`
     : "";
-  const text = await generate(`${question}${ctx}`, {
+  return generate(`${question}${ctx}`, {
     system:
       "You are Voyplan's road-trip assistant. Be concise, practical and specific. " +
       "Use short paragraphs or bullet points. When asked for an itinerary, give a clear " +
       "day-by-day plan with drive legs, stops, and meal/rest suggestions.",
   });
-  return text;
 }
 
-/** Diagnostic: list models this key can use with generateContent. */
+/** Diagnostic: models this provider/key can use. */
 async function listModels() {
-  if (!GEMINI_KEY) throw new AiConfigError("GEMINI_API_KEY is not set on the server");
-  const res = await axios.get(`${BASE}?key=${GEMINI_KEY}&pageSize=100`, { timeout: 15000 });
-  return (res.data?.models || [])
-    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
-    .map((m) => (m.name || "").replace(/^models\//, ""));
+  const key = activeKey();
+  if (!key) throw new AiConfigError(`No API key set for AI provider "${PROVIDER}"`);
+  if (PROVIDER === "gemini") {
+    const res = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}&pageSize=100`, { timeout: 15000 });
+    return (res.data?.models || [])
+      .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+      .map((m) => (m.name || "").replace(/^models\//, ""));
+  }
+  const base = PROVIDER === "groq" ? "https://api.groq.com/openai/v1" : "https://openrouter.ai/api/v1";
+  const res = await axios.get(`${base}/models`, { headers: { Authorization: `Bearer ${key}` }, timeout: 15000 });
+  return (res.data?.data || []).map((m) => m.id).slice(0, 60);
 }
 
-module.exports = { recommendStops, searchPlaces, ask, listModels, AiConfigError, GEMINI_MODEL };
+module.exports = { recommendStops, searchPlaces, ask, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };

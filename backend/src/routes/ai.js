@@ -1,13 +1,15 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, listModels, AiConfigError, GEMINI_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, ask, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 
 const router = express.Router();
 
 // Reports whether the AI key is configured and which model is in use (no secrets).
 router.get("/status", (req, res) => {
+  const keyByProvider = { gemini: process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY, groq: process.env.GROQ_API_KEY, openrouter: process.env.OPENROUTER_API_KEY };
   res.json({
-    configured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
-    model: GEMINI_MODEL,
+    provider: PROVIDER,
+    model: ACTIVE_MODEL,
+    configured: !!keyByProvider[PROVIDER],
   });
 });
 
@@ -29,7 +31,7 @@ function handleError(res, err) {
 // Diagnostic: which models this key can use.
 router.get("/models", async (req, res) => {
   try {
-    res.json({ current: GEMINI_MODEL, available: await listModels() });
+    res.json({ provider: PROVIDER, current: ACTIVE_MODEL, available: await listModels() });
   } catch (err) {
     handleError(res, err);
   }
