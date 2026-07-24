@@ -1893,7 +1893,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     setState(() => _suggestingPopular = true);
     try {
       await _findPlacesBeforeTrip(
-        categories: const ['attraction', 'viewpoint', 'temple', 'hills', 'lake'],
+        categories: const ['attraction', 'viewpoint', 'temple', 'hills', 'lake', 'river'],
       );
     } finally {
       if (mounted) setState(() => _suggestingPopular = false);
@@ -2026,7 +2026,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             const SizedBox(height: 24),
             if (_loadingPOIs && _pois.isEmpty)
               const Center(child: CircularProgressIndicator())
-            else if (_pois.isNotEmpty)
+            else if (_pois.values.any((l) => l.isNotEmpty))
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -2041,7 +2041,21 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 ],
               )
             else
-              const Center(child: Text("No places found.", style: TextStyle(color: Colors.white70))),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.white.withOpacity(0.6), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'No places found near this route for those categories. Try different categories, or search a place by name above.',
+                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ],
       ),

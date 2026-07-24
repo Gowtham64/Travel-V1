@@ -547,7 +547,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
+                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress),
                   const SizedBox(height: 12),
                   _buildDriveActions(),
                   const SizedBox(height: 10),
@@ -606,7 +606,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       child: Column(
                         children: [
                           const SizedBox(height: 16),
-                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle),
+                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress),
                           const SizedBox(height: 12),
                           _buildDriveActions(),
                           const SizedBox(height: 10),
@@ -1724,19 +1724,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   // ─────────────────────────  Trip toolkit  ─────────────────────────
   // Fuel-stop planner, per-traveller cost split, and itinerary export.
 
-  /// Returns (fuelCost, tollCost, currencySymbol) as best-available numbers.
-  ({double fuel, double toll, String symbol}) _tripCosts() {
+  /// Fuel cost is computed from a location-aware per-litre price (based on the
+  /// trip's start region) × litres needed, so the estimate reflects where you
+  /// are. Tolls come from the backend toll estimate.
+  ({double fuel, double toll, String symbol, double perLiter, String region}) _tripCosts() {
     final t = _currentPlan.toll;
-    final symbol = (t?.currency == null || t?.currency == 'INR') ? '₹' : '${t!.currency} ';
+    final fp = fuelPriceFor(widget.start.name ?? widget.startAddress);
     final eff = widget.vehicle.efficiencyKmPerLiter > 0 ? widget.vehicle.efficiencyKmPerLiter : 15.0;
-    final isUSD = t?.currency == 'USD';
-    final fuel = (t?.fuelCost != null && t!.fuelCost! > 0)
-        ? t.fuelCost!
-        : (_currentPlan.distanceKm / eff) * (isUSD ? 1.05 : 102.0);
+    final litres = _currentPlan.distanceKm / eff;
+    final fuel = litres * fp.perLiter;
     final toll = (t == null || !t.hasTolls)
         ? 0.0
         : (t.fastagTollCost ?? t.minTollCost ?? 0.0);
-    return (fuel: fuel, toll: toll, symbol: symbol);
+    return (fuel: fuel, toll: toll, symbol: fp.symbol, perLiter: fp.perLiter, region: fp.region);
   }
 
   /// Computes where along the route the tank would run low, using the entered
@@ -1866,6 +1866,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 6),
                 Text('Total ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}  (fuel ${costs.symbol}${costs.fuel.toStringAsFixed(0)} · tolls ${costs.symbol}${costs.toll.toStringAsFixed(0)})',
                     style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Icon(Icons.local_gas_station, size: 12, color: Colors.orangeAccent.withOpacity(0.8)),
+                    const SizedBox(width: 5),
+                    Text('Fuel @ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region} (approx)',
+                        style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1943,7 +1952,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     sb.writeln('Vehicle:   ${widget.vehicleType.toUpperCase()}');
     sb.writeln('');
     sb.writeln('COSTS');
-    sb.writeln('  Fuel:   ${costs.symbol}${costs.fuel.toStringAsFixed(0)}');
+    sb.writeln('  Fuel:   ${costs.symbol}${costs.fuel.toStringAsFixed(0)}  (@ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region})');
     sb.writeln('  Tolls:  ${costs.symbol}${costs.toll.toStringAsFixed(0)}');
     sb.writeln('  Total:  ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}'
         '  (${costs.symbol}${((costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount)).toStringAsFixed(0)} each ÷ $_splitCount)');
@@ -3235,20 +3244,59 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 }
 
+/// Approximate petrol price per litre by region, chosen from the trip's start
+/// location. Illustrative averages — labelled "approx" in the UI. Indian states
+/// vary enough to be worth distinguishing; other countries fall back to a
+/// country-level figure.
+const Map<String, double> _indiaStatePetrol = {
+  'karnataka': 102.9,
+  'maharashtra': 106.3,
+  'tamil nadu': 102.6,
+  'kerala': 107.6,
+  'telangana': 108.0,
+  'andhra pradesh': 109.4,
+  'delhi': 94.7,
+  'uttar pradesh': 94.7,
+  'rajasthan': 104.9,
+  'gujarat': 95.0,
+  'west bengal': 106.0,
+  'madhya pradesh': 106.5,
+};
+
+({double perLiter, String symbol, String region}) fuelPriceFor(String? name) {
+  final n = (name ?? '').toLowerCase();
+  // Non-India countries (per-litre, local currency symbol).
+  if (n.contains('united states') || n.endsWith(', usa') || n.contains(' usa')) {
+    return (perLiter: 0.92, symbol: '\$', region: 'USA');
+  }
+  if (n.contains('united kingdom') || n.contains('england') || n.contains('scotland')) {
+    return (perLiter: 1.45, symbol: '£', region: 'UK');
+  }
+  if (n.contains('united arab emirates') || n.contains('dubai') || n.contains('abu dhabi')) {
+    return (perLiter: 3.05, symbol: 'AED ', region: 'UAE');
+  }
+  // India (default for this app) — try to pin the state for a sharper price.
+  for (final e in _indiaStatePetrol.entries) {
+    if (n.contains(e.key)) {
+      return (perLiter: e.value, symbol: '₹', region: '${e.key[0].toUpperCase()}${e.key.substring(1)}');
+    }
+  }
+  return (perLiter: 101.0, symbol: '₹', region: 'India');
+}
+
 class _SummaryCard extends StatelessWidget {
   final TripPlan plan;
   final Vehicle vehicle;
-  
-  const _SummaryCard({required this.plan, required this.vehicle});
+  /// Trip start location, used to pick a region-based fuel price.
+  final String? locationName;
 
-  String _estimateFuelCost(double distance, Vehicle vehicle, String? currency) {
+  const _SummaryCard({required this.plan, required this.vehicle, this.locationName});
+
+  String _estimateFuelCost(double distance, Vehicle vehicle) {
     final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
-    final liters = distance / eff;
-    final isUSD = currency == 'USD' || currency == 'USD ';
-    final fuelPrice = isUSD ? 1.05 : 102.0; // $1.05 per liter or ₹102 per liter
-    final cost = liters * fuelPrice;
-    final currSymbol = isUSD ? '\$' : '₹';
-    return '$currSymbol ${cost.toStringAsFixed(0)}';
+    final fp = fuelPriceFor(locationName);
+    final cost = (distance / eff) * fp.perLiter;
+    return '${fp.symbol}${cost.toStringAsFixed(0)}';
   }
 
   /// Returns display string for toll cost.
@@ -3272,13 +3320,12 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final hours = plan.durationMin ~/ 60;
     final minutes = plan.durationMin % 60;
-    final currency = plan.toll?.currency;
 
     final toll = plan.toll;
     final curr = (toll?.currency == 'INR' || toll?.currency == null) ? '₹' : toll!.currency;
-    final fuelDisplay = toll?.fuelCost != null && toll!.fuelCost! > 0
-        ? '$curr ${toll.fuelCost!.toStringAsFixed(0)}'
-        : _estimateFuelCost(plan.distanceKm, vehicle, currency);
+    // Fuel is shown location-based (region price × litres) for consistency with
+    // the trip toolkit's cost split.
+    final fuelDisplay = _estimateFuelCost(plan.distanceKm, vehicle);
 
     return Center(
       child: ConstrainedBox(

@@ -7,19 +7,24 @@ const OVERPASS_MIRRORS = [
   "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
 ];
 
-// Maps our app-level category names to OSM tag filters
+// Maps our app-level category names to one or more OSM tag filters. Sightseeing
+// categories use several filters so "popular" stops actually return results
+// (OSM tags these places inconsistently).
 const CATEGORY_FILTERS = {
-  fuel:        '["amenity"="fuel"]',
-  hotel:       '["tourism"="hotel"]',
-  restaurant:  '["amenity"="restaurant"]',
-  attraction:  '["tourism"="attraction"]',
-  hills:       '["natural"="peak"]',
-  temple:      '["amenity"="place_of_worship"]["religion"="hindu"]',
-  lake:        '["natural"="water"]["water"="lake"]',
-  river:       '["waterway"="river"]',
-  viewpoint:   '["tourism"="viewpoint"]',
-  charging:    '["amenity"="charging_station"]',
+  fuel:        ['["amenity"="fuel"]'],
+  hotel:       ['["tourism"="hotel"]'],
+  restaurant:  ['["amenity"="restaurant"]'],
+  attraction:  ['["tourism"="attraction"]', '["tourism"="museum"]', '["tourism"="theme_park"]', '["tourism"="zoo"]', '["historic"]'],
+  hills:       ['["natural"="peak"]'],
+  temple:      ['["amenity"="place_of_worship"]'],
+  lake:        ['["natural"="water"]["water"="lake"]', '["natural"="water"]["water"="reservoir"]', '["water"="lake"]'],
+  river:       ['["waterway"="river"]'],
+  viewpoint:   ['["tourism"="viewpoint"]', '["natural"="waterfall"]'],
+  charging:    ['["amenity"="charging_station"]'],
 };
+
+// Sightseeing POIs are sparser and worth a longer detour, so search wider.
+const WIDE_RADIUS_CATEGORIES = new Set(['attraction', 'viewpoint', 'hills', 'lake', 'river', 'temple']);
 
 /**
  * Execute an Overpass QL query, trying each mirror in order until one succeeds.
@@ -72,23 +77,26 @@ function sampleCoordinates(coords, maxPoints = 12) {
  * @param {number} [radiusMeters=3000] - search radius at each sample point
  * @returns {Promise<Object<string, Array>>} - { fuel: [...], hotel: [...], ... }
  */
-async function findPOIsAlongRoute(routeCoordinates, categories, radiusMeters = 3000) {
+async function findPOIsAlongRoute(routeCoordinates, categories, radiusMeters = 5000) {
   // Downsample to keep queries small (avoids 400 Too Large errors from Overpass)
   const samples = sampleCoordinates(routeCoordinates, 12);
 
   const places = {};
 
   for (const category of categories) {
-    const filter = CATEGORY_FILTERS[category];
-    if (!filter) {
+    const filters = CATEGORY_FILTERS[category];
+    if (!filters) {
       console.warn(`Unknown POI category: ${category}`);
       places[category] = [];
       continue;
     }
 
-    // Build one combined Overpass query for all sample points
+    const radius = WIDE_RADIUS_CATEGORIES.has(category) ? 15000 : radiusMeters;
+
+    // One node clause per (sample point × tag filter) so multi-tag categories
+    // (e.g. attraction = tourism|museum|historic) all get searched.
     const clauses = samples
-      .map((p) => `node${filter}(around:${radiusMeters},${p.lat},${p.lng});`)
+      .map((p) => filters.map((f) => `node${f}(around:${radius},${p.lat},${p.lng});`).join("\n  "))
       .join("\n  ");
 
     const query = `[out:json][timeout:25];\n(\n  ${clauses}\n);\nout body;`;
