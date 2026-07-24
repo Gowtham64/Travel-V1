@@ -3,20 +3,11 @@ const { recommendStops, searchPlaces, ask, listModels, AiConfigError, GEMINI_MOD
 
 const router = express.Router();
 
-// Diagnostic: reports whether a key is visible to the process (no secret values).
-// Lists env-var NAMES that look key-related so a typo is easy to spot.
+// Reports whether the AI key is configured and which model is in use (no secrets).
 router.get("/status", (req, res) => {
-  const names = Object.keys(process.env).filter((k) => /gemini|google|api[_-]?key|_key$|^key/i.test(k));
   res.json({
     configured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     model: GEMINI_MODEL,
-    matchingEnvVarNames: names,
-    // Non-secret Render-injected values, to confirm which service/commit is live.
-    renderService: process.env.RENDER_SERVICE_NAME || null,
-    commit: (process.env.RENDER_GIT_COMMIT || "").slice(0, 7) || null,
-    totalEnvVars: Object.keys(process.env).length,
-    // TEMP DEBUG (names only, no values) — remove after diagnosing the key.
-    envVarNames: req.query.names ? Object.keys(process.env).sort() : undefined,
   });
 });
 
