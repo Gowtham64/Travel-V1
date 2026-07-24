@@ -31,7 +31,7 @@ function isValidPoint(p) {
  * }
  */
 router.post("/plan", async (req, res) => {
-  const { start, end, waypoints = [], vehicle, dailyDrivingHours = 7, includePlaces = [] } = req.body || {};
+  const { start, end, waypoints = [], vehicle, dailyDrivingHours = 7, includePlaces = [], departAt = null } = req.body || {};
 
   if (!isValidPoint(start) || !isValidPoint(end)) {
     return res.status(400).json({ error: "start and end must be { lat, lng } objects" });
@@ -76,7 +76,7 @@ router.post("/plan", async (req, res) => {
     // Best-departure advice (hourly rain at the start) — best-effort.
     let departureAdvice = null;
     try {
-      departureAdvice = await getDepartureAdvice(start);
+      departureAdvice = await getDepartureAdvice(start, 12, departAt);
     } catch (err) {
       console.error("Departure advice skipped:", err.message);
     }

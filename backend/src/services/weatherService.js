@@ -134,22 +134,29 @@ async function getRouteWeather(routeCoordinates) {
  * @returns {Promise<{ bestOffsetHours:number, bestLabel:string, driestRainPct:number,
  *   nowRainPct:number, recommendation:string, hourly:Array } | null>}
  */
-async function getDepartureAdvice(start, hours = 12) {
+async function getDepartureAdvice(start, hours = 12, departAt = null) {
   if (!start || typeof start.lat !== "number" || typeof start.lng !== "number") {
     return null;
   }
 
+  // A planned start further out needs a longer forecast horizon.
+  const forecastDays = departAt ? 4 : 2;
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${start.lat}&longitude=${start.lng}` +
-    `&hourly=precipitation_probability,weather_code,temperature_2m&forecast_days=2&timezone=auto`;
+    `&hourly=precipitation_probability,weather_code,temperature_2m&forecast_days=${forecastDays}&timezone=auto`;
 
   const response = await axios.get(url, { timeout: 8000 });
   const h = response.data && response.data.hourly;
   if (!h || !Array.isArray(h.time)) return null;
 
-  // Open-Meteo hourly arrays start at 00:00 today; find the index closest to now.
-  const nowIso = new Date().toISOString().slice(0, 13); // yyyy-mm-ddThh
-  let startIdx = h.time.findIndex((t) => t.slice(0, 13) >= nowIso);
+  // Anchor the window at the planned departure (local wall-time, matching
+  // Open-Meteo's timezone=auto), else at "now". Open-Meteo hourly arrays are
+  // "yyyy-mm-ddThh:mm"; compare on the yyyy-mm-ddThh prefix.
+  const planned = !!departAt;
+  const anchorPrefix = planned
+    ? String(departAt).slice(0, 13)
+    : new Date().toISOString().slice(0, 13);
+  let startIdx = h.time.findIndex((t) => t.slice(0, 13) >= anchorPrefix);
   if (startIdx < 0) startIdx = 0;
 
   const window = [];
@@ -175,16 +182,20 @@ async function getDepartureAdvice(start, hours = 12) {
   }
 
   function label(offset) {
-    if (offset === 0) return "now";
-    if (offset === 1) return "in 1 hour";
-    return `in ${offset} hours`;
+    if (offset === 0) return planned ? "at your start time" : "now";
+    if (offset === 1) return planned ? "1 hour later" : "in 1 hour";
+    return planned ? `${offset} hours later` : `in ${offset} hours`;
   }
 
   let recommendation;
   if (nowRainPct < 30) {
-    recommendation = "Good time to leave — low rain risk right now.";
+    recommendation = planned
+      ? `Looking good — only ${nowRainPct}% rain risk at your planned start.`
+      : "Good time to leave — low rain risk right now.";
   } else if (best.offsetHours === 0 || best.rainChancePct >= nowRainPct - 15) {
-    recommendation = `Rain likely (${nowRainPct}%) — no clearly drier window in the next ${hours}h.`;
+    recommendation = planned
+      ? `Rain likely (${nowRainPct}%) around your start — no clearly drier window nearby.`
+      : `Rain likely (${nowRainPct}%) — no clearly drier window in the next ${hours}h.`;
   } else {
     recommendation = `Leaving ${label(best.offsetHours)} cuts rain risk from ${nowRainPct}% to ${best.rainChancePct}%.`;
   }

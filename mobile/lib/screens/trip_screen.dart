@@ -16,6 +16,7 @@ import '../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
 import '../services/voice_guide.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
@@ -111,6 +112,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   late List<GeoPoint> _currentWaypoints;
   // How many ways to split the trip cost (cost-split feature).
   late int _splitCount;
+  // Planned trip start (date + time). Drives weather/departure advice and the
+  // calendar reminder. Defaults to now.
+  DateTime _tripStart = DateTime.now();
 
   @override
   void initState() {
@@ -402,6 +406,124 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Human-friendly "Today · 9:30 AM" / "Thu, 24 Jul · 9:30 AM".
+  String _formatTripStart(DateTime d) {
+    const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    var h = d.hour % 12;
+    if (h == 0) h = 12;
+    final mm = d.minute.toString().padLeft(2, '0');
+    final now = DateTime.now();
+    final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+    final tomorrow = now.add(const Duration(days: 1));
+    final isTomorrow = d.year == tomorrow.year && d.month == tomorrow.month && d.day == tomorrow.day;
+    final datePart = isToday
+        ? 'Today'
+        : isTomorrow
+            ? 'Tomorrow'
+            : '${wd[d.weekday - 1]}, ${d.day} ${mo[d.month - 1]}';
+    return '$datePart · $h:$mm $ampm';
+  }
+
+  /// Lets the traveller pick the trip's start date & time, then refreshes the
+  /// weather/departure advice for that time.
+  Future<void> _pickTripStart() async {
+    final now = DateTime.now();
+    final initial = _tripStart.isBefore(now) ? now : _tripStart;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: now.add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_tripStart),
+    );
+    if (time == null || !mounted) return;
+    final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() => _tripStart = picked);
+    await _refreshForDeparture();
+  }
+
+  /// Re-requests the plan with the chosen departure so weather + best-time-to-
+  /// leave advice reflect the planned start.
+  Future<void> _refreshForDeparture() async {
+    setState(() => _recalculating = true);
+    try {
+      final newPlan = await _api.planTrip(
+        start: widget.start,
+        end: widget.end,
+        waypoints: _currentWaypoints,
+        vehicle: widget.vehicle,
+        travellers: widget.travellers,
+        departAt: _tripStart,
+      );
+      if (mounted) {
+        setState(() {
+          _currentPlan = newPlan;
+          _recalculating = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _recalculating = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Couldn't refresh weather for that time: $e")),
+        );
+      }
+    }
+  }
+
+  /// Editable "Trip start" card shown above the summary.
+  Widget _buildDepartureSelector() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: InkWell(
+        onTap: _recalculating ? null : _pickTripStart,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.10)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.event, color: Color(0xFF9AD0EC), size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Trip start',
+                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 2),
+                    Text(_formatTripStart(_tripStart),
+                        style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              if (_recalculating)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Row(
+                  children: const [
+                    Text('Edit', style: TextStyle(fontSize: 12, color: Color(0xFF9AD0EC), fontWeight: FontWeight.w600)),
+                    SizedBox(width: 4),
+                    Icon(Icons.edit, size: 14, color: Color(0xFF9AD0EC)),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fullRoutePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
@@ -555,7 +677,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress),
+                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress, destination: widget.end.name ?? widget.endAddress, tripStart: _tripStart),
+                  const SizedBox(height: 12),
+                  _buildDepartureSelector(),
                   const SizedBox(height: 12),
                   _buildDriveActions(),
                   const SizedBox(height: 10),
@@ -614,7 +738,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       child: Column(
                         children: [
                           const SizedBox(height: 16),
-                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress),
+                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress, destination: widget.end.name ?? widget.endAddress, tripStart: _tripStart),
+                          const SizedBox(height: 12),
+                          _buildDepartureSelector(),
                           const SizedBox(height: 12),
                           _buildDriveActions(),
                           const SizedBox(height: 10),
@@ -3330,7 +3456,12 @@ class _SummaryCard extends StatelessWidget {
   /// Trip start location, used to pick a region-based fuel price.
   final String? locationName;
 
-  const _SummaryCard({required this.plan, required this.vehicle, this.locationName});
+  /// Trip destination, used to label the departure calendar reminder.
+  final String? destination;
+  /// Planned trip start, used to anchor the departure reminder time.
+  final DateTime? tripStart;
+
+  const _SummaryCard({required this.plan, required this.vehicle, this.locationName, this.destination, this.tripStart});
 
   String _estimateFuelCost(double distance, Vehicle vehicle) {
     final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
@@ -3450,7 +3581,11 @@ class _SummaryCard extends StatelessWidget {
           ],
           if (plan.departureAdvice != null && plan.departureAdvice!.recommendation.isNotEmpty) ...[
             const SizedBox(height: 12),
-            _DepartureBanner(advice: plan.departureAdvice!),
+            _DepartureBanner(
+              advice: plan.departureAdvice!,
+              destination: (destination != null && destination!.isNotEmpty) ? destination! : 'your destination',
+              tripStart: tripStart,
+            ),
           ],
           if (plan.restStops.isNotEmpty) ...[
             const SizedBox(height: 12),
@@ -3669,7 +3804,34 @@ class _ItineraryCard extends StatelessWidget {
 /// Best-departure-time advice based on the hourly rain forecast at the start.
 class _DepartureBanner extends StatelessWidget {
   final DepartureAdvice advice;
-  const _DepartureBanner({required this.advice});
+  final String destination;
+  final DateTime? tripStart;
+  const _DepartureBanner({required this.advice, this.destination = 'your destination', this.tripStart});
+
+  /// Drops the recommended departure into the traveller's calendar (Google
+  /// Calendar event-create link) so the reminder fires even if the app is
+  /// closed — works on web and Android with no notification plumbing.
+  Future<void> _addToCalendar(BuildContext context) async {
+    // Advice offset is relative to the planned start (or now if none set).
+    final base = tripStart ?? DateTime.now();
+    final depart = base.add(Duration(hours: advice.bestOffsetHours));
+    final startUtc = depart.toUtc();
+    final endUtc = startUtc.add(const Duration(minutes: 30));
+    String p2(int n) => n.toString().padLeft(2, '0');
+    String stamp(DateTime d) =>
+        '${d.year}${p2(d.month)}${p2(d.day)}T${p2(d.hour)}${p2(d.minute)}00Z';
+    final text = Uri.encodeComponent('Leave for $destination — Voyplan');
+    final details = Uri.encodeComponent(advice.recommendation);
+    final url =
+        'https://calendar.google.com/calendar/render?action=TEMPLATE&text=$text'
+        '&dates=${stamp(startUtc)}/${stamp(endUtc)}&details=$details';
+    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Couldn't open your calendar app")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3696,6 +3858,20 @@ class _DepartureBanner extends StatelessWidget {
                 Text(advice.recommendation,
                     style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500)),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton.icon(
+            onPressed: () => _addToCalendar(context),
+            icon: Icon(Icons.notifications_active_outlined, size: 16, color: color),
+            label: Text('Remind me',
+                style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              backgroundColor: color.withOpacity(0.12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
         ],

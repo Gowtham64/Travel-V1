@@ -54,6 +54,7 @@ class ApiService {
     double dailyDrivingHours = 7,
     int travellers = 1,
     List<String> includePlaces = const [],
+    DateTime? departAt,
   }) async {
     final uri = Uri.parse('$baseUrl/api/trip/plan');
     final response = await http.post(
@@ -72,6 +73,8 @@ class ApiService {
         'dailyDrivingHours': dailyDrivingHours,
         'travellers': travellers,
         'includePlaces': includePlaces,
+        // Local wall-time (no timezone suffix) to match the forecast's local hours.
+        if (departAt != null) 'departAt': departAt.toIso8601String(),
       }),
     ).timeout(const Duration(seconds: 90), onTimeout: () {
       throw ApiException('Server is generating your plan (can take up to 90s). Please try again if it fails!');
