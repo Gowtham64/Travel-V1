@@ -67,6 +67,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _loadingPOIs = true;
   bool _recalculating = false;
   MapStyle _mapStyle = MapStyle.satellite3D;
+  // Map style to restore after live navigation ends (live nav shows traffic).
+  MapStyle? _styleBeforeNav;
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _isCarMode = false;
   final CarGuidanceService _carGuidance = CarGuidanceService();
@@ -1149,6 +1151,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _visitedStops.clear();
       _tripProgressPercent = 0.0;
       _liveSpeedKmh = 0.0;
+      // Show live traffic on the map while actually driving; restore on stop.
+      _styleBeforeNav = _mapStyle;
+      _mapStyle = MapStyle.traffic2D;
     });
 
     // Snap camera to the user immediately using the last/first fix.
@@ -1621,6 +1626,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _isPlayingAnimation = false;
       _isPreviewMode = false;
       _isLiveNavigating = false;
+      // Restore the map style chosen before live navigation switched to traffic.
+      if (_styleBeforeNav != null) {
+        _mapStyle = _styleBeforeNav!;
+        _styleBeforeNav = null;
+      }
       _animatedVehiclePosition = null;
       _isSlowingDown = false;
       _isTurningLeft = false;
