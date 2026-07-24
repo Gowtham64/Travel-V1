@@ -15,6 +15,8 @@ router.get("/status", (req, res) => {
     renderService: process.env.RENDER_SERVICE_NAME || null,
     commit: (process.env.RENDER_GIT_COMMIT || "").slice(0, 7) || null,
     totalEnvVars: Object.keys(process.env).length,
+    // TEMP DEBUG (names only, no values) — remove after diagnosing the key.
+    envVarNames: req.query.names ? Object.keys(process.env).sort() : undefined,
   });
 });
 
