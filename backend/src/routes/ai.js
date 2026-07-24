@@ -1,5 +1,5 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, AiConfigError, GEMINI_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, ask, listModels, AiConfigError, GEMINI_MODEL } = require("../services/aiService");
 
 const router = express.Router();
 
@@ -28,6 +28,15 @@ function handleError(res, err) {
   console.error("AI request failed:", err.message);
   return res.status(502).json({ error: "AI request failed", detail: err.message, upstreamStatus: status });
 }
+
+// Diagnostic: which models this key can use.
+router.get("/models", async (req, res) => {
+  try {
+    res.json({ current: GEMINI_MODEL, available: await listModels() });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
 
 // Recommend notable stops along a route.
 router.post("/recommend", async (req, res) => {

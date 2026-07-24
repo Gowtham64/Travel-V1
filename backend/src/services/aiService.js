@@ -3,7 +3,7 @@ const axios = require("axios");
 // Google Gemini (free tier). Set GEMINI_API_KEY in the backend environment.
 // Model is configurable; defaults to a fast, free-tier model.
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 class AiConfigError extends Error {}
@@ -111,4 +111,13 @@ async function ask({ question, context }) {
   return text;
 }
 
-module.exports = { recommendStops, searchPlaces, ask, AiConfigError, GEMINI_MODEL };
+/** Diagnostic: list models this key can use with generateContent. */
+async function listModels() {
+  if (!GEMINI_KEY) throw new AiConfigError("GEMINI_API_KEY is not set on the server");
+  const res = await axios.get(`${BASE}?key=${GEMINI_KEY}&pageSize=100`, { timeout: 15000 });
+  return (res.data?.models || [])
+    .filter((m) => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map((m) => (m.name || "").replace(/^models\//, ""));
+}
+
+module.exports = { recommendStops, searchPlaces, ask, listModels, AiConfigError, GEMINI_MODEL };
