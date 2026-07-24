@@ -58,7 +58,7 @@ class TripScreen extends StatefulWidget {
   State<TripScreen> createState() => _TripScreenState();
 }
 
-enum MapStyle { outdoors2D, satellite2D, satellite3D }
+enum MapStyle { outdoors2D, satellite2D, satellite3D, traffic2D }
 
 class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   // Drives the staggered slide/fade entrance of the map control overlays.
@@ -455,7 +455,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               TileLayer(
                 urlTemplate: _mapStyle == MapStyle.satellite2D
                     ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ'
-                    : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                    : _mapStyle == MapStyle.traffic2D
+                        ? 'https://api.mapbox.com/styles/v1/mapbox/traffic-day-v2/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ'
+                        : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
                 userAgentPackageName: 'com.example.travel_app',
                 additionalOptions: const {
                   'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
@@ -755,6 +757,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                         "3D Map",
                         Icons.terrain,
                         "3D navigation",
+                      ),
+                      buildStyleCard(
+                        MapStyle.traffic2D,
+                        "Traffic",
+                        Icons.traffic,
+                        "Live congestion",
                       ),
                     ],
                   ),
