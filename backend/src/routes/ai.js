@@ -25,8 +25,14 @@ function handleError(res, err) {
     return res.status(503).json({ error: "AI is not configured on the server." });
   }
   const status = err.response ? err.response.status : 502;
-  console.error("AI request failed:", err.message);
-  return res.status(502).json({ error: "AI request failed", detail: err.message, upstreamStatus: status });
+  const upstream = err.response && err.response.data ? err.response.data : null;
+  console.error("AI request failed:", err.message, JSON.stringify(upstream || {}));
+  return res.status(502).json({
+    error: "AI request failed",
+    upstreamStatus: status,
+    upstreamMessage: upstream && upstream.error ? upstream.error.message : err.message,
+    upstreamStatusText: upstream && upstream.error ? upstream.error.status : undefined,
+  });
 }
 
 // Diagnostic: which models this key can use.
