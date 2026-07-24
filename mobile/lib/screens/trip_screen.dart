@@ -3249,7 +3249,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 /// vary enough to be worth distinguishing; other countries fall back to a
 /// country-level figure.
 const Map<String, double> _indiaStatePetrol = {
-  'karnataka': 102.9,
+  'karnataka': 110.0,
   'maharashtra': 106.3,
   'tamil nadu': 102.6,
   'kerala': 107.6,
