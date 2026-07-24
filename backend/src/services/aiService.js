@@ -1,8 +1,12 @@
 const axios = require("axios");
 
-// Provider-agnostic AI. Pick one with AI_PROVIDER = gemini | groq | openrouter.
-// All have a free tier; Groq and OpenRouter need no billing/credit card.
-const PROVIDER = (process.env.AI_PROVIDER || "gemini").toLowerCase();
+// Provider-agnostic AI. Set AI_PROVIDER = gemini | groq | openrouter to force one,
+// otherwise auto-detect from whichever key is present (Groq/OpenRouter preferred —
+// they need no billing, unlike Gemini's billing-gated free tier).
+const PROVIDER = (
+  process.env.AI_PROVIDER ||
+  (process.env.GROQ_API_KEY ? "groq" : process.env.OPENROUTER_API_KEY ? "openrouter" : "gemini")
+).toLowerCase();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
