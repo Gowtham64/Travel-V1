@@ -15,6 +15,7 @@ import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
+import '../services/voice_guide.dart';
 import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
@@ -72,6 +73,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _isCarMode = false;
   final CarGuidanceService _carGuidance = CarGuidanceService();
+  final VoiceGuide _voice = VoiceGuide();
+  bool _voiceMuted = false;
   
   final MapController _mapController = MapController();
   bool _isPlayingAnimation = false;
@@ -157,6 +160,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _animationTimer?.cancel();
     _ticker?.dispose();
     _positionStream?.cancel();
+    _voice.dispose();
     super.dispose();
   }
 
@@ -1155,6 +1159,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _styleBeforeNav = _mapStyle;
       _mapStyle = MapStyle.traffic2D;
     });
+    _voice.reset();
+    _voice.speak('Starting navigation. Drive safely.', force: true);
 
     // Snap camera to the user immediately using the last/first fix.
     try {
@@ -1241,9 +1247,24 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       }
     }
 
+    // Spoken turn-by-turn: announce the current maneuver (de-duplicated).
+    final maneuver = _carGuidance.calculateManeuver(
+      currentPos: here,
+      routePoints: _currentPlan.coordinates,
+      end: widget.end,
+      waypoints: _currentWaypoints,
+    );
+    if (maneuver.type != ManeuverType.destination) {
+      final phrase = maneuver.type == ManeuverType.straight
+          ? maneuver.instruction
+          : '${maneuver.instruction} in ${maneuver.formattedDistance}';
+      _voice.speak(phrase);
+    }
+
     // Arrival: within ~120 m of the destination.
     final destDist = _getDistance(here, routePoints.last);
     if (destDist < 0.0011 && !_visitedStops.contains('live_arrival')) {
+      _voice.speak('You have arrived at your destination.', force: true);
       _visitedStops.add('live_arrival');
       setState(() {
         _activeStopHighlight = PlaceOfInterest(
@@ -1617,6 +1638,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _ticker?.stop();
     _positionStream?.cancel();
     _positionStream = null;
+    _voice.stop();
     try {
       _mapController.rotate(0.0);
     } catch (e) {
@@ -2210,7 +2232,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
           _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
       _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-          () => setState(() => _navSoundOn = !_navSoundOn)),
+          () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
       _navCircle(Icons.explore_outlined, _recenterMap),
       _navCircle(Icons.settings_outlined, _showMapStyleSheet),
     ];
@@ -2329,7 +2351,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         btn(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
             _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
         btn(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-            () => setState(() => _navSoundOn = !_navSoundOn)),
+            () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
         btn(Icons.explore_outlined, _recenterMap),
         btn(Icons.settings_outlined, _showMapStyleSheet),
       ],

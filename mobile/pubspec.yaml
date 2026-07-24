@@ -22,6 +22,7 @@ dependencies:
   share_plus: ^7.2.1
   geolocator: ^13.0.2
   maplibre_gl: ^0.26.2
+  flutter_tts: ^4.2.5
 
 dev_dependencies:
   flutter_test:
