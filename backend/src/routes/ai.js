@@ -1,7 +1,18 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, AiConfigError } = require("../services/aiService");
+const { recommendStops, searchPlaces, ask, AiConfigError, GEMINI_MODEL } = require("../services/aiService");
 
 const router = express.Router();
+
+// Diagnostic: reports whether a key is visible to the process (no secret values).
+// Lists env-var NAMES that look key-related so a typo is easy to spot.
+router.get("/status", (req, res) => {
+  const names = Object.keys(process.env).filter((k) => /gemini|google|api[_-]?key|_key$|^key/i.test(k));
+  res.json({
+    configured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    model: GEMINI_MODEL,
+    matchingEnvVarNames: names,
+  });
+});
 
 function handleError(res, err) {
   if (err instanceof AiConfigError) {
