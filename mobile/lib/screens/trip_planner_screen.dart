@@ -51,6 +51,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   List<String> _appliedPOIs = ['restaurant', 'attraction'];
   bool _loading = false;
   String? _error;
+
+  // Manual place search + popular-stop suggestions (Places to Visit card).
+  final _placeSearchController = TextEditingController();
+  bool _searchingPlace = false;
+  bool _suggestingPopular = false;
   
   TripPlan? _currentPlan;
   GeoPoint? _currentStart;
@@ -507,12 +512,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
-  Future<void> _findPlacesBeforeTrip() async {
+  Future<void> _findPlacesBeforeTrip({List<String>? categories}) async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVehicle == null) {
       setState(() => _error = 'Please select a vehicle');
       return;
     }
+    final cats = (categories == null || categories.isEmpty)
+        ? _selectedPOIs.toList()
+        : categories;
 
     setState(() {
       _loadingPOIs = true;
@@ -564,13 +572,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
       final fetchedPois = await _api.fetchPOIs(
         routeCoordinates: tempPlan.coordinates,
-        categories: _selectedPOIs.toList(),
+        categories: cats,
       );
 
       if (mounted) {
         setState(() {
           _pois = fetchedPois;
-          _appliedPOIs = _selectedPOIs.toList();
+          _appliedPOIs = cats;
           _hasSearchedPOIs = true;
           // Save as TEMP plan — does NOT switch the right panel to TripScreen
           _tempPlan = tempPlan;
@@ -939,6 +947,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     _efficiencyController.dispose();
     _tankController.dispose();
     _currentFuelController.dispose();
+    _placeSearchController.dispose();
     _formScrollController.dispose();
     _bgController.dispose();
     _suggestDebounce?.cancel();
@@ -1847,13 +1856,104 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     {'id': 'viewpoint', 'label': 'Viewpoints', 'icon': Icons.visibility},
   ];
 
+  /// Manual search: geocode a typed place name and add it to the route as a stop.
+  Future<void> _addManualPlace() async {
+    final q = _placeSearchController.text.trim();
+    if (q.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _searchingPlace = true);
+    try {
+      final pt = await _api.geocode(q);
+      final place = PlaceOfInterest(
+        id: DateTime.now().millisecondsSinceEpoch,
+        name: pt.name ?? q,
+        lat: pt.lat,
+        lng: pt.lng,
+        address: pt.name,
+      );
+      _confirmAddPOIFromPlanner(place); // inserts as a stop on the route
+      _placeSearchController.clear();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Couldn\'t find "$q". Try a more specific name.'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _searchingPlace = false);
+    }
+  }
+
+  /// Recommends popular sightseeing stops near the route (attractions, viewpoints,
+  /// temples, hills, lakes) by reusing the route + POI pipeline.
+  Future<void> _suggestPopularStops() async {
+    setState(() => _suggestingPopular = true);
+    try {
+      await _findPlacesBeforeTrip(
+        categories: const ['attraction', 'viewpoint', 'temple', 'hills', 'lake'],
+      );
+    } finally {
+      if (mounted) setState(() => _suggestingPopular = false);
+    }
+  }
+
+  Widget _buildPlaceSearchField() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 14),
+          Icon(Icons.search, color: Colors.white.withOpacity(0.6), size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: _placeSearchController,
+              style: const TextStyle(color: Colors.white, fontSize: 15),
+              textInputAction: TextInputAction.search,
+              onSubmitted: (_) => _addManualPlace(),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: 'Search a place to add…',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+              ),
+            ),
+          ),
+          _searchingPlace
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                )
+              : IconButton(
+                  icon: const Icon(Icons.add_circle, color: Color(0xFF2E75B6)),
+                  tooltip: 'Add this place',
+                  onPressed: _addManualPlace,
+                ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPOICard() {
     return _buildGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(Icons.place, 'Places to Visit'),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          // Manual search — type any place name and add it to the route.
+          _buildPlaceSearchField(),
+          const SizedBox(height: 20),
+          Text('Or pick categories to find along your route',
+              style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12.5)),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 12.0,
             runSpacing: 12.0,
@@ -1886,21 +1986,41 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               );
             }).toList(),
           ),
-          const SizedBox(height: 24),
-          Center(
-            child: ElevatedButton.icon(
-              onPressed: _loadingPOIs ? null : _findPlacesBeforeTrip,
-              icon: _loadingPOIs 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Icon(Icons.search),
-              label: Text(_loadingPOIs ? 'Searching...' : 'Find Places'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2E75B6),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _loadingPOIs ? null : () => _findPlacesBeforeTrip(),
+                  icon: (_loadingPOIs && !_suggestingPopular)
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.search, size: 20),
+                  label: Text((_loadingPOIs && !_suggestingPopular) ? 'Searching…' : 'Find Places'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2E75B6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _loadingPOIs ? null : _suggestPopularStops,
+                  icon: _suggestingPopular
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.auto_awesome, size: 20),
+                  label: Text(_suggestingPopular ? 'Finding…' : 'Popular stops'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withOpacity(0.35)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
           ),
           if (_hasSearchedPOIs) ...[
             const SizedBox(height: 24),
