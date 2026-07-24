@@ -11,6 +11,10 @@ router.get("/status", (req, res) => {
     configured: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
     model: GEMINI_MODEL,
     matchingEnvVarNames: names,
+    // Non-secret Render-injected values, to confirm which service/commit is live.
+    renderService: process.env.RENDER_SERVICE_NAME || null,
+    commit: (process.env.RENDER_GIT_COMMIT || "").slice(0, 7) || null,
+    totalEnvVars: Object.keys(process.env).length,
   });
 });
 
