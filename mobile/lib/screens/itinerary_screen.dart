@@ -56,6 +56,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Timer? _countdownTimer;
   Duration _remaining = Duration.zero;
 
+  // Editable trip start (date + time), initialised from the caller.
+  late DateTime _tripStart;
+
   // Packing checklist state
   late Map<String, List<String>> _packing;
   final Set<String> _packed = {};
@@ -73,6 +76,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   @override
   void initState() {
     super.initState();
+    _tripStart = widget.tripStart;
     _packing = _generatePacking();
     _chat.add(_Msg(false, _openingLine()));
     _tickCountdown();
@@ -87,11 +91,11 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   // ---------- derived ----------
-  DateTime get _endDate => widget.tripStart.add(Duration(days: math.max(0, widget.plan.estimatedDays - 1)));
+  DateTime get _endDate => _tripStart.add(Duration(days: math.max(0, widget.plan.estimatedDays - 1)));
 
   String get _statusLabel {
     final now = DateTime.now();
-    if (now.isBefore(widget.tripStart)) return 'Upcoming';
+    if (now.isBefore(_tripStart)) return 'Upcoming';
     if (now.isAfter(_endDate.add(const Duration(days: 1)))) return 'Completed';
     return 'Ongoing';
   }
@@ -103,7 +107,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           : _sub;
 
   void _tickCountdown() {
-    final d = widget.tripStart.difference(DateTime.now());
+    final d = _tripStart.difference(DateTime.now());
     if (mounted) setState(() => _remaining = d.isNegative ? Duration.zero : d);
   }
 
@@ -140,7 +144,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   static const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   String _fmtDate(DateTime d) => '${d.day} ${_months[d.month - 1]}';
   String _fmtDateRange() {
-    final a = widget.tripStart, b = _endDate;
+    final a = _tripStart, b = _endDate;
     if (a.year == b.year && a.month == b.month && a.day == b.day) return _fmtDate(a);
     if (a.month == b.month) return '${a.day}–${b.day} ${_months[a.month - 1]}';
     return '${_fmtDate(a)} – ${_fmtDate(b)}';
@@ -313,6 +317,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
           ],
         ),
         const SizedBox(height: 12),
+        // editable trip start (calendar + clock)
+        _tripStartEditor(),
+        const SizedBox(height: 12),
         // countdown (only if upcoming)
         if (_remaining > Duration.zero) _countdownCard(),
         if (_remaining > Duration.zero) const SizedBox(height: 12),
@@ -328,6 +335,85 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ),
       ],
     );
+  }
+
+  String _fmtTime(DateTime d) {
+    final ampm = d.hour < 12 ? 'AM' : 'PM';
+    var h = d.hour % 12;
+    if (h == 0) h = 12;
+    return '$h:${d.minute.toString().padLeft(2, '0')} $ampm';
+  }
+
+  static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+  /// Editable "Trip start" card — opens the built-in calendar then clock.
+  Widget _tripStartEditor() {
+    final label = '${_weekdays[_tripStart.weekday - 1]}, ${_fmtDate(_tripStart)} · ${_fmtTime(_tripStart)}';
+    return InkWell(
+      onTap: _pickTripStart,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: _hairline)),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(color: _brand.withOpacity(0.14), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.event_rounded, color: _brand, size: 18),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('TRIP START', style: TextStyle(color: _sub, fontSize: 9.5, fontWeight: FontWeight.w600, letterSpacing: 0.4)),
+                  const SizedBox(height: 2),
+                  Text(label, style: const TextStyle(color: _ink, fontSize: 14, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+            Row(
+              children: const [
+                Text('Edit', style: TextStyle(color: _brand, fontSize: 12, fontWeight: FontWeight.w700)),
+                SizedBox(width: 4),
+                Icon(Icons.edit_calendar_rounded, color: _brand, size: 16),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Built-in calendar (date) then clock (time) pickers.
+  Future<void> _pickTripStart() async {
+    final now = DateTime.now();
+    final first = DateTime(now.year - 1);
+    final last = DateTime(now.year + 2, 12, 31);
+    var initial = _tripStart;
+    if (initial.isBefore(first)) initial = first;
+    if (initial.isAfter(last)) initial = last;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: first,
+      lastDate: last,
+      helpText: 'Select trip start date',
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(_tripStart),
+      helpText: 'Select start time',
+    );
+    if (!mounted) return;
+    final t = time ?? TimeOfDay.fromDateTime(_tripStart);
+
+    setState(() => _tripStart = DateTime(date.year, date.month, date.day, t.hour, t.minute));
   }
 
   Widget _oStat(IconData icon, String k, String v) {
@@ -519,7 +605,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         end: _dest,
         days: widget.plan.estimatedDays,
         travellers: widget.travellers,
-        startDate: _fmtDate(widget.tripStart),
+        startDate: _fmtDate(_tripStart),
       );
       final days = raw.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
       if (!mounted) return;
@@ -1185,7 +1271,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         'days': widget.plan.estimatedDays,
         'travellers': widget.travellers,
         if (widget.plan.budget != null) 'budgetTotal': widget.plan.budget!.total,
-        'startDate': _fmtDate(widget.tripStart),
+        'startDate': _fmtDate(_tripStart),
       });
       if (mounted) setState(() => _chat.add(_Msg(false, answer.trim().isEmpty ? 'I could not find an answer for that.' : answer.trim())));
     } catch (e) {
@@ -1308,7 +1394,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       title: 'Trip: $_origin → $_dest',
       description: '${widget.plan.distanceKm.toStringAsFixed(0)} km · ${widget.plan.estimatedDays} days · planned with Voyplan',
       location: _dest,
-      start: widget.tripStart,
+      start: _tripStart,
       end: _endDate.add(const Duration(hours: 20)),
     );
     if (mounted) {
