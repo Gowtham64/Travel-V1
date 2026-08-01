@@ -1221,10 +1221,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               delay: const Duration(milliseconds: 220),
               child: AccentButton(
                 onPressed: _loading ? null : _planTrip,
-                padding: const EdgeInsets.symmetric(vertical: 20),
+                padding: const EdgeInsets.symmetric(vertical: 18),
                 child: _loading
                     ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('DONE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, size: 20),
+                          SizedBox(width: 10),
+                          Text('Plan my trip', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                        ],
+                      ),
               ),
             ),
             const SizedBox(height: 40),

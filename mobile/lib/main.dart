@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/trip_planner_screen.dart';
 import 'screens/login_screen.dart';
 import 'utils/landing_redirect.dart';
+import 'theme/app_theme.dart';
 
 const supabaseUrl = 'https://dtemayjpttktntooxraa.supabase.co';
 const supabaseAnonKey = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
@@ -42,15 +43,9 @@ class TravelApp extends StatelessWidget {
     return MaterialApp(
       title: 'Voyplan',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E3192)), // Deep Indigo
-        useMaterial3: true,
-        textTheme: textTheme,
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-        ),
-      ),
+      theme: Voy.dark(textTheme),
+      darkTheme: Voy.dark(textTheme),
+      themeMode: ThemeMode.dark,
       home: const AuthStateWrapper(),
     );
   }
