@@ -1,20 +1,82 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const tripRouter = require("./routes/trip");
 const geocodeRouter = require("./routes/geocode");
 const aiRouter = require("./routes/ai");
 
 const app = express();
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+// Render/most PaaS terminate TLS at a proxy, so trust the first hop for correct
+// client IPs (rate limiting) and HTTPS detection.
+app.set("trust proxy", 1);
+
+// --- Security headers (incl. HSTS: forces browsers onto encrypted HTTPS) ---
+app.use(
+  helmet({
+    // Pure JSON API consumed from another origin — allow cross-origin use and
+    // skip the HTML content-security-policy (there are no pages to protect).
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    hsts: { maxAge: 15552000, includeSubDomains: true }, // 180 days
+  })
+);
+
+// --- CORS restricted to the app's own origins (a browser-side firewall) ---
+const allowedOrigins = (
+  process.env.ALLOWED_ORIGINS ||
+  "https://gowtham64.github.io,http://localhost:3000,http://localhost:8080,http://localhost:5000"
+)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin(origin, cb) {
+      // Allow non-browser clients (mobile app, curl) which send no Origin.
+      if (!origin) return cb(null, true);
+      let host = "";
+      try {
+        host = new URL(origin).hostname;
+      } catch (_) {
+        return cb(null, false);
+      }
+      // Any GitHub Pages site or an explicitly allow-listed origin.
+      if (host.endsWith(".github.io") || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(null, false);
+    },
+  })
+);
+
+app.use(express.json({ limit: "1mb" }));
+
+// --- Rate limiting: throttle abusive traffic (DoS / brute-force firewall) ---
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 min
+    max: 300, // per IP per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many requests — please slow down." },
+  })
+);
+// Stricter cap on the expensive AI endpoints.
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 min
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "AI is busy — please wait a moment and try again." },
+});
 
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.use("/api/trip", tripRouter);
 app.use("/api/geocode", geocodeRouter);
-app.use("/api/ai", aiRouter);
+app.use("/api/ai", aiLimiter, aiRouter);
 
 const PORT = process.env.PORT || 3000;
 
