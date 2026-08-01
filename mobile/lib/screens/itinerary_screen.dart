@@ -2,9 +2,9 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../utils/calendar_helper.dart';
 
 /// Premium, AI-powered Travel Itinerary screen.
 ///
@@ -1304,17 +1304,17 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   Future<void> _addToCalendar() async {
-    final startUtc = widget.tripStart.toUtc();
-    final endUtc = _endDate.add(const Duration(hours: 20)).toUtc();
-    String p2(int n) => n.toString().padLeft(2, '0');
-    String stamp(DateTime d) => '${d.year}${p2(d.month)}${p2(d.day)}T${p2(d.hour)}${p2(d.minute)}00Z';
-    final text = Uri.encodeComponent('Trip: $_origin → $_dest');
-    final details = Uri.encodeComponent('${widget.plan.distanceKm.toStringAsFixed(0)} km · ${widget.plan.estimatedDays} days · planned with Voyplan');
-    final url = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=$text'
-        '&dates=${stamp(startUtc)}/${stamp(endUtc)}&details=$details';
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Couldn't open your calendar app")));
+    await addTripToCalendar(
+      title: 'Trip: $_origin → $_dest',
+      description: '${widget.plan.distanceKm.toStringAsFixed(0)} km · ${widget.plan.estimatedDays} days · planned with Voyplan',
+      location: _dest,
+      start: widget.tripStart,
+      end: _endDate.add(const Duration(hours: 20)),
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Calendar file ready — open it to add the trip to your calendar')),
+      );
     }
   }
 }

@@ -16,7 +16,7 @@ import '../services/api_service.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
 import '../services/voice_guide.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../utils/calendar_helper.dart';
 import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
@@ -3873,27 +3873,24 @@ class _DepartureBanner extends StatelessWidget {
   final DateTime? tripStart;
   const _DepartureBanner({required this.advice, this.destination = 'your destination', this.tripStart});
 
-  /// Drops the recommended departure into the traveller's calendar (Google
-  /// Calendar event-create link) so the reminder fires even if the app is
-  /// closed — works on web and Android with no notification plumbing.
+  /// Drops the recommended departure into the traveller's calendar via a
+  /// standard .ics file, so it opens in whatever calendar app they use (not
+  /// forced to Google) and the reminder fires even if the app is closed.
   Future<void> _addToCalendar(BuildContext context) async {
     // Advice offset is relative to the planned start (or now if none set).
     final base = tripStart ?? DateTime.now();
     final depart = base.add(Duration(hours: advice.bestOffsetHours));
-    final startUtc = depart.toUtc();
-    final endUtc = startUtc.add(const Duration(minutes: 30));
-    String p2(int n) => n.toString().padLeft(2, '0');
-    String stamp(DateTime d) =>
-        '${d.year}${p2(d.month)}${p2(d.day)}T${p2(d.hour)}${p2(d.minute)}00Z';
-    final text = Uri.encodeComponent('Leave for $destination — Voyplan');
-    final details = Uri.encodeComponent(advice.recommendation);
-    final url =
-        'https://calendar.google.com/calendar/render?action=TEMPLATE&text=$text'
-        '&dates=${stamp(startUtc)}/${stamp(endUtc)}&details=$details';
-    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
+    await addTripToCalendar(
+      title: 'Leave for $destination — Voyplan',
+      description: advice.recommendation,
+      location: destination,
+      start: depart,
+      end: depart.add(const Duration(minutes: 30)),
+      filename: 'voyplan-departure.ics',
+    );
+    if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Couldn't open your calendar app")),
+        const SnackBar(content: Text('Reminder ready — open the calendar file to add it')),
       );
     }
   }
