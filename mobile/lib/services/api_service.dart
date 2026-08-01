@@ -241,6 +241,42 @@ class ApiService {
   }
 
   /// AI: free-form trip assistant / itinerary writer (returns text).
+  /// Generates a structured, day-by-day itinerary via the backend AI.
+  /// Returns a list of days: {day, title, activities:[{part, time, title, note}]}.
+  Future<List<Map<String, dynamic>>> aiBuildItinerary({
+    required String start,
+    required String end,
+    int days = 1,
+    List<String> waypoints = const [],
+    int travellers = 1,
+    String? purpose,
+    String? startDate,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/itinerary'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'start': start,
+            'end': end,
+            'days': days,
+            'waypoints': waypoints,
+            'travellers': travellers,
+            if (purpose != null) 'purpose': purpose,
+            if (startDate != null) 'startDate': startDate,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
+    if (response.statusCode == 503) {
+      throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
+    }
+    if (response.statusCode != 200) {
+      throw ApiException('AI request failed (${response.statusCode})');
+    }
+    final list = (jsonDecode(response.body) as Map<String, dynamic>)['days'] as List? ?? [];
+    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
   Future<String> aiAsk({
     required String question,
     Map<String, dynamic>? context,

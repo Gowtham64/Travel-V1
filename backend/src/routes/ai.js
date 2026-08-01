@@ -1,5 +1,5 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, ask, buildItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 
 const router = express.Router();
 
@@ -60,6 +60,28 @@ router.post("/search", async (req, res) => {
   try {
     const places = await searchPlaces({ query: String(query), near });
     res.json({ places });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+// Structured, day-by-day itinerary builder.
+router.post("/itinerary", async (req, res) => {
+  const { start, end, days, waypoints, travellers, purpose, startDate } = req.body || {};
+  if (!start || !end) {
+    return res.status(400).json({ error: "start and end are required" });
+  }
+  try {
+    const itinerary = await buildItinerary({
+      start: String(start),
+      end: String(end),
+      days: Number(days) || 1,
+      waypoints: Array.isArray(waypoints) ? waypoints : [],
+      travellers: Number(travellers) || 1,
+      purpose: purpose ? String(purpose) : "",
+      startDate: startDate ? String(startDate) : "",
+    });
+    res.json({ days: itinerary });
   } catch (err) {
     handleError(res, err);
   }

@@ -65,6 +65,11 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   final _chatCtrl = TextEditingController();
   bool _aiLoading = false;
 
+  // AI-generated day-by-day itinerary
+  List<_GenDay>? _generated;
+  bool _building = false;
+  final Set<String> _doneActivities = {};
+
   @override
   void initState() {
     super.initState();
@@ -423,15 +428,241 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
 
   // ---------- 2. TIMELINE ----------
   Widget _timeline() {
-    final days = widget.plan.itinerary;
-    if (days.isEmpty) {
-      return _emptyCard('A day-by-day plan will appear here once the route is generated.');
-    }
     return Column(
       children: [
-        for (int i = 0; i < days.length; i++) _dayCard(days[i], i == days.length - 1),
+        _buildBar(),
+        const SizedBox(height: 12),
+        if (_generated != null)
+          for (int i = 0; i < _generated!.length; i++) _genDayCard(_generated![i], i == _generated!.length - 1)
+        else if (widget.plan.itinerary.isNotEmpty)
+          for (int i = 0; i < widget.plan.itinerary.length; i++)
+            _dayCard(widget.plan.itinerary[i], i == widget.plan.itinerary.length - 1)
+        else
+          _emptyCard('Tap “Build itinerary with AI” to generate a day-by-day plan.'),
       ],
     );
+  }
+
+  /// The Build / Regenerate control for the AI day-by-day itinerary.
+  Widget _buildBar() {
+    if (_building) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 15),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [_violet.withOpacity(0.9), _pink.withOpacity(0.9)]),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white)),
+            SizedBox(width: 12),
+            Text('Building your itinerary…', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13.5)),
+          ],
+        ),
+      );
+    }
+    if (_generated == null) {
+      return InkWell(
+        onTap: _buildAiItinerary,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [_violet, _pink]),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [BoxShadow(color: _violet.withOpacity(0.35), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 19),
+              SizedBox(width: 9),
+              Text('Build itinerary with AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+            ],
+          ),
+        ),
+      );
+    }
+    // generated: show a header + regenerate
+    return Row(
+      children: [
+        _pill('AI itinerary', _violet, dot: true),
+        const Spacer(),
+        InkWell(
+          onTap: _buildAiItinerary,
+          borderRadius: BorderRadius.circular(11),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(color: _surface2, borderRadius: BorderRadius.circular(11), border: Border.all(color: _hairline)),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.refresh_rounded, color: _ink, size: 15),
+                SizedBox(width: 6),
+                Text('Regenerate', style: TextStyle(color: _ink, fontSize: 12, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _buildAiItinerary() async {
+    setState(() => _building = true);
+    try {
+      final raw = await _api.aiBuildItinerary(
+        start: _origin,
+        end: _dest,
+        days: widget.plan.estimatedDays,
+        travellers: widget.travellers,
+        startDate: _fmtDate(widget.tripStart),
+      );
+      final days = raw.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
+      if (!mounted) return;
+      if (days.isEmpty) {
+        setState(() => _building = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Couldn’t generate an itinerary — please try again.')),
+        );
+        return;
+      }
+      setState(() {
+        _generated = days;
+        _doneActivities.clear();
+        _building = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _building = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Itinerary build failed: $e')));
+    }
+  }
+
+  Widget _genDayCard(_GenDay day, bool isLast) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [_violet, _pink], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('DAY', style: TextStyle(color: Colors.white70, fontSize: 7.5, fontWeight: FontWeight.w700, height: 1)),
+                    Text(day.day.toString().padLeft(2, '0'),
+                        style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800, height: 1.1)),
+                  ],
+                ),
+              ),
+              if (!isLast) Expanded(child: Container(width: 2, color: _hairline, margin: const EdgeInsets.symmetric(vertical: 4))),
+            ],
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: _hairline)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(day.title,
+                        style: const TextStyle(color: _ink, fontSize: 14.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 10),
+                    for (int i = 0; i < day.activities.length; i++) _activityRow(day.day, i, day.activities[i]),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _activityRow(int dayNum, int idx, _GenActivity a) {
+    final key = '$dayNum-$idx';
+    final done = _doneActivities.contains(key);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 52,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_partEmoji(a.part), style: const TextStyle(fontSize: 14)),
+                if (a.time.isNotEmpty)
+                  Text(a.time, style: const TextStyle(color: _sub, fontSize: 10.5, fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(a.part.toUpperCase(),
+                    style: const TextStyle(color: _brand, fontSize: 9.5, fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+                const SizedBox(height: 1),
+                Text(a.title,
+                    style: TextStyle(
+                      color: done ? _sub : _ink,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                      decoration: done ? TextDecoration.lineThrough : null,
+                    )),
+                if (a.note.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(a.note, style: const TextStyle(color: _sub, fontSize: 11.5, height: 1.3)),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: () => setState(() => done ? _doneActivities.remove(key) : _doneActivities.add(key)),
+            borderRadius: BorderRadius.circular(8),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: done ? _success : _surface2,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: done ? _success : _hairline, width: 2),
+              ),
+              child: done ? const Icon(Icons.check_rounded, color: Colors.white, size: 15) : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _partEmoji(String part) {
+    final p = part.toLowerCase();
+    if (p.contains('morning')) return '☀️';
+    if (p.contains('after')) return '🍴';
+    if (p.contains('even')) return '🌆';
+    if (p.contains('night')) return '🌙';
+    return '📍';
   }
 
   Widget _dayCard(DayPlan day, bool isLast) {
@@ -1093,6 +1324,39 @@ class _Msg {
   final bool fromUser;
   final String text;
   _Msg(this.fromUser, this.text);
+}
+
+class _GenActivity {
+  final String part;
+  final String time;
+  final String title;
+  final String note;
+  _GenActivity({required this.part, required this.time, required this.title, required this.note});
+}
+
+class _GenDay {
+  final int day;
+  final String title;
+  final List<_GenActivity> activities;
+  _GenDay({required this.day, required this.title, required this.activities});
+
+  factory _GenDay.fromJson(Map<String, dynamic> j) {
+    final acts = (j['activities'] as List? ?? [])
+        .map((e) => (e as Map).cast<String, dynamic>())
+        .map((a) => _GenActivity(
+              part: (a['part'] ?? '').toString(),
+              time: (a['time'] ?? '').toString(),
+              title: (a['title'] ?? '').toString(),
+              note: (a['note'] ?? '').toString(),
+            ))
+        .where((a) => a.title.isNotEmpty)
+        .toList();
+    return _GenDay(
+      day: (j['day'] as num?)?.toInt() ?? 1,
+      title: (j['title'] ?? 'Day').toString(),
+      activities: acts,
+    );
+  }
 }
 
 class _Seg {

@@ -119,6 +119,51 @@ async function ask({ question, context }) {
   });
 }
 
+// Accepts {"days":[...]} or a bare array; normalizes each day + activity.
+function safeParseItinerary(text, maxDays) {
+  try {
+    let data = JSON.parse(text);
+    if (Array.isArray(data)) data = { days: data };
+    const days = Array.isArray(data.days) ? data.days : [];
+    return days
+      .slice(0, Math.max(1, maxDays))
+      .map((d, i) => ({
+        day: Number(d.day) || i + 1,
+        title: String(d.title || `Day ${i + 1}`),
+        activities: (Array.isArray(d.activities) ? d.activities : [])
+          .slice(0, 8)
+          .map((a) => ({
+            part: String(a.part || "Day"),
+            time: a.time ? String(a.time) : "",
+            title: String(a.title || ""),
+            note: a.note ? String(a.note) : "",
+          }))
+          .filter((a) => a.title),
+      }))
+      .filter((d) => d.activities.length);
+  } catch (_) {
+    return [];
+  }
+}
+
+/** Generates a structured, day-by-day activity itinerary. */
+async function buildItinerary({ start, end, days = 1, waypoints = [], travellers = 1, purpose = "", startDate = "" }) {
+  const via = waypoints.length ? ` via ${waypoints.join(", ")}` : "";
+  const prompt =
+    `Create a practical, realistic day-by-day travel itinerary for a road trip from "${start}" to "${end}"${via}, ` +
+    `lasting ${days} day(s) for ${travellers} traveller(s)${purpose ? ` (${purpose} trip)` : ""}` +
+    `${startDate ? `, starting ${startDate}` : ""}. For each day give 3 to 5 activities spread across ` +
+    `Morning, Afternoon, Evening and Night. Prefer real, well-known sights, food stops and experiences on or ` +
+    `near the route. Keep each note short (max ~12 words). ` +
+    `Respond ONLY as JSON: {"days":[{"day":1,"title":"","activities":[{"part":"Morning","time":"09:00","title":"","note":""}]}]} ` +
+    `— no prose, no markdown.`;
+  const text = await generate(prompt, {
+    system: "You are an expert, India-aware road-trip planner. Only suggest real places. Output strict JSON.",
+    json: true,
+  });
+  return safeParseItinerary(text, days);
+}
+
 /** Diagnostic: models this provider/key can use. */
 async function listModels() {
   const key = activeKey();
@@ -134,4 +179,4 @@ async function listModels() {
   return (res.data?.data || []).map((m) => m.id).slice(0, 60);
 }
 
-module.exports = { recommendStops, searchPlaces, ask, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
+module.exports = { recommendStops, searchPlaces, ask, buildItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
