@@ -8,6 +8,7 @@ import '../models/trip_models.dart';
 import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
 import 'trip_screen.dart';
+import '../widgets/profile_menu.dart';
 
 /// Voyplan home — glassmorphic, animated entry point after login.
 class HomeScreen extends StatefulWidget {
@@ -200,15 +201,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(width: 11),
         const Text('Voyplan', style: TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
         const Spacer(),
-        PopupMenuButton<String>(
-          onSelected: (v) {
-            if (v == 'saved') _openSaved();
-            if (v == 'logout') _logout();
-          },
-          itemBuilder: (_) => const [
-            PopupMenuItem(value: 'saved', child: Text('Saved trips')),
-            PopupMenuItem(value: 'logout', child: Text('Log out')),
-          ],
+        _Pressable(
+          onTap: _openProfileMenu,
           child: _glass(
             radius: 13,
             padding: const EdgeInsets.all(0),
@@ -221,6 +215,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       ],
     );
+  }
+
+  void _openProfileMenu() {
+    final email = Supabase.instance.client.auth.currentUser?.email ?? 'traveller@voyplan.app';
+    showProfileMenu(context, name: _userName, email: email, onSelect: _onMenuSelect);
+  }
+
+  void _onMenuSelect(String id, String label) {
+    switch (id) {
+      case 'generate':
+        _planTrip();
+        break;
+      // All trip lists open Saved Trips for now.
+      case 'saved':
+      case 'upcoming':
+      case 'ongoing':
+      case 'completed':
+      case 'drafts':
+      case 'my_itineraries':
+        _openSaved();
+        break;
+      case 'logout':
+        _logout();
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$label — coming soon'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
   }
 
   // ---------- hero ----------
