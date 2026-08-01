@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'screens/trip_planner_screen.dart';
+import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
@@ -171,7 +171,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     if (_isLoading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_isAuthenticated) return const TripPlannerScreen();
+    if (_isAuthenticated) return const HomeScreen();
     // Not signed in: on web there is no in-app login screen — send the user to
     // the static landing page (which hosts the login card). Show a spinner while
     // the browser navigates. Native builds fall back to the in-app LoginScreen.
