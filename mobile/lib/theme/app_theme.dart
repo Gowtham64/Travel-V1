@@ -21,6 +21,7 @@ class Voy {
   static const coral = Color(0xFFFF8672);
   static const success = Color(0xFF34D27B);
   static const danger = Color(0xFFFB7185);
+  static const info = Color(0xFF60A5FA);
 
   static const gradient = LinearGradient(
     colors: [brand, violet],

@@ -9,6 +9,7 @@ import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
+import 'account_screens.dart';
 
 /// Voyplan home — glassmorphic, animated entry point after login.
 class HomeScreen extends StatefulWidget {
@@ -223,6 +224,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _onMenuSelect(String id, String label) {
+    void go(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+
     switch (id) {
       case 'generate':
         _planTrip();
@@ -239,13 +242,26 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'logout':
         _logout();
         break;
+      case 'profile':
+      case 'edit_profile':
+      case 'appearance':
+      case 'language':
+      case 'currency':
+      case 'security':
+        go(const SettingsScreen());
+        break;
+      case 'currency_conv':
+        go(const CurrencyConverterScreen());
+        break;
       default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$label — coming soon'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        final cfg = configForMenu(id);
+        if (cfg != null) {
+          go(AccountCrudScreen(config: cfg));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$label — coming soon'), behavior: SnackBarBehavior.floating),
+          );
+        }
     }
   }
 

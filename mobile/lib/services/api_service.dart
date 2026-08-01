@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 
 class ApiException implements Exception {
@@ -24,6 +25,85 @@ class ApiService {
   ApiService({String? baseUrl})
       : baseUrl = baseUrl ??
             ((kIsWeb || kReleaseMode) ? _prodBackend : 'http://10.0.2.2:3000');
+
+  // ---------------------------------------------------------------------------
+  // Account API (profile-menu features) — all require a logged-in user; RLS on
+  // the server scopes every row to that user.
+  // ---------------------------------------------------------------------------
+  Map<String, String> _authHeaders() {
+    final t = Supabase.instance.client.auth.currentSession?.accessToken;
+    return {'Content-Type': 'application/json', if (t != null) 'Authorization': 'Bearer $t'};
+  }
+
+  String _accountErr(http.Response res) {
+    try {
+      final b = jsonDecode(res.body);
+      if (b is Map && b['error'] != null) {
+        final e = b['error'].toString();
+        if (e.contains('does not exist') || e.contains('schema cache')) {
+          return "This feature isn't set up on the server yet (run profile_schema.sql in Supabase).";
+        }
+        return e;
+      }
+    } catch (_) {}
+    if (res.statusCode == 401) return 'Please log in to use this.';
+    return 'Request failed (${res.statusCode})';
+  }
+
+  Future<List<Map<String, dynamic>>> accountList(String path, {String? type, String? tripId}) async {
+    final qp = <String, String>{};
+    if (type != null) qp['type'] = type;
+    if (tripId != null) qp['trip_id'] = tripId;
+    final uri = Uri.parse('$baseUrl/api/account/$path').replace(queryParameters: qp.isEmpty ? null : qp);
+    final res = await http.get(uri, headers: _authHeaders()).timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  Future<Map<String, dynamic>> accountCreate(String path, Map<String, dynamic> data) async {
+    final res = await http
+        .post(Uri.parse('$baseUrl/api/account/$path'), headers: _authHeaders(), body: jsonEncode(data))
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200 && res.statusCode != 201) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>> accountUpdate(String path, String id, Map<String, dynamic> data) async {
+    final res = await http
+        .patch(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders(), body: jsonEncode(data))
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+  }
+
+  Future<void> accountDelete(String path, String id) async {
+    final res = await http
+        .delete(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders())
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+  }
+
+  Future<Map<String, dynamic>> getProfile() async {
+    final res = await http.get(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders()).timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>> putProfile(Map<String, dynamic> data) async {
+    final res = await http
+        .put(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders(), body: jsonEncode(data))
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+  }
+
+  Future<Map<String, dynamic>> convertCurrency({required String from, required String to, required double amount}) async {
+    final uri = Uri.parse('$baseUrl/api/currency/convert')
+        .replace(queryParameters: {'from': from, 'to': to, 'amount': '$amount'});
+    final res = await http.get(uri).timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+  }
 
   Future<GeoPoint> geocode(String address) async {
     final uri = Uri.parse('$baseUrl/api/geocode').replace(queryParameters: {'q': address});
