@@ -14,6 +14,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'trip_screen.dart';
+import 'itinerary_screen.dart';
 import 'saved_trips_screen.dart';
 import '../widgets/app_design.dart';
 import '../widgets/globe_preview.dart';
@@ -362,6 +363,93 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           ),
         );
       }
+    } catch (e) {
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Plans the trip (reusing a "Find Places" preview if present) and opens the
+  /// AI Itinerary directly, so the itinerary can be set up from the planner.
+  Future<void> _planAndOpenItinerary() async {
+    if (!_formKey.currentState!.validate()) return;
+    if (_selectedVehicle == null) {
+      setState(() => _error = 'Please select a vehicle');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final TripPlan plan;
+      final GeoPoint start;
+      final GeoPoint end;
+      final List<GeoPoint> waypoints;
+      final Vehicle vehicle;
+
+      if (_tempPlan != null && _tempStart != null && _tempEnd != null &&
+          _tempWaypoints != null && _tempVehicle != null) {
+        plan = _tempPlan!;
+        start = _tempStart!;
+        end = _tempEnd!;
+        waypoints = _tempWaypoints!;
+        vehicle = _tempVehicle!;
+      } else {
+        final List<GeoPoint> geocodedStops = [];
+        for (final controller in _stopControllers) {
+          final address = controller.text.trim();
+          if (address.isNotEmpty) {
+            final resolved = _resolvedStopCoords[controller.hashCode];
+            final isMatch = resolved != null &&
+                resolved.name != null &&
+                (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
+                    address.toLowerCase().contains(resolved.name!.toLowerCase()));
+            if (resolved != null && isMatch) {
+              geocodedStops.add(resolved);
+            } else {
+              final point = await _api.geocode(address);
+              geocodedStops.add(point);
+              _resolvedStopCoords[controller.hashCode] = point;
+            }
+          }
+        }
+        if (geocodedStops.length < 2) {
+          throw Exception("Need at least a starting point and destination");
+        }
+        start = geocodedStops.first;
+        end = geocodedStops.last;
+        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+        vehicle = Vehicle(
+          type: _selectedVehicle!.type,
+          efficiencyKmPerLiter: double.parse(_efficiencyController.text),
+          tankCapacityLiters: double.parse(_tankController.text),
+          currentFuelLiters: double.parse(_currentFuelController.text),
+        );
+        plan = await _api.planTrip(
+          start: start,
+          end: end,
+          waypoints: waypoints,
+          vehicle: vehicle,
+          travellers: _travellers,
+        );
+      }
+
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ItineraryScreen(
+            plan: plan,
+            startAddress: _stopControllers.first.text.trim(),
+            endAddress: _stopControllers.last.text.trim(),
+            start: start,
+            end: end,
+            travellers: _travellers,
+            tripStart: DateTime.now(),
+          ),
+        ),
+      );
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -2384,6 +2472,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               label: const Text('AI Assistant', style: TextStyle(color: Color(0xFF60A5FA))),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF60A5FA)),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _loading ? null : _planAndOpenItinerary,
+              icon: _loading
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8F81F2)))
+                  : const Icon(Icons.event_note_rounded, size: 18, color: Color(0xFF8F81F2)),
+              label: const Text('Itinerary', style: TextStyle(color: Color(0xFF8F81F2))),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF8F81F2)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),

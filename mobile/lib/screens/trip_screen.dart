@@ -659,7 +659,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               border: Border.all(color: Colors.white.withOpacity(0.2)),
             ),
             child: IconButton(
-              icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+              icon: const Icon(Icons.event_note_rounded, color: Colors.white),
               tooltip: 'Itinerary',
               onPressed: _openItinerary,
             ),
