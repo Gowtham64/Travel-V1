@@ -41,8 +41,28 @@ sed -i '' "s/flutter_bootstrap.js/flutter_bootstrap.js?v=${TIMESTAMP}/" index.ht
 mv main.dart.js "main.dart.${TIMESTAMP}.js"
 sed -i '' "s/main.dart.js/main.dart.${TIMESTAMP}.js/" flutter_bootstrap.js
 
-# Delete service worker file to disable caching of stale JS files
-rm -f flutter_service_worker.js
+# Replace Flutter's generated service worker with a self-destroying "kill
+# switch". Deleting it is NOT enough: a service worker already installed in a
+# visitor's browser keeps serving the old cached app (even through a hard
+# refresh) until it is REPLACED. Serving this instead makes every stuck browser
+# clear its caches and unregister on the next update check, then load fresh.
+cat > flutter_service_worker.js <<'SW'
+self.addEventListener('install', function () { self.skipWaiting(); });
+self.addEventListener('activate', function (event) {
+  event.waitUntil((async function () {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+      await self.registration.unregister();
+      if (keys.length > 0) {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(function (c) { c.navigate(c.url); });
+      }
+    } catch (e) {}
+  })());
+});
+self.addEventListener('fetch', function () {});
+SW
 
 # Stamp the build number into index.html so the on-map HUD can confirm the
 # browser loaded the latest (non-cached) index.html.
