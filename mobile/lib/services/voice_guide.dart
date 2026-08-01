@@ -1,4 +1,5 @@
 import 'package:flutter_tts/flutter_tts.dart';
+import 'voice_prefs.dart';
 
 /// Cross-platform spoken navigation (Android, iOS, web) via text-to-speech.
 /// De-duplicates repeated phrases so it doesn't nag on every GPS tick.
@@ -26,37 +27,36 @@ class VoiceGuide {
   }
 
   /// Picks a natural/neural English voice when the platform offers one, for a
-  /// warmer, smoother sound than the default robotic voice.
+  /// warmer, smoother sound than the default robotic voice. Voice lists load
+  /// asynchronously (especially on web), so retry a few times before giving up.
   Future<void> _selectSoftVoice() async {
-    try {
-      final raw = await _tts.getVoices;
-      if (raw is! List) return;
-      final en = raw
-          .whereType<Map>()
-          .where((v) => '${v['locale'] ?? ''}${v['name'] ?? ''}'.toLowerCase().contains('en'))
-          .toList();
-      if (en.isEmpty) return;
-      const prefer = [
-        'natural', 'neural', 'samantha', 'aria', 'jenny', 'serena',
-        'google us english', 'female', 'zira'
-      ];
-      Map? best;
-      for (final key in prefer) {
-        for (final v in en) {
-          if ('${v['name'] ?? ''}'.toLowerCase().contains(key)) {
-            best = v;
-            break;
+    for (var attempt = 0; attempt < 6; attempt++) {
+      try {
+        final raw = await _tts.getVoices;
+        if (raw is List) {
+          final voices = raw.whereType<Map>().toList();
+          if (voices.isNotEmpty) {
+            final names = voices.map((v) => '${v['name'] ?? ''}').toList();
+            final langs = voices.map((v) => '${v['locale'] ?? ''}').toList();
+            final idx = bestVoiceIndex(names, langs);
+            if (idx >= 0) {
+              final best = voices[idx];
+              await _tts.setVoice({
+                'name': '${best['name']}',
+                'locale': '${best['locale'] ?? 'en-US'}',
+              });
+              return;
+            }
           }
         }
-        if (best != null) break;
-      }
-      best ??= en.first;
-      await _tts.setVoice({
-        'name': '${best['name']}',
-        'locale': '${best['locale'] ?? 'en-US'}',
-      });
-    } catch (_) {/* voice list unavailable on some platforms */}
+      } catch (_) {/* voice list unavailable on some platforms */}
+      await Future.delayed(const Duration(milliseconds: 250));
+    }
   }
+
+  /// Warms up TTS + the voice list ahead of the first prompt so it doesn't
+  /// briefly speak in the default robotic voice.
+  Future<void> prime() => _ensureInit();
 
   /// Speaks [text]. Skips if muted, empty, or identical to the last phrase
   /// spoken within [minGapSeconds] (unless [force]).

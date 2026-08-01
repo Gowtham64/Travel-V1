@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
+import 'voice_prefs.dart';
 // Web speech synthesis support, conditionally. The stub is the default so native
 // builds never reference dart:html; only web (dart.library.html) pulls dart:html.
 import 'car_guidance_speech_stub.dart'
@@ -193,6 +194,32 @@ class CarGuidanceService {
     _speak(text);
   }
 
+  // Cached soft voice + one-time listener so we don't re-scan on every prompt
+  // and don't get stuck with the robotic default before voices finish loading.
+  dynamic _cachedVoice;
+  bool _voiceListenerAttached = false;
+
+  /// Warms up the browser's voice list so the *first* spoken prompt already
+  /// uses the soft voice. Browsers load voices asynchronously, so we grab them
+  /// now and also listen for `voiceschanged` to fill the cache when ready.
+  /// Safe to call multiple times; no-op off the web.
+  void primeVoices() {
+    if (!kIsWeb) return;
+    try {
+      final dynamic synth = html.window.speechSynthesis;
+      if (synth == null) return;
+      _cachedVoice ??= _pickSoftVoice(synth);
+      if (_cachedVoice == null && !_voiceListenerAttached) {
+        _voiceListenerAttached = true;
+        try {
+          synth.addEventListener('voiceschanged', (_) {
+            _cachedVoice ??= _pickSoftVoice(synth);
+          });
+        } catch (_) {/* older browsers: getVoices will fill in on later calls */}
+      }
+    } catch (_) {/* speechSynthesis unavailable */}
+  }
+
   void _speak(String text) {
     try {
       if (kIsWeb) {
@@ -200,13 +227,13 @@ class CarGuidanceService {
         if (synth != null) {
           final utterance = html.SpeechSynthesisUtterance(text);
           utterance.lang = 'en-US';
-          // Gentle, unhurried delivery: a touch slower than default with a
-          // slightly lower pitch and softened volume reads as calm and smooth.
-          utterance.rate = 0.92;
+          // Gentle, unhurried delivery: slower than default with a slightly
+          // lower pitch and softened volume reads as calm and smooth.
+          utterance.rate = 0.9;
           utterance.pitch = 0.95;
           utterance.volume = 0.9;
-          final voice = _pickSoftVoice(synth);
-          if (voice != null) utterance.voice = voice;
+          _cachedVoice ??= _pickSoftVoice(synth);
+          if (_cachedVoice != null) utterance.voice = _cachedVoice;
           synth.speak(utterance);
         }
       }
@@ -215,27 +242,24 @@ class CarGuidanceService {
     }
   }
 
-  /// Prefer a natural / neural English voice for a smoother, softer sound,
-  /// falling back to any English voice. Runs only on web (dynamic JS types).
+  /// Prefer a natural / neural English voice for a smoother, softer sound.
+  /// Returns null while the browser is still loading its voice list. Runs only
+  /// on web (dynamic JS types).
   dynamic _pickSoftVoice(dynamic synth) {
     try {
       final voices = synth.getVoices();
       if (voices == null) return null;
-      const prefer = [
-        'natural', 'neural', 'samantha', 'aria', 'jenny', 'serena',
-        'google us english', 'female'
-      ];
-      for (final key in prefer) {
-        for (final v in voices) {
-          final name = (v.name as String? ?? '').toLowerCase();
-          final lang = (v.lang as String? ?? '').toLowerCase();
-          if (lang.startsWith('en') && name.contains(key)) return v;
-        }
-      }
+      final list = [];
+      final names = <String>[];
+      final langs = <String>[];
       for (final v in voices) {
-        final lang = (v.lang as String? ?? '').toLowerCase();
-        if (lang.startsWith('en')) return v;
+        list.add(v);
+        names.add((v.name as String?) ?? '');
+        langs.add((v.lang as String?) ?? '');
       }
+      if (list.isEmpty) return null;
+      final idx = bestVoiceIndex(names, langs);
+      return idx >= 0 ? list[idx] : null;
     } catch (_) {/* voices may not be ready yet */}
     return null;
   }

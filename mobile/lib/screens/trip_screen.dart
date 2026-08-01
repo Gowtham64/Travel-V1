@@ -156,6 +156,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (kIsWeb && Uri.base.toString().contains('car_mode=true')) {
       _isCarMode = true;
     }
+
+    // Warm up TTS + the browser voice list so the first spoken prompt already
+    // uses the soft, natural voice instead of the default robotic one.
+    _carGuidance.primeVoices();
+    _voice.prime();
   }
 
   @override
@@ -2232,6 +2237,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// landscape and hides the system chrome for an immersive dash view.
   void _enterCarMode() {
     setState(() => _isCarMode = true);
+    _carGuidance.primeVoices();
     if (!kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations(
