@@ -200,13 +200,44 @@ class CarGuidanceService {
         if (synth != null) {
           final utterance = html.SpeechSynthesisUtterance(text);
           utterance.lang = 'en-US';
-          utterance.rate = 1.0;
+          // Gentle, unhurried delivery: a touch slower than default with a
+          // slightly lower pitch and softened volume reads as calm and smooth.
+          utterance.rate = 0.92;
+          utterance.pitch = 0.95;
+          utterance.volume = 0.9;
+          final voice = _pickSoftVoice(synth);
+          if (voice != null) utterance.voice = voice;
           synth.speak(utterance);
         }
       }
     } catch (_) {
       // Speech synthesis fallback/catch
     }
+  }
+
+  /// Prefer a natural / neural English voice for a smoother, softer sound,
+  /// falling back to any English voice. Runs only on web (dynamic JS types).
+  dynamic _pickSoftVoice(dynamic synth) {
+    try {
+      final voices = synth.getVoices();
+      if (voices == null) return null;
+      const prefer = [
+        'natural', 'neural', 'samantha', 'aria', 'jenny', 'serena',
+        'google us english', 'female'
+      ];
+      for (final key in prefer) {
+        for (final v in voices) {
+          final name = (v.name as String? ?? '').toLowerCase();
+          final lang = (v.lang as String? ?? '').toLowerCase();
+          if (lang.startsWith('en') && name.contains(key)) return v;
+        }
+      }
+      for (final v in voices) {
+        final lang = (v.lang as String? ?? '').toLowerCase();
+        if (lang.startsWith('en')) return v;
+      }
+    } catch (_) {/* voices may not be ready yet */}
+    return null;
   }
 
   void speakCustom(String text) {

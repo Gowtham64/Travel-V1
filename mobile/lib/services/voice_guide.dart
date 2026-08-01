@@ -15,11 +15,47 @@ class VoiceGuide {
     _initialized = true;
     try {
       await _tts.setLanguage('en-US');
-      await _tts.setSpeechRate(0.5);
-      await _tts.setVolume(1.0);
-      await _tts.setPitch(1.0);
+      // Softer, smoother delivery: unhurried pace, slightly lower pitch, and a
+      // gently reduced volume so guidance sounds calm rather than robotic.
+      await _tts.setSpeechRate(0.46);
+      await _tts.setVolume(0.9);
+      await _tts.setPitch(0.96);
       await _tts.awaitSpeakCompletion(true);
+      await _selectSoftVoice();
     } catch (_) {/* best-effort; some platforms differ */}
+  }
+
+  /// Picks a natural/neural English voice when the platform offers one, for a
+  /// warmer, smoother sound than the default robotic voice.
+  Future<void> _selectSoftVoice() async {
+    try {
+      final raw = await _tts.getVoices;
+      if (raw is! List) return;
+      final en = raw
+          .whereType<Map>()
+          .where((v) => '${v['locale'] ?? ''}${v['name'] ?? ''}'.toLowerCase().contains('en'))
+          .toList();
+      if (en.isEmpty) return;
+      const prefer = [
+        'natural', 'neural', 'samantha', 'aria', 'jenny', 'serena',
+        'google us english', 'female', 'zira'
+      ];
+      Map? best;
+      for (final key in prefer) {
+        for (final v in en) {
+          if ('${v['name'] ?? ''}'.toLowerCase().contains(key)) {
+            best = v;
+            break;
+          }
+        }
+        if (best != null) break;
+      }
+      best ??= en.first;
+      await _tts.setVoice({
+        'name': '${best['name']}',
+        'locale': '${best['locale'] ?? 'en-US'}',
+      });
+    } catch (_) {/* voice list unavailable on some platforms */}
   }
 
   /// Speaks [text]. Skips if muted, empty, or identical to the last phrase
