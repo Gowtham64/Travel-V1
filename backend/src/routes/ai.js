@@ -67,7 +67,7 @@ router.post("/search", async (req, res) => {
 
 // Structured, day-by-day itinerary builder.
 router.post("/itinerary", async (req, res) => {
-  const { start, end, days, waypoints, travellers, purpose, startDate } = req.body || {};
+  const { start, end, days, waypoints, travellers, purpose, startDate, startTime, weather } = req.body || {};
   if (!start || !end) {
     return res.status(400).json({ error: "start and end are required" });
   }
@@ -80,6 +80,8 @@ router.post("/itinerary", async (req, res) => {
       travellers: Number(travellers) || 1,
       purpose: purpose ? String(purpose) : "",
       startDate: startDate ? String(startDate) : "",
+      startTime: startTime ? String(startTime) : "",
+      weather: weather ? String(weather) : "",
     });
     res.json({ days: itinerary });
   } catch (err) {

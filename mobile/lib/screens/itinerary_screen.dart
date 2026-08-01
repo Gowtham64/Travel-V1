@@ -605,7 +605,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         end: _dest,
         days: widget.plan.estimatedDays,
         travellers: widget.travellers,
-        startDate: _fmtDate(_tripStart),
+        startDate: '${_weekdays[_tripStart.weekday - 1]}, ${_fmtDate(_tripStart)} ${_tripStart.year}',
+        startTime: _fmtTime(_tripStart),
+        weather: _weatherSummary(),
       );
       final days = raw.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
       if (!mounted) return;
@@ -1310,6 +1312,26 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       decoration: BoxDecoration(color: _surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: _hairline)),
       child: Text(text, style: const TextStyle(color: _sub, fontSize: 13)),
     );
+  }
+
+  /// Compact forecast summary the AI planner can reason over (temps, rain
+  /// chance along the route + best-departure advice).
+  String _weatherSummary() {
+    final w = widget.plan.weather;
+    final parts = <String>[];
+    if (w != null && w.points.isNotEmpty) {
+      for (final p in _sample(w.points, 4)) {
+        final t = p.tempC != null ? ' ${p.tempC!.round()}°C' : '';
+        final rain = p.rainChancePct != null ? ', ${p.rainChancePct}% rain' : '';
+        parts.add('${p.distanceFromStartKm.toStringAsFixed(0)}km ${p.description}$t$rain');
+      }
+    }
+    final adv = widget.plan.departureAdvice?.recommendation ?? '';
+    final summary = [
+      if (parts.isNotEmpty) parts.join('; '),
+      if (adv.isNotEmpty) adv,
+    ].join('. ');
+    return summary;
   }
 
   List<WeatherPoint> _sample(List<WeatherPoint> pts, int n) {

@@ -251,6 +251,8 @@ class ApiService {
     int travellers = 1,
     String? purpose,
     String? startDate,
+    String? startTime,
+    String? weather,
   }) async {
     final response = await http
         .post(
@@ -264,6 +266,8 @@ class ApiService {
             'travellers': travellers,
             if (purpose != null) 'purpose': purpose,
             if (startDate != null) 'startDate': startDate,
+            if (startTime != null) 'startTime': startTime,
+            if (weather != null && weather.isNotEmpty) 'weather': weather,
           }),
         )
         .timeout(const Duration(seconds: 60));

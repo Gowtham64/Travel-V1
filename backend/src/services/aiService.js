@@ -147,18 +147,26 @@ function safeParseItinerary(text, maxDays) {
 }
 
 /** Generates a structured, day-by-day activity itinerary. */
-async function buildItinerary({ start, end, days = 1, waypoints = [], travellers = 1, purpose = "", startDate = "" }) {
+async function buildItinerary({ start, end, days = 1, waypoints = [], travellers = 1, purpose = "", startDate = "", startTime = "", weather = "" }) {
   const via = waypoints.length ? ` via ${waypoints.join(", ")}` : "";
+  const weatherLine = weather
+    ? `Plan around this forecast: ${weather}. Schedule outdoor sights, viewpoints and walks during clear/dry ` +
+      `windows, and prefer indoor options (museums, temples, cafes, malls) when rain is likely or it is very hot. ` +
+      `If a day looks wet, say so briefly in that day's title. `
+    : "";
   const prompt =
     `Create a practical, realistic day-by-day travel itinerary for a road trip from "${start}" to "${end}"${via}, ` +
     `lasting ${days} day(s) for ${travellers} traveller(s)${purpose ? ` (${purpose} trip)` : ""}` +
-    `${startDate ? `, starting ${startDate}` : ""}. For each day give 3 to 5 activities spread across ` +
-    `Morning, Afternoon, Evening and Night. Prefer real, well-known sights, food stops and experiences on or ` +
-    `near the route. Keep each note short (max ~12 words). ` +
-    `Respond ONLY as JSON: {"days":[{"day":1,"title":"","activities":[{"part":"Morning","time":"09:00","title":"","note":""}]}]} ` +
+    `${startDate ? `, starting ${startDate}` : ""}${startTime ? ` at about ${startTime}` : ""}. ` +
+    `Begin the first day's first activity at roughly the given start time. ` +
+    weatherLine +
+    `For each day give 3 to 5 activities spread across Morning, Afternoon, Evening and Night. ` +
+    `Prefer real, well-known sights, food stops and experiences on or near the route. Keep each note short ` +
+    `(max ~12 words). Respond ONLY as JSON: ` +
+    `{"days":[{"day":1,"title":"","activities":[{"part":"Morning","time":"09:00","title":"","note":""}]}]} ` +
     `— no prose, no markdown.`;
   const text = await generate(prompt, {
-    system: "You are an expert, India-aware road-trip planner. Only suggest real places. Output strict JSON.",
+    system: "You are an expert, India-aware road-trip planner. Only suggest real places. Adapt the plan to the weather. Output strict JSON.",
     json: true,
   });
   return safeParseItinerary(text, days);
