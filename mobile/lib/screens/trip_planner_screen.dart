@@ -445,6 +445,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             endAddress: _stopControllers.last.text.trim(),
             start: start,
             end: end,
+            waypoints: waypoints,
+            vehicleType: vehicle.type,
             travellers: _travellers,
             tripStart: DateTime.now(),
           ),

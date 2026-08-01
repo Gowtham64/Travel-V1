@@ -136,6 +136,8 @@ class ApiService {
     List<GeoPoint> waypoints = const [],
     required String vehicleType,
     required String token,
+    DateTime? tripStart,
+    List<Map<String, dynamic>>? itinerary,
   }) async {
     final uri = Uri.parse('$baseUrl/api/trip/save');
     final response = await http.post(
@@ -150,6 +152,8 @@ class ApiService {
         'endPoint': {'lat': end.lat, 'lng': end.lng},
         'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
         'vehicleType': vehicleType,
+        if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
+        if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
       }),
     );
 

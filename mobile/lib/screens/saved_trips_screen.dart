@@ -256,6 +256,15 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                   vehicle: vehicle,
                 );
 
+                DateTime? savedStart;
+                final ts = trip['trip_start'];
+                if (ts is String) savedStart = DateTime.tryParse(ts);
+                List<Map<String, dynamic>>? savedItinerary;
+                final it = trip['itinerary'];
+                if (it is List) {
+                  savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
+                }
+
                 if (mounted) {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -269,6 +278,8 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                         end: endPoint,
                         waypoints: waypoints,
                         vehicle: vehicle,
+                        initialTripStart: savedStart,
+                        savedItinerary: savedItinerary,
                       ),
                     ),
                   );

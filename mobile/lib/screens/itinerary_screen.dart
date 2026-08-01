@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
 import '../utils/calendar_helper.dart';
@@ -18,8 +19,12 @@ class ItineraryScreen extends StatefulWidget {
   final String endAddress;
   final GeoPoint start;
   final GeoPoint end;
+  final List<GeoPoint> waypoints;
+  final String vehicleType;
   final int travellers;
   final DateTime tripStart;
+  /// A previously-saved AI itinerary to preload (list of day maps).
+  final List<Map<String, dynamic>>? initialItinerary;
 
   const ItineraryScreen({
     super.key,
@@ -30,6 +35,9 @@ class ItineraryScreen extends StatefulWidget {
     required this.end,
     required this.travellers,
     required this.tripStart,
+    this.waypoints = const [],
+    this.vehicleType = 'car',
+    this.initialItinerary,
   });
 
   @override
@@ -71,12 +79,17 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   // AI-generated day-by-day itinerary
   List<_GenDay>? _generated;
   bool _building = false;
+  bool _saving = false;
   final Set<String> _doneActivities = {};
 
   @override
   void initState() {
     super.initState();
     _tripStart = widget.tripStart;
+    if (widget.initialItinerary != null && widget.initialItinerary!.isNotEmpty) {
+      final days = widget.initialItinerary!.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
+      if (days.isNotEmpty) _generated = days;
+    }
     _packing = _generatePacking();
     _chat.add(_Msg(false, _openingLine()));
     _tickCountdown();
@@ -171,6 +184,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
             ),
             title: const Text('Trip Itinerary', style: TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 16)),
             actions: [
+              _saving
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _brand)),
+                    )
+                  : IconButton(
+                      onPressed: _saveTrip,
+                      tooltip: 'Save trip',
+                      icon: const Icon(Icons.bookmark_add_rounded, color: _ink, size: 22),
+                    ),
               IconButton(onPressed: _share, icon: const Icon(Icons.ios_share_rounded, color: _ink, size: 20)),
             ],
           ),
@@ -1411,6 +1434,39 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     Share.share(sb.toString(), subject: 'My trip: $_origin → $_dest');
   }
 
+  /// Saves the complete trip — route, vehicle, chosen start date/time, and the
+  /// generated day-by-day itinerary — to the user's account.
+  Future<void> _saveTrip() async {
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in to save trips.')));
+      return;
+    }
+    setState(() => _saving = true);
+    try {
+      await _api.saveTrip(
+        name: '$_origin to $_dest',
+        start: widget.start,
+        end: widget.end,
+        waypoints: widget.waypoints,
+        vehicleType: widget.vehicleType,
+        token: session.accessToken,
+        tripStart: _tripStart,
+        itinerary: _generated?.map((d) => d.toJson()).toList(),
+      );
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final withPlan = _generated != null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(withPlan ? 'Trip + itinerary saved ✓' : 'Trip saved ✓')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+    }
+  }
+
   Future<void> _addToCalendar() async {
     await addTripToCalendar(
       title: 'Trip: $_origin → $_dest',
@@ -1440,6 +1496,8 @@ class _GenActivity {
   final String title;
   final String note;
   _GenActivity({required this.part, required this.time, required this.title, required this.note});
+
+  Map<String, dynamic> toJson() => {'part': part, 'time': time, 'title': title, 'note': note};
 }
 
 class _GenDay {
@@ -1447,6 +1505,8 @@ class _GenDay {
   final String title;
   final List<_GenActivity> activities;
   _GenDay({required this.day, required this.title, required this.activities});
+
+  Map<String, dynamic> toJson() => {'day': day, 'title': title, 'activities': activities.map((a) => a.toJson()).toList()};
 
   factory _GenDay.fromJson(Map<String, dynamic> j) {
     final acts = (j['activities'] as List? ?? [])

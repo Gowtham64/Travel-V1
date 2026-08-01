@@ -392,6 +392,17 @@ class _HomeScreenState extends State<HomeScreen> {
       final plan = await _api.planTrip(start: startPoint, end: endPoint, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;
       setState(() => _opening = false);
+
+      // Restore saved start date/time + AI itinerary if present.
+      DateTime? savedStart;
+      final ts = trip['trip_start'];
+      if (ts is String) savedStart = DateTime.tryParse(ts);
+      List<Map<String, dynamic>>? savedItinerary;
+      final it = trip['itinerary'];
+      if (it is List) {
+        savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
+      }
+
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => TripScreen(
           plan: plan,
@@ -403,6 +414,8 @@ class _HomeScreenState extends State<HomeScreen> {
           end: endPoint,
           waypoints: waypoints,
           vehicle: vehicle,
+          initialTripStart: savedStart,
+          savedItinerary: savedItinerary,
         ),
       ));
     } catch (e) {

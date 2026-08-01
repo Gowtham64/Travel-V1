@@ -39,6 +39,10 @@ class TripScreen extends StatefulWidget {
   final String? modelSubtype;
   /// Number of travellers, used to split the trip cost. Defaults to 1.
   final int travellers;
+  /// For reopened saved trips: the stored start date/time and AI itinerary,
+  /// forwarded to the itinerary screen so it reloads exactly as saved.
+  final DateTime? initialTripStart;
+  final List<Map<String, dynamic>>? savedItinerary;
 
   const TripScreen({
     super.key,
@@ -55,6 +59,8 @@ class TripScreen extends StatefulWidget {
     this.isEmbedded = false,
     this.modelSubtype,
     this.travellers = 1,
+    this.initialTripStart,
+    this.savedItinerary,
   });
 
   @override
@@ -126,6 +132,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     )..forward();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
+    if (widget.initialTripStart != null) _tripStart = widget.initialTripStart!;
     _splitCount = widget.travellers < 1 ? 1 : widget.travellers;
     bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
     if (hasAllCategories) {
@@ -2257,8 +2264,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         endAddress: widget.endAddress,
         start: widget.start,
         end: widget.end,
+        waypoints: _currentWaypoints,
+        vehicleType: widget.vehicleType,
         travellers: widget.travellers,
         tripStart: _tripStart,
+        initialItinerary: widget.savedItinerary,
       ),
     ));
   }

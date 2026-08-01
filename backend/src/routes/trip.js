@@ -211,17 +211,27 @@ router.post("/save", requireAuth, async (req, res) => {
   const user_id = req.user?.id;
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
 
-  const { name, startPoint, endPoint, vehicleType, waypoints } = req.body;
-  
+  const { name, startPoint, endPoint, vehicleType, waypoints, tripStart, itinerary } = req.body;
+
   try {
-    const { data, error } = await req.supabase.from('trips').insert({
+    const base = {
       user_id,
       name,
       start_point: startPoint,
       end_point: endPoint,
-      vehicle_type: vehicleType || 'car'
-    }).select().single();
+      vehicle_type: vehicleType || 'car',
+    };
+    // Optional richer fields (need trips.trip_start timestamptz + trips.itinerary jsonb).
+    const full = { ...base };
+    if (tripStart) full.trip_start = tripStart;
+    if (itinerary) full.itinerary = itinerary;
 
+    let { data, error } = await req.supabase.from('trips').insert(full).select().single();
+    if (error && (full.trip_start !== undefined || full.itinerary !== undefined)) {
+      // Columns not migrated yet — fall back to the basic trip so saving still works.
+      console.warn("Saving with itinerary failed, retrying basic insert:", error.message);
+      ({ data, error } = await req.supabase.from('trips').insert(base).select().single());
+    }
     if (error) throw error;
     
     // insert waypoints if any
