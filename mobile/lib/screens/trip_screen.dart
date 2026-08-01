@@ -20,6 +20,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
+import 'itinerary_screen.dart';
 
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
@@ -650,6 +651,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
           )
         else ...[
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+              tooltip: 'Itinerary',
+              onPressed: _openItinerary,
+            ),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
             decoration: BoxDecoration(
@@ -2231,6 +2245,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// Opens the premium AI-powered itinerary (overview, timeline, budget,
+  /// weather + packing, and the AI assistant).
+  void _openItinerary() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ItineraryScreen(
+        plan: _currentPlan,
+        startAddress: widget.startAddress,
+        endAddress: widget.endAddress,
+        start: widget.start,
+        end: widget.end,
+        travellers: widget.travellers,
+        tripStart: _tripStart,
+      ),
+    ));
   }
 
   /// Enters the fullscreen, CarPlay-style driving UI. On mobile it locks to
