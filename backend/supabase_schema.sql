@@ -21,14 +21,13 @@ CREATE TABLE public.trips (
     start_point JSONB NOT NULL, -- {lat, lng, address}
     end_point JSONB NOT NULL,   -- {lat, lng, address}
     vehicle_type TEXT NOT NULL,
-    trip_start TIMESTAMPTZ,     -- planned trip start date/time
-    itinerary JSONB,           -- saved AI day-by-day itinerary
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-
--- Migration for existing databases (safe to re-run):
--- ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS trip_start TIMESTAMPTZ;
--- ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS itinerary JSONB;
+-- Note: the planned start time + saved AI itinerary are stored inside the
+-- end_point JSONB column, so NO migration is needed. These optional dedicated
+-- columns are only if you prefer first-class storage (the app reads either):
+--   ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS trip_start TIMESTAMPTZ;
+--   ALTER TABLE public.trips ADD COLUMN IF NOT EXISTS itinerary JSONB;
 
 -- 3. Vehicles Table
 -- (Optional) if users want to save vehicles, but for now we can just store vehicle_type in trips, 

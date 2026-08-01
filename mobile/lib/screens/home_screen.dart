@@ -393,12 +393,14 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() => _opening = false);
 
-      // Restore saved start date/time + AI itinerary if present.
+      // Restore saved start date/time + AI itinerary (stored inside end_point,
+      // with a fallback to dedicated columns if the DB has them).
+      final endMeta = trip['end_point'];
       DateTime? savedStart;
-      final ts = trip['trip_start'];
+      final ts = trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
       if (ts is String) savedStart = DateTime.tryParse(ts);
       List<Map<String, dynamic>>? savedItinerary;
-      final it = trip['itinerary'];
+      final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
       if (it is List) {
         savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
       }

@@ -256,11 +256,12 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                   vehicle: vehicle,
                 );
 
+                final endMeta = trip['end_point'];
                 DateTime? savedStart;
-                final ts = trip['trip_start'];
+                final ts = trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
                 if (ts is String) savedStart = DateTime.tryParse(ts);
                 List<Map<String, dynamic>>? savedItinerary;
-                final it = trip['itinerary'];
+                final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
                 if (it is List) {
                   savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
                 }

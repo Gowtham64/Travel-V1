@@ -214,24 +214,19 @@ router.post("/save", requireAuth, async (req, res) => {
   const { name, startPoint, endPoint, vehicleType, waypoints, tripStart, itinerary } = req.body;
 
   try {
-    const base = {
+    // Persist the planned start + AI itinerary inside the existing end_point
+    // JSONB column, so no database migration/new columns are required.
+    const enrichedEnd = { ...(endPoint || {}) };
+    if (tripStart) enrichedEnd.tripStart = tripStart;
+    if (itinerary && itinerary.length) enrichedEnd.itinerary = itinerary;
+
+    const { data, error } = await req.supabase.from('trips').insert({
       user_id,
       name,
       start_point: startPoint,
-      end_point: endPoint,
+      end_point: enrichedEnd,
       vehicle_type: vehicleType || 'car',
-    };
-    // Optional richer fields (need trips.trip_start timestamptz + trips.itinerary jsonb).
-    const full = { ...base };
-    if (tripStart) full.trip_start = tripStart;
-    if (itinerary) full.itinerary = itinerary;
-
-    let { data, error } = await req.supabase.from('trips').insert(full).select().single();
-    if (error && (full.trip_start !== undefined || full.itinerary !== undefined)) {
-      // Columns not migrated yet — fall back to the basic trip so saving still works.
-      console.warn("Saving with itinerary failed, retrying basic insert:", error.message);
-      ({ data, error } = await req.supabase.from('trips').insert(base).select().single());
-    }
+    }).select().single();
     if (error) throw error;
     
     // insert waypoints if any
