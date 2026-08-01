@@ -165,6 +165,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _ticker?.dispose();
     _positionStream?.cancel();
     _voice.dispose();
+    // Restore normal orientation/chrome if we left while in Car Mode.
+    if (_isCarMode && !kIsWeb) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
     super.dispose();
   }
 
@@ -609,6 +614,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           );
 
     final mapWidget = rawMapWidget;
+
+    // Car Mode takes over the entire screen (no split layout / sidebar) so the
+    // CarPlay-style UI is fullscreen, whatever the host layout is.
+    if (_isCarMode) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: _buildMapStackWithOverlays(mapWidget),
+      );
+    }
 
     if (widget.isEmbedded) {
       return _buildMapStackWithOverlays(mapWidget, topPadding: 24.0, rightPadding: 24.0);
@@ -2214,6 +2228,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Enters the fullscreen, CarPlay-style driving UI. On mobile it locks to
+  /// landscape and hides the system chrome for an immersive dash view.
+  void _enterCarMode() {
+    setState(() => _isCarMode = true);
+    if (!kIsWeb) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      SystemChrome.setPreferredOrientations(
+          const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+    }
+  }
+
+  void _exitCarMode() {
+    setState(() => _isCarMode = false);
+    if (!kIsWeb) {
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    }
+  }
+
   Widget _buildMapStackWithOverlays(Widget mapWidget, {double topPadding = 24.0, double rightPadding = 24.0}) {
     if (_isCarMode) {
       final currentPos = _animatedVehiclePosition ?? widget.start.toLatLng();
@@ -2263,11 +2296,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 });
               },
               onRecenterMap: _recenterMap,
-              onExitCarMode: () {
-                setState(() {
-                  _isCarMode = false;
-                });
-              },
+              onExitCarMode: _exitCarMode,
             ),
           ),
         ],
@@ -2352,7 +2381,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     final items = <Widget>[
       _buildMapDriveCluster(false),
-      _navCircle(Icons.directions_car_rounded, () => setState(() => _isCarMode = !_isCarMode), bg: const Color(0xFF10B981)),
+      _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
       _buildLayersButton(),
       _navCircle(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
       _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
@@ -2471,7 +2500,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     return Column(
       children: [
-        btn(Icons.directions_car_rounded, () => setState(() => _isCarMode = !_isCarMode), bg: const Color(0xFF10B981)),
+        btn(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
         // Always-visible Save + Share on the map (also in the side panel).
         btn(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
         btn(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,

@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import '../models/car_mode_models.dart';
 
+/// A fullscreen, CarPlay-style driving overlay drawn on top of the map.
+///
+/// Layout mirrors Apple Maps in CarPlay: a maneuver card pinned to a top
+/// corner, a speed pill, small alert chips, and a rounded status/control bar
+/// along the bottom. It adapts between a landscape (dash) layout and a
+/// portrait (phone) layout.
 class CarModeOverlay extends StatefulWidget {
   final ManeuverInstruction maneuver;
   final CarTelemetry telemetry;
@@ -30,342 +36,324 @@ class CarModeOverlay extends StatefulWidget {
 class _CarModeOverlayState extends State<CarModeOverlay> {
   bool _isDarkMode = true;
 
+  // Apple-flavoured system colours.
+  static const _green = Color(0xFF30D158);
+  static const _blue = Color(0xFF0A84FF);
+  static const _purple = Color(0xFFBF5AF2);
+  static const _red = Color(0xFFFF453A);
+  static const _amber = Color(0xFFFFD60A);
+
+  Color get _panel => _isDarkMode ? const Color(0xF21C1C1E) : const Color(0xF2F2F2F7);
+  Color get _text => _isDarkMode ? Colors.white : const Color(0xFF1C1C1E);
+  Color get _sub => _isDarkMode ? Colors.white70 : const Color(0xFF3A3A3C);
+  Color get _hairline => _isDarkMode ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.08);
+
   @override
   Widget build(BuildContext context) {
-    final cardBg = _isDarkMode ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9);
-    final textColor = _isDarkMode ? Colors.white : Colors.black87;
-    final subTextColor = _isDarkMode ? Colors.white70 : Colors.black54;
-
     return PointerInterceptor(
-      child: Container(
-        color: Colors.transparent,
-        child: SafeArea(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // --- TOP MANEUVER BANNER ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: const Color(0xFF10B981).withOpacity(0.6),
-                      width: 2,
-                    ),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final wide = c.maxWidth >= 720;
+          return SafeArea(
+            child: Stack(
+              children: [
+                // Maneuver card — top-left (landscape) / top full-width (portrait).
+                Positioned(
+                  top: 14,
+                  left: 14,
+                  right: wide ? null : 14,
+                  width: wide ? (c.maxWidth * 0.42).clamp(320.0, 460.0) : null,
+                  child: _maneuverCard(),
+                ),
+
+                // Speed pill + alert chips — top-right.
+                Positioned(
+                  top: 14,
+                  right: 14,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      // Large Maneuver Icon Box
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF10B981),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          widget.maneuver.icon,
-                          size: 42,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      // Instruction Details
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              widget.maneuver.formattedDistance,
-                              style: const TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF10B981),
-                                letterSpacing: 0.5,
-                              ),
-                            ),
-                            Text(
-                              widget.maneuver.instruction,
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.bold,
-                                color: textColor,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Exit Car Mode Button
-                      IconButton(
-                        onPressed: widget.onExitCarMode,
-                        icon: const Icon(Icons.close_rounded, size: 28),
-                        color: Colors.redAccent,
-                        tooltip: 'Exit Car Mode',
-                      ),
+                      // In portrait the maneuver card spans the full width, so
+                      // keep the speed pill below it to avoid overlap.
+                      if (wide) _speedPill(),
+                      if (wide) const SizedBox(height: 10),
+                      ..._alertChips(),
                     ],
                   ),
                 ),
-              ),
 
-              // --- MIDDLE SPACING / TELEMETRY BADGES ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Bottom status + control bar.
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 14,
+                  child: _bottomBar(wide),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ---- Maneuver card -------------------------------------------------------
+
+  Widget _maneuverCard() {
+    return _card(
+      padding: const EdgeInsets.all(16),
+      accentBorder: true,
+      child: Row(
+        children: [
+          Container(
+            width: 66,
+            height: 66,
+            decoration: BoxDecoration(
+              color: _green,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(widget.maneuver.icon, size: 42, color: Colors.white),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.maneuver.formattedDistance,
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
+                    color: _green,
+                    letterSpacing: 0.3,
+                    height: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  widget.maneuver.instruction,
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: _text),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---- Speed pill ----------------------------------------------------------
+
+  Widget _speedPill() {
+    return Container(
+      width: 76,
+      height: 76,
+      decoration: BoxDecoration(
+        color: _panel,
+        shape: BoxShape.circle,
+        border: Border.all(color: _hairline),
+        boxShadow: _shadow,
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            '${widget.telemetry.speedKmh.round()}',
+            style: TextStyle(fontSize: 30, fontWeight: FontWeight.w900, color: _text, height: 1.0),
+          ),
+          Text('km/h', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: _sub)),
+        ],
+      ),
+    );
+  }
+
+  // ---- Alert chips ---------------------------------------------------------
+
+  List<Widget> _alertChips() {
+    final chips = <Widget>[];
+    if (widget.telemetry.hasTollAhead) {
+      chips.add(_chip(Icons.toll, 'Toll ahead', _amber));
+    }
+    if (widget.telemetry.needsRefuel) {
+      chips.add(_chip(Icons.local_gas_station, 'Refuel', const Color(0xFFFF9F0A)));
+    }
+    return chips
+        .map((w) => Padding(padding: const EdgeInsets.only(top: 8), child: w))
+        .toList();
+  }
+
+  Widget _chip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: _shadow,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.black87),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.black87)),
+        ],
+      ),
+    );
+  }
+
+  // ---- Bottom status + controls -------------------------------------------
+
+  Widget _bottomBar(bool wide) {
+    final buttons = _controlButtons();
+
+    return _card(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      child: wide
+          ? Row(
+              children: [
+                Expanded(child: _etaBlock()),
+                const SizedBox(width: 12),
+                buttons,
+              ],
+            )
+          // Portrait: speed pill lives inside the bar (left of the ETA) so it
+          // can't collide with anything on the map.
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
                   children: [
-                    // Speedometer Badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: cardBg,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white12),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '${widget.telemetry.speedKmh.round()}',
-                            style: TextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.w900,
-                              color: textColor,
-                            ),
-                          ),
-                          Text(
-                            'KM/H',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: subTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Warnings & Next Stop Badges
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (widget.telemetry.hasTollAhead)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.amber.shade900,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.toll, size: 16, color: Colors.white),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Toll Ahead',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        if (widget.telemetry.needsRefuel)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade900,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.local_gas_station, size: 16, color: Colors.white),
-                                SizedBox(width: 6),
-                                Text(
-                                  'Refuel Needed',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
+                    _speedPill(),
+                    const SizedBox(width: 14),
+                    Expanded(child: _etaBlock()),
                   ],
                 ),
-              ),
+                const SizedBox(height: 14),
+                buttons,
+              ],
+            ),
+    );
+  }
 
-              // --- BOTTOM CONTROL BAR & ETA TELEMETRY ---
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: cardBg,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 20,
-                        offset: const Offset(0, -4),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ETA & Distance Readout
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.schedule, color: Color(0xFF10B981), size: 22),
-                              const SizedBox(width: 8),
-                              Text(
-                                widget.telemetry.formattedEta,
-                                style: TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: textColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                          Text(
-                            '${widget.telemetry.remainingDistanceKm.toStringAsFixed(1)} km left',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: subTextColor,
-                            ),
-                          ),
-                        ],
-                      ),
+  Widget _etaBlock() {
+    return Row(
+      children: [
+        Icon(Icons.navigation_rounded, color: _green, size: 26),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.telemetry.formattedEta,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _text, height: 1.0),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '${widget.telemetry.remainingDistanceKm.toStringAsFixed(1)} km left',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _sub),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 
-                      const SizedBox(height: 14),
+  Widget _controlButtons() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _circleBtn(
+          icon: widget.isPlayingAnimation ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          color: _blue,
+          onTap: widget.onTogglePlayPause,
+          tooltip: widget.isPlayingAnimation ? 'Pause' : 'Drive',
+        ),
+        _circleBtn(
+          icon: widget.speechMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          color: widget.speechMuted ? Colors.grey : _green,
+          onTap: widget.onToggleMute,
+          tooltip: widget.speechMuted ? 'Voice off' : 'Voice on',
+        ),
+        _circleBtn(
+          icon: Icons.my_location_rounded,
+          color: _purple,
+          onTap: widget.onRecenterMap,
+          tooltip: 'Recenter',
+        ),
+        _circleBtn(
+          icon: _isDarkMode ? Icons.wb_sunny_rounded : Icons.nightlight_round,
+          color: _amber,
+          onTap: () => setState(() => _isDarkMode = !_isDarkMode),
+          tooltip: _isDarkMode ? 'Day' : 'Night',
+        ),
+        _circleBtn(
+          icon: Icons.close_rounded,
+          color: _red,
+          onTap: widget.onExitCarMode,
+          tooltip: 'End',
+          filled: true,
+        ),
+      ],
+    );
+  }
 
-                      // Driver Action Buttons (Extra Large 60dp targets)
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          // Play / Pause Simulation
-                          _DriverButton(
-                            icon: widget.isPlayingAnimation ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                            label: widget.isPlayingAnimation ? 'Pause' : 'Drive',
-                            onTap: widget.onTogglePlayPause,
-                            color: const Color(0xFF3B82F6),
-                          ),
-
-                          // Voice Guidance Mute / Unmute
-                          _DriverButton(
-                            icon: widget.speechMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
-                            label: widget.speechMuted ? 'Muted' : 'Voice',
-                            onTap: widget.onToggleMute,
-                            color: widget.speechMuted ? Colors.grey : const Color(0xFF10B981),
-                          ),
-
-                          // Recenter Map
-                          _DriverButton(
-                            icon: Icons.my_location_rounded,
-                            label: 'Center',
-                            onTap: widget.onRecenterMap,
-                            color: const Color(0xFF8B5CF6),
-                          ),
-
-                          // Day / Night Theme Toggle
-                          _DriverButton(
-                            icon: _isDarkMode ? Icons.wb_sunny_rounded : Icons.nightlight_round,
-                            label: _isDarkMode ? 'Day' : 'Night',
-                            onTap: () {
-                              setState(() {
-                                _isDarkMode = !_isDarkMode;
-                              });
-                            },
-                            color: Colors.amber.shade700,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+  Widget _circleBtn({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String tooltip,
+    bool filled = false,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      child: Tooltip(
+        message: tooltip,
+        child: InkResponse(
+          onTap: onTap,
+          radius: 34,
+          child: Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: filled ? color : color.withOpacity(0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: color, width: 2),
+            ),
+            child: Icon(icon, color: filled ? Colors.white : color, size: 26),
           ),
         ),
       ),
     );
   }
-}
 
-class _DriverButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final Color color;
+  // ---- Shared card chrome --------------------------------------------------
 
-  const _DriverButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 72,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.2),
-                shape: BoxShape.circle,
-                border: Border.all(color: color, width: 2),
-              ),
-              child: Icon(icon, color: color, size: 28),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
+  Widget _card({required Widget child, required EdgeInsets padding, bool accentBorder = false}) {
+    return Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: _panel,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: accentBorder ? _green.withOpacity(0.55) : _hairline,
+          width: accentBorder ? 2 : 1,
         ),
+        boxShadow: _shadow,
       ),
+      child: child,
     );
   }
+
+  List<BoxShadow> get _shadow => [
+        BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 20, offset: const Offset(0, 6)),
+      ];
 }
 
-// Wrapper for Web Pointer Events intercept
+// Wrapper for Web Pointer Events intercept (no-op placeholder).
 class PointerInterceptor extends StatelessWidget {
   final Widget child;
   const PointerInterceptor({super.key, required this.child});
