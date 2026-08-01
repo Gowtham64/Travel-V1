@@ -1,5 +1,7 @@
--- Enable PostGIS for spatial queries
-CREATE EXTENSION IF NOT EXISTS postgis;
+-- Coordinates are stored as plain lat/lng numerics and all distance/routing is
+-- done via external APIs, so PostGIS is NOT required. (Enabling PostGIS in the
+-- public schema is what trips the "RLS Disabled on spatial_ref_sys" security
+-- error and most function/extension advisor warnings.)
 
 -- 1. Route Cache Table
 -- Caches routes returned by OpenRouteService to avoid repeating external API calls
@@ -51,9 +53,7 @@ CREATE TABLE public.trip_stops (
     lng NUMERIC NOT NULL,
     name TEXT,
     order_index INTEGER NOT NULL,
-    arrival_estimate TIMESTAMPTZ,
-    -- PostGIS spatial column for distance queries if needed
-    geom geometry(Point, 4326) GENERATED ALWAYS AS (ST_SetSRID(ST_MakePoint(lng, lat), 4326)) STORED
+    arrival_estimate TIMESTAMPTZ
 );
 
 -- Set up Row Level Security (RLS)
@@ -105,3 +105,20 @@ CREATE POLICY "Users can view their own details" ON public.user_details FOR SELE
 CREATE POLICY "Public can insert details" ON public.user_details FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can update their own details" ON public.user_details FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own details" ON public.user_details FOR DELETE USING (auth.uid() = user_id);
+
+-- ============================================================================
+-- SECURITY CLEANUP — run once in Supabase → SQL Editor on an EXISTING database.
+-- Clears the "RLS Disabled on spatial_ref_sys" error and the PostGIS advisor
+-- warnings by removing the unused PostGIS dependency (the app never queries the
+-- geometry column — all distance/routing is done via external APIs).
+-- ============================================================================
+-- 1) Drop the unused generated geometry column, then PostGIS.
+ALTER TABLE public.trip_stops DROP COLUMN IF EXISTS geom;
+DROP EXTENSION IF EXISTS postgis;
+
+-- If you prefer to KEEP PostGIS, instead try (may fail if you don't own it,
+-- which is safe to ignore — the table holds only public SRID reference data):
+--   ALTER TABLE public.spatial_ref_sys ENABLE ROW LEVEL SECURITY;
+
+-- 2) In the Dashboard (not SQL): Authentication → Policies/Settings →
+--    enable "Leaked password protection" to clear that advisor warning.
