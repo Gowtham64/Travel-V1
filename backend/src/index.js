@@ -6,6 +6,8 @@ const rateLimit = require("express-rate-limit");
 const tripRouter = require("./routes/trip");
 const geocodeRouter = require("./routes/geocode");
 const aiRouter = require("./routes/ai");
+const accountRouter = require("./routes/account");
+const currencyRouter = require("./routes/currency");
 
 const app = express();
 
@@ -77,6 +79,8 @@ app.get("/health", (req, res) => res.json({ status: "ok" }));
 app.use("/api/trip", tripRouter);
 app.use("/api/geocode", geocodeRouter);
 app.use("/api/ai", aiLimiter, aiRouter);
+app.use("/api/account", accountRouter);
+app.use("/api/currency", currencyRouter);
 
 const PORT = process.env.PORT || 3000;
 
