@@ -50,7 +50,7 @@ class TripWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = TripExtrasStore(tripKey);
     return DefaultTabController(
-      length: 6,
+      length: 7,
       child: Scaffold(
         backgroundColor: Voy.bg,
         appBar: AppBar(
@@ -74,6 +74,7 @@ class TripWorkspaceScreen extends StatelessWidget {
             labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             tabs: [
               Tab(icon: Icon(Icons.map_rounded), text: 'Map'),
+              Tab(icon: Icon(Icons.view_day_rounded), text: 'Days'),
               Tab(icon: Icon(Icons.timeline_rounded), text: 'Itinerary'),
               Tab(icon: Icon(Icons.checklist_rounded), text: 'Packing'),
               Tab(icon: Icon(Icons.payments_rounded), text: 'Expenses'),
@@ -85,6 +86,7 @@ class TripWorkspaceScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             _MapTab(plan: plan, start: start, end: end, waypoints: waypoints),
+            _DaysTab(store: store, suggestedDays: plan.estimatedDays),
             ItineraryScreen(
               plan: plan,
               startAddress: startAddress,
@@ -1379,6 +1381,247 @@ class _JournalSheetState extends State<_JournalSheet> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Day-by-day organizer (drag-and-drop items within each day)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DaysTab extends StatefulWidget {
+  final TripExtrasStore store;
+  final int suggestedDays;
+  const _DaysTab({required this.store, required this.suggestedDays});
+  @override
+  State<_DaysTab> createState() => _DaysTabState();
+}
+
+class _DaysTabState extends State<_DaysTab> {
+  List<PlanDay> _days = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final days = await widget.store.loadDays();
+    if (!mounted) return;
+    setState(() {
+      _days = days;
+      _loading = false;
+    });
+  }
+
+  void _persist() => widget.store.saveDays(_days);
+
+  void _seedDays() {
+    final n = widget.suggestedDays < 1 ? 1 : widget.suggestedDays;
+    setState(() {
+      for (int i = 0; i < n; i++) {
+        _days.add(PlanDay(id: _uid() + '$i', title: 'Day ${i + 1}'));
+      }
+    });
+    _persist();
+  }
+
+  void _addDay() {
+    setState(() => _days.add(PlanDay(id: _uid(), title: 'Day ${_days.length + 1}')));
+    _persist();
+  }
+
+  Future<void> _addItem(PlanDay day) async {
+    final ctrl = TextEditingController();
+    final text = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+            left: 18, right: 18, top: 18, bottom: MediaQuery.of(ctx).viewInsets.bottom + 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Add to ${day.title}',
+                style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              style: const TextStyle(color: Voy.ink),
+              decoration: const InputDecoration(labelText: 'Place or activity'),
+              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+                child: const Text('Add'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (text == null || text.isEmpty) return;
+    setState(() => day.items.add(PlanItem(id: _uid(), text: text)));
+    _persist();
+  }
+
+  Future<void> _renameDay(PlanDay day) async {
+    final ctrl = TextEditingController(text: day.title);
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename day'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Voy.ink),
+          decoration: const InputDecoration(labelText: 'Title'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (text == null || text.isEmpty) return;
+    setState(() => day.title = text);
+    _persist();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: _days.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addDay,
+              backgroundColor: Voy.brand,
+              foregroundColor: const Color(0xFF04211F),
+              icon: const Icon(Icons.add_rounded),
+              label: const Text('Add day'),
+            ),
+      body: _days.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _emptyState(Icons.view_day_rounded, 'Plan your days',
+                      'Organise places and activities into a day-by-day plan.'),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _seedDays,
+                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                    label: Text('Start with ${widget.suggestedDays < 1 ? 1 : widget.suggestedDays} day(s)'),
+                  ),
+                ],
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+              itemCount: _days.length,
+              itemBuilder: (ctx, di) {
+                final day = _days[di];
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              width: 30,
+                              height: 30,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                  color: Voy.brand.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(9)),
+                              child: Text('${di + 1}',
+                                  style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800)),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(day.title,
+                                  style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700)),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_rounded, color: Voy.sub, size: 18),
+                              onPressed: () => _renameDay(day),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Voy.danger, size: 20),
+                              onPressed: () {
+                                setState(() => _days.removeAt(di));
+                                _persist();
+                              },
+                            ),
+                          ],
+                        ),
+                        if (day.items.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
+                            child: Text('No items yet — add places or activities.',
+                                style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 12.5)),
+                          )
+                        else
+                          ReorderableListView(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            buildDefaultDragHandles: false,
+                            onReorder: (oldI, newI) {
+                              setState(() {
+                                if (newI > oldI) newI -= 1;
+                                final it = day.items.removeAt(oldI);
+                                day.items.insert(newI, it);
+                              });
+                              _persist();
+                            },
+                            children: [
+                              for (int ii = 0; ii < day.items.length; ii++)
+                                ListTile(
+                                  key: ValueKey(day.items[ii].id),
+                                  contentPadding: const EdgeInsets.only(left: 2, right: 0),
+                                  leading: ReorderableDragStartListener(
+                                    index: ii,
+                                    child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 20),
+                                  ),
+                                  title: Text(day.items[ii].text,
+                                      style: const TextStyle(color: Voy.ink, fontSize: 14)),
+                                  trailing: IconButton(
+                                    icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
+                                    onPressed: () {
+                                      setState(() => day.items.removeAt(ii));
+                                      _persist();
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () => _addItem(day),
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Add item'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
     );
   }
 }

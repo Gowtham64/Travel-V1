@@ -83,6 +83,38 @@ class Expense {
       );
 }
 
+/// One item within a day in the day-by-day organizer.
+class PlanItem {
+  final String id;
+  String text;
+  PlanItem({required this.id, this.text = ''});
+
+  Map<String, dynamic> toJson() => {'id': id, 'text': text};
+  factory PlanItem.fromJson(Map<String, dynamic> j) =>
+      PlanItem(id: j['id'].toString(), text: (j['text'] ?? '').toString());
+}
+
+/// A single day in the day-by-day organizer, holding an ordered list of items
+/// the traveller can reorder (drag-and-drop).
+class PlanDay {
+  final String id;
+  String title;
+  List<PlanItem> items;
+  PlanDay({required this.id, this.title = '', List<PlanItem>? items})
+      : items = items ?? [];
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'title': title, 'items': items.map((e) => e.toJson()).toList()};
+  factory PlanDay.fromJson(Map<String, dynamic> j) => PlanDay(
+        id: j['id'].toString(),
+        title: (j['title'] ?? '').toString(),
+        items: (j['items'] as List?)
+                ?.map((e) => PlanItem.fromJson((e as Map).cast<String, dynamic>()))
+                .toList() ??
+            [],
+      );
+}
+
 /// A dated journal entry for the trip (notes / memories, one per moment).
 class JournalEntry {
   final String id;

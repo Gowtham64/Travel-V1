@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../models/trip_models.dart';
 import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
+import 'atlas_screen.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
 import 'account_screens.dart';
@@ -252,6 +253,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         break;
       case 'currency_conv':
         go(const CurrencyConverterScreen());
+        break;
+      case 'atlas':
+        go(const AtlasScreen());
         break;
       default:
         final cfg = configForMenu(id);

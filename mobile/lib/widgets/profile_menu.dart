@@ -62,6 +62,7 @@ class _ProfileMenuSheet extends StatelessWidget {
               trailing: Container(width: 8, height: 8, decoration: const BoxDecoration(color: Voy.success, shape: BoxShape.circle))),
           const _Item('completed', 'Completed Trips', Icons.check_circle_outline_rounded),
           const _Item('saved', 'Saved Trips', Icons.bookmark_border_rounded),
+          const _Item('atlas', 'My Atlas', Icons.public_rounded),
           const _Item('drafts', 'Draft Itineraries', Icons.edit_note_rounded),
         ]),
         _Section('❤️', 'Favorites', const [
