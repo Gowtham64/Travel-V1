@@ -816,37 +816,43 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   }
 
   Future<Position> _determinePosition() async {
-    if (kIsWeb) {
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      );
-    }
-
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw 'Location services are disabled.';
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+    // On native platforms, verify the location service + permission up front so
+    // we can give a specific, actionable error instead of a raw exception.
+    if (!kIsWeb) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Location services are turned off. Enable them in your device settings and try again.';
+      }
+      var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
-        throw 'Location permissions are denied';
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied) {
+        throw 'Location permission was denied. Please allow it to use your current location.';
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Location permission is permanently denied. Enable it for this app in Settings.';
       }
     }
-    
-    if (permission == LocationPermission.deniedForever) {
-      throw 'Location permissions are permanently denied.';
-    } 
 
-    return await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
-      timeLimit: const Duration(seconds: 10),
-    );
+    // Try for a fresh fix. Use medium accuracy + a longer timeout: high accuracy
+    // waits for GPS and frequently fails with "Position update unavailable" on
+    // the web build and indoors. If that fails, fall back to the last known
+    // position (native only — the web plugin doesn't support it).
+    try {
+      return await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 20),
+      );
+    } catch (e) {
+      if (!kIsWeb) {
+        try {
+          final last = await Geolocator.getLastKnownPosition();
+          if (last != null) return last;
+        } catch (_) {/* ignore and fall through to the friendly error */}
+      }
+      throw "Couldn't get your location. Make sure location is enabled and allowed for this site, then try again — or pick the spot on the map.";
+    }
   }
 
   /// Mapbox Search autocomplete for a stop field. Debounced; results show as a
@@ -984,8 +990,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error getting location: $e'),
+            content: Text('$e'),
             backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 5),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
