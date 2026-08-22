@@ -835,20 +835,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       }
     }
 
-    // Accuracy ladder. On web, high accuracy maps to the browser's GPS-preferred
-    // mode, which returns "Position update unavailable" on any device without GPS
-    // (i.e. most laptops/desktops). Network/IP-based positioning (low accuracy)
-    // succeeds there, so try that FIRST on web, then high accuracy as a bonus.
-    // On native we prefer a good fix first, then degrade.
-    final ladder = kIsWeb
-        ? const [LocationAccuracy.low, LocationAccuracy.high]
-        : const [LocationAccuracy.medium, LocationAccuracy.low];
-
-    for (final accuracy in ladder) {
+    // Accuracy ladder: prefer a precise fix, then degrade. When the OS/browser
+    // location works, high accuracy gives the user's real spot; if it can't
+    // resolve (no GPS + service issues), we fall to low, then to the IP guess
+    // below. Each attempt is time-boxed so a stuck request doesn't hang the UI.
+    for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.low]) {
       try {
         return await Geolocator.getCurrentPosition(
           desiredAccuracy: accuracy,
-          timeLimit: const Duration(seconds: 20),
+          timeLimit: const Duration(seconds: 15),
         );
       } catch (_) {
         // try the next (less demanding) accuracy
@@ -1024,11 +1019,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         _resolvedStopCoords[controller.hashCode] = pt;
         if (index == 0) _startFocusPoint = pt;
       });
-      
+
+      // A coarse accuracy means we fell back to IP-based lookup (city-level),
+      // which is only a rough guess — be honest about it and nudge the user to
+      // refine, instead of claiming it's their precise current location.
+      final isApprox = position.accuracy >= 3000;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('✓ Updated to current location: $displayName'),
-          backgroundColor: const Color(0xFF2E75B6),
+          content: Text(isApprox
+              ? '≈ Approximate location ($displayName). Your device wouldn\'t share a precise fix — refine it on the map or type an address.'
+              : '✓ Updated to current location: $displayName'),
+          backgroundColor: isApprox ? const Color(0xFFB45309) : const Color(0xFF2E75B6),
+          duration: Duration(seconds: isApprox ? 6 : 3),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
