@@ -835,24 +835,35 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       }
     }
 
-    // Try for a fresh fix. Use medium accuracy + a longer timeout: high accuracy
-    // waits for GPS and frequently fails with "Position update unavailable" on
-    // the web build and indoors. If that fails, fall back to the last known
-    // position (native only — the web plugin doesn't support it).
-    try {
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 20),
-      );
-    } catch (e) {
-      if (!kIsWeb) {
-        try {
-          final last = await Geolocator.getLastKnownPosition();
-          if (last != null) return last;
-        } catch (_) {/* ignore and fall through to the friendly error */}
+    // Accuracy ladder. On web, high accuracy maps to the browser's GPS-preferred
+    // mode, which returns "Position update unavailable" on any device without GPS
+    // (i.e. most laptops/desktops). Network/IP-based positioning (low accuracy)
+    // succeeds there, so try that FIRST on web, then high accuracy as a bonus.
+    // On native we prefer a good fix first, then degrade.
+    final ladder = kIsWeb
+        ? const [LocationAccuracy.low, LocationAccuracy.high]
+        : const [LocationAccuracy.medium, LocationAccuracy.low];
+
+    for (final accuracy in ladder) {
+      try {
+        return await Geolocator.getCurrentPosition(
+          desiredAccuracy: accuracy,
+          timeLimit: const Duration(seconds: 20),
+        );
+      } catch (_) {
+        // try the next (less demanding) accuracy
       }
-      throw "Couldn't get your location. Make sure location is enabled and allowed for this site, then try again — or pick the spot on the map.";
     }
+
+    // Native only: a cached fix beats nothing (web plugin doesn't support it).
+    if (!kIsWeb) {
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+      } catch (_) {/* fall through to the friendly error */}
+    }
+
+    throw "Couldn't get your location. Make sure location is enabled and allowed for this site, then try again — or pick the spot on the map.";
   }
 
   /// Mapbox Search autocomplete for a stop field. Debounced; results show as a
