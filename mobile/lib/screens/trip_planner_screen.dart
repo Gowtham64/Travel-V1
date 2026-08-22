@@ -863,7 +863,43 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       } catch (_) {/* fall through to the friendly error */}
     }
 
+    // Last resort: approximate (city-level) location from the client's IP. This
+    // works even when the browser's geolocation backend is blocked/unavailable
+    // (VPN, corporate network, or macOS Location Services off for the browser).
+    final ipPos = await _ipApproxPosition();
+    if (ipPos != null) return ipPos;
+
     throw "Couldn't get your location. Make sure location is enabled and allowed for this site, then try again — or pick the spot on the map.";
+  }
+
+  /// Approximate location from the caller's IP address (city-level). Tries a
+  /// couple of free, CORS-enabled providers; returns null if none respond.
+  Future<Position?> _ipApproxPosition() async {
+    for (final url in const ['https://ipwho.is/', 'https://ipapi.co/json/']) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        if (res.statusCode != 200) continue;
+        final m = jsonDecode(res.body) as Map<String, dynamic>;
+        final lat = (m['latitude'] as num?)?.toDouble();
+        final lng = (m['longitude'] as num?)?.toDouble();
+        if (lat == null || lng == null) continue;
+        return Position(
+          latitude: lat,
+          longitude: lng,
+          timestamp: DateTime.now(),
+          accuracy: 5000, // ~city-level
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+      } catch (_) {
+        // try the next provider
+      }
+    }
+    return null;
   }
 
   /// Mapbox Search autocomplete for a stop field. Debounced; results show as a
