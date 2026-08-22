@@ -1899,42 +1899,107 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               });
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildTextField(
+                child: _specField(
                   controller: _efficiencyController,
-                  label: 'Efficiency (km/l)',
-                  icon: Icons.speed,
-                  keyboardType: TextInputType.number,
-                  validator: _numberValidator,
+                  label: 'Efficiency',
+                  unit: 'km/l',
+                  icon: Icons.speed_rounded,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 14),
               Expanded(
-                child: _buildTextField(
+                child: _specField(
                   controller: _tankController,
-                  label: 'Tank (L)',
-                  icon: Icons.local_gas_station,
-                  keyboardType: TextInputType.number,
-                  validator: _numberValidator,
+                  label: 'Tank',
+                  unit: 'L',
+                  icon: Icons.local_gas_station_rounded,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          _buildTextField(
+          _specField(
             controller: _currentFuelController,
-            label: 'Current fuel in tank (L)',
-            icon: Icons.water_drop,
-            keyboardType: TextInputType.number,
-            validator: _numberValidator,
+            label: 'Current fuel in tank',
+            unit: 'L',
+            icon: Icons.water_drop_rounded,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
           _buildTravellersRow(),
         ],
       ),
+    );
+  }
+
+  /// Compact numeric field for vehicle specs. The label sits ABOVE the field
+  /// (as a caption) so it can never be clipped or truncated the way a floating
+  /// InputDecoration label is in a narrow column; the unit shows as a suffix.
+  Widget _specField({
+    required TextEditingController controller,
+    required String label,
+    required String unit,
+    required IconData icon,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 15, color: Colors.white.withOpacity(0.55)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.7),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 7),
+        TextFormField(
+          controller: controller,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          validator: _numberValidator,
+          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+          decoration: InputDecoration(
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            suffixText: unit,
+            suffixStyle: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13, fontWeight: FontWeight.w600),
+            filled: true,
+            fillColor: Colors.white.withOpacity(0.05),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(color: Colors.white.withOpacity(0.12)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Color(0xFF2E75B6), width: 2),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+            ),
+            errorStyle: const TextStyle(fontSize: 11, height: 0.9),
+          ),
+        ),
+      ],
     );
   }
 
