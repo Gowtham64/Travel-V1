@@ -121,16 +121,17 @@ process.on("uncaughtException", (err) => {
 // --- Startup config check: warn loudly about any missing keys so a misconfigured
 // deploy is obvious in the logs instead of failing silently at request time. ---
 function checkConfig() {
+  // Only these genuinely degrade functionality when unset. Supabase URL/anon-key
+  // have safe publishable fallbacks baked in, so they're intentionally not
+  // warned about here (they'd be false alarms).
   const optional = {
     MAPBOX_TOKEN: "traffic-aware routing + geocoding (falls back to ORS/Nominatim)",
     ORS_API_KEY: "routing fallback",
-    SUPABASE_URL: "auth + saved trips",
-    SUPABASE_ANON_KEY: "auth + saved trips",
   };
   const missing = Object.keys(optional).filter((k) => !process.env[k]);
   if (missing.length) {
     console.warn(
-      "\n⚠️  Missing environment variables (features degraded):\n" +
+      "\n⚠️  Optional environment variables not set (features degraded, app still runs):\n" +
         missing.map((k) => `   - ${k}: ${optional[k]}`).join("\n") +
         "\n   Set them in backend/.env (local) or your host's dashboard (prod).\n"
     );
