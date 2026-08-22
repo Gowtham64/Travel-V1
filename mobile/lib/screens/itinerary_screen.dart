@@ -29,6 +29,10 @@ class ItineraryScreen extends StatefulWidget {
   /// A previously-saved AI itinerary to preload (list of day maps).
   final List<Map<String, dynamic>>? initialItinerary;
 
+  /// When true, renders without its own Scaffold/app-bar so it can live inside
+  /// a tab of the Trip Workspace.
+  final bool embedded;
+
   const ItineraryScreen({
     super.key,
     required this.plan,
@@ -42,6 +46,7 @@ class ItineraryScreen extends StatefulWidget {
     this.vehicleType = 'car',
     this.vehicle,
     this.initialItinerary,
+    this.embedded = false,
   });
 
   @override
@@ -179,10 +184,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   // ---------- build ----------
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bg,
-      body: CustomScrollView(
+    final scroll = CustomScrollView(
         slivers: [
+          if (!widget.embedded)
           SliverAppBar(
             backgroundColor: _bg.withOpacity(0.85),
             surfaceTintColor: Colors.transparent,
@@ -206,7 +210,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     ),
               IconButton(onPressed: _share, icon: const Icon(Icons.ios_share_rounded, color: _ink, size: 20)),
             ],
-          ),
+          )
+          else
+            SliverToBoxAdapter(child: _embeddedHeader()),
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 40),
             sliver: SliverList(
@@ -239,6 +245,31 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               ]),
             ),
           ),
+        ],
+    );
+    if (widget.embedded) return ColoredBox(color: _bg, child: scroll);
+    return Scaffold(backgroundColor: _bg, body: scroll);
+  }
+
+  /// Compact save/share row shown at the top when the itinerary is embedded in
+  /// the Trip Workspace (which supplies its own app bar).
+  Widget _embeddedHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _saving
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: _brand)),
+                )
+              : IconButton(
+                  onPressed: _saveTrip,
+                  tooltip: 'Save trip',
+                  icon: const Icon(Icons.bookmark_add_rounded, color: _ink, size: 22),
+                ),
+          IconButton(onPressed: _share, tooltip: 'Share', icon: const Icon(Icons.ios_share_rounded, color: _ink, size: 20)),
         ],
       ),
     );

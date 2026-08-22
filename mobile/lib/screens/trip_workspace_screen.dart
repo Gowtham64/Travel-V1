@@ -1,21 +1,47 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../config/app_config.dart';
 import '../theme/app_theme.dart';
+import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
+import 'itinerary_screen.dart';
 
-/// A tabbed "trip workspace" that hosts the planning add-ons for a trip:
-/// an interactive Packing checklist, an Expense tracker with splitting, and a
-/// Reservations manager. All data is persisted locally per trip.
+/// A tabbed "trip workspace" — the single place that brings a trip together:
+/// Map, Itinerary, an interactive Packing checklist, an Expense tracker with
+/// splitting, and a Reservations manager. The three add-ons persist locally
+/// per trip.
 class TripWorkspaceScreen extends StatelessWidget {
   final String tripKey;
   final String tripName;
   final int travellers;
   final String currency;
 
+  // Trip data used to power the Map and Itinerary tabs.
+  final TripPlan plan;
+  final GeoPoint start;
+  final GeoPoint end;
+  final List<GeoPoint> waypoints;
+  final Vehicle vehicle;
+  final String startAddress;
+  final String endAddress;
+  final DateTime tripStart;
+  final List<Map<String, dynamic>>? savedItinerary;
+
   const TripWorkspaceScreen({
     super.key,
     required this.tripKey,
     required this.tripName,
+    required this.plan,
+    required this.start,
+    required this.end,
+    required this.vehicle,
+    required this.startAddress,
+    required this.endAddress,
+    required this.tripStart,
+    this.waypoints = const [],
+    this.savedItinerary,
     this.travellers = 1,
     this.currency = 'INR',
   });
@@ -24,7 +50,7 @@ class TripWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = TripExtrasStore(tripKey);
     return DefaultTabController(
-      length: 3,
+      length: 5,
       child: Scaffold(
         backgroundColor: Voy.bg,
         appBar: AppBar(
@@ -47,6 +73,8 @@ class TripWorkspaceScreen extends StatelessWidget {
             unselectedLabelColor: Voy.sub,
             labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             tabs: [
+              Tab(icon: Icon(Icons.map_rounded), text: 'Map'),
+              Tab(icon: Icon(Icons.timeline_rounded), text: 'Itinerary'),
               Tab(icon: Icon(Icons.checklist_rounded), text: 'Packing'),
               Tab(icon: Icon(Icons.payments_rounded), text: 'Expenses'),
               Tab(icon: Icon(Icons.confirmation_number_rounded), text: 'Bookings'),
@@ -55,6 +83,21 @@ class TripWorkspaceScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
+            _MapTab(plan: plan, start: start, end: end, waypoints: waypoints),
+            ItineraryScreen(
+              plan: plan,
+              startAddress: startAddress,
+              endAddress: endAddress,
+              start: start,
+              end: end,
+              waypoints: waypoints,
+              vehicleType: vehicle.type,
+              vehicle: vehicle,
+              travellers: travellers,
+              tripStart: tripStart,
+              initialItinerary: savedItinerary,
+              embedded: true,
+            ),
             _PackingTab(store: store),
             _ExpensesTab(store: store, travellers: travellers, currency: currency),
             _ReservationsTab(store: store),
@@ -62,6 +105,119 @@ class TripWorkspaceScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Map tab — read-only route preview (polyline + start/end/waypoint markers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _MapTab extends StatelessWidget {
+  final TripPlan plan;
+  final GeoPoint start;
+  final GeoPoint end;
+  final List<GeoPoint> waypoints;
+  const _MapTab({required this.plan, required this.start, required this.end, required this.waypoints});
+
+  @override
+  Widget build(BuildContext context) {
+    final points = plan.coordinates.map((c) => LatLng(c.lat, c.lng)).toList();
+    final bounds = points.isNotEmpty
+        ? LatLngBounds.fromPoints(points)
+        : LatLngBounds(LatLng(start.lat, start.lng), LatLng(end.lat, end.lng));
+    final token = AppConfig.mapboxToken;
+    final tileUrl = token.isNotEmpty
+        ? 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=$token'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
+    return Stack(
+      children: [
+        FlutterMap(
+          options: MapOptions(
+            initialCameraFit: CameraFit.bounds(
+              bounds: bounds,
+              padding: const EdgeInsets.all(48),
+            ),
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.pinchZoom | InteractiveFlag.drag | InteractiveFlag.doubleTapZoom,
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: tileUrl,
+              userAgentPackageName: 'com.example.travel_app',
+              additionalOptions: {'accessToken': token},
+            ),
+            if (points.length > 1)
+              PolylineLayer(
+                polylines: [
+                  Polyline(points: points, strokeWidth: 5, color: Voy.brand),
+                ],
+              ),
+            MarkerLayer(
+              markers: [
+                _pin(LatLng(start.lat, start.lng), Voy.success, Icons.trip_origin_rounded),
+                for (final w in waypoints) _pin(LatLng(w.lat, w.lng), Voy.amber, Icons.place_rounded),
+                _pin(LatLng(end.lat, end.lng), Voy.coral, Icons.flag_rounded),
+              ],
+            ),
+          ],
+        ),
+        // Distance / duration summary chip
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 12,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Voy.surface.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Voy.hairline),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _stat(Icons.straighten_rounded, '${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
+                _stat(Icons.schedule_rounded, _fmtDuration(plan.durationMin), 'Drive time'),
+                _stat(Icons.place_rounded, '${waypoints.length}', 'Stops'),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Marker _pin(LatLng p, Color color, IconData icon) => Marker(
+        point: p,
+        width: 34,
+        height: 34,
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6)],
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
+        ),
+      );
+
+  Widget _stat(IconData icon, String value, String label) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Voy.brand, size: 18),
+          const SizedBox(height: 3),
+          Text(value, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 14)),
+          Text(label, style: const TextStyle(color: Voy.sub, fontSize: 11)),
+        ],
+      );
+
+  String _fmtDuration(int minutes) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    return h > 0 ? '${h}h ${m}m' : '${m}m';
   }
 }
 
