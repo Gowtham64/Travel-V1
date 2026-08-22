@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
+import '../services/api_service.dart';
 import 'itinerary_screen.dart';
 
 /// A tabbed "trip workspace" — the single place that brings a trip together:
@@ -74,7 +75,7 @@ class TripWorkspaceScreen extends StatelessWidget {
             labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
             tabs: [
               Tab(icon: Icon(Icons.map_rounded), text: 'Map'),
-              Tab(icon: Icon(Icons.view_day_rounded), text: 'Days'),
+              Tab(icon: Icon(Icons.view_day_rounded), text: 'Plan'),
               Tab(icon: Icon(Icons.timeline_rounded), text: 'Itinerary'),
               Tab(icon: Icon(Icons.checklist_rounded), text: 'Packing'),
               Tab(icon: Icon(Icons.payments_rounded), text: 'Expenses'),
@@ -86,7 +87,14 @@ class TripWorkspaceScreen extends StatelessWidget {
         body: TabBarView(
           children: [
             _MapTab(plan: plan, start: start, end: end, waypoints: waypoints),
-            _DaysTab(store: store, suggestedDays: plan.estimatedDays),
+            _PlanTab(
+              store: store,
+              plan: plan,
+              start: start,
+              end: end,
+              waypoints: waypoints,
+              startAddress: startAddress,
+            ),
             ItineraryScreen(
               plan: plan,
               startAddress: startAddress,
@@ -1485,20 +1493,41 @@ class _JournalSheetState extends State<_JournalSheet> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Day-by-day organizer (drag-and-drop items within each day)
+// Responsive Plan view: day-by-day organizer (left) + map (center) + a search-
+// and-add place panel (right). Three panes side-by-side on wide screens; stacked
+// with an "Add place" sheet on phones.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _DaysTab extends StatefulWidget {
+class _PlanTab extends StatefulWidget {
   final TripExtrasStore store;
-  final int suggestedDays;
-  const _DaysTab({required this.store, required this.suggestedDays});
+  final TripPlan plan;
+  final GeoPoint start;
+  final GeoPoint end;
+  final List<GeoPoint> waypoints;
+  final String startAddress;
+  const _PlanTab({
+    required this.store,
+    required this.plan,
+    required this.start,
+    required this.end,
+    required this.waypoints,
+    required this.startAddress,
+  });
   @override
-  State<_DaysTab> createState() => _DaysTabState();
+  State<_PlanTab> createState() => _PlanTabState();
 }
 
-class _DaysTabState extends State<_DaysTab> {
+class _PlanTabState extends State<_PlanTab> {
+  final _api = ApiService();
+  final _searchCtrl = TextEditingController();
+
   List<PlanDay> _days = [];
+  int _selectedDay = 0;
   bool _loading = true;
+
+  List<Map<String, String>> _results = [];
+  bool _searching = false;
+  String? _searchError;
 
   @override
   void initState() {
@@ -1506,11 +1535,18 @@ class _DaysTabState extends State<_DaysTab> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final days = await widget.store.loadDays();
     if (!mounted) return;
     setState(() {
       _days = days;
+      _selectedDay = 0;
       _loading = false;
     });
   }
@@ -1518,56 +1554,28 @@ class _DaysTabState extends State<_DaysTab> {
   void _persist() => widget.store.saveDays(_days);
 
   void _seedDays() {
-    final n = widget.suggestedDays < 1 ? 1 : widget.suggestedDays;
+    final n = widget.plan.estimatedDays < 1 ? 1 : widget.plan.estimatedDays;
     setState(() {
       for (int i = 0; i < n; i++) {
-        _days.add(PlanDay(id: _uid() + '$i', title: 'Day ${i + 1}'));
+        _days.add(PlanDay(id: '${_uid()}$i', title: 'Day ${i + 1}'));
       }
     });
     _persist();
   }
 
   void _addDay() {
-    setState(() => _days.add(PlanDay(id: _uid(), title: 'Day ${_days.length + 1}')));
+    setState(() {
+      _days.add(PlanDay(id: _uid(), title: 'Day ${_days.length + 1}'));
+      _selectedDay = _days.length - 1;
+    });
     _persist();
   }
 
-  Future<void> _addItem(PlanDay day) async {
-    final ctrl = TextEditingController();
-    final text = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-            left: 18, right: 18, top: 18, bottom: MediaQuery.of(ctx).viewInsets.bottom + 18),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Add to ${day.title}',
-                style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 14),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              style: const TextStyle(color: Voy.ink),
-              decoration: const InputDecoration(labelText: 'Place or activity'),
-              onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-                child: const Text('Add'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (text == null || text.isEmpty) return;
-    setState(() => day.items.add(PlanItem(id: _uid(), text: text)));
+  void _addTextToSelectedDay(String text) {
+    if (text.trim().isEmpty) return;
+    if (_days.isEmpty) _addDay();
+    final idx = _selectedDay.clamp(0, _days.length - 1);
+    setState(() => _days[idx].items.add(PlanItem(id: _uid(), text: text.trim())));
     _persist();
   }
 
@@ -1594,133 +1602,348 @@ class _DaysTabState extends State<_DaysTab> {
     _persist();
   }
 
+  Future<void> _search() async {
+    final q = _searchCtrl.text.trim();
+    if (q.isEmpty) return;
+    setState(() {
+      _searching = true;
+      _searchError = null;
+    });
+    try {
+      final res = await _api.aiSearchPlaces(query: q, near: widget.startAddress);
+      if (!mounted) return;
+      setState(() => _results = res);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _searchError = e is ApiException ? e.message : 'Search failed. Try again.');
+    } finally {
+      if (mounted) setState(() => _searching = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
 
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      floatingActionButton: _days.isEmpty
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _addDay,
-              backgroundColor: Voy.brand,
-              foregroundColor: const Color(0xFF04211F),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Add day'),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 900;
+        if (wide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(width: 320, child: _daysPanel()),
+              const VerticalDivider(width: 1, color: Voy.hairline),
+              Expanded(
+                child: _MapTab(
+                    plan: widget.plan, start: widget.start, end: widget.end, waypoints: widget.waypoints),
+              ),
+              const VerticalDivider(width: 1, color: Voy.hairline),
+              SizedBox(width: 320, child: _placesPanel()),
+            ],
+          );
+        }
+        // Narrow: days list, with a FAB to open the add-place panel as a sheet.
+        return Scaffold(
+          backgroundColor: Colors.transparent,
+          floatingActionButton: FloatingActionButton.extended(
+            onPressed: _openPlacesSheet,
+            backgroundColor: Voy.brand,
+            foregroundColor: const Color(0xFF04211F),
+            icon: const Icon(Icons.add_location_alt_rounded),
+            label: const Text('Add place'),
+          ),
+          body: _daysPanel(),
+        );
+      },
+    );
+  }
+
+  void _openPlacesSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Voy.surface,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        maxChildSize: 0.95,
+        builder: (ctx, scroll) => _placesPanel(scrollController: scroll),
+      ),
+    );
+  }
+
+  // ---- Left: days ----
+  Widget _daysPanel() {
+    if (_days.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _emptyState(Icons.view_day_rounded, 'Plan your days',
+                'Organise places and activities into a day-by-day plan.'),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _seedDays,
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: Text('Start with ${widget.plan.estimatedDays < 1 ? 1 : widget.plan.estimatedDays} day(s)'),
             ),
-      body: _days.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+          ],
+        ),
+      );
+    }
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+      children: [
+        for (int di = 0; di < _days.length; di++) _dayCard(di),
+        const SizedBox(height: 4),
+        OutlinedButton.icon(
+          onPressed: _addDay,
+          icon: const Icon(Icons.add_rounded, size: 18),
+          label: const Text('Add day'),
+        ),
+      ],
+    );
+  }
+
+  Widget _dayCard(int di) {
+    final day = _days[di];
+    final selected = di == _selectedDay;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: selected ? Voy.brand : Voy.hairline, width: selected ? 1.6 : 1),
+      ),
+      child: InkWell(
+        onTap: () => setState(() => _selectedDay = di),
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  _emptyState(Icons.view_day_rounded, 'Plan your days',
-                      'Organise places and activities into a day-by-day plan.'),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: _seedDays,
-                    icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                    label: Text('Start with ${widget.suggestedDays < 1 ? 1 : widget.suggestedDays} day(s)'),
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: Voy.brand.withValues(alpha: selected ? 0.25 : 0.15),
+                        borderRadius: BorderRadius.circular(9)),
+                    child: Text('${di + 1}',
+                        style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800)),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(day.title,
+                        style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  if (selected)
+                    const Padding(
+                      padding: EdgeInsets.only(right: 4),
+                      child: Text('adding here',
+                          style: TextStyle(color: Voy.brand, fontSize: 10.5, fontWeight: FontWeight.w800)),
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_rounded, color: Voy.sub, size: 18),
+                    onPressed: () => _renameDay(day),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline_rounded, color: Voy.danger, size: 20),
+                    onPressed: () {
+                      setState(() {
+                        _days.removeAt(di);
+                        if (_selectedDay >= _days.length) _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+                      });
+                      _persist();
+                    },
                   ),
                 ],
               ),
-            )
-          : ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
-              itemCount: _days.length,
-              itemBuilder: (ctx, di) {
-                final day = _days[di];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              width: 30,
-                              height: 30,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                  color: Voy.brand.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(9)),
-                              child: Text('${di + 1}',
-                                  style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800)),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(day.title,
-                                  style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700)),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit_rounded, color: Voy.sub, size: 18),
-                              onPressed: () => _renameDay(day),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Voy.danger, size: 20),
-                              onPressed: () {
-                                setState(() => _days.removeAt(di));
-                                _persist();
-                              },
-                            ),
-                          ],
+              if (day.items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
+                  child: Text('No items yet — search & add places, or type your own.',
+                      style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 12.5)),
+                )
+              else
+                ReorderableListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  onReorder: (oldI, newI) {
+                    setState(() {
+                      if (newI > oldI) newI -= 1;
+                      final it = day.items.removeAt(oldI);
+                      day.items.insert(newI, it);
+                    });
+                    _persist();
+                  },
+                  children: [
+                    for (int ii = 0; ii < day.items.length; ii++)
+                      ListTile(
+                        key: ValueKey(day.items[ii].id),
+                        contentPadding: const EdgeInsets.only(left: 2, right: 0),
+                        leading: ReorderableDragStartListener(
+                          index: ii,
+                          child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 20),
                         ),
-                        if (day.items.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
-                            child: Text('No items yet — add places or activities.',
-                                style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 12.5)),
+                        title: Text(day.items[ii].text,
+                            style: const TextStyle(color: Voy.ink, fontSize: 14)),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
+                          onPressed: () {
+                            setState(() => day.items.removeAt(ii));
+                            _persist();
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() => _selectedDay = di);
+                    _promptAddItem();
+                  },
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Add item'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _promptAddItem() async {
+    final ctrl = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add item'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Voy.ink),
+          decoration: const InputDecoration(labelText: 'Place or activity'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Add')),
+        ],
+      ),
+    );
+    if (text != null && text.isNotEmpty) _addTextToSelectedDay(text);
+  }
+
+  // ---- Right: add place / activity ----
+  Widget _placesPanel({ScrollController? scrollController}) {
+    final targetDay = _days.isEmpty
+        ? null
+        : _days[_selectedDay.clamp(0, _days.length - 1)];
+    return Container(
+      color: Voy.bg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Add place / activity',
+                    style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                const SizedBox(height: 2),
+                Text(targetDay == null ? 'Add a day first' : 'Adding to ${targetDay.title}',
+                    style: const TextStyle(color: Voy.brand, fontSize: 12, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _searchCtrl,
+                  style: const TextStyle(color: Voy.ink),
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => _search(),
+                  decoration: InputDecoration(
+                    hintText: 'Search places (AI)…',
+                    prefixIcon: const Icon(Icons.search_rounded, color: Voy.sub),
+                    suffixIcon: _searching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
-                        else
-                          ReorderableListView(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            buildDefaultDragHandles: false,
-                            onReorder: (oldI, newI) {
-                              setState(() {
-                                if (newI > oldI) newI -= 1;
-                                final it = day.items.removeAt(oldI);
-                                day.items.insert(newI, it);
-                              });
-                              _persist();
-                            },
-                            children: [
-                              for (int ii = 0; ii < day.items.length; ii++)
-                                ListTile(
-                                  key: ValueKey(day.items[ii].id),
-                                  contentPadding: const EdgeInsets.only(left: 2, right: 0),
-                                  leading: ReorderableDragStartListener(
-                                    index: ii,
-                                    child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 20),
-                                  ),
-                                  title: Text(day.items[ii].text,
-                                      style: const TextStyle(color: Voy.ink, fontSize: 14)),
-                                  trailing: IconButton(
-                                    icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
-                                    onPressed: () {
-                                      setState(() => day.items.removeAt(ii));
-                                      _persist();
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () => _addItem(day),
-                            icon: const Icon(Icons.add_rounded, size: 18),
-                            label: const Text('Add item'),
+                        : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: Voy.brand), onPressed: _search),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _promptAddItem,
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Add your own'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_searchError != null)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              child: Text(_searchError!, style: const TextStyle(color: Voy.danger, fontSize: 12.5)),
+            ),
+          Expanded(
+            child: _results.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        _searching ? 'Searching…' : 'Search for attractions, food, stays…',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 13),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    controller: scrollController,
+                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
+                    itemCount: _results.length,
+                    itemBuilder: (ctx, i) {
+                      final r = _results[i];
+                      final name = r['name'] ?? '';
+                      final area = r['area'] ?? '';
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        child: ListTile(
+                          title: Text(name, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
+                          subtitle: (area.isEmpty && (r['why'] ?? '').isEmpty)
+                              ? null
+                              : Text([area, r['why'] ?? ''].where((s) => s.isNotEmpty).join(' · '),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Voy.sub, fontSize: 12)),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.add_circle_rounded, color: Voy.brand),
+                            onPressed: targetDay == null
+                                ? null
+                                : () {
+                                    _addTextToSelectedDay(area.isEmpty ? name : '$name — $area');
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Added "$name" to ${targetDay.title}')),
+                                    );
+                                  },
                           ),
                         ),
-                      ],
-                    ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
+          ),
+        ],
+      ),
     );
   }
 }
