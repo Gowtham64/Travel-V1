@@ -1,4 +1,7 @@
-require("dotenv").config();
+// Load backend/.env by absolute path so a local run works from ANY working
+// directory (dotenv otherwise only looks in process.cwd()). Harmless in prod —
+// hosts like Render inject env vars directly and have no .env file.
+require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
