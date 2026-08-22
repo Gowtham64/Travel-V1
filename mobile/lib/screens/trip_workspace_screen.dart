@@ -590,18 +590,34 @@ class _ExpensesTabState extends State<_ExpensesTab> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
 
-    final total = _items.fold<double>(0, (s, e) => s + e.amount);
     final sym = currencySymbol(widget.currency);
+    final total = _items.fold<double>(0, (s, e) => s + e.amount);
+    final multi = widget.travellers > 1;
 
-    // Per-person owed totals (how much each person's share adds up to).
-    final owed = <String, double>{};
+    // Settle-up maths: what each person PAID vs what their SHARE is. The net
+    // (paid − share) tells us who is owed money and who owes it.
+    final paid = <String, double>{for (final p in _people) p: 0};
+    final share = <String, double>{for (final p in _people) p: 0};
     for (final e in _items) {
+      paid[e.paidBy] = (paid[e.paidBy] ?? 0) + e.amount;
       final people = e.sharedWith.isEmpty ? _people : e.sharedWith;
-      final share = people.isEmpty ? 0 : e.amount / people.length;
+      if (people.isEmpty) continue;
+      final each = e.amount / people.length;
       for (final p in people) {
-        owed[p] = (owed[p] ?? 0) + share;
+        share[p] = (share[p] ?? 0) + each;
       }
     }
+    final me = _people.isNotEmpty ? _people.first : 'Me';
+    final myNet = (paid[me] ?? 0) - (share[me] ?? 0);
+    final youOwe = myNet < 0 ? -myNet : 0.0;
+    final youAreOwed = myNet > 0 ? myNet : 0.0;
+
+    // By category, largest first.
+    final byCat = <String, double>{};
+    for (final e in _items) {
+      byCat[e.category] = (byCat[e.category] ?? 0) + e.amount;
+    }
+    final cats = byCat.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -612,104 +628,187 @@ class _ExpensesTabState extends State<_ExpensesTab> {
         icon: const Icon(Icons.add_rounded),
         label: const Text('Add expense'),
       ),
-      body: Column(
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
         children: [
-          // Summary header
+          if (multi)
+            Row(
+              children: [
+                Expanded(child: _miniCard('You owe', '$sym${_fmtMoney(youOwe)}', Voy.danger, Icons.south_rounded)),
+                const SizedBox(width: 10),
+                Expanded(child: _miniCard('You\'re owed', '$sym${_fmtMoney(youAreOwed)}', Voy.success, Icons.north_rounded)),
+              ],
+            ),
+          if (multi) const SizedBox(height: 10),
+          // Total spend card
           Container(
             width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(16, 14, 16, 4),
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Voy.brand.withValues(alpha: 0.20), Voy.violet.withValues(alpha: 0.16)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Voy.surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: Voy.hairline),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Total spent',
-                    style: TextStyle(color: Voy.sub, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.bar_chart_rounded, color: Voy.brand, size: 18),
+                  const SizedBox(width: 8),
+                  const Text('Total trip spend',
+                      style: TextStyle(color: Voy.sub, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ]),
+                const SizedBox(height: 6),
                 Text('$sym${_fmtMoney(total)}',
                     style: const TextStyle(color: Voy.ink, fontSize: 30, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-                if (widget.travellers > 1 && owed.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  const Divider(color: Voy.hairline, height: 1),
-                  const SizedBox(height: 10),
-                  const Text('SPLIT — EACH PERSON OWES',
-                      style: TextStyle(color: Voy.sub, fontSize: 10.5, fontWeight: FontWeight.w800, letterSpacing: 0.6)),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final p in _people)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: Voy.surface2,
-                            borderRadius: BorderRadius.circular(999),
-                            border: Border.all(color: Voy.hairline),
-                          ),
-                          child: Text('$p · $sym${_fmtMoney(owed[p] ?? 0)}',
-                              style: const TextStyle(color: Voy.ink, fontSize: 12.5, fontWeight: FontWeight.w600)),
-                        ),
-                    ],
-                  ),
+                if (multi) ...[
+                  const SizedBox(height: 4),
+                  Text('Your share $sym${_fmtMoney(share[me] ?? 0)}  ·  You paid $sym${_fmtMoney(paid[me] ?? 0)}',
+                      style: const TextStyle(color: Voy.sub, fontSize: 12.5)),
                 ],
               ],
             ),
           ),
-          Expanded(
-            child: _items.isEmpty
-                ? _emptyState(Icons.payments_rounded, 'No expenses yet',
-                    'Track fuel, food, stays and more — split them across travellers.')
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 96),
-                    itemCount: _items.length,
-                    itemBuilder: (ctx, i) {
-                      final e = _items[_items.length - 1 - i]; // newest first
-                      return Dismissible(
-                        key: ValueKey(e.id),
-                        direction: DismissDirection.endToStart,
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 20),
-                          decoration: BoxDecoration(
-                              color: Voy.danger.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(14)),
-                          child: const Icon(Icons.delete_outline_rounded, color: Voy.danger),
-                        ),
-                        onDismissed: (_) {
-                          setState(() => _items.removeWhere((x) => x.id == e.id));
-                          _persist();
-                        },
-                        child: Card(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          child: ListTile(
-                            onTap: () => _addOrEdit(e),
-                            leading: CircleAvatar(
-                              backgroundColor: Voy.surface2,
-                              child: Icon(_categoryIcon(e.category), color: Voy.brand, size: 20),
-                            ),
-                            title: Text(e.title,
-                                style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
-                            subtitle: Text(
-                              '${e.paidBy} paid'
-                              '${e.sharedWith.length > 1 ? ' · split ${e.sharedWith.length} ways (${currencySymbol(e.currency)}${_fmtMoney(e.perPerson)} each)' : ''}',
-                              style: const TextStyle(color: Voy.sub, fontSize: 12),
-                            ),
-                            trailing: Text('${currencySymbol(e.currency)}${_fmtMoney(e.amount)}',
-                                style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
-                          ),
-                        ),
-                      );
-                    },
+          // Balances per person
+          if (multi) ...[
+            const SizedBox(height: 14),
+            _sectionTitle('BALANCES'),
+            const SizedBox(height: 8),
+            for (final p in _people)
+              _balanceRow(p, (paid[p] ?? 0) - (share[p] ?? 0), sym),
+          ],
+          // By category
+          if (cats.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _sectionTitle('BY CATEGORY'),
+            const SizedBox(height: 8),
+            for (final c in cats)
+              _categoryRow(c.key, c.value, total == 0 ? 0 : c.value / total, sym),
+          ],
+          const SizedBox(height: 16),
+          _sectionTitle('EXPENSES'),
+          const SizedBox(height: 4),
+          if (_items.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 24),
+              child: _emptyState(Icons.payments_rounded, 'No expenses yet',
+                  'Track fuel, food, stays and more — split them across travellers.'),
+            )
+          else
+            for (final e in _items.reversed)
+              Dismissible(
+                key: ValueKey(e.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.only(right: 20),
+                  decoration: BoxDecoration(
+                      color: Voy.danger.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.delete_outline_rounded, color: Voy.danger),
+                ),
+                onDismissed: (_) {
+                  setState(() => _items.removeWhere((x) => x.id == e.id));
+                  _persist();
+                },
+                child: Card(
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  child: ListTile(
+                    onTap: () => _addOrEdit(e),
+                    leading: CircleAvatar(
+                      backgroundColor: Voy.surface2,
+                      child: Icon(_categoryIcon(e.category), color: Voy.brand, size: 20),
+                    ),
+                    title: Text(e.title,
+                        style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
+                    subtitle: Text(
+                      '${e.paidBy} paid'
+                      '${e.sharedWith.length > 1 ? ' · split ${e.sharedWith.length} ways (${currencySymbol(e.currency)}${_fmtMoney(e.perPerson)} each)' : ''}',
+                      style: const TextStyle(color: Voy.sub, fontSize: 12),
+                    ),
+                    trailing: Text('${currencySymbol(e.currency)}${_fmtMoney(e.amount)}',
+                        style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
                   ),
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniCard(String label, String value, Color color, IconData icon) => Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.30)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(icon, color: color, size: 15),
+              const SizedBox(width: 5),
+              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 6),
+            Text(value, style: const TextStyle(color: Voy.ink, fontSize: 22, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      );
+
+  Widget _sectionTitle(String t) => Padding(
+        padding: const EdgeInsets.only(left: 4),
+        child: Text(t,
+            style: const TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.7)),
+      );
+
+  Widget _balanceRow(String person, double net, String sym) {
+    final settled = net.abs() < 0.01;
+    final color = settled ? Voy.sub : (net > 0 ? Voy.success : Voy.danger);
+    final label = settled
+        ? 'settled up'
+        : (net > 0 ? 'gets back $sym${_fmtMoney(net)}' : 'owes $sym${_fmtMoney(-net)}');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 14,
+            backgroundColor: Voy.surface2,
+            child: Text(person.isNotEmpty ? person[0].toUpperCase() : '?',
+                style: const TextStyle(color: Voy.ink, fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(person, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600))),
+          Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryRow(String cat, double amount, double frac, String sym) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(_categoryIcon(cat), color: Voy.brand, size: 16),
+              const SizedBox(width: 8),
+              Expanded(child: Text(cat, style: const TextStyle(color: Voy.ink, fontSize: 13.5, fontWeight: FontWeight.w600))),
+              Text('$sym${_fmtMoney(amount)}', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w700, fontSize: 13.5)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: frac.clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: Voy.surface2,
+              valueColor: const AlwaysStoppedAnimation(Voy.brand),
+            ),
           ),
         ],
       ),

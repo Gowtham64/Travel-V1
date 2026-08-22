@@ -120,10 +120,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       _stagger(1, _heroCta()),
                       const SizedBox(height: 18),
                       _stagger(2, _quickActions()),
+                      if (_trips.isNotEmpty) ...[
+                        const SizedBox(height: 22),
+                        _stagger(3, _travelStats()),
+                      ],
                       const SizedBox(height: 26),
-                      _stagger(3, _recentHeader()),
+                      _stagger(4, _recentHeader()),
                       const SizedBox(height: 12),
-                      _stagger(4, _recentTrips()),
+                      _stagger(5, _recentTrips()),
                     ],
                   ),
                 ),
@@ -392,6 +396,78 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Expanded(child: Text(label, style: const TextStyle(color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w700))),
           ],
         ),
+      ),
+    );
+  }
+
+  // ---------- travel stats ----------
+  /// Aggregates quick stats from the user's saved trips: number of trips, total
+  /// places (start + stops + end), and total straight-line distance.
+  Widget _travelStats() {
+    int places = 0;
+    double km = 0;
+    double haversine(double lat1, double lng1, double lat2, double lng2) {
+      const r = 6371.0; // km
+      double toRad(double d) => d * 3.141592653589793 / 180.0;
+      final dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+      final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
+          math.cos(toRad(lat1)) * math.cos(toRad(lat2)) * (math.sin(dLng / 2) * math.sin(dLng / 2));
+      return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    }
+
+    for (final t in _trips) {
+      final route = <List<double>>[];
+      final sp = t['start_point'], ep = t['end_point'];
+      final stops = (t['trip_stops'] as List?) ?? [];
+      if (sp is Map && sp['lat'] != null && sp['lng'] != null) {
+        route.add([(sp['lat'] as num).toDouble(), (sp['lng'] as num).toDouble()]);
+      }
+      for (final s in stops) {
+        if (s is Map && s['lat'] != null && s['lng'] != null) {
+          route.add([(s['lat'] as num).toDouble(), (s['lng'] as num).toDouble()]);
+        }
+      }
+      if (ep is Map && ep['lat'] != null && ep['lng'] != null) {
+        route.add([(ep['lat'] as num).toDouble(), (ep['lng'] as num).toDouble()]);
+      }
+      places += route.length;
+      for (int i = 0; i < route.length - 1; i++) {
+        km += haversine(route[i][0], route[i][1], route[i + 1][0], route[i + 1][1]);
+      }
+    }
+
+    final distanceLabel = km >= 1000 ? '${(km / 1000).toStringAsFixed(1)}k' : km.toStringAsFixed(0);
+
+    return Row(
+      children: [
+        Expanded(child: _statCard(Icons.route_rounded, '${_trips.length}', 'Trips', Voy.brand)),
+        const SizedBox(width: 12),
+        Expanded(child: _statCard(Icons.place_rounded, '$places', 'Places', Voy.violet)),
+        const SizedBox(width: 12),
+        Expanded(child: _statCard(Icons.straighten_rounded, '$distanceLabel km', 'Distance', Voy.coral)),
+      ],
+    );
+  }
+
+  Widget _statCard(IconData icon, String value, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      decoration: BoxDecoration(
+        color: Voy.surface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Voy.hairline),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(height: 8),
+          FittedBox(
+            child: Text(value,
+                style: const TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: Voy.sub, fontSize: 11.5, fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }
