@@ -22,6 +22,7 @@ import '../services/car_platform_channel.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
 import 'itinerary_screen.dart';
+import 'trip_workspace_screen.dart';
 
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
@@ -675,6 +676,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               icon: const Icon(Icons.event_note_rounded, color: Colors.white),
               tooltip: 'Itinerary',
               onPressed: _openItinerary,
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withOpacity(0.2)),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.dashboard_customize_rounded, color: Colors.white),
+              tooltip: 'Trip Workspace (packing, expenses, bookings)',
+              onPressed: _openWorkspace,
             ),
           ),
           Container(
@@ -2276,6 +2290,27 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         travellers: widget.travellers,
         tripStart: _tripStart,
         initialItinerary: widget.savedItinerary,
+      ),
+    ));
+  }
+
+  /// Opens the tabbed Trip Workspace: interactive packing checklist, expense
+  /// tracker with splitting, and a reservations/bookings manager. Data persists
+  /// locally per trip (keyed by the route + vehicle).
+  void _openWorkspace() {
+    final tripKey = [
+      widget.start.lat.toStringAsFixed(3),
+      widget.start.lng.toStringAsFixed(3),
+      widget.end.lat.toStringAsFixed(3),
+      widget.end.lng.toStringAsFixed(3),
+      widget.vehicleType,
+    ].join('_').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '');
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripWorkspaceScreen(
+        tripKey: tripKey,
+        tripName: '${widget.startAddress} → ${widget.endAddress}',
+        travellers: widget.travellers,
+        currency: _currentPlan.budget?.currency ?? 'INR',
       ),
     ));
   }
