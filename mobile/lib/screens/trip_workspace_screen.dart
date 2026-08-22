@@ -50,7 +50,7 @@ class TripWorkspaceScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final store = TripExtrasStore(tripKey);
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         backgroundColor: Voy.bg,
         appBar: AppBar(
@@ -78,6 +78,7 @@ class TripWorkspaceScreen extends StatelessWidget {
               Tab(icon: Icon(Icons.checklist_rounded), text: 'Packing'),
               Tab(icon: Icon(Icons.payments_rounded), text: 'Expenses'),
               Tab(icon: Icon(Icons.confirmation_number_rounded), text: 'Bookings'),
+              Tab(icon: Icon(Icons.menu_book_rounded), text: 'Journal'),
             ],
           ),
         ),
@@ -101,6 +102,7 @@ class TripWorkspaceScreen extends StatelessWidget {
             _PackingTab(store: store),
             _ExpensesTab(store: store, travellers: travellers, currency: currency),
             _ReservationsTab(store: store),
+            _JournalTab(store: store),
           ],
         ),
       ),
@@ -1149,6 +1151,230 @@ class _ReservationSheetState extends State<_ReservationSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(onPressed: _save, child: const Text('Save booking')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Journal
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _JournalTab extends StatefulWidget {
+  final TripExtrasStore store;
+  const _JournalTab({required this.store});
+  @override
+  State<_JournalTab> createState() => _JournalTabState();
+}
+
+class _JournalTabState extends State<_JournalTab> {
+  List<JournalEntry> _items = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final items = await widget.store.loadJournal();
+    if (!mounted) return;
+    setState(() {
+      _items = items;
+      _loading = false;
+    });
+  }
+
+  void _persist() => widget.store.saveJournal(_items);
+
+  Future<void> _addOrEdit([JournalEntry? existing]) async {
+    final result = await showModalBottomSheet<JournalEntry>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _JournalSheet(existing: existing),
+    );
+    if (result == null) return;
+    setState(() {
+      if (existing != null) {
+        final i = _items.indexWhere((e) => e.id == existing.id);
+        if (i != -1) _items[i] = result;
+      } else {
+        _items.add(result);
+      }
+    });
+    _persist();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+
+    final sorted = [..._items]..sort((a, b) => b.date.compareTo(a.date)); // newest first
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => _addOrEdit(),
+        backgroundColor: Voy.brand,
+        foregroundColor: const Color(0xFF04211F),
+        icon: const Icon(Icons.edit_rounded),
+        label: const Text('New entry'),
+      ),
+      body: sorted.isEmpty
+          ? _emptyState(Icons.menu_book_rounded, 'Your travel journal',
+              'Jot down memories, highlights and notes as your trip unfolds.')
+          : ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
+              itemCount: sorted.length,
+              itemBuilder: (ctx, i) {
+                final e = sorted[i];
+                return Dismissible(
+                  key: ValueKey(e.id),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.only(right: 20),
+                    decoration: BoxDecoration(
+                        color: Voy.danger.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(14)),
+                    child: const Icon(Icons.delete_outline_rounded, color: Voy.danger),
+                  ),
+                  onDismissed: (_) {
+                    setState(() => _items.removeWhere((x) => x.id == e.id));
+                    _persist();
+                  },
+                  child: Card(
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    child: ListTile(
+                      onTap: () => _addOrEdit(e),
+                      title: Text(e.title.isEmpty ? _fmtDate(e.date) : e.title,
+                          style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w700)),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (e.title.isNotEmpty)
+                            Text(_fmtDate(e.date),
+                                style: const TextStyle(color: Voy.sub, fontSize: 11.5)),
+                          if (e.body.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(e.body,
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Voy.sub, fontSize: 13, height: 1.35)),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+class _JournalSheet extends StatefulWidget {
+  final JournalEntry? existing;
+  const _JournalSheet({this.existing});
+  @override
+  State<_JournalSheet> createState() => _JournalSheetState();
+}
+
+class _JournalSheetState extends State<_JournalSheet> {
+  late final TextEditingController _title;
+  late final TextEditingController _body;
+  late DateTime _date;
+
+  @override
+  void initState() {
+    super.initState();
+    _title = TextEditingController(text: widget.existing?.title ?? '');
+    _body = TextEditingController(text: widget.existing?.body ?? '');
+    _date = widget.existing?.date ?? DateTime.now();
+  }
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(now.year - 2),
+      lastDate: DateTime(now.year + 2),
+    );
+    if (picked != null) setState(() => _date = picked);
+  }
+
+  void _save() {
+    if (_title.text.trim().isEmpty && _body.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Write something first.')),
+      );
+      return;
+    }
+    Navigator.pop(
+      context,
+      JournalEntry(
+        id: widget.existing?.id ?? _uid(),
+        title: _title.text.trim(),
+        body: _body.text.trim(),
+        date: _date,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+          left: 18, right: 18, top: 18, bottom: MediaQuery.of(context).viewInsets.bottom + 18),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.existing == null ? 'New journal entry' : 'Edit entry',
+                style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 14),
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(14),
+              child: InputDecorator(
+                decoration: const InputDecoration(labelText: 'Date'),
+                child: Text(_fmtDate(_date), style: const TextStyle(color: Voy.ink)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _title,
+              style: const TextStyle(color: Voy.ink),
+              decoration: const InputDecoration(labelText: 'Title (optional)'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _body,
+              maxLines: 6,
+              minLines: 4,
+              style: const TextStyle(color: Voy.ink, height: 1.4),
+              decoration: const InputDecoration(
+                labelText: 'What happened?',
+                alignLabelWithHint: true,
+              ),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(onPressed: _save, child: const Text('Save entry')),
             ),
           ],
         ),

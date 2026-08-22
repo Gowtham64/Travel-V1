@@ -13,6 +13,7 @@ class TripExtrasStore {
   String get _packingKey => 'trip_$tripKey.packing';
   String get _expensesKey => 'trip_$tripKey.expenses';
   String get _reservationsKey => 'trip_$tripKey.reservations';
+  String get _journalKey => 'trip_$tripKey.journal';
 
   Future<List<T>> _load<T>(String key, T Function(Map<String, dynamic>) fromJson) async {
     try {
@@ -47,4 +48,8 @@ class TripExtrasStore {
       _load(_reservationsKey, Reservation.fromJson);
   Future<void> saveReservations(List<Reservation> items) =>
       _save(_reservationsKey, items.map((e) => e.toJson()).toList());
+
+  Future<List<JournalEntry>> loadJournal() => _load(_journalKey, JournalEntry.fromJson);
+  Future<void> saveJournal(List<JournalEntry> items) =>
+      _save(_journalKey, items.map((e) => e.toJson()).toList());
 }

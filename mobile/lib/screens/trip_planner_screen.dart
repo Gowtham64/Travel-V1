@@ -245,10 +245,21 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   void _updateVehicleFields() {
     if (_selectedVehicle != null) {
-      _efficiencyController.text = _selectedVehicle!.mileage.toString();
-      _tankController.text = _selectedVehicle!.tankCapacity.toString();
+      final tank = _selectedVehicle!.tankCapacity;
+      _efficiencyController.text = _formatNum(_selectedVehicle!.mileage);
+      _tankController.text = _formatNum(tank);
+      // Keep "current fuel" valid: never more than the (possibly smaller) tank.
+      // Default to a full tank; if the user had already entered a smaller amount
+      // that still fits, keep it.
+      final existing = double.tryParse(_currentFuelController.text);
+      final current = (existing != null && existing > 0 && existing <= tank) ? existing : tank;
+      _currentFuelController.text = _formatNum(current);
     }
   }
+
+  /// Formats a spec number without a trailing ".0" (e.g. 15.0 -> "15", 22.3 -> "22.3").
+  String _formatNum(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
   Future<void> _planTrip() async {
     if (!_formKey.currentState!.validate()) return;
@@ -1847,22 +1858,85 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               );
             },
           ),
-          Center(
-            child: OutlinedButton.icon(
-              onPressed: _addStop,
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text('Add Stop'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(color: Colors.white.withOpacity(0.5)),
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _addStop,
+                icon: const Icon(Icons.add_circle_outline),
+                label: const Text('Add Stop'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: BorderSide(color: Colors.white.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
-            ),
+              if (_stopControllers.length >= 4) ...[
+                const SizedBox(width: 10),
+                OutlinedButton.icon(
+                  onPressed: _optimizeRoute,
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 18),
+                  label: const Text('Optimize'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF60A5FA),
+                    side: const BorderSide(color: Color(0xFF60A5FA)),
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ],
           ),
         ],
       ),
     );
+  }
+
+  /// Reorders the intermediate stops for the shortest overall path using a
+  /// nearest-neighbour heuristic (start and destination stay fixed). Requires
+  /// every stop to have resolved coordinates.
+  void _optimizeRoute() {
+    if (_stopControllers.length < 4) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Add at least two stops between start and destination to optimise.')));
+      return;
+    }
+    final startCoord = _resolvedStopCoords[_stopControllers.first.hashCode];
+    final middle = _stopControllers.sublist(1, _stopControllers.length - 1);
+    if (startCoord == null || middle.any((c) => _resolvedStopCoords[c.hashCode] == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Resolve every stop first (pick from the suggestions), then optimise.')));
+      return;
+    }
+
+    const distance = Distance();
+    final ordered = <TextEditingController>[];
+    final remaining = [...middle];
+    var current = LatLng(startCoord.lat, startCoord.lng);
+    while (remaining.isNotEmpty) {
+      remaining.sort((a, b) {
+        final ca = _resolvedStopCoords[a.hashCode]!;
+        final cb = _resolvedStopCoords[b.hashCode]!;
+        return distance(current, LatLng(ca.lat, ca.lng))
+            .compareTo(distance(current, LatLng(cb.lat, cb.lng)));
+      });
+      final next = remaining.removeAt(0);
+      ordered.add(next);
+      final c = _resolvedStopCoords[next.hashCode]!;
+      current = LatLng(c.lat, c.lng);
+    }
+
+    setState(() {
+      final reordered = [_stopControllers.first, ...ordered, _stopControllers.last];
+      _stopControllers
+        ..clear()
+        ..addAll(reordered);
+      _suggestions.clear();
+      _activeSuggestIndex = null;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Stops reordered for the shortest path ✓')));
   }
 
   Widget _buildVehicleCard() {
@@ -1928,6 +2002,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             label: 'Current fuel in tank',
             unit: 'L',
             icon: Icons.water_drop_rounded,
+            validator: _currentFuelValidator,
           ),
           const SizedBox(height: 18),
           _buildTravellersRow(),
@@ -1944,6 +2019,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     required String label,
     required String unit,
     required IconData icon,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1971,7 +2047,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         TextFormField(
           controller: controller,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          validator: _numberValidator,
+          validator: validator ?? _numberValidator,
           style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
           decoration: InputDecoration(
             isDense: true,
@@ -2063,6 +2139,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     if (v == null || v.trim().isEmpty) return 'Required';
     final n = double.tryParse(v);
     if (n == null || n <= 0) return 'Enter a valid number';
+    return null;
+  }
+
+  /// Current fuel must be a valid number and not exceed the tank capacity.
+  String? _currentFuelValidator(String? v) {
+    final base = _numberValidator(v);
+    if (base != null) return base;
+    final fuel = double.parse(v!);
+    final tank = double.tryParse(_tankController.text);
+    if (tank != null && fuel > tank) return 'Max ${_formatNum(tank)} L';
     return null;
   }
 

@@ -83,6 +83,35 @@ class Expense {
       );
 }
 
+/// A dated journal entry for the trip (notes / memories, one per moment).
+class JournalEntry {
+  final String id;
+  String title;
+  String body;
+  DateTime date;
+
+  JournalEntry({
+    required this.id,
+    this.title = '',
+    this.body = '',
+    DateTime? date,
+  }) : date = date ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'body': body,
+        'date': date.toIso8601String(),
+      };
+
+  factory JournalEntry.fromJson(Map<String, dynamic> j) => JournalEntry(
+        id: j['id'].toString(),
+        title: (j['title'] ?? '').toString(),
+        body: (j['body'] ?? '').toString(),
+        date: DateTime.tryParse((j['date'] ?? '').toString()) ?? DateTime.now(),
+      );
+}
+
 /// A booking: flight, stay, restaurant, activity, or other.
 class Reservation {
   final String id;
