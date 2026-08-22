@@ -30,6 +30,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
   Future<void> _loadTrips() async {
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
+      if (!mounted) return;
       setState(() {
         _error = 'You must be logged in to view saved trips';
         _loading = false;
@@ -39,17 +40,22 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
 
     try {
       final trips = await _api.getSavedTrips(session.accessToken);
+      if (!mounted) return;
       setState(() {
         _trips = trips;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
       });
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      // Guard against setState after the user navigated away mid-request.
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -112,6 +118,32 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     );
   }
 
+  /// Rebuilds a [Vehicle] from the spec persisted with a saved trip. Falls back
+  /// to sensible type-based defaults for trips saved before specs were stored.
+  Vehicle _vehicleFromSaved(dynamic saved, String vehicleType) {
+    if (saved is Map) {
+      final eff = (saved['efficiencyKmPerLiter'] as num?)?.toDouble();
+      final tank = (saved['tankCapacityLiters'] as num?)?.toDouble();
+      final cur = (saved['currentFuelLiters'] as num?)?.toDouble();
+      if (eff != null && eff > 0 && tank != null && tank > 0) {
+        return Vehicle(
+          type: (saved['type'] as String?) ?? vehicleType,
+          efficiencyKmPerLiter: eff,
+          tankCapacityLiters: tank,
+          currentFuelLiters: cur ?? tank,
+        );
+      }
+    }
+    final eff = vehicleType == 'motorcycle' ? 40.0 : 18.0;
+    final tank = vehicleType == 'motorcycle' ? 13.0 : 45.0;
+    return Vehicle(
+      type: vehicleType,
+      efficiencyKmPerLiter: eff,
+      tankCapacityLiters: tank,
+      currentFuelLiters: tank,
+    );
+  }
+
   Widget _buildBody() {
     if (_loading) {
       return const Center(
@@ -155,29 +187,44 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     }
 
     if (_trips.isEmpty) {
-      return Center(
-        child: RevealIn(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.map_outlined,
-                  color: Colors.white.withOpacity(0.5), size: 56),
-              const SizedBox(height: 16),
-              const Text('No saved trips yet.',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              Text('Plan a trip and it will show up here.',
-                  style: TextStyle(color: Colors.white.withOpacity(0.6))),
-            ],
-          ),
+      // Wrapped in a scrollable so the user can still pull-to-refresh here.
+      return RefreshIndicator(
+        color: AppColors.accentLight,
+        onRefresh: _loadTrips,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.of(context).size.height * 0.28),
+            Center(
+              child: RevealIn(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.map_outlined,
+                        color: Colors.white.withOpacity(0.5), size: 56),
+                    const SizedBox(height: 16),
+                    const Text('No saved trips yet.',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    Text('Plan a trip and it will show up here.',
+                        style: TextStyle(color: Colors.white.withOpacity(0.6))),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.builder(
+    return RefreshIndicator(
+      color: AppColors.accentLight,
+      onRefresh: _loadTrips,
+      child: ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: EdgeInsets.only(
         left: 16,
         right: 16,
@@ -240,14 +287,13 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                 )).toList();
 
                 final String vehicleType = trip['vehicle_type'] ?? 'car';
-                final double efficiencyKmPerLiter = vehicleType == 'motorcycle' ? 40.0 : 18.0;
-                final double tankCapacityLiters = vehicleType == 'motorcycle' ? 13.0 : 45.0;
-                final vehicle = Vehicle(
-                  type: vehicleType,
-                  efficiencyKmPerLiter: efficiencyKmPerLiter,
-                  tankCapacityLiters: tankCapacityLiters,
-                  currentFuelLiters: tankCapacityLiters,
-                );
+                // Prefer the exact vehicle spec saved with the trip; only fall
+                // back to a type-based guess for older trips saved before specs
+                // were persisted.
+                final savedVehicle = trip['end_point'] is Map
+                    ? trip['end_point']['vehicle']
+                    : null;
+                final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
 
                 final plan = await _api.planTrip(
                   start: startPoint,
@@ -305,6 +351,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
           ),
         );
       },
+      ),
     );
   }
 

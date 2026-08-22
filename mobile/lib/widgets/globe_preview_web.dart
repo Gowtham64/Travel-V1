@@ -2,6 +2,7 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'dart:js' as js;
 import 'package:flutter/material.dart';
+import '../config/app_config.dart';
 import '../models/trip_models.dart';
 
 /// A Mapbox globe (Earth in space) used as the Trip Planner preview. When
@@ -16,8 +17,7 @@ class GlobePreview extends StatefulWidget {
 }
 
 class _GlobePreviewState extends State<GlobePreview> {
-  static const _accessToken =
-      'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+  static const _accessToken = AppConfig.mapboxToken;
 
   late final String _viewType;
   late final String _containerId;

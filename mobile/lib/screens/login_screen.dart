@@ -40,6 +40,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Client-side signup validation for clear, immediate feedback (instead of an
+  /// opaque server error). Returns an error message, or null if valid.
+  String? _validateSignup({required String email, required String password}) {
+    final emailOk = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email);
+    if (!emailOk) return 'Please enter a valid email address.';
+    if (password.length < 6) return 'Password must be at least 6 characters.';
+    return null;
+  }
+
   Future<void> _authenticate() async {
     final password = _passwordController.text.trim();
 
@@ -55,12 +64,20 @@ class _LoginScreenState extends State<LoginScreen> {
         );
         return;
       }
+      final validationError = _validateSignup(email: email, password: password);
+      if (validationError != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(validationError)),
+        );
+        return;
+      }
 
       setState(() => _isLoading = true);
 
       try {
         final currentUrl = Uri.base.toString().split('?').first;
-        // Sign up with Supabase Auth
+        // Sign up with Supabase Auth (credentials are securely hashed by
+        // Supabase Auth — we never persist the raw password ourselves).
         final authResponse = await Supabase.instance.client.auth.signUp(
           email: email,
           password: password,
@@ -70,22 +87,33 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = authResponse.user;
         if (user != null) {
           final deviceAccess = _getDeviceAccessInfo();
-          
-          // Save details to public.user_details table
+
+          // Save non-sensitive profile details to public.user_details.
+          // NOTE: the password is intentionally NOT stored here — Supabase Auth
+          // already manages credentials securely.
           await Supabase.instance.client.from('user_details').insert({
             'user_id': user.id,
             'name': name,
             'phone': phone,
             'email': email,
-            'password_hash': password, // Storing password as requested
             'location': location,
             'device_access': deviceAccess,
           });
 
           if (mounted) {
+            // If email confirmation is required, no session exists yet.
+            final needsConfirmation =
+                Supabase.instance.client.auth.currentSession == null;
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Registration successful! Logging you in...')),
+              SnackBar(
+                content: Text(needsConfirmation
+                    ? 'Account created! Check your email to confirm, then log in.'
+                    : 'Registration successful! Logging you in...'),
+              ),
             );
+            if (needsConfirmation) {
+              setState(() => _isSignUp = false);
+            }
           }
         }
       } on AuthException catch (e) {

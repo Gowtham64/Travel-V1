@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
@@ -254,8 +255,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         name: '${widget.startAddress} to ${widget.endAddress}',
         start: _currentPlan.coordinates.first,
         end: _currentPlan.coordinates.last,
+        // Persist the planned stops and departure so the trip reloads intact
+        // (previously these were dropped, silently losing every waypoint).
+        waypoints: _currentWaypoints,
         vehicleType: widget.vehicleType,
+        vehicle: widget.vehicle,
         token: session.accessToken,
+        tripStart: _tripStart,
       );
 
       if (mounted) {
@@ -600,13 +606,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             children: [
               TileLayer(
                 urlTemplate: _mapStyle == MapStyle.satellite2D
-                    ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ'
+                    ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
                     : _mapStyle == MapStyle.traffic2D
-                        ? 'https://api.mapbox.com/styles/v1/mapbox/traffic-day-v2/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ'
-                        : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                        ? 'https://api.mapbox.com/styles/v1/mapbox/traffic-day-v2/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
+                        : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}',
                 userAgentPackageName: 'com.example.travel_app',
                 additionalOptions: const {
-                  'accessToken': 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+                  'accessToken': AppConfig.mapboxToken,
                 },
               ),
               PolylineLayer(
@@ -2266,6 +2272,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         end: widget.end,
         waypoints: _currentWaypoints,
         vehicleType: widget.vehicleType,
+        vehicle: widget.vehicle,
         travellers: widget.travellers,
         tripStart: _tripStart,
         initialItinerary: widget.savedItinerary,

@@ -95,7 +95,9 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     // Check for guest=true query parameter on web to bypass login during automated testing
     if (kIsWeb) {
       final uri = Uri.base;
-      print("AUTHENTICATION CHECK URL: $uri");
+      // NOTE: do not log the full URL here — it can carry the `sb_refresh`
+      // session-handoff token in its query/fragment, which would leak into
+      // the browser console/logs.
       if (uri.queryParameters['guest'] == 'true' || uri.toString().contains('guest=true')) {
         setState(() {
           _isAuthenticated = true;

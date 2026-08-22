@@ -3,6 +3,7 @@ import 'dart:html' as html;
 import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'dart:js' as js;
+import '../config/app_config.dart';
 import '../models/trip_models.dart';
 
 class ThreeDMap extends StatefulWidget {
@@ -133,7 +134,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
     });
     final poisJson = jsonEncode(flatPois);
 
-    const accessToken = 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+    const accessToken = AppConfig.mapboxToken;
     // Mapbox Standard: 3D buildings + clean day lighting for the cinematic
     // turn-by-turn look (matches the reference navigation view).
     const styleUrl = 'mapbox://styles/mapbox/standard';

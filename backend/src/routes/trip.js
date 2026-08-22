@@ -41,6 +41,17 @@ router.post("/plan", async (req, res) => {
       error: "vehicle must include efficiencyKmPerLiter and tankCapacityLiters",
     });
   }
+  // Guard against non-positive numbers, which make the fuel/day math throw and
+  // would otherwise surface as a confusing 502 instead of a clear 400.
+  if (
+    !(vehicle.efficiencyKmPerLiter > 0) ||
+    !(vehicle.tankCapacityLiters > 0) ||
+    (vehicle.currentFuelLiters != null && vehicle.currentFuelLiters < 0)
+  ) {
+    return res.status(400).json({
+      error: "vehicle efficiencyKmPerLiter and tankCapacityLiters must be positive numbers",
+    });
+  }
 
   try {
     const route = await getRoute(start, end, waypoints);
@@ -154,11 +165,11 @@ router.get("/reverse-geocode", async (req, res) => {
   const { lat, lng } = req.query;
   if (!lat || !lng) return res.status(400).json({ error: "Missing lat or lng" });
 
-  const MAPBOX_TOKEN =
-    process.env.MAPBOX_TOKEN ||
-    "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
+  const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN || "";
   try {
     // Mapbox reverse geocoding — reliable from cloud IPs (Nominatim 429s).
+    // Missing token falls through to the Nominatim fallback below.
+    if (!MAPBOX_TOKEN) throw new Error("MAPBOX_TOKEN not configured");
     const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&limit=1&language=en`;
     const response = await axios.get(url, { timeout: 8000 });
     const feature = response.data?.features?.[0];
@@ -211,14 +222,16 @@ router.post("/save", requireAuth, async (req, res) => {
   const user_id = req.user?.id;
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
 
-  const { name, startPoint, endPoint, vehicleType, waypoints, tripStart, itinerary } = req.body;
+  const { name, startPoint, endPoint, vehicleType, vehicle, waypoints, tripStart, itinerary } = req.body;
 
   try {
-    // Persist the planned start + AI itinerary inside the existing end_point
-    // JSONB column, so no database migration/new columns are required.
+    // Persist the planned start, AI itinerary, and full vehicle spec inside the
+    // existing end_point JSONB column, so no database migration/new columns are
+    // required.
     const enrichedEnd = { ...(endPoint || {}) };
     if (tripStart) enrichedEnd.tripStart = tripStart;
     if (itinerary && itinerary.length) enrichedEnd.itinerary = itinerary;
+    if (vehicle && typeof vehicle === "object") enrichedEnd.vehicle = vehicle;
 
     const { data, error } = await req.supabase.from('trips').insert({
       user_id,
@@ -239,9 +252,15 @@ router.post("/save", requireAuth, async (req, res) => {
         name: wp.name,
         order_index: i
       }));
-      await req.supabase.from('trip_stops').insert(stopsToInsert);
+      const { error: stopsError } = await req.supabase.from('trip_stops').insert(stopsToInsert);
+      // Don't leave a half-saved trip (a trip row with no stops). Roll back the
+      // parent so the client can retry cleanly instead of silently losing stops.
+      if (stopsError) {
+        await req.supabase.from('trips').delete().eq('id', data.id);
+        throw stopsError;
+      }
     }
-    
+
     res.json(data);
   } catch (err) {
     console.error("Error saving trip:", err.message);

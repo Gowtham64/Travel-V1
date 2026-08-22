@@ -185,14 +185,18 @@ class ApiService {
     }
 
     final uri = Uri.parse('$baseUrl/api/trip/pois');
-    final response = await http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'coordinates': sampledCoords.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
-        'categories': categories,
-      }),
-    );
+    final response = await http
+        .post(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'coordinates': sampledCoords.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+            'categories': categories,
+          }),
+        )
+        .timeout(const Duration(seconds: 60), onTimeout: () {
+      throw ApiException('Finding places is taking too long. Please try again.');
+    });
 
     if (response.statusCode != 200) {
       throw ApiException('Fetching POIs failed (${response.statusCode}): ${response.body}');
@@ -218,24 +222,33 @@ class ApiService {
     required String token,
     DateTime? tripStart,
     List<Map<String, dynamic>>? itinerary,
+    Vehicle? vehicle,
   }) async {
     final uri = Uri.parse('$baseUrl/api/trip/save');
-    final response = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode({
-        'name': name,
-        'startPoint': {'lat': start.lat, 'lng': start.lng},
-        'endPoint': {'lat': end.lat, 'lng': end.lng},
-        'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
-        'vehicleType': vehicleType,
-        if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
-        if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
-      }),
-    );
+    final response = await http
+        .post(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode({
+            'name': name,
+            'startPoint': {'lat': start.lat, 'lng': start.lng},
+            'endPoint': {'lat': end.lat, 'lng': end.lng},
+            'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
+            'vehicleType': vehicleType,
+            // Persist the full vehicle spec so reloaded trips recompute fuel and
+            // budget with the exact numbers the user planned with, instead of a
+            // type-based guess.
+            if (vehicle != null) 'vehicle': vehicle.toJson(),
+            if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
+            if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
+          }),
+        )
+        .timeout(const Duration(seconds: 45), onTimeout: () {
+      throw ApiException('Saving is taking too long (server may be waking up). Please try again.');
+    });
 
     if (response.statusCode != 200) {
       throw ApiException('Saving trip failed (${response.statusCode}): ${response.body}');
@@ -249,7 +262,9 @@ class ApiService {
       headers: {
         'Authorization': 'Bearer $token',
       },
-    );
+    ).timeout(const Duration(seconds: 45), onTimeout: () {
+      throw ApiException('Loading your trips is taking too long (server may be waking up). Please try again.');
+    });
 
     if (response.statusCode != 200) {
       throw ApiException('Fetching trips failed (${response.statusCode}): ${response.body}');

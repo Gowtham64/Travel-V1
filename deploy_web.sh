@@ -10,8 +10,18 @@ mkdir $DEPLOY_DIR
 
 echo "=== Step 2: Building Flutter Web App into /app sub-directory ==="
 cd mobile
+# The Mapbox token is injected at build time (no longer committed in source).
+# Set it in your shell before deploying, e.g.:
+#   export MAPBOX_TOKEN=pk.your_url_restricted_token
+# Use a URL-restricted token from the Mapbox dashboard — client tokens are
+# always visible to end users, so restriction is the real protection.
+if [ -z "${MAPBOX_TOKEN:-}" ]; then
+    echo "⚠️  WARNING: MAPBOX_TOKEN is not set — map tiles/globe will not load."
+    echo "    Run: export MAPBOX_TOKEN=pk.your_token   before deploying."
+fi
 # The base href must point to the subdirectory where the app will live.
-flutter build web --base-href "/Travel-V1/app/" --release
+flutter build web --base-href "/Travel-V1/app/" --release \
+    --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN:-}"
 cd .. # back to project root
 
 echo "=== Step 3: Preparing deployment directory ==="

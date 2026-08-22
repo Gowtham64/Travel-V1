@@ -13,6 +13,21 @@ router.get("/status", (req, res) => {
   });
 });
 
+// Accept either a place-name string or a { lat, lng } coordinate object and
+// always produce a clean prompt string. Prevents "[object Object]" from leaking
+// into the AI prompt when the client sends coordinates instead of a name.
+function toPlaceString(v) {
+  if (v == null) return "";
+  if (typeof v === "object") {
+    const lat = v.lat ?? v.latitude;
+    const lng = v.lng ?? v.lon ?? v.longitude;
+    if (v.name) return String(v.name);
+    if (lat != null && lng != null) return `${lat},${lng}`;
+    return "";
+  }
+  return String(v);
+}
+
 function handleError(res, err) {
   if (err instanceof AiConfigError) {
     return res.status(503).json({ error: "AI is not configured on the server." });
@@ -44,7 +59,11 @@ router.post("/recommend", async (req, res) => {
     return res.status(400).json({ error: "start and end are required" });
   }
   try {
-    const places = await recommendStops({ start, end, waypoints: Array.isArray(waypoints) ? waypoints : [] });
+    const places = await recommendStops({
+      start: toPlaceString(start),
+      end: toPlaceString(end),
+      waypoints: (Array.isArray(waypoints) ? waypoints : []).map(toPlaceString).filter(Boolean),
+    });
     res.json({ places });
   } catch (err) {
     handleError(res, err);
@@ -73,10 +92,10 @@ router.post("/itinerary", async (req, res) => {
   }
   try {
     const itinerary = await buildItinerary({
-      start: String(start),
-      end: String(end),
+      start: toPlaceString(start),
+      end: toPlaceString(end),
       days: Number(days) || 1,
-      waypoints: Array.isArray(waypoints) ? waypoints : [],
+      waypoints: (Array.isArray(waypoints) ? waypoints : []).map(toPlaceString).filter(Boolean),
       travellers: Number(travellers) || 1,
       purpose: purpose ? String(purpose) : "",
       startDate: startDate ? String(startDate) : "",

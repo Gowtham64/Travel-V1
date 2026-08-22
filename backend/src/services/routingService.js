@@ -33,9 +33,13 @@ async function getRoute(start, end, waypoints = []) {
     console.log("Cached route is simplified (low-resolution). Bypassing cache to fetch high-resolution route...");
   }
 
-  const mapboxKey = process.env.MAPBOX_API_KEY || "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
-  
+  // Standardized on MAPBOX_TOKEN (matches geocodeService and the reverse-geocode
+  // route). No hardcoded fallback — a missing token simply skips Mapbox and
+  // falls through to OpenRouteService below.
+  const mapboxKey = process.env.MAPBOX_TOKEN;
+
   try {
+    if (!mapboxKey) throw new Error("MAPBOX_TOKEN not configured");
     console.log("Fetching traffic-aware route from Mapbox Directions...");
     const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
     const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&access_token=${mapboxKey}`;
@@ -59,8 +63,8 @@ async function getRoute(start, end, waypoints = []) {
     console.error("Mapbox Directions API failed, falling back to OpenRouteService:", e.message);
   }
 
-  // Fallback to OpenRouteService
-  const apiKey = process.env.ORS_API_KEY || "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImVlMmEyYzUxM2EwNjRmOTNiYTA4MmY0NjEzZDZiOTE5IiwiaCI6Im11cm11cjY0In0=";
+  // Fallback to OpenRouteService (key loaded from env only — no hardcoded secret).
+  const apiKey = process.env.ORS_API_KEY;
   if (!apiKey) {
     throw new Error("Both Mapbox Directions and OpenRouteService APIs failed/unconfigured.");
   }

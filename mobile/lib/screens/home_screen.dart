@@ -514,6 +514,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Rebuilds a [Vehicle] from the spec persisted with a saved trip, falling
+  /// back to type-based defaults for trips saved before specs were stored.
+  Vehicle _vehicleFromSaved(dynamic saved, String vehicleType) {
+    if (saved is Map) {
+      final eff = (saved['efficiencyKmPerLiter'] as num?)?.toDouble();
+      final tank = (saved['tankCapacityLiters'] as num?)?.toDouble();
+      final cur = (saved['currentFuelLiters'] as num?)?.toDouble();
+      if (eff != null && eff > 0 && tank != null && tank > 0) {
+        return Vehicle(
+          type: (saved['type'] as String?) ?? vehicleType,
+          efficiencyKmPerLiter: eff,
+          tankCapacityLiters: tank,
+          currentFuelLiters: cur ?? tank,
+        );
+      }
+    }
+    final eff = vehicleType == 'motorcycle' ? 40.0 : 18.0;
+    final tank = vehicleType == 'motorcycle' ? 13.0 : 45.0;
+    return Vehicle(
+      type: vehicleType,
+      efficiencyKmPerLiter: eff,
+      tankCapacityLiters: tank,
+      currentFuelLiters: tank,
+    );
+  }
+
   Future<void> _openTrip(dynamic trip) async {
     final startLat = trip['start_point']?['lat'] as num?;
     final startLng = trip['start_point']?['lng'] as num?;
@@ -539,9 +565,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .toList();
 
       final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
-      final eff = vehicleType == 'motorcycle' ? 40.0 : 18.0;
-      final tank = vehicleType == 'motorcycle' ? 13.0 : 45.0;
-      final vehicle = Vehicle(type: vehicleType, efficiencyKmPerLiter: eff, tankCapacityLiters: tank, currentFuelLiters: tank);
+      // Prefer the exact vehicle spec saved with the trip; fall back to a
+      // type-based guess only for older trips saved before specs were persisted.
+      final savedVehicle = trip['end_point'] is Map ? trip['end_point']['vehicle'] : null;
+      final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
 
       final plan = await _api.planTrip(start: startPoint, end: endPoint, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;

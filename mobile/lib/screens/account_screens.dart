@@ -437,23 +437,33 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   final _amount = TextEditingController(text: '100');
   static const _currencies = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'JPY', 'AUD', 'CAD', 'THB'];
   String _from = 'USD', _to = 'INR';
-  String? _result, _rate;
+  String? _result, _rate, _error;
   bool _loading = false;
 
   Future<void> _convert() async {
     final amt = double.tryParse(_amount.text.trim());
-    if (amt == null) return;
-    setState(() => _loading = true);
+    if (amt == null) {
+      setState(() => _error = 'Please enter a valid amount.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final r = await _api.convertCurrency(from: _from, to: _to, amount: amt);
+      if (!mounted) return;
       setState(() {
         _result = '${r['result']}';
         _rate = '1 $_from = ${r['rate']} $_to';
+        _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _result = null;
-        _rate = e.toString();
+        _rate = null;
+        _error = e is ApiException ? e.message : "Couldn't fetch the exchange rate. Please try again.";
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -464,6 +474,12 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   void initState() {
     super.initState();
     _convert();
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
   }
 
   @override
@@ -520,6 +536,22 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
               const SizedBox(height: 6),
             ],
             if (_rate != null) Text(_rate!, style: const TextStyle(color: Voy.sub, fontSize: 13)),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(_error!,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -570,6 +602,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _load() async {
     try {
       final p = await _api.getProfile();
+      if (!mounted) return;
       setState(() {
         _name.text = (p['display_name'] ?? '').toString();
         _city.text = (p['home_city'] ?? '').toString();
@@ -583,6 +616,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _city.dispose();
+    _phone.dispose();
+    super.dispose();
   }
 
   Future<void> _save() async {

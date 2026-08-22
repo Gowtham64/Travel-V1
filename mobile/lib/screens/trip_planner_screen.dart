@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../utils/landing_redirect.dart';
@@ -80,8 +81,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   final Map<int, List<Map<String, dynamic>>> _suggestions = {};
   int? _activeSuggestIndex;
   Timer? _suggestDebounce;
-  static const String _mapboxToken =
-      'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+  static const String _mapboxToken = AppConfig.mapboxToken;
   Vehicle? _tempVehicle;
   
   Map<String, List<PlaceOfInterest>> _pois = {};
@@ -447,6 +447,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             end: end,
             waypoints: waypoints,
             vehicleType: vehicle.type,
+            vehicle: vehicle,
             travellers: _travellers,
             tripStart: DateTime.now(),
           ),

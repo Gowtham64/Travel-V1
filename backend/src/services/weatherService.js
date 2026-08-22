@@ -148,6 +148,11 @@ async function getDepartureAdvice(start, hours = 12, departAt = null) {
   const response = await axios.get(url, { timeout: 8000 });
   const h = response.data && response.data.hourly;
   if (!h || !Array.isArray(h.time)) return null;
+  // Open-Meteo may omit an hourly field; default each parallel array to [] so
+  // indexing below can't throw a TypeError on undefined.
+  const weatherCodes = Array.isArray(h.weather_code) ? h.weather_code : [];
+  const rainProbs = Array.isArray(h.precipitation_probability) ? h.precipitation_probability : [];
+  const temps = Array.isArray(h.temperature_2m) ? h.temperature_2m : [];
 
   // Anchor the window at the planned departure (local wall-time, matching
   // Open-Meteo's timezone=auto), else at "now". Open-Meteo hourly arrays are
@@ -162,12 +167,12 @@ async function getDepartureAdvice(start, hours = 12, departAt = null) {
   const window = [];
   for (let i = 0; i < hours && startIdx + i < h.time.length; i += 1) {
     const idx = startIdx + i;
-    const code = h.weather_code[idx] ?? 0;
+    const code = weatherCodes[idx] ?? 0;
     window.push({
       offsetHours: i,
       time: h.time[idx],
-      rainChancePct: h.precipitation_probability[idx] ?? 0,
-      tempC: h.temperature_2m[idx] ?? null,
+      rainChancePct: rainProbs[idx] ?? 0,
+      tempC: temps[idx] ?? null,
       icon: describeCode(code).icon,
       description: describeCode(code).label,
     });

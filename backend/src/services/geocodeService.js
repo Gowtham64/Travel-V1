@@ -1,15 +1,15 @@
 const axios = require("axios");
 
-// Public Mapbox token (same one the client uses). Override via env in prod.
-const MAPBOX_TOKEN =
-  process.env.MAPBOX_TOKEN ||
-  "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
+// Mapbox token from env only (no committed secret). When unset, geocoding falls
+// back to Nominatim automatically (see geocodeAddress).
+const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN || "";
 
 /**
  * Geocode with Mapbox — reliable from cloud IPs and does not rate-block the
  * way Nominatim does. Returns null if nothing matches.
  */
 async function geocodeWithMapbox(query) {
+  if (!MAPBOX_TOKEN) throw new Error("MAPBOX_TOKEN not configured");
   const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
     query
   )}.json`;

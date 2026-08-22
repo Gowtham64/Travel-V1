@@ -21,6 +21,9 @@ class ItineraryScreen extends StatefulWidget {
   final GeoPoint end;
   final List<GeoPoint> waypoints;
   final String vehicleType;
+  /// Full vehicle spec (efficiency/tank/current fuel) so a saved trip reloads
+  /// with the exact fuel/budget the user planned with, not a type-based guess.
+  final Vehicle? vehicle;
   final int travellers;
   final DateTime tripStart;
   /// A previously-saved AI itinerary to preload (list of day maps).
@@ -37,6 +40,7 @@ class ItineraryScreen extends StatefulWidget {
     required this.tripStart,
     this.waypoints = const [],
     this.vehicleType = 'car',
+    this.vehicle,
     this.initialItinerary,
   });
 
@@ -122,6 +126,12 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   void _tickCountdown() {
     final d = _tripStart.difference(DateTime.now());
     if (mounted) setState(() => _remaining = d.isNegative ? Duration.zero : d);
+    // Once the trip has started there is no countdown left to show, so stop the
+    // 1s timer to avoid rebuilding the whole screen every second (battery/CPU).
+    if (d.isNegative) {
+      _countdownTimer?.cancel();
+      _countdownTimer = null;
+    }
   }
 
   String _cur(int v) {
@@ -1450,6 +1460,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         end: widget.end,
         waypoints: widget.waypoints,
         vehicleType: widget.vehicleType,
+        vehicle: widget.vehicle,
         token: session.accessToken,
         tripStart: _tripStart,
         itinerary: _generated?.map((d) => d.toJson()).toList(),
