@@ -8,6 +8,7 @@ import '../models/trip_models.dart';
 import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
 import 'atlas_screen.dart';
+import 'day_planner_screen.dart';
 import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
@@ -74,8 +75,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   String _tripType = 'oneway';
-  void _planTrip() => Navigator.push(context,
-      MaterialPageRoute(builder: (_) => TripPlannerScreen(initialTripType: _tripType)));
+  void _planTrip() {
+    if (_tripType == 'roundtrip') {
+      // Vacation / round trip → straight into the day-by-day planner (no form).
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
+    } else {
+      // One-way → the classic route planner.
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen()));
+    }
+  }
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
 
   Future<void> _logout() async {
