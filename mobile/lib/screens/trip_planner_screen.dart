@@ -49,6 +49,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   VehicleModel? _selectedVehicle;
   int _travellers = 1;
+  // Trip type: 'oneway' (A → B) or 'roundtrip' (A → B → A, i.e. a vacation).
+  String _tripType = 'oneway';
   final Set<String> _selectedPOIs = {'restaurant', 'attraction'};
   List<String> _appliedPOIs = ['restaurant', 'attraction'];
   bool _loading = false;
@@ -312,9 +314,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           throw Exception("Need at least a starting point and destination");
         }
 
-        start = geocodedStops.first;
-        end = geocodedStops.last;
-        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+        if (_tripType == 'roundtrip') {
+          // Vacation / round trip: go to the destination (and any stops) then
+          // return to the starting point, so distance/fuel/budget cover both legs.
+          start = geocodedStops.first;
+          end = geocodedStops.first;
+          waypoints = geocodedStops.sublist(1);
+        } else {
+          start = geocodedStops.first;
+          end = geocodedStops.last;
+          waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+        }
 
         vehicle = Vehicle(
           type: _selectedVehicle!.type,
@@ -429,9 +439,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         if (geocodedStops.length < 2) {
           throw Exception("Need at least a starting point and destination");
         }
-        start = geocodedStops.first;
-        end = geocodedStops.last;
-        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+        if (_tripType == 'roundtrip') {
+          start = geocodedStops.first;
+          end = geocodedStops.first;
+          waypoints = geocodedStops.sublist(1);
+        } else {
+          start = geocodedStops.first;
+          end = geocodedStops.last;
+          waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+        }
         vehicle = Vehicle(
           type: _selectedVehicle!.type,
           efficiencyKmPerLiter: double.parse(_efficiencyController.text),
@@ -656,9 +672,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         throw Exception("Need at least a starting point and destination");
       }
 
+      final bool round = _tripType == 'roundtrip';
       final start = geocodedStops.first;
-      final end = geocodedStops.last;
-      final waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+      final end = round ? geocodedStops.first : geocodedStops.last;
+      final waypoints = round
+          ? geocodedStops.sublist(1)
+          : geocodedStops.sublist(1, geocodedStops.length - 1);
 
       final vehicle = Vehicle(
         type: _selectedVehicle!.type,
@@ -1767,13 +1786,62 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
+  /// One-way vs round-trip (vacation) selector, styled as a segmented control.
+  Widget _buildTripTypeToggle() {
+    Widget seg(String value, IconData icon, String label) {
+      final selected = _tripType == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _tripType = value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 11),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFF2E75B6) : Colors.transparent,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 17, color: selected ? Colors.white : Colors.white.withOpacity(0.6)),
+                const SizedBox(width: 7),
+                Text(label,
+                    style: TextStyle(
+                        color: selected ? Colors.white : Colors.white.withOpacity(0.6),
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        children: [
+          seg('oneway', Icons.trending_flat_rounded, 'One-way'),
+          seg('roundtrip', Icons.sync_rounded, 'Round trip'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRouteCard() {
     return _buildGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(Icons.route, 'Your Route'),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          _buildTripTypeToggle(),
+          const SizedBox(height: 20),
           ReorderableListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
