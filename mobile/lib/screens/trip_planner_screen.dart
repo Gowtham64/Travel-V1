@@ -348,12 +348,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
       if (!mounted) return;
 
-      // Trip summary (toll details, fuel price, times) right after DONE, so the
-      // user reviews the estimate before the drive.
-      await _showTripSummaryDialog(plan, vehicle);
-      if (!mounted) return;
-
-      // Round trip (vacation) → open the day-by-day Plan workspace directly.
+      // Round trip (vacation) → go straight to the day-by-day Plan workspace,
+      // skipping the summary popup.
       if (_tripType == 'roundtrip') {
         final startAddr = _stopControllers.first.text.trim();
         final endAddr = _stopControllers.last.text.trim();
@@ -381,6 +377,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         ));
         return;
       }
+
+      // Trip summary (toll details, fuel price, times) right after DONE, so the
+      // user reviews the estimate before the drive.
+      await _showTripSummaryDialog(plan, vehicle);
+      if (!mounted) return;
 
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
