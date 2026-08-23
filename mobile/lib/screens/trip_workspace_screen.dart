@@ -1579,6 +1579,79 @@ class _PlanTabState extends State<_PlanTab> {
     _persist();
   }
 
+  /// Adds a searched place to the selected day, then geocodes it in the
+  /// background so it shows as a numbered pin on the map (best-effort).
+  Future<void> _addSearchedPlace(String name, String area, PlanDay day) async {
+    final label = area.isEmpty ? name : '$name — $area';
+    final item = PlanItem(id: _uid(), text: label);
+    setState(() => day.items.add(item));
+    _persist();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Added "$name" to ${day.title}')));
+    try {
+      final gp = await _api.geocode(area.isEmpty ? name : '$name, $area');
+      if (!mounted) return;
+      setState(() {
+        item.lat = gp.lat;
+        item.lng = gp.lng;
+      });
+      _persist();
+    } catch (_) {/* item stays without a pin */}
+  }
+
+  /// Edit an item's text, time and note.
+  Future<void> _editItem(PlanItem item) async {
+    final textCtrl = TextEditingController(text: item.text);
+    final noteCtrl = TextEditingController(text: item.note);
+    String time = item.time;
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(
+              left: 18, right: 18, top: 18, bottom: MediaQuery.of(ctx).viewInsets.bottom + 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Edit item', style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 14),
+              TextField(controller: textCtrl, style: const TextStyle(color: Voy.ink), decoration: const InputDecoration(labelText: 'Place or activity')),
+              const SizedBox(height: 12),
+              Row(children: [
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final now = TimeOfDay.now();
+                    final picked = await showTimePicker(context: ctx, initialTime: now);
+                    if (picked != null) {
+                      setSheet(() => time = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}');
+                    }
+                  },
+                  icon: const Icon(Icons.schedule_rounded, size: 18),
+                  label: Text(time.isEmpty ? 'Set time' : time),
+                ),
+                if (time.isNotEmpty)
+                  TextButton(onPressed: () => setSheet(() => time = ''), child: const Text('Clear')),
+              ]),
+              const SizedBox(height: 12),
+              TextField(controller: noteCtrl, maxLines: 2, style: const TextStyle(color: Voy.ink), decoration: const InputDecoration(labelText: 'Note (optional)')),
+              const SizedBox(height: 18),
+              SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save'))),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (saved == true) {
+      setState(() {
+        item.text = textCtrl.text.trim();
+        item.time = time;
+        item.note = noteCtrl.text.trim();
+      });
+      _persist();
+    }
+  }
+
   Future<void> _renameDay(PlanDay day) async {
     final ctrl = TextEditingController(text: day.title);
     final text = await showDialog<String>(
@@ -1634,10 +1707,7 @@ class _PlanTabState extends State<_PlanTab> {
             children: [
               SizedBox(width: 320, child: _daysPanel()),
               const VerticalDivider(width: 1, color: Voy.hairline),
-              Expanded(
-                child: _MapTab(
-                    plan: widget.plan, start: widget.start, end: widget.end, waypoints: widget.waypoints),
-              ),
+              Expanded(child: _planMap()),
               const VerticalDivider(width: 1, color: Voy.hairline),
               SizedBox(width: 320, child: _placesPanel()),
             ],
@@ -1672,6 +1742,79 @@ class _PlanTabState extends State<_PlanTab> {
       ),
     );
   }
+
+  // ---- Center: map with the selected day's numbered pins ----
+  Widget _planMap() {
+    final routePts = widget.plan.coordinates.map((c) => LatLng(c.lat, c.lng)).toList();
+    final day = _days.isEmpty ? null : _days[_selectedDay.clamp(0, _days.length - 1)];
+    final dayPins = <Marker>[];
+    if (day != null) {
+      int n = 0;
+      for (final it in day.items) {
+        n++;
+        if (!it.hasCoords) continue;
+        final label = n;
+        dayPins.add(Marker(
+          point: LatLng(it.lat!, it.lng!),
+          width: 30,
+          height: 30,
+          child: Container(
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Voy.violet,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6)],
+            ),
+            child: Text('$label', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+          ),
+        ));
+      }
+    }
+    final fitPts = [...routePts, ...dayPins.map((m) => m.point)];
+    final token = AppConfig.mapboxToken;
+    final tileUrl = token.isNotEmpty
+        ? 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=$token'
+        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+    return FlutterMap(
+      options: MapOptions(
+        initialCameraFit: fitPts.length > 1
+            ? CameraFit.bounds(bounds: LatLngBounds.fromPoints(fitPts), padding: const EdgeInsets.all(48))
+            : null,
+        initialCenter: routePts.isNotEmpty ? routePts.first : const LatLng(20.5937, 78.9629),
+        initialZoom: 6,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: tileUrl,
+          userAgentPackageName: 'com.example.travel_app',
+          additionalOptions: {'accessToken': token},
+        ),
+        if (routePts.length > 1)
+          PolylineLayer(polylines: [Polyline(points: routePts, strokeWidth: 5, color: Voy.brand)]),
+        MarkerLayer(markers: [
+          _pin(LatLng(widget.start.lat, widget.start.lng), Voy.success, Icons.trip_origin_rounded),
+          _pin(LatLng(widget.end.lat, widget.end.lng), Voy.coral, Icons.flag_rounded),
+          ...dayPins,
+        ]),
+      ],
+    );
+  }
+
+  Marker _pin(LatLng p, Color color, IconData icon) => Marker(
+        point: p,
+        width: 32,
+        height: 32,
+        child: Container(
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.4), blurRadius: 6)],
+          ),
+          child: Icon(icon, color: Colors.white, size: 17),
+        ),
+      );
 
   // ---- Left: days ----
   Widget _daysPanel() {
@@ -1785,13 +1928,44 @@ class _PlanTabState extends State<_PlanTab> {
                     for (int ii = 0; ii < day.items.length; ii++)
                       ListTile(
                         key: ValueKey(day.items[ii].id),
-                        contentPadding: const EdgeInsets.only(left: 2, right: 0),
+                        contentPadding: const EdgeInsets.only(left: 0, right: 0),
+                        horizontalTitleGap: 8,
+                        minLeadingWidth: 0,
+                        onTap: () => _editItem(day.items[ii]),
                         leading: ReorderableDragStartListener(
                           index: ii,
-                          child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 20),
+                          child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 18),
                         ),
-                        title: Text(day.items[ii].text,
-                            style: const TextStyle(color: Voy.ink, fontSize: 14)),
+                        title: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: day.items[ii].hasCoords ? Voy.violet : Voy.surface2,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Text('${ii + 1}',
+                                  style: TextStyle(
+                                      color: day.items[ii].hasCoords ? Colors.white : Voy.sub,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800)),
+                            ),
+                            const SizedBox(width: 8),
+                            if (day.items[ii].time.isNotEmpty) ...[
+                              Text(day.items[ii].time,
+                                  style: const TextStyle(color: Voy.brand, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: Text(day.items[ii].text,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Voy.ink, fontSize: 14)),
+                            ),
+                          ],
+                        ),
                         trailing: IconButton(
                           icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
                           onPressed: () {
@@ -1928,14 +2102,7 @@ class _PlanTabState extends State<_PlanTab> {
                                   style: const TextStyle(color: Voy.sub, fontSize: 12)),
                           trailing: IconButton(
                             icon: const Icon(Icons.add_circle_rounded, color: Voy.brand),
-                            onPressed: targetDay == null
-                                ? null
-                                : () {
-                                    _addTextToSelectedDay(area.isEmpty ? name : '$name — $area');
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Added "$name" to ${targetDay.title}')),
-                                    );
-                                  },
+                            onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
                           ),
                         ),
                       );

@@ -83,15 +83,30 @@ class Expense {
       );
 }
 
-/// One item within a day in the day-by-day organizer.
+/// One item within a day in the day-by-day organizer. Optionally carries a
+/// time-of-day, a note, and geocoded coordinates so it can be shown as a
+/// numbered pin on the plan map.
 class PlanItem {
   final String id;
   String text;
-  PlanItem({required this.id, this.text = ''});
+  String time; // e.g. "10:00" (optional, may be empty)
+  String note;
+  double? lat;
+  double? lng;
+  PlanItem({required this.id, this.text = '', this.time = '', this.note = '', this.lat, this.lng});
 
-  Map<String, dynamic> toJson() => {'id': id, 'text': text};
-  factory PlanItem.fromJson(Map<String, dynamic> j) =>
-      PlanItem(id: j['id'].toString(), text: (j['text'] ?? '').toString());
+  bool get hasCoords => lat != null && lng != null;
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng};
+  factory PlanItem.fromJson(Map<String, dynamic> j) => PlanItem(
+        id: j['id'].toString(),
+        text: (j['text'] ?? '').toString(),
+        time: (j['time'] ?? '').toString(),
+        note: (j['note'] ?? '').toString(),
+        lat: (j['lat'] as num?)?.toDouble(),
+        lng: (j['lng'] as num?)?.toDouble(),
+      );
 }
 
 /// A single day in the day-by-day organizer, holding an ordered list of items
