@@ -6,9 +6,11 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
+import '../utils/plan_export.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -207,6 +209,58 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Day optimised for the shortest path ✓')));
   }
 
+  Future<void> _exportPdf() async {
+    if (_days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add some days first.')));
+      return;
+    }
+    try {
+      await exportPlanPdf(widget.tripName, _days);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF export failed: $e')));
+    }
+  }
+
+  Future<void> _exportIcs() async {
+    if (_days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add some days first.')));
+      return;
+    }
+    try {
+      await exportPlanIcs(widget.tripName, _days);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Calendar export failed: $e')));
+    }
+  }
+
+  Future<void> _import() async {
+    try {
+      final res = await FilePicker.pickFiles(withData: true, type: FileType.any);
+      if (res == null || res.files.isEmpty) return;
+      final f = res.files.first;
+      final bytes = f.bytes;
+      if (bytes == null) return;
+      final content = utf8.decode(bytes, allowMalformed: true);
+      final places = parseImportedPlaces(f.name, content);
+      if (places.isEmpty) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No places found in that file.')));
+        return;
+      }
+      final day = PlanDay(id: _uid(), title: 'Imported (${places.length})');
+      for (final p in places) {
+        day.items.add(PlanItem(id: '${_uid()}${day.items.length}', text: p.name, lat: p.lat, lng: p.lng));
+      }
+      setState(() {
+        _days.add(day);
+        _selectedDay = _days.length - 1;
+      });
+      _persist();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Imported ${places.length} places')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+    }
+  }
+
   String _wxIcon(int? code) {
     final c = code ?? 0;
     if (c == 0) return '☀️';
@@ -287,6 +341,12 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             Text(widget.tripName, style: const TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
+        actions: [
+          IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Voy.ink), onPressed: _import),
+          IconButton(tooltip: 'Export PDF', icon: const Icon(Icons.picture_as_pdf_outlined, color: Voy.ink), onPressed: _exportPdf),
+          IconButton(tooltip: 'Add to calendar (.ics)', icon: const Icon(Icons.event_outlined, color: Voy.ink), onPressed: _exportIcs),
+          const SizedBox(width: 4),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
