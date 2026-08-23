@@ -8,6 +8,7 @@ import '../models/trip_models.dart';
 import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
 import 'atlas_screen.dart';
+import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
 import 'account_screens.dart';
@@ -106,29 +107,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           SafeArea(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
+                constraints: const BoxConstraints(maxWidth: 1180),
                 child: RefreshIndicator(
                   color: Voy.brand,
                   backgroundColor: Voy.surface,
                   onRefresh: _loadTrips,
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
-                    children: [
-                      _stagger(0, _topBar()),
-                      const SizedBox(height: 22),
-                      _stagger(1, _heroCta()),
-                      const SizedBox(height: 18),
-                      _stagger(2, _quickActions()),
-                      if (_trips.isNotEmpty) ...[
-                        const SizedBox(height: 22),
-                        _stagger(3, _travelStats()),
-                      ],
-                      const SizedBox(height: 26),
-                      _stagger(4, _recentHeader()),
-                      const SizedBox(height: 12),
-                      _stagger(5, _recentTrips()),
-                    ],
+                  child: LayoutBuilder(
+                    builder: (ctx, c) {
+                      final wide = c.maxWidth >= 860;
+                      final mainCol = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _stagger(1, _heroCta()),
+                          const SizedBox(height: 18),
+                          _stagger(2, _quickActions()),
+                          if (_trips.isNotEmpty) ...[
+                            const SizedBox(height: 22),
+                            _stagger(3, _travelStats()),
+                          ],
+                          const SizedBox(height: 26),
+                          _stagger(4, _recentHeader()),
+                          const SizedBox(height: 12),
+                          _stagger(5, _recentTrips()),
+                        ],
+                      );
+                      final sidebar = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: const [
+                          CurrencyMiniCard(),
+                          SizedBox(height: 16),
+                          TimezonesCard(),
+                          SizedBox(height: 16),
+                          UpcomingReservationsCard(),
+                        ],
+                      );
+                      return ListView(
+                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
+                        children: [
+                          _stagger(0, _topBar()),
+                          const SizedBox(height: 22),
+                          if (wide)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(child: mainCol),
+                                const SizedBox(width: 24),
+                                SizedBox(width: 340, child: sidebar),
+                              ],
+                            )
+                          else ...[
+                            mainCol,
+                            const SizedBox(height: 24),
+                            sidebar,
+                          ],
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
