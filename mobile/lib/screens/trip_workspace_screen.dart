@@ -29,6 +29,8 @@ class TripWorkspaceScreen extends StatelessWidget {
   final String endAddress;
   final DateTime tripStart;
   final List<Map<String, dynamic>>? savedItinerary;
+  /// Which tab to open on (0=Map, 1=Plan, 2=Itinerary, …).
+  final int initialTabIndex;
 
   const TripWorkspaceScreen({
     super.key,
@@ -45,6 +47,7 @@ class TripWorkspaceScreen extends StatelessWidget {
     this.savedItinerary,
     this.travellers = 1,
     this.currency = 'INR',
+    this.initialTabIndex = 0,
   });
 
   @override
@@ -52,6 +55,7 @@ class TripWorkspaceScreen extends StatelessWidget {
     final store = TripExtrasStore(tripKey);
     return DefaultTabController(
       length: 7,
+      initialIndex: initialTabIndex,
       child: Scaffold(
         backgroundColor: Voy.bg,
         appBar: AppBar(

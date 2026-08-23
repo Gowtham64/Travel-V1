@@ -15,6 +15,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'trip_screen.dart';
+import 'trip_workspace_screen.dart';
 import 'itinerary_screen.dart';
 import 'saved_trips_screen.dart';
 import '../widgets/app_design.dart';
@@ -351,6 +352,35 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       // user reviews the estimate before the drive.
       await _showTripSummaryDialog(plan, vehicle);
       if (!mounted) return;
+
+      // Round trip (vacation) → open the day-by-day Plan workspace directly.
+      if (_tripType == 'roundtrip') {
+        final startAddr = _stopControllers.first.text.trim();
+        final endAddr = _stopControllers.last.text.trim();
+        final tripKey = [
+          start.lat.toStringAsFixed(3), start.lng.toStringAsFixed(3),
+          end.lat.toStringAsFixed(3), end.lng.toStringAsFixed(3),
+          vehicle.type,
+        ].join('_').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '');
+        Navigator.of(context).push(MaterialPageRoute(
+          builder: (_) => TripWorkspaceScreen(
+            tripKey: tripKey,
+            tripName: '$startAddr → $endAddr (round trip)',
+            plan: plan,
+            start: start,
+            end: end,
+            waypoints: waypoints,
+            vehicle: vehicle,
+            startAddress: startAddr,
+            endAddress: endAddr,
+            tripStart: DateTime.now(),
+            travellers: _travellers,
+            currency: plan.budget?.currency ?? 'INR',
+            initialTabIndex: 1, // Plan tab
+          ),
+        ));
+        return;
+      }
 
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
