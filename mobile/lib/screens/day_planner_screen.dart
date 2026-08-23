@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -146,6 +147,45 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       setState(() => day.title = text);
       _persist();
     }
+  }
+
+  double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371.0;
+    double toRad(double d) => d * math.pi / 180.0;
+    final dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(toRad(lat1)) * math.cos(toRad(lat2)) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  /// Approx travel leg between two consecutive stops (straight-line distance and
+  /// a rough drive time at ~40 km/h).
+  String _legLabel(PlanItem a, PlanItem b) {
+    final km = _haversineKm(a.lat!, a.lng!, b.lat!, b.lng!);
+    final mins = (km / 40 * 60).round();
+    final kmStr = km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0);
+    return '≈ $kmStr km · ${mins < 1 ? 1 : mins} min';
+  }
+
+  /// Reorders a day's geocoded stops for the shortest path (nearest-neighbour),
+  /// keeping any non-geocoded items at the end.
+  void _optimizeDay(PlanDay day) {
+    final geo = day.items.where((i) => i.hasCoords).toList();
+    final rest = day.items.where((i) => !i.hasCoords).toList();
+    if (geo.length < 3) return;
+    final ordered = <PlanItem>[];
+    final remaining = [...geo];
+    var current = remaining.removeAt(0);
+    ordered.add(current);
+    while (remaining.isNotEmpty) {
+      remaining.sort((p, q) => _haversineKm(current.lat!, current.lng!, p.lat!, p.lng!)
+          .compareTo(_haversineKm(current.lat!, current.lng!, q.lat!, q.lng!)));
+      current = remaining.removeAt(0);
+      ordered.add(current);
+    }
+    setState(() => day.items = [...ordered, ...rest]);
+    _persist();
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Day optimised for the shortest path ✓')));
   }
 
   @override
@@ -313,6 +353,12 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   Expanded(child: Text(day.title, style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700))),
                   if (selected)
                     const Padding(padding: EdgeInsets.only(right: 4), child: Text('adding here', style: TextStyle(color: Voy.brand, fontSize: 10.5, fontWeight: FontWeight.w800))),
+                  if (day.items.where((i) => i.hasCoords).length >= 3)
+                    IconButton(
+                      icon: const Icon(Icons.auto_fix_high_rounded, color: Color(0xFF60A5FA), size: 18),
+                      tooltip: 'Optimise order',
+                      onPressed: () => _optimizeDay(day),
+                    ),
                   IconButton(icon: const Icon(Icons.edit_rounded, color: Voy.sub, size: 18), onPressed: () => _renameDay(day)),
                   IconButton(
                     icon: const Icon(Icons.delete_outline_rounded, color: Voy.danger, size: 20),
@@ -346,32 +392,50 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   },
                   children: [
                     for (int ii = 0; ii < day.items.length; ii++)
-                      ListTile(
+                      Column(
                         key: ValueKey(day.items[ii].id),
-                        contentPadding: const EdgeInsets.only(left: 0, right: 0),
-                        horizontalTitleGap: 8,
-                        minLeadingWidth: 0,
-                        leading: ReorderableDragStartListener(index: ii, child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 18)),
-                        title: Row(
-                          children: [
-                            Container(
-                              width: 22,
-                              height: 22,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(color: day.items[ii].hasCoords ? Voy.violet : Voy.surface2, shape: BoxShape.circle),
-                              child: Text('${ii + 1}', style: TextStyle(color: day.items[ii].hasCoords ? Colors.white : Voy.sub, fontSize: 11, fontWeight: FontWeight.w800)),
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          ListTile(
+                            contentPadding: const EdgeInsets.only(left: 0, right: 0),
+                            horizontalTitleGap: 8,
+                            minLeadingWidth: 0,
+                            leading: ReorderableDragStartListener(index: ii, child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 18)),
+                            title: Row(
+                              children: [
+                                Container(
+                                  width: 22,
+                                  height: 22,
+                                  alignment: Alignment.center,
+                                  decoration: BoxDecoration(color: day.items[ii].hasCoords ? Voy.violet : Voy.surface2, shape: BoxShape.circle),
+                                  child: Text('${ii + 1}', style: TextStyle(color: day.items[ii].hasCoords ? Colors.white : Voy.sub, fontSize: 11, fontWeight: FontWeight.w800)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(child: Text(day.items[ii].text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 14))),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(child: Text(day.items[ii].text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 14))),
-                          ],
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
-                          onPressed: () {
-                            setState(() => day.items.removeAt(ii));
-                            _persist();
-                          },
-                        ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.close_rounded, color: Voy.sub, size: 18),
+                              onPressed: () {
+                                setState(() => day.items.removeAt(ii));
+                                _persist();
+                              },
+                            ),
+                          ),
+                          // Travel leg to the next stop (both must be geocoded).
+                          if (ii < day.items.length - 1 && day.items[ii].hasCoords && day.items[ii + 1].hasCoords)
+                            Padding(
+                              padding: const EdgeInsets.only(left: 30, bottom: 4),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.arrow_downward_rounded, size: 13, color: Voy.sub.withValues(alpha: 0.7)),
+                                  const SizedBox(width: 6),
+                                  Text(_legLabel(day.items[ii], day.items[ii + 1]),
+                                      style: TextStyle(color: Voy.sub.withValues(alpha: 0.9), fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                ],
+                              ),
+                            ),
+                        ],
                       ),
                   ],
                 ),
