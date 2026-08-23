@@ -22,7 +22,10 @@ import '../widgets/globe_preview.dart';
 import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
-  const TripPlannerScreen({super.key});
+  /// Pre-selects the route type ('oneway' or 'roundtrip'), e.g. when chosen on
+  /// the home dashboard before opening the planner.
+  final String initialTripType;
+  const TripPlannerScreen({super.key, this.initialTripType = 'oneway'});
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -50,7 +53,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   VehicleModel? _selectedVehicle;
   int _travellers = 1;
   // Trip type: 'oneway' (A → B) or 'roundtrip' (A → B → A, i.e. a vacation).
-  String _tripType = 'oneway';
+  late String _tripType = widget.initialTripType;
   final Set<String> _selectedPOIs = {'restaurant', 'attraction'};
   List<String> _appliedPOIs = ['restaurant', 'attraction'];
   bool _loading = false;

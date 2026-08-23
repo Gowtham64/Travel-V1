@@ -73,7 +73,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good evening';
   }
 
-  void _planTrip() => Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen()));
+  String _tripType = 'oneway';
+  void _planTrip() => Navigator.push(context,
+      MaterialPageRoute(builder: (_) => TripPlannerScreen(initialTripType: _tripType)));
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
 
   Future<void> _logout() async {
@@ -119,6 +121,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _stagger(1, _heroCta()),
+                          const SizedBox(height: 14),
+                          _stagger(1, _tripTypeToggle()),
                           const SizedBox(height: 18),
                           _stagger(2, _quickActions()),
                           if (_trips.isNotEmpty) ...[
@@ -431,6 +435,54 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Expanded(child: Text(label, style: const TextStyle(color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w700))),
           ],
         ),
+      ),
+    );
+  }
+
+  /// One-way vs round-trip (vacation) chooser on the dashboard; the selection
+  /// is carried into the planner when starting a new trip.
+  Widget _tripTypeToggle() {
+    Widget seg(String value, IconData icon, String label) {
+      final selected = _tripType == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _tripType = value),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              gradient: selected ? Voy.gradient : null,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 17, color: selected ? Colors.white : Voy.sub),
+                const SizedBox(width: 7),
+                Text(label,
+                    style: TextStyle(
+                        color: selected ? Colors.white : Voy.sub,
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Voy.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Voy.hairline),
+      ),
+      child: Row(
+        children: [
+          seg('oneway', Icons.trending_flat_rounded, 'One-way'),
+          seg('roundtrip', Icons.sync_rounded, 'Round trip'),
+        ],
       ),
     );
   }
