@@ -114,15 +114,17 @@ class PlanItem {
 class PlanDay {
   final String id;
   String title;
+  String hotel; // accommodation for the day (optional)
   List<PlanItem> items;
-  PlanDay({required this.id, this.title = '', List<PlanItem>? items})
+  PlanDay({required this.id, this.title = '', this.hotel = '', List<PlanItem>? items})
       : items = items ?? [];
 
   Map<String, dynamic> toJson() =>
-      {'id': id, 'title': title, 'items': items.map((e) => e.toJson()).toList()};
+      {'id': id, 'title': title, 'hotel': hotel, 'items': items.map((e) => e.toJson()).toList()};
   factory PlanDay.fromJson(Map<String, dynamic> j) => PlanDay(
         id: j['id'].toString(),
         title: (j['title'] ?? '').toString(),
+        hotel: (j['hotel'] ?? '').toString(),
         items: (j['items'] as List?)
                 ?.map((e) => PlanItem.fromJson((e as Map).cast<String, dynamic>()))
                 .toList() ??

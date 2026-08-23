@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
@@ -35,6 +37,13 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   List<Map<String, String>> _results = [];
   bool _searching = false;
   String? _searchError;
+
+  // Lazy caches: per-day weather (keyed by day id) and real road legs (keyed by
+  // "fromItemId>toItemId"). Populated in the background, then setState refreshes.
+  final Map<String, String> _weatherCache = {};
+  final Set<String> _weatherPending = {};
+  final Map<String, String> _legCache = {};
+  final Set<String> _legPending = {};
 
   @override
   void initState() {
@@ -167,6 +176,16 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     return '≈ $kmStr km · ${mins < 1 ? 1 : mins} min';
   }
 
+  /// Real road leg if we have it (OSRM), otherwise a straight-line estimate
+  /// while the real value is fetched in the background.
+  String _legDisplay(PlanItem a, PlanItem b) {
+    final key = '${a.id}>${b.id}';
+    final real = _legCache[key];
+    if (real != null) return real;
+    _ensureLeg(a, b);
+    return '${_legLabel(a, b)} (approx)';
+  }
+
   /// Reorders a day's geocoded stops for the shortest path (nearest-neighbour),
   /// keeping any non-geocoded items at the end.
   void _optimizeDay(PlanDay day) {
@@ -186,6 +205,74 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     setState(() => day.items = [...ordered, ...rest]);
     _persist();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Day optimised for the shortest path ✓')));
+  }
+
+  String _wxIcon(int? code) {
+    final c = code ?? 0;
+    if (c == 0) return '☀️';
+    if (c <= 3) return '⛅';
+    if (c <= 48) return '🌫️';
+    if (c <= 67) return '🌧️';
+    if (c <= 77) return '🌨️';
+    if (c <= 82) return '🌧️';
+    if (c <= 99) return '⛈️';
+    return '☁️';
+  }
+
+  /// Fetches current weather for a day's first geocoded stop (Open-Meteo, free).
+  Future<void> _ensureWeather(PlanDay day) async {
+    if (_weatherCache.containsKey(day.id) || _weatherPending.contains(day.id)) return;
+    PlanItem? loc;
+    for (final it in day.items) {
+      if (it.hasCoords) {
+        loc = it;
+        break;
+      }
+    }
+    if (loc == null) return;
+    _weatherPending.add(day.id);
+    try {
+      final uri = Uri.parse(
+          'https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lng}&current=temperature_2m,weather_code');
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final m = jsonDecode(res.body) as Map<String, dynamic>;
+        final cur = m['current'] as Map<String, dynamic>?;
+        final t = (cur?['temperature_2m'] as num?)?.round();
+        final code = (cur?['weather_code'] as num?)?.toInt();
+        if (t != null && mounted) {
+          setState(() => _weatherCache[day.id] = '$t° ${_wxIcon(code)}');
+        }
+      }
+    } catch (_) {
+    } finally {
+      _weatherPending.remove(day.id);
+    }
+  }
+
+  /// Fetches the real driving distance/time between two stops (OSRM, free).
+  Future<void> _ensureLeg(PlanItem a, PlanItem b) async {
+    final key = '${a.id}>${b.id}';
+    if (_legCache.containsKey(key) || _legPending.contains(key)) return;
+    _legPending.add(key);
+    try {
+      final uri = Uri.parse(
+          'https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=false');
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final m = jsonDecode(res.body) as Map<String, dynamic>;
+        final routes = m['routes'] as List?;
+        if (routes != null && routes.isNotEmpty) {
+          final km = (routes[0]['distance'] as num) / 1000.0;
+          final mins = ((routes[0]['duration'] as num) / 60).round();
+          final label = '${km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0)} km · ${mins < 1 ? 1 : mins} min';
+          if (mounted) setState(() => _legCache[key] = label);
+        }
+      }
+    } catch (_) {
+    } finally {
+      _legPending.remove(key);
+    }
   }
 
   @override
@@ -351,6 +438,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(day.title, style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700))),
+                  _weatherBadge(day),
                   if (selected)
                     const Padding(padding: EdgeInsets.only(right: 4), child: Text('adding here', style: TextStyle(color: Voy.brand, fontSize: 10.5, fontWeight: FontWeight.w800))),
                   if (day.items.where((i) => i.hasCoords).length >= 3)
@@ -372,6 +460,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   ),
                 ],
               ),
+              _hotelRow(day),
               if (day.items.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
@@ -430,7 +519,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                                 children: [
                                   Icon(Icons.arrow_downward_rounded, size: 13, color: Voy.sub.withValues(alpha: 0.7)),
                                   const SizedBox(width: 6),
-                                  Text(_legLabel(day.items[ii], day.items[ii + 1]),
+                                  Text(_legDisplay(day.items[ii], day.items[ii + 1]),
                                       style: TextStyle(color: Voy.sub.withValues(alpha: 0.9), fontSize: 11.5, fontWeight: FontWeight.w600)),
                                 ],
                               ),
@@ -455,6 +544,69 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
       ),
     );
+  }
+
+  Widget _weatherBadge(PlanDay day) {
+    _ensureWeather(day);
+    final w = _weatherCache[day.id];
+    if (w == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(right: 6),
+      child: Text(w, style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w700)),
+    );
+  }
+
+  Widget _hotelRow(PlanDay day) {
+    return InkWell(
+      onTap: () => _editHotel(day),
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        child: Row(
+          children: [
+            Icon(Icons.hotel_rounded, size: 16, color: Voy.sub.withValues(alpha: 0.9)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                day.hotel.isEmpty ? 'Add stay / accommodation' : day.hotel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    color: day.hotel.isEmpty ? Voy.sub.withValues(alpha: 0.8) : Voy.ink,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+            Icon(Icons.edit_rounded, size: 14, color: Voy.sub.withValues(alpha: 0.7)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editHotel(PlanDay day) async {
+    final ctrl = TextEditingController(text: day.hotel);
+    final text = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Stay for this day'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Voy.ink),
+          decoration: const InputDecoration(labelText: 'Hotel / accommodation'),
+          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (text != null) {
+      setState(() => day.hotel = text);
+      _persist();
+    }
   }
 
   // ---- places ----
