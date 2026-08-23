@@ -74,16 +74,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good evening';
   }
 
-  String _tripType = 'oneway';
-  void _planTrip() {
-    if (_tripType == 'roundtrip') {
-      // Vacation / round trip → straight into the day-by-day planner (no form).
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
-    } else {
-      // One-way → the classic route planner.
+  // One-way → the classic route planner form.
+  void _planTrip() =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen()));
-    }
-  }
+  // Round trip (vacation) → straight into the day-by-day planner (no form).
+  void _planRoundTrip() =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
 
   Future<void> _logout() async {
@@ -130,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         children: [
                           _stagger(1, _heroCta()),
                           const SizedBox(height: 14),
-                          _stagger(1, _tripTypeToggle()),
+                          _stagger(1, _planButtons()),
                           const SizedBox(height: 18),
                           _stagger(2, _quickActions()),
                           if (_trips.isNotEmpty) ...[
@@ -447,51 +443,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// One-way vs round-trip (vacation) chooser on the dashboard; the selection
-  /// is carried into the planner when starting a new trip.
-  Widget _tripTypeToggle() {
-    Widget seg(String value, IconData icon, String label) {
-      final selected = _tripType == value;
+  /// Two direct buttons: plan a one-way trip (classic route planner) or a round
+  /// trip (day-by-day vacation planner).
+  Widget _planButtons() {
+    Widget btn(IconData icon, String label, Color c1, Color c2, VoidCallback onTap) {
       return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => _tripType = value),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              gradient: selected ? Voy.gradient : null,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: 17, color: selected ? Colors.white : Voy.sub),
-                const SizedBox(width: 7),
-                Text(label,
-                    style: TextStyle(
-                        color: selected ? Colors.white : Voy.sub,
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700)),
-              ],
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [c1, c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 20, color: Colors.white),
+                  const SizedBox(width: 9),
+                  Flexible(
+                    child: Text(label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Voy.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Voy.hairline),
-      ),
-      child: Row(
-        children: [
-          seg('oneway', Icons.trending_flat_rounded, 'One-way'),
-          seg('roundtrip', Icons.sync_rounded, 'Round trip'),
-        ],
-      ),
+    return Row(
+      children: [
+        btn(Icons.trending_flat_rounded, 'Plan one-way trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
+        const SizedBox(width: 12),
+        btn(Icons.sync_rounded, 'Plan round trip', const Color(0xFF7C3AED), const Color(0xFF8F81F2), _planRoundTrip),
+      ],
     );
   }
 
