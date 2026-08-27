@@ -14,10 +14,13 @@ const ORS_BASE_URL = "https://api.openrouteservice.org/v2/directions/driving-car
  * @param {{lat:number,lng:number}} start
  * @param {{lat:number,lng:number}} end
  * @param {Array<{lat:number,lng:number}>} [waypoints] - optional intermediate stops
+ * @param {{avoidMotorways?:boolean}} [options] - routing constraints. `avoidMotorways`
+ *   keeps 2-/3-wheelers off access-controlled expressways that legally ban them.
  * @returns {Promise<{distanceKm:number, durationMin:number, coordinates:Array<{lat:number,lng:number}>}>}
  */
-async function getRoute(start, end, waypoints = []) {
-  const hash = getRouteHash(start, end, waypoints);
+async function getRoute(start, end, waypoints = [], options = {}) {
+  const avoidMotorways = options.avoidMotorways === true;
+  const hash = getRouteHash(start, end, waypoints, { avoidMotorways });
   
   // Try to get from cache first
   const cached = await getCachedRoute(hash);
@@ -42,7 +45,9 @@ async function getRoute(start, end, waypoints = []) {
     if (!mapboxKey) throw new Error("MAPBOX_TOKEN not configured");
     console.log("Fetching traffic-aware route from Mapbox Directions...");
     const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&access_token=${mapboxKey}`;
+    // 2-/3-wheelers are banned on access-controlled expressways — exclude motorways for them.
+    const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full${excludeParam}&access_token=${mapboxKey}`;
     
     const response = await axios.get(url, { timeout: 15000 });
     const route = response.data.routes[0];
@@ -72,10 +77,16 @@ async function getRoute(start, end, waypoints = []) {
   // ORS expects coordinates as [lng, lat], in travel order
   const coordinates = [start, ...waypoints, end].map((p) => [p.lng, p.lat]);
 
+  // For 2-/3-wheelers, tell ORS to avoid highways (its term for motorways/expressways).
+  const body = { coordinates };
+  if (avoidMotorways) {
+    body.options = { avoid_features: ["highways"] };
+  }
+
   console.log("Fetching route from OpenRouteService...");
   const response = await axios.post(
     ORS_BASE_URL,
-    { coordinates },
+    body,
     {
       headers: {
         Authorization: apiKey,

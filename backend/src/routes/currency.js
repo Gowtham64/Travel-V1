@@ -53,4 +53,21 @@ router.get("/rates", async (req, res) => {
   }
 });
 
+// GET /api/currency/list — supported currencies
+router.get("/list", (req, res) => {
+  res.json({
+    currencies: [
+      { code: "INR", name: "Indian Rupee", symbol: "₹" },
+      { code: "USD", name: "US Dollar", symbol: "$" },
+      { code: "EUR", name: "Euro", symbol: "€" },
+      { code: "GBP", name: "British Pound", symbol: "£" },
+      { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+      { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+      { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+      { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
+      { code: "AED", name: "UAE Dirham", symbol: "AED" },
+    ],
+  });
+});
+
 module.exports = router;

@@ -158,9 +158,15 @@ async function getDepartureAdvice(start, hours = 12, departAt = null) {
   // Open-Meteo's timezone=auto), else at "now". Open-Meteo hourly arrays are
   // "yyyy-mm-ddThh:mm"; compare on the yyyy-mm-ddThh prefix.
   const planned = !!departAt;
-  const anchorPrefix = planned
-    ? String(departAt).slice(0, 13)
-    : new Date().toISOString().slice(0, 13);
+  // Open-Meteo hourly times are in the location's LOCAL wall-time (timezone=auto).
+  // For the "now" case we must shift the current UTC instant by the location's
+  // offset, else the anchor is off by that offset (e.g. ~5.5h in India) and the
+  // advice reflects hours already in the past.
+  const utcOffsetSec = Number(response.data.utc_offset_seconds) || 0;
+  const localNowPrefix = new Date(Date.now() + utcOffsetSec * 1000)
+    .toISOString()
+    .slice(0, 13);
+  const anchorPrefix = planned ? String(departAt).slice(0, 13) : localNowPrefix;
   let startIdx = h.time.findIndex((t) => t.slice(0, 13) >= anchorPrefix);
   if (startIdx < 0) startIdx = 0;
 

@@ -583,7 +583,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         _buildBar(),
         const SizedBox(height: 12),
         if (_generated != null)
-          for (int i = 0; i < _generated!.length; i++) _genDayCard(_generated![i], i == _generated!.length - 1)
+          for (int i = 0; i < _generated!.length; i++) _genDayCard(_generated![i], i, i == _generated!.length - 1)
         else if (widget.plan.itinerary.isNotEmpty)
           for (int i = 0; i < widget.plan.itinerary.length; i++)
             _dayCard(widget.plan.itinerary[i], i == widget.plan.itinerary.length - 1)
@@ -694,7 +694,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     }
   }
 
-  Widget _genDayCard(_GenDay day, bool isLast) {
+  Widget _genDayCard(_GenDay day, int dayIndex, bool isLast) {
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -734,7 +734,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                     Text(day.title,
                         style: const TextStyle(color: _ink, fontSize: 14.5, fontWeight: FontWeight.w700)),
                     const SizedBox(height: 10),
-                    for (int i = 0; i < day.activities.length; i++) _activityRow(day.day, i, day.activities[i]),
+                    // Key by the day's list position, not day.day, which can
+                    // repeat/default to 1 and make checkboxes collide across days.
+                    for (int i = 0; i < day.activities.length; i++) _activityRow(dayIndex, i, day.activities[i]),
                   ],
                 ),
               ),
@@ -745,8 +747,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     );
   }
 
-  Widget _activityRow(int dayNum, int idx, _GenActivity a) {
-    final key = '$dayNum-$idx';
+  Widget _activityRow(int dayIndex, int idx, _GenActivity a) {
+    final key = '$dayIndex-$idx';
     final done = _doneActivities.contains(key);
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),

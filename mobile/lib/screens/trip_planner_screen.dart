@@ -26,7 +26,30 @@ class TripPlannerScreen extends StatefulWidget {
   /// Pre-selects the route type ('oneway' or 'roundtrip'), e.g. when chosen on
   /// the home dashboard before opening the planner.
   final String initialTripType;
-  const TripPlannerScreen({super.key, this.initialTripType = 'oneway'});
+
+  /// Optional pre-filled destination (e.g. a trailhead chosen in trek discovery).
+  /// When set, the last stop's text and resolved coordinates are seeded so the
+  /// user only needs to enter a starting point.
+  final GeoPoint? initialDestination;
+  final String? initialDestinationLabel;
+
+  /// Optional pre-selected trip options handed in from another flow (e.g. the
+  /// trek planner), so "plan trip to trailhead" arrives fully configured.
+  final String? initialVehicleId;
+  final int? initialTravellers;
+  final double? initialCurrentFuelLiters;
+  final List<String>? initialPOIs;
+
+  const TripPlannerScreen({
+    super.key,
+    this.initialTripType = 'oneway',
+    this.initialDestination,
+    this.initialDestinationLabel,
+    this.initialVehicleId,
+    this.initialTravellers,
+    this.initialCurrentFuelLiters,
+    this.initialPOIs,
+  });
 
   @override
   State<TripPlannerScreen> createState() => _TripPlannerScreenState();
@@ -109,9 +132,32 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       vsync: this,
       duration: const Duration(seconds: 34),
     )..repeat(reverse: true);
-    _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
+    // Honour a vehicle handed in from another flow, else default to a car.
+    _selectedVehicle = predefinedVehicles.firstWhere(
+      (v) => v.id == widget.initialVehicleId,
+      orElse: () => predefinedVehicles.firstWhere((v) => v.type == 'car'),
+    );
     _updateVehicleFields();
+    // Apply pre-selected options AFTER _updateVehicleFields (which sets fuel).
+    if (widget.initialTravellers != null) _travellers = widget.initialTravellers!;
+    if (widget.initialCurrentFuelLiters != null) {
+      _currentFuelController.text = _formatNum(widget.initialCurrentFuelLiters!);
+    }
+    if (widget.initialPOIs != null) {
+      _selectedPOIs
+        ..clear()
+        ..addAll(widget.initialPOIs!);
+      _appliedPOIs = List.from(widget.initialPOIs!);
+    }
     _recordUserSession();
+
+    // Seed a destination handed in from trek discovery ("plan around this trail").
+    if (widget.initialDestination != null) {
+      final dest = widget.initialDestination!;
+      final label = widget.initialDestinationLabel ?? dest.name ?? 'Trailhead';
+      _stopControllers.last.text = label;
+      _resolvedStopCoords[_stopControllers.last.hashCode] = dest;
+    }
 
     // Automated test route search for headless integration testing
     if (kIsWeb) {
@@ -1166,6 +1212,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     _formScrollController.dispose();
     _bgController.dispose();
     _suggestDebounce?.cancel();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -2740,22 +2787,25 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _loading ? null : _planAndOpenItinerary,
-              icon: _loading
-                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8F81F2)))
-                  : const Icon(Icons.event_note_rounded, size: 18, color: Color(0xFF8F81F2)),
-              label: const Text('Itinerary', style: TextStyle(color: Color(0xFF8F81F2))),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF8F81F2)),
-                padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          // Itinerary is only meaningful for round trips; hide it for one-way trips.
+          if (_tripType == 'roundtrip') ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : _planAndOpenItinerary,
+                icon: _loading
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8F81F2)))
+                    : const Icon(Icons.event_note_rounded, size: 18, color: Color(0xFF8F81F2)),
+                label: const Text('Itinerary', style: TextStyle(color: Color(0xFF8F81F2))),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Color(0xFF8F81F2)),
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
               ),
             ),
-          ),
+          ],
           if (_hasSearchedPOIs) ...[
             const SizedBox(height: 24),
             if (_loadingPOIs && _pois.isEmpty)

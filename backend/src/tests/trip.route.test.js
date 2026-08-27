@@ -65,6 +65,44 @@ describe("POST /api/trip/plan", () => {
     expect(res.body.fuel).toHaveProperty("needsRefuel");
   });
 
+  test("400 when waypoints is not an array of valid points", async () => {
+    const res = await request(app)
+      .post("/api/trip/plan")
+      .send({
+        start: { lat: 12.9716, lng: 77.5946 },
+        end: { lat: 14.0, lng: 79.5 },
+        waypoints: [{ foo: 1 }],
+        vehicle: { type: "car", efficiencyKmPerLiter: 15, tankCapacityLiters: 40, currentFuelLiters: 35 },
+      });
+    expect(res.status).toBe(400);
+  });
+
+  test("200 (not 502) for a very short trip that rounds to 0 minutes", async () => {
+    // A few-hundred-metre hop: the routing provider returns ~0 min, which used
+    // to make estimateTripDays throw and 502 the whole plan.
+    getRoute.mockResolvedValue({
+      distanceKm: 0.3,
+      durationMin: 0,
+      coordinates: [
+        { lat: 12.9716, lng: 77.5946 },
+        { lat: 12.9726, lng: 77.5956 },
+      ],
+    });
+    getTollEstimate.mockResolvedValue(null);
+    findPlacesAlongRoute.mockResolvedValue([]);
+
+    const res = await request(app)
+      .post("/api/trip/plan")
+      .send({
+        start: { lat: 12.9716, lng: 77.5946 },
+        end: { lat: 12.9726, lng: 77.5956 },
+        vehicle: { type: "car", efficiencyKmPerLiter: 15, tankCapacityLiters: 40, currentFuelLiters: 35 },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.estimatedDays).toBe(1);
+  });
+
   test("trip plan still succeeds even if the toll lookup fails", async () => {
     getRoute.mockResolvedValue({
       distanceKm: 100,

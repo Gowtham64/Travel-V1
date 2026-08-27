@@ -99,11 +99,14 @@ async function findPlacesAlongRoute(routeCoordinates, category, radiusMeters = 5
 
   const samples = sampleRoutePoints(routeCoordinates, sampleEveryKm);
 
+  // Query nodes, ways AND relations: many real-world features (fuel stations,
+  // hotels, lakes) are mapped as areas/ways, not points. `out center` gives those
+  // a representative lat/lon so they aren't silently dropped.
   const clauses = samples
-    .map((p) => `node${filter}(around:${radiusMeters},${p.lat},${p.lng});`)
+    .map((p) => `nwr${filter}(around:${radiusMeters},${p.lat},${p.lng});`)
     .join("\n  ");
 
-  const query = `[out:json][timeout:25];\n(\n  ${clauses}\n);\nout body;`;
+  const query = `[out:json][timeout:25];\n(\n  ${clauses}\n);\nout center;`;
 
   const data = await queryOverpass(query);
   const elements = data.elements || [];
@@ -113,12 +116,16 @@ async function findPlacesAlongRoute(routeCoordinates, category, radiusMeters = 5
   const places = [];
   for (const el of elements) {
     if (seen.has(el.id)) continue;
+    // Nodes carry lat/lon directly; ways/relations carry a computed `center`.
+    const lat = el.lat ?? (el.center && el.center.lat);
+    const lng = el.lon ?? (el.center && el.center.lon);
+    if (lat == null || lng == null) continue;
     seen.add(el.id);
     places.push({
       id: el.id,
       name: (el.tags && el.tags.name) || `Unnamed ${category}`,
-      lat: el.lat,
-      lng: el.lon,
+      lat,
+      lng,
     });
   }
   return places;

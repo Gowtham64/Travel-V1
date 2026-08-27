@@ -11,6 +11,7 @@ const geocodeRouter = require("./routes/geocode");
 const aiRouter = require("./routes/ai");
 const accountRouter = require("./routes/account");
 const currencyRouter = require("./routes/currency");
+const treksRouter = require("./routes/treks");
 const statusRouter = require("./routes/status");
 const { metricsMiddleware } = require("./services/metricsService");
 
@@ -89,6 +90,7 @@ app.use("/api/geocode", geocodeRouter);
 app.use("/api/ai", aiLimiter, aiRouter);
 app.use("/api/account", accountRouter);
 app.use("/api/currency", currencyRouter);
+app.use("/api/treks", treksRouter);
 app.use("/", statusRouter);
 
 // --- 404 for unmatched API routes (sanitized JSON, never an HTML stack page) ---

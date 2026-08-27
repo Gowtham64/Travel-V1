@@ -126,6 +126,31 @@ class ApiService {
     );
   }
 
+  /// AllTrails-style discovery: hiking/trekking trails near a point, nearest first.
+  Future<List<Trek>> searchTreks({
+    required double lat,
+    required double lng,
+    double radiusMeters = 20000,
+    int limit = 20,
+  }) async {
+    final uri = Uri.parse('$baseUrl/api/treks').replace(queryParameters: {
+      'lat': lat.toString(),
+      'lng': lng.toString(),
+      'radius': radiusMeters.round().toString(),
+      'limit': limit.toString(),
+    });
+    final response = await http.get(uri).timeout(const Duration(seconds: 60), onTimeout: () {
+      throw ApiException('Server is waking up (can take up to 60s). Please try again in a moment!');
+    });
+    if (response.statusCode != 200) {
+      throw ApiException('Trek search failed (${response.statusCode})');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    return (body['treks'] as List? ?? [])
+        .map((e) => Trek.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<TripPlan> planTrip({
     required GeoPoint start,
     required GeoPoint end,

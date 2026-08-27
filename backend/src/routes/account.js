@@ -89,8 +89,9 @@ router.get("/profile", async (req, res) => {
 
 router.put("/profile", async (req, res) => {
   try {
+    const body = req.body || {}; // express.json() leaves this undefined with no/!JSON body
     const row = { user_id: req.user.id };
-    for (const f of PROFILE_FIELDS) if (req.body[f] !== undefined) row[f] = req.body[f];
+    for (const f of PROFILE_FIELDS) if (body[f] !== undefined) row[f] = body[f];
     const { data, error } = await req.supabase.from("user_profiles").upsert(row, { onConflict: "user_id" }).select().single();
     if (error) throw error;
     res.json(data);

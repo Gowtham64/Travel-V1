@@ -43,15 +43,97 @@ class RefuelStop {
   final double lng;
   final double distanceFromStartKm;
 
-  const RefuelStop({required this.lat, required this.lng, required this.distanceFromStartKm});
+  /// Name of the real fuel station this stop snaps to (empty for legacy/geometric stops).
+  final String name;
+
+  /// OSM id of the station, when snapped to a real pump.
+  final int? stationId;
+
+  /// How far this station sits off the driving route, in km.
+  final double? offRouteKm;
+
+  /// Estimated fuel left in the tank when arriving at this station, in litres.
+  final double? fuelOnArrivalLiters;
+
+  const RefuelStop({
+    required this.lat,
+    required this.lng,
+    required this.distanceFromStartKm,
+    this.name = '',
+    this.stationId,
+    this.offRouteKm,
+    this.fuelOnArrivalLiters,
+  });
+
+  /// True when this stop is a real, named fuel station rather than a geometric marker.
+  bool get isRealStation => name.isNotEmpty;
 
   factory RefuelStop.fromJson(Map<String, dynamic> json) => RefuelStop(
         lat: (json['lat'] as num).toDouble(),
         lng: (json['lng'] as num).toDouble(),
         distanceFromStartKm: (json['distanceFromStartKm'] as num).toDouble(),
+        name: (json['name'] as String?) ?? '',
+        stationId: (json['stationId'] as num?)?.toInt(),
+        offRouteKm: (json['offRouteKm'] as num?)?.toDouble(),
+        fuelOnArrivalLiters: (json['fuelOnArrivalLiters'] as num?)?.toDouble(),
       );
 
   LatLng toLatLng() => LatLng(lat, lng);
+}
+
+/// A hiking/trekking trail surfaced by the AllTrails-style discovery feature.
+class Trek {
+  final String id;
+  final String name;
+  final double lat;
+  final double lng;
+  final double distanceFromSearchKm;
+  final double? lengthKm;
+  final String? difficulty;
+  final String type;
+  final String? description;
+  final String? imageUrl;
+
+  /// Ordered trail geometry (may be empty when OSM has no line for it).
+  final List<LatLng> path;
+
+  const Trek({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    required this.distanceFromSearchKm,
+    this.lengthKm,
+    this.difficulty,
+    this.type = 'trail',
+    this.description,
+    this.imageUrl,
+    this.path = const [],
+  });
+
+  bool get hasPath => path.length > 1;
+
+  LatLng toLatLng() => LatLng(lat, lng);
+  GeoPoint toGeoPoint() => GeoPoint(lat: lat, lng: lng, name: name);
+
+  factory Trek.fromJson(Map<String, dynamic> json) => Trek(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        lat: (json['lat'] as num).toDouble(),
+        lng: (json['lng'] as num).toDouble(),
+        distanceFromSearchKm: (json['distanceFromSearchKm'] as num?)?.toDouble() ?? 0,
+        lengthKm: (json['lengthKm'] as num?)?.toDouble(),
+        difficulty: json['difficulty'] as String?,
+        type: (json['type'] as String?) ?? 'trail',
+        description: json['description'] as String?,
+        imageUrl: json['imageUrl'] as String?,
+        path: (json['path'] as List? ?? [])
+            .map((e) => LatLng(
+                  ((e as Map)['lat'] as num).toDouble(),
+                  (e['lng'] as num).toDouble(),
+                ))
+            .toList(),
+      );
 }
 
 class FuelPlan {
@@ -59,11 +141,21 @@ class FuelPlan {
   final double totalDistanceKm;
   final List<RefuelStop> refuelStops;
 
-  const FuelPlan({required this.needsRefuel, required this.totalDistanceKm, required this.refuelStops});
+  /// True when part of the route has no reachable fuel station on the current
+  /// plan — the driver risks running dry and should carry extra fuel or reroute.
+  final bool unreachable;
+
+  const FuelPlan({
+    required this.needsRefuel,
+    required this.totalDistanceKm,
+    required this.refuelStops,
+    this.unreachable = false,
+  });
 
   factory FuelPlan.fromJson(Map<String, dynamic> json) => FuelPlan(
         needsRefuel: json['needsRefuel'] as bool,
         totalDistanceKm: (json['totalDistanceKm'] as num).toDouble(),
+        unreachable: (json['unreachable'] as bool?) ?? false,
         refuelStops: (json['refuelStops'] as List)
             .map((e) => RefuelStop.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -303,10 +395,77 @@ class DayPlan {
       );
 }
 
+class WikiAttraction {
+  final int pageid;
+  final String title;
+  final double lat;
+  final double lng;
+  final int distanceMeters;
+  final String summary;
+  final String? thumbnailUrl;
+  final String pageUrl;
+
+  const WikiAttraction({
+    required this.pageid,
+    required this.title,
+    required this.lat,
+    required this.lng,
+    required this.distanceMeters,
+    required this.summary,
+    this.thumbnailUrl,
+    required this.pageUrl,
+  });
+
+  factory WikiAttraction.fromJson(Map<String, dynamic> json) => WikiAttraction(
+        pageid: (json['pageid'] as num?)?.toInt() ?? 0,
+        title: json['title'] as String? ?? 'Attraction',
+        lat: (json['lat'] as num?)?.toDouble() ?? 0.0,
+        lng: (json['lng'] as num?)?.toDouble() ?? 0.0,
+        distanceMeters: (json['distanceMeters'] as num?)?.toInt() ?? 0,
+        summary: json['summary'] as String? ?? '',
+        thumbnailUrl: json['thumbnailUrl'] as String?,
+        pageUrl: json['pageUrl'] as String? ?? '',
+      );
+}
+
+class DestinationEvent {
+  final String id;
+  final String title;
+  final String category;
+  final String location;
+  final String date;
+  final String description;
+  final String? url;
+
+  const DestinationEvent({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.location,
+    required this.date,
+    required this.description,
+    this.url,
+  });
+
+  factory DestinationEvent.fromJson(Map<String, dynamic> json) => DestinationEvent(
+        id: json['id'] as String? ?? '',
+        title: json['title'] as String? ?? 'Local Event',
+        category: json['category'] as String? ?? 'General',
+        location: json['location'] as String? ?? '',
+        date: json['date'] as String? ?? 'Upcoming',
+        description: json['description'] as String? ?? '',
+        url: json['url'] as String?,
+      );
+}
+
 class TripPlan {
   final double distanceKm;
   final int durationMin;
   final List<GeoPoint> coordinates;
+
+  /// True when expressways/motorways were excluded from this route because the
+  /// vehicle (2-/3-wheeler) is legally barred from them.
+  final bool avoidedMotorways;
   final int estimatedDays;
   final FuelPlan fuel;
   final TollEstimate? toll;
@@ -316,11 +475,14 @@ class TripPlan {
   final List<DayPlan> itinerary;
   final TripBudget? budget;
   final Map<String, List<PlaceOfInterest>> places;
+  final List<WikiAttraction> wikiAttractions;
+  final List<DestinationEvent> events;
 
   const TripPlan({
     required this.distanceKm,
     required this.durationMin,
     required this.coordinates,
+    this.avoidedMotorways = false,
     required this.estimatedDays,
     required this.fuel,
     required this.toll,
@@ -330,6 +492,8 @@ class TripPlan {
     required this.itinerary,
     required this.budget,
     required this.places,
+    this.wikiAttractions = const [],
+    this.events = const [],
   });
 
   factory TripPlan.fromJson(Map<String, dynamic> json) {
@@ -342,6 +506,7 @@ class TripPlan {
       coordinates: (route['coordinates'] as List)
           .map((e) => GeoPoint.fromJson(e as Map<String, dynamic>))
           .toList(),
+      avoidedMotorways: (route['avoidedMotorways'] as bool?) ?? false,
       estimatedDays: json['estimatedDays'] as int,
       fuel: FuelPlan.fromJson(json['fuel'] as Map<String, dynamic>),
       toll: json['toll'] != null ? TollEstimate.fromJson(json['toll'] as Map<String, dynamic>) : null,
@@ -362,6 +527,12 @@ class TripPlan {
           (value as List).map((e) => PlaceOfInterest.fromJson(e as Map<String, dynamic>)).toList(),
         ),
       ),
+      wikiAttractions: (json['wikiAttractions'] as List? ?? [])
+          .map((e) => WikiAttraction.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      events: (json['events'] as List? ?? [])
+          .map((e) => DestinationEvent.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

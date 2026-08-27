@@ -1902,7 +1902,15 @@ class _PlanTabState extends State<_PlanTab> {
                     onPressed: () {
                       setState(() {
                         _days.removeAt(di);
-                        if (_selectedDay >= _days.length) _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+                        // Keep _selectedDay pointing at the SAME day: shift it down
+                        // when a day at or before it is removed, then clamp.
+                        if (di < _selectedDay) {
+                          _selectedDay -= 1;
+                        }
+                        if (_selectedDay >= _days.length) {
+                          _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+                        }
+                        if (_selectedDay < 0) _selectedDay = 0;
                       });
                       _persist();
                     },

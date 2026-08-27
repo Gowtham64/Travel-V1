@@ -23,9 +23,12 @@ if (supabaseUrl && supabaseKey) {
 
 /**
  * Generate a hash for a route to use as a cache key.
+ *
+ * `options` (e.g. { avoidMotorways: true }) is part of the key so a bike route
+ * that avoids expressways is never served from a car's cached route and vice versa.
  */
-function getRouteHash(start, end, waypoints) {
-  const data = JSON.stringify({ start, end, waypoints });
+function getRouteHash(start, end, waypoints, options = {}) {
+  const data = JSON.stringify({ start, end, waypoints, options });
   return crypto.createHash('sha256').update(data).digest('hex');
 }
 

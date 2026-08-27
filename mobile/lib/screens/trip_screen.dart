@@ -180,6 +180,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _ticker?.dispose();
     _positionStream?.cancel();
     _voice.dispose();
+    _mapController.dispose();
     // Restore normal orientation/chrome if we left while in Car Mode.
     if (_isCarMode && !kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -228,6 +229,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _saveTrip() async {
+    // A plan with no route geometry has nothing to save; guard the .first/.last
+    // access below, which would otherwise throw StateError (No element).
+    if (_currentPlan.coordinates.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This trip has no route to save yet.')),
+      );
+      return;
+    }
     final session = Supabase.instance.client.auth.currentSession;
     if (session == null) {
       showDialog(
@@ -1093,6 +1102,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   List<Marker> _buildMarkers(BuildContext context) {
     final markers = <Marker>[];
+
+    // No route geometry → no start/end pins to place (guards .first/.last below).
+    if (_currentPlan.coordinates.isEmpty) return markers;
 
     // Start point pin
     markers.add(_pin(
@@ -1968,6 +1980,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// Computes where along the route the tank would run low, using the entered
   /// current fuel, tank size and mileage. Refuels are planned at 90% of range.
   List<({double km, String near})> _computeFuelStops() {
+    // Prefer the backend plan, which snaps each refuel stop to a real fuel
+    // station the vehicle can actually reach on the fuel it will have left.
+    final plan = _currentPlan.fuel;
+    if (plan.refuelStops.any((s) => s.isRealStation) || plan.unreachable) {
+      // When the backend flags the route as unreachable it is authoritative —
+      // surface only its (possibly empty) real stops plus the warning banner,
+      // never geometric markers that would contradict "no station in range".
+      return plan.refuelStops.map((s) {
+        final off = (s.offRouteKm != null && s.offRouteKm! >= 0.1)
+            ? ' (~${s.offRouteKm!.toStringAsFixed(0)} km off route)'
+            : '';
+        final arrival = (s.fuelOnArrivalLiters != null)
+            ? ' · ~${s.fuelOnArrivalLiters!.toStringAsFixed(1)} L left on arrival'
+            : '';
+        final label = s.isRealStation ? s.name : 'Fuel station';
+        return (km: s.distanceFromStartKm, near: '$label$off$arrival');
+      }).toList();
+    }
+
     final v = widget.vehicle;
     final eff = v.efficiencyKmPerLiter;
     final coords = _currentPlan.coordinates;
@@ -2020,6 +2051,24 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_currentPlan.avoidedMotorways) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              margin: const EdgeInsets.only(bottom: 10),
+              decoration: BoxDecoration(
+                color: Colors.lightBlueAccent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.lightBlueAccent.withOpacity(0.35)),
+              ),
+              child: Row(children: [
+                const Icon(Icons.no_transfer, color: Colors.lightBlueAccent, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(
+                    'Expressways avoided — 2-/3-wheelers aren’t allowed on access-controlled highways.',
+                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12.5))),
+              ]),
+            ),
+          ],
           // Fuel-stop planner
           _toolkitCard(
             icon: Icons.local_gas_station,
@@ -2056,6 +2105,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                               style: const TextStyle(color: Colors.white, fontSize: 13))),
                         ]),
                       )),
+                if (_currentPlan.fuel.unreachable) ...[
+                  const SizedBox(height: 8),
+                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 16),
+                    const SizedBox(width: 6),
+                    Expanded(child: Text(
+                        'Part of this route has no fuel station within range — carry a spare canister or plan a detour.',
+                        style: TextStyle(color: Colors.amberAccent.withOpacity(0.95), fontSize: 12.5))),
+                  ]),
+                ],
               ],
             ),
           ),
@@ -2892,15 +2951,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final int speedKmh = _isLiveNavigating
         ? _liveSpeedKmh.round()
         : (_isTollStop || _activeStopHighlight != null ? 0 : (_currentSpeedModifier * 80).round());
+    // Preview mode derives remaining distance/time from the REAL plan scaled by
+    // simulated progress (previously hardcoded to 140 km / 110 min / 3:45 PM).
+    final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
     final String remainingDistanceKm = _isLiveNavigating
         ? _liveRemainingKm.toStringAsFixed(1)
-        : ((1.0 - _tripProgressPercent) * 140.0).toStringAsFixed(1);
+        : (_currentPlan.distanceKm * remainingFrac).toStringAsFixed(1);
     final int remainingMinutes = _isLiveNavigating
         ? _liveRemainingMin
-        : ((1.0 - _tripProgressPercent) * 110.0).round();
-    final String etaText = _isLiveNavigating
-        ? _formatEta(remainingMinutes)
-        : 'ETA 3:45 PM';
+        : (_currentPlan.durationMin * remainingFrac).round();
+    final String etaText = _formatEta(remainingMinutes);
 
     final bool isDesktop = MediaQuery.of(context).size.width > 900;
     return Positioned(
