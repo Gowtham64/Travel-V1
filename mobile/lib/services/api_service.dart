@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
+import '../config/app_config.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -107,6 +108,15 @@ class ApiService {
   }
 
   Future<GeoPoint> geocode(String address) async {
+    // Prefer client-side Mapbox geocoding: the app's Mapbox token is typically
+    // URL-restricted to this web origin, so it works from the browser but is
+    // Forbidden (403) from the backend — and the backend's Nominatim fallback
+    // gets rate-limited (429) on shared cloud IPs. Going direct avoids both.
+    if (AppConfig.hasMapboxToken) {
+      final gp = await _geocodeWithMapbox(address);
+      if (gp != null) return gp;
+    }
+
     final uri = Uri.parse('$baseUrl/api/geocode').replace(queryParameters: {'q': address});
     final response = await http.get(uri).timeout(const Duration(seconds: 60), onTimeout: () {
       throw ApiException('Server is waking up (can take up to 60s). Please try again in a moment!');
@@ -150,6 +160,34 @@ class ApiService {
     return (body['treks'] as List? ?? [])
         .map((e) => Trek.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Geocode directly against Mapbox from the client. Returns null on any error
+  /// or no match so the caller can fall back to the backend geocoder.
+  Future<GeoPoint?> _geocodeWithMapbox(String address) async {
+    try {
+      final uri = Uri.parse(
+              'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(address)}.json')
+          .replace(queryParameters: {
+        'access_token': AppConfig.mapboxToken,
+        'limit': '1',
+        'language': 'en',
+      });
+      final response = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) return null;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final features = body['features'] as List? ?? [];
+      if (features.isEmpty) return null;
+      final f = features.first as Map<String, dynamic>;
+      final center = f['center'] as List; // [lng, lat]
+      return GeoPoint(
+        lat: (center[1] as num).toDouble(),
+        lng: (center[0] as num).toDouble(),
+        name: (f['place_name'] as String?) ?? address,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Lazily fetch one trail's line geometry (kept out of the discovery list so
