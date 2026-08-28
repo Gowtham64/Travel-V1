@@ -8,6 +8,9 @@ import kotlin.math.sqrt
 /** A lat/lng pair. */
 data class LatLngD(val lat: Double, val lng: Double)
 
+/** A nearby point of interest (fuel, hospital, etc.). */
+data class Poi(val name: String, val lat: Double, val lng: Double, val distanceKm: Double)
+
 /**
  * Process-wide bridge between the Flutter engine (which pushes route + maneuver
  * + telemetry over the `com.travelapp.car` MethodChannel) and the Android Auto
@@ -38,6 +41,12 @@ object CarNavState {
     var curLat: Double? = null
     var curLng: Double? = null
     var bearing: Double? = null
+
+    // User zoom nudge from the on-screen +/- buttons (applied to the base zoom).
+    var zoomOffset: Int = 0
+
+    // A nearby POI the user selected to mark on the map.
+    var focusPoi: LatLngD? = null
 
     private val listeners = mutableListOf<() -> Unit>()
 

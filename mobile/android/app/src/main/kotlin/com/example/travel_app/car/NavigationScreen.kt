@@ -13,9 +13,12 @@ import androidx.car.app.SurfaceCallback
 import androidx.car.app.SurfaceContainer
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
+import androidx.car.app.model.CarIcon
 import androidx.car.app.model.DateTimeWithZone
 import androidx.car.app.model.Distance
 import androidx.car.app.model.Template
+import androidx.core.graphics.drawable.IconCompat
+import com.example.travel_app.R
 import androidx.car.app.navigation.model.MessageInfo
 import androidx.car.app.navigation.model.Maneuver
 import androidx.car.app.navigation.model.NavigationTemplate
@@ -64,17 +67,56 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
 
     // ---- Template (maneuver card + ETA) ----
 
+    private fun carIcon(resId: Int): CarIcon =
+        CarIcon.Builder(IconCompat.createWithResource(carContext, resId)).build()
+
     override fun onGetTemplate(): Template {
+        // Top action strip: recenter (clears zoom nudge + POI) and Nearby search.
         val actionStrip = ActionStrip.Builder()
             .addAction(
                 Action.Builder()
+                    .setIcon(carIcon(R.drawable.ic_nearby))
+                    .setTitle("Nearby")
+                    .setOnClickListener { screenManager.push(PoiCategoryScreen(carContext)) }
+                    .build()
+            )
+            .addAction(
+                Action.Builder()
                     .setTitle("Re-center")
-                    .setOnClickListener { renderMap() }
+                    .setOnClickListener {
+                        CarNavState.zoomOffset = 0
+                        CarNavState.focusPoi = null
+                        renderMap()
+                    }
                     .build()
             )
             .build()
 
-        val builder = NavigationTemplate.Builder().setActionStrip(actionStrip)
+        // Map action strip: zoom in / out.
+        val mapActionStrip = ActionStrip.Builder()
+            .addAction(
+                Action.Builder()
+                    .setIcon(carIcon(R.drawable.ic_zoom_in))
+                    .setOnClickListener {
+                        CarNavState.zoomOffset = (CarNavState.zoomOffset + 1).coerceAtMost(4)
+                        renderMap()
+                    }
+                    .build()
+            )
+            .addAction(
+                Action.Builder()
+                    .setIcon(carIcon(R.drawable.ic_zoom_out))
+                    .setOnClickListener {
+                        CarNavState.zoomOffset = (CarNavState.zoomOffset - 1).coerceAtLeast(-6)
+                        renderMap()
+                    }
+                    .build()
+            )
+            .build()
+
+        val builder = NavigationTemplate.Builder()
+            .setActionStrip(actionStrip)
+            .setMapActionStrip(mapActionStrip)
 
         val s = CarNavState
         if (s.isNavigating) {

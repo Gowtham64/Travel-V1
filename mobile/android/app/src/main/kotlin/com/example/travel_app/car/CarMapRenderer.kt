@@ -74,7 +74,8 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
         val h = (area.height()).toDouble()
         if (w <= 0 || h <= 0) return
 
-        val z = fixedZoom ?: zoomForBounds(route, w, h)
+        val baseZ = fixedZoom ?: zoomForBounds(route, w, h)
+        val z = (baseZ + CarNavState.zoomOffset).coerceIn(3, 19)
         val cwx = lngToWorldX(center.lng, z)
         val cwy = latToWorldY(center.lat, z)
         val cx = area.left + w / 2.0
@@ -128,6 +129,14 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
             canvas.drawCircle(sx(route.first().lng), sy(route.first().lat), 16f, dot)
             dot.color = Color.rgb(239, 68, 68)
             canvas.drawCircle(sx(route.last().lng), sy(route.last().lat), 16f, dot)
+        }
+
+        // Selected nearby POI (orange pin).
+        CarNavState.focusPoi?.let {
+            val poiPaint = Paint().apply { color = Color.rgb(249, 115, 22); isAntiAlias = true }
+            val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
+            canvas.drawCircle(sx(it.lng), sy(it.lat), 18f, ring)
+            canvas.drawCircle(sx(it.lng), sy(it.lat), 12f, poiPaint)
         }
 
         // Vehicle marker at the current position.
