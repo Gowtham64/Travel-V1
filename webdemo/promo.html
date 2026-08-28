@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Voyplan · Travel Reel</title>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{ --ink:#FDF6EC; --amber:#FFB84D; --coral:#FF7A59; --display:'Baloo 2',sans-serif; --body:'Plus Jakarta Sans',sans-serif; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:#000;overflow:hidden;font-family:var(--body);color:var(--ink)}
+  #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#000}
+  #stage{position:relative;width:1080px;height:1920px;transform-origin:center center;overflow:hidden;background:#0C0A24}
+
+  .slide{position:absolute;inset:0;opacity:0;will-change:transform,opacity}
+  .slide .img{position:absolute;inset:-8%;background-size:cover;background-position:center;will-change:transform}
+  .scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.35) 0%,rgba(0,0,0,0) 30%,rgba(0,0,0,.05) 55%,rgba(12,10,36,.82) 100%)}
+
+  /* Captions live in a fixed safe area */
+  .cap{position:absolute;left:80px;right:80px;bottom:300px;z-index:20;text-align:center;opacity:0}
+  .cap .eyebrow{font-weight:700;letter-spacing:6px;text-transform:uppercase;font-size:28px;color:var(--amber);margin-bottom:18px}
+  .cap h1{font-family:var(--display);font-weight:800;font-size:96px;line-height:1.02;text-wrap:balance;text-shadow:0 6px 30px rgba(0,0,0,.6)}
+  .cap p{font-size:40px;font-weight:600;color:#EDE7FF;margin-top:16px;text-shadow:0 3px 18px rgba(0,0,0,.6)}
+  .cap .route{color:var(--amber)}
+
+  /* Mini itinerary chip strip (one quick beat) */
+  .mini{position:absolute;left:80px;right:80px;top:520px;z-index:20;display:flex;flex-direction:column;gap:16px;opacity:0}
+  .mrow{display:flex;align-items:center;gap:20px;background:rgba(12,10,36,.55);backdrop-filter:blur(8px);
+    border:1.5px solid rgba(255,255,255,.16);border-radius:20px;padding:20px 26px}
+  .mrow .t{font-variant-numeric:tabular-nums;font-weight:700;font-size:34px;color:var(--amber);width:150px}
+  .mrow .l{font-family:var(--display);font-weight:700;font-size:40px}
+
+  /* Brand + progress */
+  .brand{position:absolute;top:70px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:16px;z-index:30;opacity:0}
+  .brand .logo{width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,var(--coral),var(--amber));display:flex;align-items:center;justify-content:center;font-size:32px}
+  .brand .name{font-family:var(--display);font-weight:800;font-size:44px}
+  .brand .name b{color:var(--amber)}
+  .final{position:absolute;inset:0;z-index:25;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;opacity:0;text-align:center;padding:0 80px}
+  .final h1{font-family:var(--display);font-weight:800;font-size:104px;line-height:1.03;text-shadow:0 6px 30px rgba(0,0,0,.6)}
+  .steps{display:flex;gap:18px;align-items:center;font-family:var(--display);font-weight:800;font-size:46px}
+  .steps .a{color:var(--coral)}.steps .b{color:var(--amber)}.steps .c{color:#38BDF8}.steps .ar{color:#B7B2E0;font-size:38px}
+  .prog{position:absolute;top:0;left:0;height:8px;background:linear-gradient(90deg,var(--coral),var(--amber));width:0;z-index:40}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+  <div class="prog" id="prog"></div>
+  <div class="brand" id="brand"><div class="logo">🧭</div><div class="name">Voy<b>plan</b></div></div>
+
+  <!-- slides get background images set in JS (with a 9:16 crop) -->
+  <div class="slide" id="sl0"><div class="img"></div><div class="scrim"></div></div>
+  <div class="slide" id="sl1"><div class="img"></div><div class="scrim"></div></div>
+  <div class="slide" id="sl2"><div class="img"></div><div class="scrim"></div></div>
+  <div class="slide" id="sl3"><div class="img"></div><div class="scrim"></div></div>
+  <div class="slide" id="sl4"><div class="img"></div><div class="scrim"></div></div>
+
+  <div class="cap" id="c0"><div class="eyebrow">A weekend away</div><h1>Where to next?</h1></div>
+  <div class="cap" id="c1"><div class="eyebrow">Bengaluru → <span class="route">Coorg</span></div><h1>3 days,<br>planned in seconds</h1></div>
+
+  <div class="mini" id="mini">
+    <div class="mrow"><span class="t">08:00</span><span class="l">🚩 Start · Breakfast</span></div>
+    <div class="mrow"><span class="t">10:00</span><span class="l">📸 Sightseeing</span></div>
+    <div class="mrow"><span class="t">13:00</span><span class="l">🍽️ Lunch · Rest</span></div>
+    <div class="mrow"><span class="t">17:00</span><span class="l">☕ Coffee · Explore</span></div>
+    <div class="mrow"><span class="t">20:00</span><span class="l">🍷 Dinner · 🏨 Stay</span></div>
+  </div>
+
+  <div class="cap" id="c3"><h1>Every stop.<br>Every break.<br><span class="route">Timed by AI.</span></h1></div>
+
+  <div class="final" id="final">
+    <div class="brand" style="position:static;opacity:1"><div class="logo">🧭</div><div class="name">Voy<b>plan</b></div></div>
+    <h1>Your trip.<br>Planned by AI.</h1>
+    <div class="steps"><span class="a">Plan</span><span class="ar">→</span><span class="b">Optimize</span><span class="ar">→</span><span class="c">Explore</span></div>
+  </div>
+</div></div>
+
+<script src="gsap.min.js"></script>
+<script>
+(function(){
+  function fit(){ var s=Math.min(innerWidth/1080, innerHeight/1920); document.getElementById('stage').style.transform='scale('+s+')'; }
+  addEventListener('resize',fit); fit();
+  var reduce = matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Real destination photos (Unsplash), cropped 9:16.
+  var q='?q=80&w=1080&h=1920&fit=crop&crop=entropy&auto=format';
+  var imgs=[
+    'https://images.unsplash.com/photo-1444723121867-7a241cacace9', // city dusk (Bengaluru vibe)
+    'https://images.unsplash.com/photo-1469474968028-56623f02e42e', // misty hills
+    'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1', // winding forest road
+    'https://images.unsplash.com/photo-1551632811-561732d1e306', // trek / trail
+    'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86'  // mountain valley
+  ];
+  for(var i=0;i<imgs.length;i++){
+    var el=document.querySelector('#sl'+i+' .img');
+    el.style.backgroundImage="url('"+imgs[i]+q+"')";
+    // preload
+    var im=new Image(); im.src=imgs[i]+q;
+  }
+
+  function kb(sel){ // Ken-Burns on a slide's image
+    gsap.fromTo('#'+sel+' .img',{scale:1.08,xPercent:-2,yPercent:-2},{scale:1.24,xPercent:2,yPercent:2,duration:6,ease:'none'});
+  }
+
+  var HOLD = reduce?.3:1;
+  var tl=gsap.timeline({repeat:-1,defaults:{ease:'power2.out'}});
+  tl.eventCallback('onUpdate',function(){document.getElementById('prog').style.width=(tl.progress()*100).toFixed(1)+'%';});
+
+  // Slide 0 — hook (first 2s attention)
+  tl.set('#sl0',{opacity:1}).add(function(){kb('sl0');})
+    .fromTo('#brand',{opacity:0,y:-10},{opacity:1,y:0,duration:.6})
+    .fromTo('#c0',{opacity:0,y:40},{opacity:1,y:0,duration:.7},'-=.2')
+    .to({},{duration:1.6*HOLD})
+    .to(['#c0','#sl0'],{opacity:0,duration:.7});
+
+  // Slide 1 — destination
+  tl.set('#sl1',{opacity:1}).add(function(){kb('sl1');})
+    .fromTo('#c1',{opacity:0,y:40},{opacity:1,y:0,duration:.7})
+    .to({},{duration:1.8*HOLD})
+    .to(['#c1'],{opacity:0,duration:.6})
+    .to('#sl1',{opacity:0,duration:.7},'-=.2');
+
+  // Slide 2 — the AI itinerary beat (mini timeline over road footage)
+  tl.set('#sl2',{opacity:1}).add(function(){kb('sl2');})
+    .fromTo('#mini .mrow',{opacity:0,x:-30},{opacity:1,x:0,stagger:.18,duration:.5},'-=.1')
+    .to({},{duration:1.6*HOLD})
+    .to('#mini',{opacity:0,duration:.5})
+    .to('#sl2',{opacity:0,duration:.7},'-=.1');
+
+  // Slide 3 — payoff line over trail footage
+  tl.set('#sl3',{opacity:1}).add(function(){kb('sl3');})
+    .fromTo('#c3',{opacity:0,y:40},{opacity:1,y:0,duration:.7})
+    .to({},{duration:1.6*HOLD})
+    .to(['#c3','#sl3'],{opacity:0,duration:.7});
+
+  // Slide 4 — brand close
+  tl.set('#sl4',{opacity:1}).add(function(){kb('sl4');})
+    .fromTo('#final',{opacity:0,scale:.96},{opacity:1,scale:1,duration:.7})
+    .from('#final .steps span',{opacity:0,y:20,scale:.8,stagger:.12,duration:.4},'-=.1')
+    .to({},{duration:2.2*HOLD})
+    .to('#final',{opacity:0,duration:.7})
+    .to('#sl4',{opacity:0,duration:.7},'-=.5')
+    .set('#mini',{opacity:0});
+})();
+</script>
+</body>
+</html>
