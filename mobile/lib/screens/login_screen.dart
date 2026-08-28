@@ -26,6 +26,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
   final String _bgUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
 
+  /// Where the auth provider should send the user back to.
+  /// - Web: the current page URL (Supabase completes the session in-page).
+  /// - Native: a deep link this app registers (intent-filter in AndroidManifest),
+  ///   so the OAuth callback returns to the app instead of a dead web URL.
+  String _authRedirectUrl() {
+    if (kIsWeb) return Uri.base.toString().split('?').first;
+    return 'io.github.gowtham64.travelapp://login-callback/';
+  }
+
   String _getDeviceAccessInfo() {
     if (kIsWeb) return 'Web Browser';
     try {
@@ -75,13 +84,12 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = true);
 
       try {
-        final currentUrl = Uri.base.toString().split('?').first;
         // Sign up with Supabase Auth (credentials are securely hashed by
         // Supabase Auth — we never persist the raw password ourselves).
         final authResponse = await Supabase.instance.client.auth.signUp(
           email: email,
           password: password,
-          emailRedirectTo: currentUrl,
+          emailRedirectTo: _authRedirectUrl(),
         );
 
         final user = authResponse.user;
@@ -160,10 +168,10 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
     try {
-      final currentUrl = Uri.base.toString().split('?').first;
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: currentUrl, 
+        // Native: returns to the app via the registered deep link; web: the page URL.
+        redirectTo: _authRedirectUrl(),
       );
     } catch (e) {
       if (mounted) {
