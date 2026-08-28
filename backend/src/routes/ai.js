@@ -1,6 +1,7 @@
 const express = require("express");
 const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 const { groundItinerary } = require("../services/itineraryGeo");
+const { estimateBudget } = require("../services/budgetService");
 
 const router = express.Router();
 
@@ -137,7 +138,35 @@ router.post("/smart-itinerary", async (req, res) => {
     } catch (err) {
       console.error("Itinerary distance grounding skipped:", err.message);
     }
-    res.json({ days });
+
+    // Full trip budget: fuel (from total drive distance) + tolls + food + stay.
+    let budget = null;
+    try {
+      let totalKm = 0;
+      for (const day of days) {
+        for (const blk of day.blocks || []) {
+          if (blk.type === "travel" || blk.type === "return") totalKm += Number(blk.distanceKm) || 0;
+        }
+      }
+      const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));
+      const eff = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : 15;
+      // Rough toll estimate (~₹0.7/km of driving) since we have no per-road toll data here.
+      const tollGuess = Math.round(totalKm * 0.7);
+      budget = estimateBudget({
+        distanceKm: Math.round(totalKm),
+        estimatedDays: durationDays,
+        vehicle: { efficiencyKmPerLiter: eff },
+        toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+        options: {
+          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          ...(Number(b.fuelPrice) > 0 ? { fuelPricePerLiter: Number(b.fuelPrice) } : {}),
+        },
+      });
+    } catch (err) {
+      console.error("Itinerary budget estimate skipped:", err.message);
+    }
+
+    res.json({ days, budget });
   } catch (err) {
     handleError(res, err);
   }

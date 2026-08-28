@@ -32,11 +32,13 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   DateTime? _endDate;
   TimeOfDay? _endTime;
   int _days = 2;
+  int _travellers = 2;
   String _mode = 'balanced';
 
   bool _loading = false;
   String? _error;
   List<SmartDay> _itinerary = [];
+  TripBudget? _budget;
 
   @override
   void dispose() {
@@ -74,7 +76,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
           .toList();
-      final days = await _api.aiSmartItinerary(
+      final res = await _api.aiSmartItinerary(
         destination: dest,
         startLocation: _startLocCtrl.text.trim(),
         places: places,
@@ -86,10 +88,14 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         mode: _mode,
         preferences: _prefsCtrl.text.trim(),
         directive: directive,
+        travellers: _travellers,
       );
       if (!mounted) return;
-      setState(() => _itinerary = days);
-      if (days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
+      setState(() {
+        _itinerary = res.days;
+        _budget = res.budget;
+      });
+      if (res.days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
@@ -348,6 +354,18 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             ])
           else
             Text('Duration: $_durationDays day(s)', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+          const SizedBox(height: 12),
+          // Travellers (drives the food/budget totals)
+          Row(children: [
+            Text('Travellers', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+            const SizedBox(width: 12),
+            _stepBtn(Icons.remove, () => setState(() => _travellers = (_travellers - 1).clamp(1, 20))),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Text('$_travellers', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            _stepBtn(Icons.add, () => setState(() => _travellers = (_travellers + 1).clamp(1, 20))),
+          ]),
           const SizedBox(height: 14),
           // Pace mode
           Text('Pace', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
@@ -414,6 +432,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   List<Widget> _results() {
     return [
+      if (_budget != null) ...[
+        _budgetCard(_budget!),
+        const SizedBox(height: 14),
+      ],
       _controlsCard(),
       const SizedBox(height: 14),
       ...RevealIn.stagger(
@@ -447,6 +469,54 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         ),
       ]),
     ];
+  }
+
+  Widget _budgetCard(TripBudget b) {
+    final sym = b.currency == 'INR' ? '₹' : '${b.currency} ';
+    String m(int v) => '$sym${v.toString().replaceAllMapped(RegExp(r'(\d)(?=(\d{3})+$)'), (x) => '${x[1]},')}';
+    Widget row(IconData icon, String label, int value, Color color) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 8),
+            Expanded(child: Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13))),
+            Text(m(value), style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
+          ]),
+        );
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.account_balance_wallet_rounded, color: AppColors.accentLight, size: 20),
+            const SizedBox(width: 8),
+            const Text('Estimated budget', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+            const Spacer(),
+            Text('${b.days}d · ${b.travellers} pax',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12)),
+          ]),
+          const SizedBox(height: 10),
+          row(Icons.local_gas_station_rounded, 'Fuel', b.fuel, const Color(0xFFF97316)),
+          row(Icons.toll_rounded, 'Tolls', b.tolls, const Color(0xFFEAB308)),
+          row(Icons.restaurant_rounded, 'Food', b.food, const Color(0xFF22C55E)),
+          row(Icons.hotel_rounded, 'Hotel stay', b.stay, const Color(0xFF8B5CF6)),
+          row(Icons.more_horiz_rounded, 'Buffer (10%)', b.buffer, Colors.white54),
+          Divider(color: Colors.white.withValues(alpha: 0.15), height: 20),
+          Row(children: [
+            const Text('Total', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+            const Spacer(),
+            Text(m(b.total), style: const TextStyle(color: AppColors.accentLight, fontSize: 18, fontWeight: FontWeight.w800)),
+          ]),
+          const SizedBox(height: 4),
+          Text('≈ ${m(b.perDay)}/day' + (b.travellers > 1 ? ' · ${m((b.total / b.travellers).round())}/person' : ''),
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+          const SizedBox(height: 6),
+          Text('Fuel from the routed distance; tolls, food & stay estimated. Adjust travellers above.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
+        ],
+      ),
+    );
   }
 
   Widget _controlsCard() {

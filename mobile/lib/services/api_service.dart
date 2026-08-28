@@ -461,8 +461,9 @@ class ApiService {
     return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
-  /// Smart, time-blocked AI itinerary with automatic breaks + per-block reasons.
-  Future<List<SmartDay>> aiSmartItinerary({
+  /// Smart, time-blocked AI itinerary with automatic breaks + per-block reasons,
+  /// plus a full trip budget (fuel + tolls + food + stay).
+  Future<({List<SmartDay> days, TripBudget? budget})> aiSmartItinerary({
     required String destination,
     String startLocation = '',
     List<String> places = const [],
@@ -474,6 +475,8 @@ class ApiService {
     String mode = 'balanced',
     String preferences = '',
     String directive = '',
+    int travellers = 1,
+    double? fuelEfficiency,
   }) async {
     final response = await http
         .post(
@@ -490,6 +493,8 @@ class ApiService {
             'durationDays': durationDays,
             'mode': mode,
             'preferences': preferences,
+            'travellers': travellers,
+            if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
             if (directive.isNotEmpty) 'directive': directive,
           }),
         )
@@ -500,8 +505,14 @@ class ApiService {
     if (response.statusCode != 200) {
       throw ApiException('AI request failed (${response.statusCode})');
     }
-    final list = (jsonDecode(response.body) as Map<String, dynamic>)['days'] as List? ?? [];
-    return list.map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>())).toList();
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final days = (body['days'] as List? ?? [])
+        .map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+    final budget = body['budget'] != null
+        ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
+        : null;
+    return (days: days, budget: budget);
   }
 
   Future<String> aiAsk({
