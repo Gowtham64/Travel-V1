@@ -385,10 +385,10 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     final number = TextEditingController(text: b.number);
     final from = TextEditingController(text: b.from);
     final to = TextEditingController(text: b.to);
-    final depart = TextEditingController(text: b.depart);
-    final arrive = TextEditingController(text: b.arrive);
     final seat = TextEditingController(text: b.seat);
     final pnr = TextEditingController(text: b.pnr);
+    String depart = b.depart;
+    String arrive = b.arrive;
     final mode = day.transportMode;
     final carrierLabel = mode == 'flight' ? 'Airline' : mode == 'train' ? 'Train name' : mode == 'bus' ? 'Bus operator' : 'Operator';
     final numberLabel = mode == 'flight' ? 'Flight no.' : mode == 'train' ? 'Train no.' : 'Service no.';
@@ -400,21 +400,40 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
     final saved = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('${mode[0].toUpperCase()}${mode.substring(1)} booking'),
-        content: SingleChildScrollView(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            f(carrier, carrierLabel),
-            f(number, numberLabel),
-            Row(children: [Expanded(child: f(from, 'From')), const SizedBox(width: 10), Expanded(child: f(to, 'To'))]),
-            Row(children: [Expanded(child: f(depart, 'Departs')), const SizedBox(width: 10), Expanded(child: f(arrive, 'Arrives'))]),
-            Row(children: [Expanded(child: f(seat, 'Seat')), const SizedBox(width: 10), Expanded(child: f(pnr, 'PNR / ref'))]),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          Widget timeBtn(String label, String value, void Function(String) onPick) => Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.schedule_rounded, size: 16),
+                  label: Text(value.isEmpty ? label : '$label $value', overflow: TextOverflow.ellipsis),
+                  onPressed: () async {
+                    final t = await showTimePicker(context: ctx, initialTime: TimeOfDay.now());
+                    if (t != null) setLocal(() => onPick(t.format(ctx)));
+                  },
+                ),
+              );
+          return AlertDialog(
+            title: Text('${mode[0].toUpperCase()}${mode.substring(1)} booking'),
+            content: SingleChildScrollView(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                f(carrier, carrierLabel),
+                f(number, numberLabel),
+                Row(children: [Expanded(child: f(from, 'From')), const SizedBox(width: 10), Expanded(child: f(to, 'To'))]),
+                Row(children: [
+                  timeBtn('Departs', depart, (v) => depart = v),
+                  const SizedBox(width: 10),
+                  timeBtn('Arrives', arrive, (v) => arrive = v),
+                ]),
+                const SizedBox(height: 10),
+                Row(children: [Expanded(child: f(seat, 'Seat')), const SizedBox(width: 10), Expanded(child: f(pnr, 'PNR / ref'))]),
+              ]),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+            ],
+          );
+        },
       ),
     );
     if (saved == true) {
@@ -422,7 +441,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         day.booking = TransportBooking(
           carrier: carrier.text.trim(), number: number.text.trim(),
           from: from.text.trim(), to: to.text.trim(),
-          depart: depart.text.trim(), arrive: arrive.text.trim(),
+          depart: depart, arrive: arrive,
           seat: seat.text.trim(), pnr: pnr.text.trim(),
         );
       });
