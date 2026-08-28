@@ -11,7 +11,9 @@ const PROVIDER = (
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+// Groq decommissioned llama-3.3-70b-versatile for this key (404). Default to a
+// currently-available production model; override with GROQ_MODEL if needed.
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct:free";
 
