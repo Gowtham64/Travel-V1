@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Declares to Android Auto that this app uses the templated (Car App Library)
+  experience. Without this, Android Auto's validator rejects the app with
+  "CAR.VALIDATOR: Package DENIED; Uses for TEMPLATE not defined" and it never
+  appears in the car's app launcher.
+-->
+<automotiveApp>
+    <uses name="template" />
+</automotiveApp>

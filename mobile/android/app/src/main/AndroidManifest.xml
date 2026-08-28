@@ -3,6 +3,10 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Required to render Android Auto's NavigationTemplate. -->
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
+    <!-- Required because NavigationScreen draws the route on the car map surface
+         (setSurfaceCallback); without it the app crashes on open with a
+         SecurityException for androidx.car.app.ACCESS_SURFACE. -->
+    <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
 
     <application
         android:label="Voyplan"
@@ -13,6 +17,12 @@
         <meta-data
             android:name="androidx.car.app.minCarApiLevel"
             android:value="1" />
+
+        <!-- Declares the templated car capability so Android Auto's validator
+             accepts the app (otherwise: "Uses for TEMPLATE not defined"). -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
 
         <!-- The navigation service Android Auto binds to when the phone connects. -->
         <service

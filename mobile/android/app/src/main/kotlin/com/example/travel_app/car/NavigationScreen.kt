@@ -42,6 +42,9 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
     // Post back to the main thread (getMainExecutor() needs API 28; minSdk is 23).
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // Renders real OSM map tiles onto the surface; redraws as tiles arrive.
+    private val mapRenderer = CarMapRenderer(onTilesReady = { mainHandler.post { renderMap() } })
+
     // Re-render + refresh the template whenever Flutter pushes new state.
     private val stateListener: () -> Unit = {
         mainHandler.post {
@@ -141,72 +144,39 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
         } ?: return
 
         try {
-            canvas.drawColor(Color.rgb(14, 17, 22)) // matches the app's dark ground
+            canvas.drawColor(Color.rgb(229, 227, 223)) // map paper tone under tiles
 
             val route = CarNavState.route
             val area = visibleArea ?: Rect(0, 0, surfaceWidth, surfaceHeight)
-            val pad = 40f
-            val left = area.left + pad
-            val top = area.top + pad
-            val right = area.right - pad
-            val bottom = area.bottom - pad
-            if (right <= left || bottom <= top) return
+            if (area.width() <= 0 || area.height() <= 0) return
+
+            // Center the map: on the route when there is one, else the estimated
+            // position, else a sensible default so an idle screen still shows a map.
+            val center: LatLngD = when {
+                route.size >= 2 -> {
+                    var minLat = 90.0; var maxLat = -90.0; var minLng = 180.0; var maxLng = -180.0
+                    for (p in route) {
+                        if (p.lat < minLat) minLat = p.lat
+                        if (p.lat > maxLat) maxLat = p.lat
+                        if (p.lng < minLng) minLng = p.lng
+                        if (p.lng > maxLng) maxLng = p.lng
+                    }
+                    LatLngD((minLat + maxLat) / 2, (minLng + maxLng) / 2)
+                }
+                CarNavState.estimatedPosition() != null -> CarNavState.estimatedPosition()!!
+                CarNavState.start != null -> CarNavState.start!!
+                else -> LatLngD(12.9716, 77.5946) // Bengaluru fallback
+            }
+
+            mapRenderer.draw(canvas, area, center, route)
 
             if (route.size < 2) {
                 val hint = Paint().apply {
-                    color = Color.argb(150, 255, 255, 255)
-                    textSize = 34f
+                    color = Color.argb(200, 20, 20, 20)
+                    textSize = 30f
                     isAntiAlias = true
                 }
-                canvas.drawText("No active route", left, (top + bottom) / 2f, hint)
-                return
-            }
-
-            // Fit the route's lat/lng bounds into the drawable area (equirectangular).
-            var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
-            var minLng = Double.MAX_VALUE; var maxLng = -Double.MAX_VALUE
-            for (p in route) {
-                if (p.lat < minLat) minLat = p.lat
-                if (p.lat > maxLat) maxLat = p.lat
-                if (p.lng < minLng) minLng = p.lng
-                if (p.lng > maxLng) maxLng = p.lng
-            }
-            val latSpan = (maxLat - minLat).coerceAtLeast(1e-6)
-            val lngSpan = (maxLng - minLng).coerceAtLeast(1e-6)
-            val w = right - left
-            val h = bottom - top
-            // Preserve aspect ratio so the route isn't stretched.
-            val scale = minOf(w / lngSpan.toFloat(), h / latSpan.toFloat())
-            val offsetX = left + (w - lngSpan.toFloat() * scale) / 2f
-            val offsetY = top + (h - latSpan.toFloat() * scale) / 2f
-            fun sx(lng: Double) = offsetX + ((lng - minLng).toFloat() * scale)
-            fun sy(lat: Double) = offsetY + ((maxLat - lat).toFloat() * scale) // flip Y
-
-            // Route polyline.
-            val linePaint = Paint().apply {
-                color = Color.rgb(96, 165, 250) // accentLight
-                strokeWidth = 10f
-                style = Paint.Style.STROKE
-                isAntiAlias = true
-                strokeCap = Paint.Cap.ROUND
-                strokeJoin = Paint.Join.ROUND
-            }
-            val path = android.graphics.Path()
-            path.moveTo(sx(route[0].lng), sy(route[0].lat))
-            for (i in 1 until route.size) path.lineTo(sx(route[i].lng), sy(route[i].lat))
-            canvas.drawPath(path, linePaint)
-
-            // Start (green) and destination (red) markers.
-            val dot = Paint().apply { isAntiAlias = true }
-            CarNavState.start?.let { dot.color = Color.rgb(34, 197, 94); canvas.drawCircle(sx(it.lng), sy(it.lat), 14f, dot) }
-            CarNavState.end?.let { dot.color = Color.rgb(239, 68, 68); canvas.drawCircle(sx(it.lng), sy(it.lat), 14f, dot) }
-
-            // Estimated current position (blue) with a white ring.
-            CarNavState.estimatedPosition()?.let {
-                val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
-                canvas.drawCircle(sx(it.lng), sy(it.lat), 18f, ring)
-                dot.color = Color.rgb(37, 99, 235)
-                canvas.drawCircle(sx(it.lng), sy(it.lat), 13f, dot)
+                canvas.drawText("Start a trip on your phone to navigate", area.left + 24f, area.bottom - 28f, hint)
             }
         } finally {
             try {
