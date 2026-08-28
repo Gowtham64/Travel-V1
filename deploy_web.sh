@@ -37,6 +37,11 @@ if [ -f "preview.png" ]; then
     cp preview.png $DEPLOY_DIR/
 fi
 
+# GSAP-powered trip demo page + its vendored libs (served at site root).
+if [ -d "webdemo" ]; then
+    cp webdemo/demo.html webdemo/gsap.min.js webdemo/leaflet.js webdemo/leaflet.css $DEPLOY_DIR/
+fi
+
 # Create the /app subdirectory and move the flutter build into it
 mkdir $DEPLOY_DIR/app
 mv mobile/build/web/* $DEPLOY_DIR/app/

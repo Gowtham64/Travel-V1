@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
@@ -18,6 +19,7 @@ import '../models/vehicles_data.dart';
 import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import '../utils/plan_export.dart';
+import '../utils/gsap_demo.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -712,8 +714,27 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       );
       return;
     }
+    final demoName = context0.isEmpty ? widget.tripName : context0;
+    // On the web, launch the richer GSAP-powered demo page (same origin); on
+    // native, use the in-app Flutter demo.
+    if (kIsWeb && gsapDemoSupported) {
+      openGsapDemo(jsonEncode({
+        'name': demoName,
+        'stops': stops
+            .map((s) => {
+                  'day': s.dayLabel,
+                  'time': s.time,
+                  'name': s.name,
+                  'category': s.category,
+                  'lat': s.point.latitude,
+                  'lng': s.point.longitude,
+                })
+            .toList(),
+      }));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TripDemoScreen(stops: stops, tripName: context0.isEmpty ? widget.tripName : context0),
+      builder: (_) => TripDemoScreen(stops: stops, tripName: demoName),
     ));
   }
 
