@@ -15,7 +15,7 @@ class TravelCarAppService : CarAppService() {
     override fun createHostValidator(): HostValidator {
         // In debug builds allow any host so the Desktop Head Unit (DHU) can connect.
         // Release builds must validate against the known Android Auto/Automotive hosts.
-        return if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+        return if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
         } else {
             HostValidator.Builder(applicationContext)

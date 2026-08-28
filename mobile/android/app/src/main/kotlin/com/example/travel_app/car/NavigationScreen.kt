@@ -14,7 +14,6 @@ import androidx.car.app.SurfaceCallback
 import androidx.car.app.SurfaceContainer
 import androidx.car.app.model.Action
 import androidx.car.app.model.ActionStrip
-import androidx.car.app.model.CarColor
 import androidx.car.app.model.DateTimeWithZone
 import androidx.car.app.model.Distance
 import androidx.car.app.model.Template
