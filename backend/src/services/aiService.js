@@ -199,6 +199,25 @@ async function listModels() {
 
 // ── Smart, time-blocked itinerary (AI travel-assistant) ───────────────────────
 
+// Classify a travel/return block's mode of transport. Trusts an explicit
+// travelMode from the AI when present; otherwise infers from the title/reason
+// keywords, falling back to "drive". Non-travel blocks get "".
+function normalizeTravelMode(b) {
+  const type = String(b.type || "");
+  if (type !== "travel" && type !== "return") return "";
+  const explicit = String(b.travelMode || "").toLowerCase().trim();
+  const allowed = ["drive", "flight", "train", "bus", "ferry", "walk"];
+  if (allowed.includes(explicit)) return explicit;
+  const s = `${b.title || ""} ${b.reason || ""}`.toLowerCase();
+  if (/\bflight\b|\bfly\b|\bairways?\b|\bair travel\b/.test(s)) return "flight";
+  if (/\btrain\b|\brail\b|\bexpress\b(?!way)|\bmetro\b/.test(s)) return "train";
+  if (/\bferry\b|\bboat\b|\bcruise\b/.test(s)) return "ferry";
+  if (/\bbus\b|\bcoach\b/.test(s)) return "bus";
+  // A very long single leg is almost certainly a flight, not a drive.
+  if ((Number(b.distanceKm) || 0) > 700) return "flight";
+  return "drive";
+}
+
 function safeParseSmart(text) {
   try {
     const data = JSON.parse(text);
@@ -220,6 +239,7 @@ function safeParseSmart(text) {
             distanceKm: Number(b.distanceKm) || 0,
             breakType: b.breakType ? String(b.breakType) : "",
             reason: b.reason ? String(b.reason) : "",
+            travelMode: normalizeTravelMode(b),
           }))
           .filter((b) => b.title || b.type),
       }))
@@ -279,10 +299,16 @@ async function smartItinerary({
     `dinner (~19:30–20:30), an afternoon coffee/snack break, rest breaks after long or strenuous ` +
     `activities, hotel check-in on day 1 and check-out on the final day, travel/transfer time ` +
     `between places, and short buffer time between activities. ` +
-    `For every transfer, give an ACCURATE real-world road distance (km) between those two specific ` +
+    `Every "travel"/"return" block MUST include "travelMode": one of drive|flight|train|bus|ferry|walk. ` +
+    `Choose the REALISTIC mode: for an overseas trip or any leg longer than ~700 km, use "flight" ` +
+    `(with airport transfers as short "drive" legs on either side); use "train"/"bus" only if that ` +
+    `is genuinely how people make that journey; otherwise "drive". ` +
+    `For a DRIVE leg, give an ACCURATE real-world road distance (km) between those two specific ` +
     `places and a travel time (minutes) that is CONSISTENT with that distance — roughly ` +
     `distance ÷ 30 km/h in cities and ÷ 55 km/h on highways (e.g. 12 km in a town ≈ 25 min, ` +
-    `never 5 min). travelMin and distanceKm must agree; a 0 km transfer must be 0 min. ` +
+    `never 5 min). For a FLIGHT leg, distanceKm is the great-circle air distance and travelMin is ` +
+    `the realistic in-air flight time (e.g. Bengaluru→Dubai ≈ 5139 km, ≈ 240 min), NOT a driving time. ` +
+    `travelMin and distanceKm must agree with the chosen mode; a 0 km transfer must be 0 min. ` +
     `Use realistic visit durations per place (a major temple/darshan 1.5–3 h incl. queue, a ` +
     `viewpoint 30–45 min, a museum 1–2 h). Respect the typical opening/closing hours of well-known ` +
     `attractions (approximate from your own knowledge) and religious darshan timings. ` +
@@ -293,7 +319,8 @@ async function smartItinerary({
     `shopping, freetime, return. For meal blocks set breakType to breakfast|lunch|dinner. ` +
     `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
     `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
-    `"distanceKm":0,"breakType":"breakfast","reason":""}]}]} — no prose, no markdown.`;
+    `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":""}]}]} — travel blocks set ` +
+    `travelMode (drive|flight|train|bus|ferry|walk); no prose, no markdown.`;
 
   const text = await generate(prompt, {
     system:

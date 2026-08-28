@@ -98,6 +98,11 @@ async function groundItinerary(days, startLocation = "", destination = "") {
     // For each travel block, route between the nearest located place before and after it.
     for (let i = 0; i < blocks.length; i += 1) {
       if (blocks[i].type !== "travel") continue;
+      // Only road-route drivable legs. A flight/train/bus/ferry leg must keep
+      // the AI's air/rail distance & time — driving-routing it (or failing to)
+      // would produce absurd values (e.g. a 5000 km "drive" to another country).
+      const mode = String(blocks[i].travelMode || "drive").toLowerCase();
+      if (mode !== "drive" && mode !== "walk") continue;
       let from = null;
       for (let j = i - 1; j >= 0; j -= 1) {
         if (blocks[j]._coord) { from = blocks[j]._coord; break; }

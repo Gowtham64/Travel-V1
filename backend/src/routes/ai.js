@@ -145,7 +145,11 @@ router.post("/smart-itinerary", async (req, res) => {
       let totalKm = 0;
       for (const day of days) {
         for (const blk of day.blocks || []) {
-          if (blk.type === "travel" || blk.type === "return") totalKm += Number(blk.distanceKm) || 0;
+          if (blk.type !== "travel" && blk.type !== "return") continue;
+          // Fuel & tolls apply only to legs the traveller actually drives.
+          // Flight/train/bus/ferry legs are not petrol/toll costs for the car.
+          const mode = String(blk.travelMode || "drive").toLowerCase();
+          if (mode === "drive" || mode === "walk") totalKm += Number(blk.distanceKm) || 0;
         }
       }
       const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
+import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
 import '../widgets/app_design.dart';
@@ -34,6 +35,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   int _days = 2;
   int _travellers = 2;
   String _mode = 'balanced';
+  String _transportMode = 'car'; // 'car' or 'bike' — drives the vehicle list + fuel calc
+  VehicleModel? _vehicle;
 
   bool _loading = false;
   String? _error;
@@ -90,6 +93,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         preferences: _prefsCtrl.text.trim(),
         directive: directive,
         travellers: _travellers,
+        fuelEfficiency: _vehicle?.mileage,
       );
       if (!mounted) return;
       setState(() {
@@ -369,6 +373,25 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             _stepBtn(Icons.add, () => setState(() => _travellers = (_travellers + 1).clamp(1, 20))),
           ]),
           const SizedBox(height: 14),
+          // Vehicle — pick Car or Bike, then choose your vehicle (drives fuel/budget)
+          Text('Vehicle', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+          const SizedBox(height: 8),
+          Row(children: [
+            _transportChip('car', 'Car', Icons.directions_car_rounded),
+            const SizedBox(width: 8),
+            _transportChip('bike', 'Bike', Icons.two_wheeler_rounded),
+          ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            _pill(
+              _vehicle != null
+                  ? '${_vehicle!.name} · ${_vehicle!.mileage.toStringAsFixed(0)} km/L'
+                  : 'Select your ${_transportMode == 'bike' ? 'bike' : 'car'}',
+              _transportMode == 'bike' ? Icons.two_wheeler_rounded : Icons.directions_car_rounded,
+              _pickVehicle,
+            ),
+          ]),
+          const SizedBox(height: 14),
           // Pace mode
           Text('Pace', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
           const SizedBox(height: 8),
@@ -393,6 +416,92 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         ],
       ),
     );
+  }
+
+  Widget _transportChip(String mode, String label, IconData icon) {
+    final selected = _transportMode == mode;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _transportMode = mode;
+        // Drop the current vehicle if it no longer matches the chosen type.
+        final wantType = mode == 'bike' ? 'motorcycle' : 'car';
+        if (_vehicle != null && _vehicle!.type != wantType) _vehicle = null;
+      }),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? AppColors.accentLight : Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 16, color: selected ? AppColors.accentLight : Colors.white.withValues(alpha: 0.8)),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: selected ? AppColors.accentLight : Colors.white.withValues(alpha: 0.8),
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+        ]),
+      ),
+    );
+  }
+
+  /// Pick the traveller's own vehicle from the built-in list, filtered to the
+  /// chosen transport type. The vehicle's mileage feeds the fuel/budget calc.
+  Future<void> _pickVehicle() async {
+    final wantType = _transportMode == 'bike' ? 'motorcycle' : 'car';
+    final list = predefinedVehicles.where((v) => v.type == wantType).toList();
+    final chosen = await showModalBottomSheet<VehicleModel>(
+      context: context,
+      backgroundColor: const Color(0xFF161326),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 16, 18, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Select your ${_transportMode == 'bike' ? 'bike' : 'car'}',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: list.length,
+                itemBuilder: (_, i) {
+                  final v = list[i];
+                  final sel = v.id == _vehicle?.id;
+                  return ListTile(
+                    leading: Icon(
+                        _transportMode == 'bike' ? Icons.two_wheeler_rounded : Icons.directions_car_rounded,
+                        color: sel ? AppColors.accentLight : Colors.white.withValues(alpha: 0.6)),
+                    title: Text(v.name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    subtitle: Text('${v.mileage.toStringAsFixed(0)} km/L · ${v.tankCapacity.toStringAsFixed(0)} L tank',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
+                    trailing: sel ? const Icon(Icons.check_circle, color: AppColors.accentLight) : null,
+                    onTap: () => Navigator.pop(ctx, v),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (chosen != null) {
+      setState(() => _vehicle = chosen);
+      // If a plan already exists, refresh its budget with the new mileage.
+      if (_itinerary.isNotEmpty) _generate();
+    }
   }
 
   Widget _modeChip(String m) {
@@ -618,12 +727,50 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     );
   }
 
+  IconData _travelIcon(String mode) {
+    switch (mode) {
+      case 'flight':
+        return Icons.flight_rounded;
+      case 'train':
+        return Icons.train_rounded;
+      case 'bus':
+        return Icons.directions_bus_rounded;
+      case 'ferry':
+        return Icons.directions_boat_rounded;
+      case 'walk':
+        return Icons.directions_walk_rounded;
+      default:
+        return Icons.directions_car_rounded;
+    }
+  }
+
+  String _travelEmoji(String mode) {
+    switch (mode) {
+      case 'flight':
+        return '✈️';
+      case 'train':
+        return '🚆';
+      case 'bus':
+        return '🚌';
+      case 'ferry':
+        return '⛴️';
+      case 'walk':
+        return '🚶';
+      default:
+        return '🚗';
+    }
+  }
+
   Widget _blockRow(TimelineBlock b, bool isLast) {
     final (icon, color) = _blockStyle(b.type);
+    // Travel/return legs pick their icon from the mode of transport (flight,
+    // train, bus…) so an international flight isn't shown as a car drive.
+    final isLeg = b.type == 'travel' || b.type == 'return';
+    final legIcon = isLeg ? _travelIcon(b.travelMode) : icon;
     final timeLabel = b.end.isNotEmpty && b.end != b.start ? '${b.start}–${b.end}' : b.start;
     final meta = <String>[];
     if (b.durationMin > 0) meta.add('${b.durationMin} min');
-    if (b.travelMin > 0) meta.add('🚗 ${b.travelMin} min');
+    if (b.travelMin > 0) meta.add('${isLeg ? _travelEmoji(b.travelMode) : "🚗"} ${b.travelMin} min');
     if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
     return IntrinsicHeight(
       child: Row(
@@ -640,7 +787,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             Container(
               width: 30, height: 30, alignment: Alignment.center,
               decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle, border: Border.all(color: color, width: 1.2)),
-              child: Icon(icon, size: 16, color: color),
+              child: Icon(legIcon, size: 16, color: color),
             ),
             if (!isLast) Expanded(child: Container(width: 2, color: Colors.white.withValues(alpha: 0.12), margin: const EdgeInsets.symmetric(vertical: 2))),
           ]),

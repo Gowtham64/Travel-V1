@@ -148,6 +148,7 @@ class TimelineBlock {
   final double distanceKm;
   final String breakType; // breakfast|lunch|dinner|... (for meal/break blocks)
   final String reason;
+  final String travelMode; // drive|flight|train|bus|ferry|walk (travel/return legs)
 
   TimelineBlock({
     required this.start,
@@ -160,6 +161,7 @@ class TimelineBlock {
     this.distanceKm = 0,
     this.breakType = '',
     this.reason = '',
+    this.travelMode = '',
   });
 
   factory TimelineBlock.fromJson(Map<String, dynamic> j) => TimelineBlock(
@@ -173,6 +175,7 @@ class TimelineBlock {
         distanceKm: (j['distanceKm'] as num?)?.toDouble() ?? 0,
         breakType: (j['breakType'] ?? '').toString(),
         reason: (j['reason'] ?? '').toString(),
+        travelMode: (j['travelMode'] ?? '').toString(),
       );
 }
 
