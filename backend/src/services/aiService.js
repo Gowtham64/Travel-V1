@@ -56,6 +56,10 @@ async function openaiCompatGenerate(prompt, opts, key) {
   messages.push({ role: "user", content: prompt });
   const body = { model, messages, temperature: 0.7 };
   if (opts.json) body.response_format = { type: "json_object" };
+  // gpt-oss models are reasoning models: without this they spend a large,
+  // unpredictable share of the token budget on hidden reasoning, which can
+  // starve (or truncate) the actual JSON output. "low" keeps tokens for output.
+  if (opts.reasoningEffort) body.reasoning_effort = opts.reasoningEffort;
   // Raise the output cap for long structured responses (e.g. multi-day
   // itineraries) so the JSON isn't truncated mid-object → 400 "invalid JSON".
   if (opts.maxTokens) {
@@ -373,9 +377,11 @@ async function smartItinerary({
         system: ITINERARY_SYSTEM,
         json: true,
         model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
-        // ~2000 output tokens/day + headroom, capped to stay under the free-tier
-        // per-minute budget on any single call.
-        maxTokens: Math.min(6000, count * 2000 + 1000),
+        // Low reasoning effort keeps the token budget for the JSON itself; with
+        // it, a 2-day batch's actual usage stays small enough that batches don't
+        // trip the free-tier per-minute limit.
+        reasoningEffort: "low",
+        maxTokens: Math.min(8000, count * 2600 + 1500),
       });
       batch = safeParseSmart(text);
     } catch (err) {
