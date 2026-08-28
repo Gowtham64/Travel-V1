@@ -41,6 +41,7 @@ async function geminiGenerate(prompt, opts, key) {
   const body = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } };
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
   if (opts.json) body.generationConfig.responseMimeType = "application/json";
+  if (opts.maxTokens) body.generationConfig.maxOutputTokens = opts.maxTokens;
   const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" }, timeout: 30000 });
   return (res.data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
 }
@@ -54,6 +55,12 @@ async function openaiCompatGenerate(prompt, opts, key) {
   messages.push({ role: "user", content: prompt });
   const body = { model, messages, temperature: 0.7 };
   if (opts.json) body.response_format = { type: "json_object" };
+  // Raise the output cap for long structured responses (e.g. multi-day
+  // itineraries) so the JSON isn't truncated mid-object → 400 "invalid JSON".
+  if (opts.maxTokens) {
+    body.max_tokens = opts.maxTokens;
+    body.max_completion_tokens = opts.maxTokens;
+  }
   const res = await axios.post(`${base}/chat/completions`, body, {
     headers: {
       "Content-Type": "application/json",
@@ -62,7 +69,7 @@ async function openaiCompatGenerate(prompt, opts, key) {
       "HTTP-Referer": "https://gowtham64.github.io/Travel-V1/",
       "X-Title": "Voyplan",
     },
-    timeout: 30000,
+    timeout: 60000,
   });
   return (res.data?.choices?.[0]?.message?.content || "").trim();
 }
@@ -272,8 +279,9 @@ async function smartItinerary({
     system:
       "You are an expert, world-aware travel planner. You produce realistic, well-paced, " +
       "time-blocked itineraries with automatic meal/rest breaks, travel time and buffers. " +
-      "Only suggest real places. Output strict JSON.",
+      "Only suggest real places. Output strict, complete JSON — never truncate.",
     json: true,
+    maxTokens: 8000, // multi-day timelines are long; avoid truncated JSON
   });
   return safeParseSmart(text);
 }
