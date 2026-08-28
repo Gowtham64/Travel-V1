@@ -33,6 +33,31 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   static const String _bgUrl =
       'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2000&auto=format&fit=crop';
 
+  // Modes of transport for a day (id, label, icon, rough km/h for leg estimates).
+  static const List<(String, String, IconData, double)> _transportModes = [
+    ('car', 'Car', Icons.directions_car_rounded, 45),
+    ('bike', 'Bike', Icons.two_wheeler_rounded, 35),
+    ('walk', 'Walk', Icons.directions_walk_rounded, 5),
+    ('train', 'Train', Icons.train_rounded, 70),
+    ('bus', 'Bus', Icons.directions_bus_rounded, 40),
+    ('flight', 'Flight', Icons.flight_rounded, 500),
+  ];
+
+  // Item categories (id, label, icon).
+  static const List<(String, String, IconData)> _itemCategories = [
+    ('place', 'Place', Icons.place_rounded),
+    ('restaurant', 'Restaurant', Icons.restaurant_rounded),
+    ('stay', 'Stay', Icons.hotel_rounded),
+    ('activity', 'Activity', Icons.local_activity_rounded),
+  ];
+
+  IconData _transportIcon(String id) =>
+      _transportModes.firstWhere((m) => m.$1 == id, orElse: () => _transportModes.first).$3;
+  double _transportSpeed(String id) =>
+      _transportModes.firstWhere((m) => m.$1 == id, orElse: () => _transportModes.first).$4;
+  IconData _categoryIcon(String id) =>
+      _itemCategories.firstWhere((c) => c.$1 == id, orElse: () => _itemCategories.first).$3;
+
   late final TripExtrasStore _store = TripExtrasStore(widget.tripKey);
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
@@ -121,29 +146,170 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   Future<void> _promptAddItem() async {
     if (_days.isEmpty) _addDay();
-    final ctrl = TextEditingController();
-    final text = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Add item'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          style: const TextStyle(color: Voy.ink),
-          decoration: const InputDecoration(labelText: 'Place or activity'),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Add')),
-        ],
-      ),
-    );
-    if (text != null && text.isNotEmpty) {
+    final item = await _editItemDialog();
+    if (item != null && item.text.isNotEmpty) {
       final idx = _selectedDay.clamp(0, _days.length - 1);
-      setState(() => _days[idx].items.add(PlanItem(id: _uid(), text: text)));
+      setState(() => _days[idx].items.add(item));
       _persist();
     }
+  }
+
+  /// Tap an existing item to edit its type/time/name/note (keeps its coords).
+  Future<void> _editItem(PlanDay day, int index) async {
+    final edited = await _editItemDialog(existing: day.items[index]);
+    if (edited != null && edited.text.isNotEmpty) {
+      setState(() => day.items[index] = edited);
+      _persist();
+    }
+  }
+
+  /// Horizontal selector for the day's mode of transport.
+  Widget _transportRow(PlanDay day) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SizedBox(
+        height: 34,
+        child: ListView(
+          scrollDirection: Axis.horizontal,
+          children: [
+            for (final m in _transportModes)
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: GestureDetector(
+                  onTap: () {
+                    setState(() => day.transportMode = m.$1);
+                    _persist();
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: day.transportMode == m.$1
+                          ? AppColors.accentLight.withValues(alpha: 0.22)
+                          : Colors.white.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                          color: day.transportMode == m.$1
+                              ? AppColors.accentLight
+                              : Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(m.$3, size: 15,
+                          color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub),
+                      const SizedBox(width: 5),
+                      Text(m.$2,
+                          style: TextStyle(
+                              color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600)),
+                    ]),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Add/edit dialog capturing category, time, name and note. Returns a new/edited
+  /// PlanItem (with a fresh id when [existing] is null), or null if cancelled.
+  Future<PlanItem?> _editItemDialog({PlanItem? existing}) async {
+    final nameCtrl = TextEditingController(text: existing?.text ?? '');
+    final noteCtrl = TextEditingController(text: existing?.note ?? '');
+    String category = existing?.category ?? 'place';
+    String time = existing?.time ?? '';
+
+    return showDialog<PlanItem>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Text(existing == null ? 'Add to day' : 'Edit item'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Type', style: TextStyle(color: Voy.sub, fontSize: 12.5)),
+                const SizedBox(height: 6),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  for (final c in _itemCategories)
+                    ChoiceChip(
+                      label: Text(c.$2),
+                      avatar: Icon(c.$3, size: 16,
+                          color: category == c.$1 ? Colors.white : Voy.sub),
+                      selected: category == c.$1,
+                      selectedColor: AppColors.accent,
+                      labelStyle: TextStyle(
+                          color: category == c.$1 ? Colors.white : Voy.ink, fontSize: 12.5),
+                      onSelected: (_) => setLocal(() => category = c.$1),
+                    ),
+                ]),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: nameCtrl,
+                  autofocus: true,
+                  style: const TextStyle(color: Voy.ink),
+                  decoration: const InputDecoration(labelText: 'Name (place / restaurant / activity)'),
+                ),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.schedule_rounded, size: 18),
+                      label: Text(time.isEmpty ? 'Add time' : time),
+                      onPressed: () async {
+                        final picked = await showTimePicker(
+                          context: ctx,
+                          initialTime: TimeOfDay.now(),
+                        );
+                        if (picked != null) {
+                          setLocal(() => time = picked.format(ctx));
+                        }
+                      },
+                    ),
+                  ),
+                  if (time.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 18, color: Voy.sub),
+                      onPressed: () => setLocal(() => time = ''),
+                    ),
+                ]),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: noteCtrl,
+                  style: const TextStyle(color: Voy.ink),
+                  decoration: const InputDecoration(labelText: 'Note (optional)'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                Navigator.pop(
+                  ctx,
+                  PlanItem(
+                    id: existing?.id ?? _uid(),
+                    text: name,
+                    time: time,
+                    note: noteCtrl.text.trim(),
+                    lat: existing?.lat,
+                    lng: existing?.lng,
+                    category: category,
+                  ),
+                );
+              },
+              child: Text(existing == null ? 'Add' : 'Save'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Generate a full day-by-day itinerary with AI, then populate the planner.
@@ -297,22 +463,22 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   }
 
   /// Approx travel leg between two consecutive stops (straight-line distance and
-  /// a rough drive time at ~40 km/h).
-  String _legLabel(PlanItem a, PlanItem b) {
+  /// a rough time at the day's chosen transport speed).
+  String _legLabel(PlanItem a, PlanItem b, double speedKmh) {
     final km = _haversineKm(a.lat!, a.lng!, b.lat!, b.lng!);
-    final mins = (km / 40 * 60).round();
+    final mins = (km / (speedKmh <= 0 ? 40 : speedKmh) * 60).round();
     final kmStr = km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0);
     return '≈ $kmStr km · ${mins < 1 ? 1 : mins} min';
   }
 
-  /// Real road leg if we have it (OSRM), otherwise a straight-line estimate
-  /// while the real value is fetched in the background.
-  String _legDisplay(PlanItem a, PlanItem b) {
+  /// Real road leg if we have it (OSRM), otherwise a straight-line estimate at
+  /// the day's transport speed while the real value is fetched in the background.
+  String _legDisplay(PlanItem a, PlanItem b, double speedKmh) {
     final key = '${a.id}>${b.id}';
     final real = _legCache[key];
     if (real != null) return real;
     _ensureLeg(a, b);
-    return '${_legLabel(a, b)} (approx)';
+    return '${_legLabel(a, b, speedKmh)} (approx)';
   }
 
   /// Reorders a day's geocoded stops for the shortest path (nearest-neighbour),
@@ -738,6 +904,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                 ],
               ),
               _hotelRow(day),
+              _transportRow(day),
               if (day.items.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 6, 0, 6),
@@ -766,6 +933,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                             contentPadding: const EdgeInsets.only(left: 0, right: 0),
                             horizontalTitleGap: 8,
                             minLeadingWidth: 0,
+                            onTap: () => _editItem(day, ii),
                             leading: ReorderableDragStartListener(index: ii, child: const Icon(Icons.drag_indicator_rounded, color: Voy.sub, size: 18)),
                             title: Row(
                               children: [
@@ -777,7 +945,21 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                                   child: Text('${ii + 1}', style: TextStyle(color: day.items[ii].hasCoords ? Colors.white : Voy.sub, fontSize: 11, fontWeight: FontWeight.w800)),
                                 ),
                                 const SizedBox(width: 8),
+                                Icon(_categoryIcon(day.items[ii].category), size: 15, color: AppColors.accentLight),
+                                const SizedBox(width: 6),
                                 Expanded(child: Text(day.items[ii].text, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 14))),
+                                if (day.items[ii].time.isNotEmpty) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accent.withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(day.items[ii].time,
+                                        style: const TextStyle(color: AppColors.accentLight, fontSize: 11, fontWeight: FontWeight.w700)),
+                                  ),
+                                ],
                               ],
                             ),
                             trailing: IconButton(
@@ -796,7 +978,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                                 children: [
                                   Icon(Icons.arrow_downward_rounded, size: 13, color: Voy.sub.withValues(alpha: 0.7)),
                                   const SizedBox(width: 6),
-                                  Text(_legDisplay(day.items[ii], day.items[ii + 1]),
+                                  Text(_legDisplay(day.items[ii], day.items[ii + 1], _transportSpeed(day.transportMode)),
                                       style: TextStyle(color: Voy.sub.withValues(alpha: 0.9), fontSize: 11.5, fontWeight: FontWeight.w600)),
                                 ],
                               ),

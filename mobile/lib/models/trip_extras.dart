@@ -93,12 +93,22 @@ class PlanItem {
   String note;
   double? lat;
   double? lng;
-  PlanItem({required this.id, this.text = '', this.time = '', this.note = '', this.lat, this.lng});
+  // What kind of stop this is: 'place' | 'restaurant' | 'stay' | 'activity'.
+  String category;
+  PlanItem({
+    required this.id,
+    this.text = '',
+    this.time = '',
+    this.note = '',
+    this.lat,
+    this.lng,
+    this.category = 'place',
+  });
 
   bool get hasCoords => lat != null && lng != null;
 
   Map<String, dynamic> toJson() =>
-      {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng};
+      {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng, 'category': category};
   factory PlanItem.fromJson(Map<String, dynamic> j) => PlanItem(
         id: j['id'].toString(),
         text: (j['text'] ?? '').toString(),
@@ -106,6 +116,7 @@ class PlanItem {
         note: (j['note'] ?? '').toString(),
         lat: (j['lat'] as num?)?.toDouble(),
         lng: (j['lng'] as num?)?.toDouble(),
+        category: (j['category'] ?? 'place').toString(),
       );
 }
 
@@ -115,16 +126,29 @@ class PlanDay {
   final String id;
   String title;
   String hotel; // accommodation for the day (optional)
+  // How the traveller gets around this day: 'car' | 'bike' | 'walk' | 'train' | 'flight' | 'bus'.
+  String transportMode;
   List<PlanItem> items;
-  PlanDay({required this.id, this.title = '', this.hotel = '', List<PlanItem>? items})
-      : items = items ?? [];
+  PlanDay({
+    required this.id,
+    this.title = '',
+    this.hotel = '',
+    this.transportMode = 'car',
+    List<PlanItem>? items,
+  }) : items = items ?? [];
 
-  Map<String, dynamic> toJson() =>
-      {'id': id, 'title': title, 'hotel': hotel, 'items': items.map((e) => e.toJson()).toList()};
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'hotel': hotel,
+        'transportMode': transportMode,
+        'items': items.map((e) => e.toJson()).toList(),
+      };
   factory PlanDay.fromJson(Map<String, dynamic> j) => PlanDay(
         id: j['id'].toString(),
         title: (j['title'] ?? '').toString(),
         hotel: (j['hotel'] ?? '').toString(),
+        transportMode: (j['transportMode'] ?? 'car').toString(),
         items: (j['items'] as List?)
                 ?.map((e) => PlanItem.fromJson((e as Map).cast<String, dynamic>()))
                 .toList() ??
