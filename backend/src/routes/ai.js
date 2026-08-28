@@ -1,6 +1,12 @@
 const express = require("express");
 const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
-const { groundItinerary, geocodeCountry } = require("../services/itineraryGeo");
+const { groundItinerary, geocode } = require("../services/itineraryGeo");
+
+// Generous bounding box for India (mainland + islands). Used to decide whether
+// a destination is domestic or international for budget pricing.
+function isInIndia(pt) {
+  return !!pt && pt.lat >= 6.5 && pt.lat <= 37.5 && pt.lng >= 68.0 && pt.lng <= 97.5;
+}
 const { estimateBudget } = require("../services/budgetService");
 
 const router = express.Router();
@@ -139,21 +145,14 @@ router.post("/smart-itinerary", async (req, res) => {
       console.error("Itinerary distance grounding skipped:", err.message);
     }
 
-    // Is the destination outside India? If so, price food/stay at international
-    // rates and treat destination driving as taxis rather than personal fuel.
-    let international = false;
-    try {
-      const country = await geocodeCountry(String(b.destination));
-      // Treat a confidently-non-India country as international. Unknown → domestic.
-      if (country && !["IND", "INDIA"].includes(country)) international = true;
-    } catch (_) {/* default domestic */}
-
     // Full trip budget: fuel + tolls + transport tickets + local transport + food + stay.
     let budget = null;
     try {
-      let driveKm = 0; // legs driven in the traveller's own vehicle (domestic)
-      let localKm = 0; // destination getting-around (taxis) — used when abroad
+      // Pass 1: tally the legs. Don't yet decide whether ground legs are self-drive
+      // (domestic) or taxis (abroad) — that needs the international flag below.
+      let groundKm = 0; // drive/walk legs (self-drive at home, taxis abroad)
       const transportLegs = []; // flight/train/bus/ferry legs, ticket-priced
+      let hasLongFlight = false;
       for (const day of days) {
         for (const blk of day.blocks || []) {
           if (blk.type !== "travel" && blk.type !== "return") continue;
@@ -161,14 +160,26 @@ router.post("/smart-itinerary", async (req, res) => {
           const km = Number(blk.distanceKm) || 0;
           if (mode === "flight" || mode === "train" || mode === "bus" || mode === "ferry") {
             transportLegs.push({ mode, distanceKm: km });
+            if (mode === "flight" && km > 2500) hasLongFlight = true;
           } else if (mode === "drive" || mode === "walk") {
-            // Abroad, the traveller doesn't drive their own car — local hops are
-            // taxis; at home they burn fuel (and pay tolls) in their own vehicle.
-            if (international) localKm += km;
-            else driveKm += km;
+            groundKm += km;
           }
         }
       }
+
+      // Is the destination outside India? Prefer geocoding it and testing India's
+      // bounding box; fall back to "has a long-haul flight" when geocoding fails.
+      let international = hasLongFlight;
+      try {
+        const destPt = await geocode(String(b.destination), "");
+        if (destPt) international = !isInIndia(destPt);
+      } catch (_) {/* keep the flight-distance fallback */}
+
+      // Abroad, ground legs are taxis (local transport); at home they're self-drive
+      // fuel (and tolls) in the traveller's own vehicle.
+      const driveKm = international ? 0 : groundKm;
+      const localKm = international ? groundKm : 0;
+
       const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));
       const eff = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : 15;
       // Rough toll estimate (~₹0.7/km of self-driving) — none when abroad.
