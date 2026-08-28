@@ -255,12 +255,21 @@ async function smartItinerary({
   const endLine = endDate || endTime ? `The trip should end around ${endDate} ${endTime}. ` : "";
   const prefLine = preferences ? `Traveller preferences: ${preferences}. ` : "";
   const directiveLine = directive ? `IMPORTANT adjustment for this version: ${directive}. ` : "";
+  // A round trip: leave home, visit the destination, and return home at the end.
+  const roundTripLine = startLocation
+    ? `This is a ROUND TRIP from the traveller's home ("${startLocation}"). ` +
+      `Day 1 MUST begin at "${startLocation}" with a "travel" block departing home to reach ` +
+      `"${destination}" (include this outbound journey with realistic distance/time). ` +
+      `The FINAL day MUST end with the traveller returning ALL THE WAY BACK to "${startLocation}": ` +
+      `add a final "return" (or "travel") block from the destination back home with realistic ` +
+      `distance and time, after check-out. The itinerary starts and ends at home. `
+    : "";
 
   const prompt =
     `Create a realistic, time-blocked day-by-day itinerary for a trip to "${destination}"` +
     (startLocation ? ` starting from "${startLocation}"` : "") +
     `. The trip starts on ${startDate || "day 1"} at ${startTime} and lasts ${durationDays} day(s). ` +
-    endLine + placeLine + prefLine + paceLine + directiveLine +
+    roundTripLine + endLine + placeLine + prefLine + paceLine + directiveLine +
     `Think carefully about the REAL geographic location of each named place. Use only real, ` +
     `specific, well-known places (never generic names like "Temple 1"). Order stops to MINIMISE ` +
     `backtracking — group places that are close together on the same day and visit them in a ` +
