@@ -174,9 +174,15 @@ async function travelOptions({ from, to, startDate = "", travellers = 1, nights 
   const nightsLine = Number(nights) > 0 ? `staying ${nights} night(s) ` : "";
   const prompt =
     `Suggest realistic travel and stay options for a trip from ${origin} to "${to}" ${dateLine}${paxLine}${nightsLine}. ` +
-    `flights: 2–4 realistic airline options that actually serve this route (airline, a plausible flightNo, ` +
-    `route incl. any layover city as "stops", total "duration" like "10h 30m", a TYPICAL one-way fare "priceRange" ` +
-    `in INR like "₹28,000–36,000", and a short note). Only include flights if flying is sensible for this route. ` +
+    `flights: 2–4 realistic airline options for this route. Depart from the NEAREST major airport to the ` +
+    `origin and name it in the route (e.g. Bengaluru BLR for Mandya). Prefer a NON-STOP flight when one ` +
+    `genuinely operates between these cities; if NO direct flight exists, give the best CONNECTING options ` +
+    `via a sensible hub — set "stops" to the layover airport/city (e.g. "Dubai (DXB)") — and you may use an ` +
+    `alternative nearby origin airport if it gives a better connection. Each: airline, a plausible flightNo ` +
+    `(two numbers for a connection, e.g. "EK 569 / EK 201"), route with airport codes, "stops" ("Non-stop" or ` +
+    `the layover), total "duration" like "18h 45m", a TYPICAL one-way fare "priceRange" in INR like ` +
+    `"₹55,000–75,000", and a short note. Include a non-stop first if available, then connecting alternatives. ` +
+    `Only include flights if flying is sensible for this route. ` +
     `trains: 1–3 realistic train options ONLY IF a train journey is genuinely practical between these places ` +
     `(operator, train name/number, route, duration, typical INR priceRange, note); use an EMPTY array if trains ` +
     `cannot make this journey (e.g. across an ocean). ` +
@@ -186,7 +192,7 @@ async function travelOptions({ from, to, startDate = "", travellers = 1, nights 
     `Respond ONLY as JSON: {"flights":[{"airline":"","flightNo":"","route":"","stops":"","duration":"","priceRange":"","note":""}],` +
     `"trains":[{"operator":"","name":"","route":"","duration":"","priceRange":"","note":""}],` +
     `"hotels":[{"name":"","area":"","pricePerNight":"","rating":"","note":""}]} — no prose, no markdown.`;
-  const text = await generate(prompt, {
+  const text = await generateWithRetry(prompt, {
     system:
       "You are a knowledgeable travel booking assistant. Suggest realistic, real-world flight, train and " +
       "hotel options with typical (not live) prices. Only real airlines, trains and hotels. Output strict JSON.",
