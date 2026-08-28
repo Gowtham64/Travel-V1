@@ -70,5 +70,10 @@ drop trigger if exists trg_touch_shared_trip on public.shared_trips;
 create trigger trg_touch_shared_trip before update on public.shared_trips
   for each row execute function public.touch_shared_trip();
 
--- Enable Realtime so collaborators see live changes.
-alter publication supabase_realtime add table public.shared_trips;
+-- Enable Realtime so collaborators see live changes. `supabase_realtime` already
+-- exists by default, so we ADD the table to it (ignoring if it's already a member).
+do $$
+begin
+  alter publication supabase_realtime add table public.shared_trips;
+exception when duplicate_object then null;
+end $$;
