@@ -522,6 +522,48 @@ class ApiService {
     return (days: days, budget: budget);
   }
 
+  /// AI-suggested flight / train / hotel options for a journey (typical options,
+  /// not live quotes). Returns three lists of string-keyed maps.
+  Future<({List<Map<String, String>> flights, List<Map<String, String>> trains, List<Map<String, String>> hotels})>
+      aiTravelOptions({
+    required String to,
+    String from = '',
+    String startDate = '',
+    int travellers = 1,
+    int nights = 0,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/travel-options'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'to': to,
+            'from': from,
+            'startDate': startDate,
+            'travellers': travellers,
+            'nights': nights,
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+    if (response.statusCode == 503) {
+      throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
+    }
+    if (response.statusCode != 200) {
+      String msg = 'AI request failed (${response.statusCode})';
+      try {
+        final err = (jsonDecode(response.body) as Map)['error'];
+        if (err is String && err.trim().isNotEmpty) msg = err;
+      } catch (_) {/* keep default */}
+      throw ApiException(msg);
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    List<Map<String, String>> pick(String key) => (body[key] as List? ?? [])
+        .whereType<Map>()
+        .map((m) => m.map((k, v) => MapEntry(k.toString(), (v ?? '').toString())))
+        .toList();
+    return (flights: pick('flights'), trains: pick('trains'), hotels: pick('hotels'));
+  }
+
   Future<String> aiAsk({
     required String question,
     Map<String, dynamic>? context,

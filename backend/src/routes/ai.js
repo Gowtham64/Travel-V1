@@ -1,5 +1,5 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 const { groundItinerary, geocode } = require("../services/itineraryGeo");
 
 // Generous bounding box for India (mainland + islands). Used to decide whether
@@ -100,6 +100,26 @@ router.post("/search", async (req, res) => {
   try {
     const places = await searchPlaces({ query: String(query), near });
     res.json({ places });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+// AI-suggested flight / train / hotel options for a journey (typical, not live).
+router.post("/travel-options", async (req, res) => {
+  const b = req.body || {};
+  if (!b.to || !String(b.to).trim()) {
+    return res.status(400).json({ error: "to (destination) is required" });
+  }
+  try {
+    const options = await travelOptions({
+      from: b.from ? String(b.from) : "",
+      to: String(b.to),
+      startDate: b.startDate ? String(b.startDate) : "",
+      travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+      nights: Math.max(0, Math.min(Number(b.nights) || 0, 60)),
+    });
+    res.json(options);
   } catch (err) {
     handleError(res, err);
   }

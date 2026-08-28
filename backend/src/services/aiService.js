@@ -126,6 +126,77 @@ async function searchPlaces({ query, near }) {
   }));
 }
 
+// Parse the AI's travel-options JSON into clean flight / train / hotel arrays.
+function safeParseTravelOptions(text) {
+  const S = (v) => (v == null ? "" : String(v)).trim();
+  try {
+    const d = JSON.parse(text) || {};
+    const flights = (Array.isArray(d.flights) ? d.flights : []).slice(0, 5).map((f) => ({
+      airline: S(f.airline),
+      flightNo: S(f.flightNo),
+      route: S(f.route),
+      stops: S(f.stops),
+      duration: S(f.duration || f.durationHrs),
+      priceRange: S(f.priceRange),
+      note: S(f.note),
+    })).filter((f) => f.airline || f.route);
+    const trains = (Array.isArray(d.trains) ? d.trains : []).slice(0, 5).map((t) => ({
+      operator: S(t.operator),
+      name: S(t.name),
+      route: S(t.route),
+      duration: S(t.duration || t.durationHrs),
+      priceRange: S(t.priceRange),
+      note: S(t.note),
+    })).filter((t) => t.operator || t.name || t.route);
+    const hotels = (Array.isArray(d.hotels) ? d.hotels : []).slice(0, 6).map((h) => ({
+      name: S(h.name),
+      area: S(h.area),
+      pricePerNight: S(h.pricePerNight),
+      rating: S(h.rating),
+      note: S(h.note),
+    })).filter((h) => h.name);
+    return { flights, trains, hotels };
+  } catch (_) {
+    return { flights: [], trains: [], hotels: [] };
+  }
+}
+
+/**
+ * Suggest realistic flight / train / hotel options for a journey. These are
+ * AI-generated typical options (routes, airlines, well-known hotels, TYPICAL
+ * price ranges) to help the traveller decide — NOT live availability or quotes.
+ */
+async function travelOptions({ from, to, startDate = "", travellers = 1, nights = 0 }) {
+  if (!to) return { flights: [], trains: [], hotels: [] };
+  const origin = from ? `"${from}"` : "the traveller's origin";
+  const dateLine = startDate ? `around ${startDate} ` : "";
+  const paxLine = Number(travellers) > 1 ? `for ${travellers} travellers ` : "";
+  const nightsLine = Number(nights) > 0 ? `staying ${nights} night(s) ` : "";
+  const prompt =
+    `Suggest realistic travel and stay options for a trip from ${origin} to "${to}" ${dateLine}${paxLine}${nightsLine}. ` +
+    `flights: 2–4 realistic airline options that actually serve this route (airline, a plausible flightNo, ` +
+    `route incl. any layover city as "stops", total "duration" like "10h 30m", a TYPICAL one-way fare "priceRange" ` +
+    `in INR like "₹28,000–36,000", and a short note). Only include flights if flying is sensible for this route. ` +
+    `trains: 1–3 realistic train options ONLY IF a train journey is genuinely practical between these places ` +
+    `(operator, train name/number, route, duration, typical INR priceRange, note); use an EMPTY array if trains ` +
+    `cannot make this journey (e.g. across an ocean). ` +
+    `hotels: 3–5 real, well-known hotels in or near "${to}" (name, area/neighbourhood, typical pricePerNight in INR, ` +
+    `star rating like "4★", short note). ` +
+    `All prices are TYPICAL estimates, not live quotes. Use only real airlines, trains and hotels. ` +
+    `Respond ONLY as JSON: {"flights":[{"airline":"","flightNo":"","route":"","stops":"","duration":"","priceRange":"","note":""}],` +
+    `"trains":[{"operator":"","name":"","route":"","duration":"","priceRange":"","note":""}],` +
+    `"hotels":[{"name":"","area":"","pricePerNight":"","rating":"","note":""}]} — no prose, no markdown.`;
+  const text = await generate(prompt, {
+    system:
+      "You are a knowledgeable travel booking assistant. Suggest realistic, real-world flight, train and " +
+      "hotel options with typical (not live) prices. Only real airlines, trains and hotels. Output strict JSON.",
+    json: true,
+    reasoningEffort: PROVIDER === "groq" ? "low" : undefined,
+    maxTokens: 3000,
+  });
+  return safeParseTravelOptions(text);
+}
+
 async function ask({ question, context }) {
   const ctx = context
     ? `\n\nTrip context:\n${Object.entries(context)
@@ -414,4 +485,4 @@ async function smartItinerary({
   return days;
 }
 
-module.exports = { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
+module.exports = { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };

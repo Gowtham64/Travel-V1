@@ -115,7 +115,12 @@ class TripWorkspaceScreen extends StatelessWidget {
             ),
             _PackingTab(store: store),
             _ExpensesTab(store: store, travellers: travellers, currency: currency),
-            _ReservationsTab(store: store),
+            _ReservationsTab(
+              store: store,
+              fromName: startAddress,
+              toName: endAddress,
+              travellers: travellers,
+            ),
             _JournalTab(store: store),
           ],
         ),
@@ -1000,7 +1005,15 @@ class _ExpenseSheetState extends State<_ExpenseSheet> {
 
 class _ReservationsTab extends StatefulWidget {
   final TripExtrasStore store;
-  const _ReservationsTab({required this.store});
+  final String fromName;
+  final String toName;
+  final int travellers;
+  const _ReservationsTab({
+    required this.store,
+    this.fromName = '',
+    this.toName = '',
+    this.travellers = 1,
+  });
   @override
   State<_ReservationsTab> createState() => _ReservationsTabState();
 }
@@ -1025,6 +1038,67 @@ class _ReservationsTabState extends State<_ReservationsTab> {
   }
 
   void _persist() => widget.store.saveReservations(_items);
+
+  bool _suggesting = false;
+
+  /// Add a suggested option straight into the bookings list.
+  void _addSuggestion(String type, String title, String notes) {
+    setState(() => _items.add(Reservation(
+          id: _uid(),
+          type: type,
+          title: title,
+          confirmation: '',
+          date: null,
+          notes: notes,
+        )));
+    _persist();
+  }
+
+  /// Ask the AI for realistic flight / train / hotel options for this journey
+  /// and show them in a sheet; tapping one saves it as a booking.
+  Future<void> _suggest() async {
+    if (widget.toName.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('This journey has no destination set.')),
+      );
+      return;
+    }
+    setState(() => _suggesting = true);
+    try {
+      final o = await ApiService().aiTravelOptions(
+        from: widget.fromName,
+        to: widget.toName,
+        travellers: widget.travellers,
+      );
+      if (!mounted) return;
+      setState(() => _suggesting = false);
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF14121F),
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        builder: (ctx) => _SuggestionsSheet(
+          from: widget.fromName,
+          to: widget.toName,
+          flights: o.flights,
+          trains: o.trains,
+          hotels: o.hotels,
+          onAdd: (type, title, notes) {
+            _addSuggestion(type, title, notes);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Added "$title" to bookings.')),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _suggesting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e is ApiException ? e.message : 'Could not fetch suggestions.')),
+      );
+    }
+  }
 
   Future<void> _addOrEdit([Reservation? existing]) async {
     final result = await showModalBottomSheet<Reservation>(
@@ -1057,12 +1131,30 @@ class _ReservationsTabState extends State<_ReservationsTab> {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addOrEdit(),
-        backgroundColor: Voy.brand,
-        foregroundColor: const Color(0xFF04211F),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add booking'),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'suggestAi',
+            onPressed: _suggesting ? null : _suggest,
+            backgroundColor: const Color(0xFF6D5EF6),
+            foregroundColor: Colors.white,
+            icon: _suggesting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.auto_awesome_rounded),
+            label: Text(_suggesting ? 'Finding…' : 'Suggest flights, trains & hotels'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'addBooking',
+            onPressed: () => _addOrEdit(),
+            backgroundColor: Voy.brand,
+            foregroundColor: const Color(0xFF04211F),
+            icon: const Icon(Icons.add_rounded),
+            label: const Text('Add booking'),
+          ),
+        ],
       ),
       body: sorted.isEmpty
           ? _emptyState(Icons.confirmation_number_rounded, 'No bookings yet',
@@ -1124,6 +1216,8 @@ IconData _typeIcon(String t) {
   switch (t) {
     case 'flight':
       return Icons.flight_rounded;
+    case 'train':
+      return Icons.train_rounded;
     case 'hotel':
       return Icons.hotel_rounded;
     case 'restaurant':
@@ -1136,6 +1230,131 @@ IconData _typeIcon(String t) {
 }
 
 String _typeLabel(String t) => t.isEmpty ? 'Booking' : t[0].toUpperCase() + t.substring(1);
+
+/// Bottom sheet showing AI-suggested flights, trains and hotels for a journey.
+class _SuggestionsSheet extends StatelessWidget {
+  final String from;
+  final String to;
+  final List<Map<String, String>> flights;
+  final List<Map<String, String>> trains;
+  final List<Map<String, String>> hotels;
+  final void Function(String type, String title, String notes) onAdd;
+
+  const _SuggestionsSheet({
+    required this.from,
+    required this.to,
+    required this.flights,
+    required this.trains,
+    required this.hotels,
+    required this.onAdd,
+  });
+
+  String _join(Iterable<String?> parts) =>
+      parts.where((p) => p != null && p.trim().isNotEmpty).map((p) => p!.trim()).join(' · ');
+
+  Widget _sectionHeader(IconData icon, String label, Color color) => Padding(
+        padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
+        child: Row(children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(label, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+        ]),
+      );
+
+  Widget _card({required String title, required String subtitle, required String trailing, required VoidCallback onTap}) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: ListTile(
+        title: Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14.5)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 3),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (subtitle.isNotEmpty)
+              Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
+            if (trailing.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(trailing, style: const TextStyle(color: Color(0xFF7DD3FC), fontSize: 12.5, fontWeight: FontWeight.w700)),
+              ),
+          ]),
+        ),
+        trailing: TextButton.icon(
+          onPressed: onTap,
+          icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+          label: const Text('Add'),
+          style: TextButton.styleFrom(foregroundColor: const Color(0xFF6D5EF6)),
+        ),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = flights.isEmpty && trains.isEmpty && hotels.isEmpty;
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
+      builder: (ctx, scroll) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: ListView(
+          controller: scroll,
+          children: [
+            Center(
+              child: Container(width: 40, height: 4, margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2))),
+            ),
+            Text('Suggested options', style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 2),
+            Text('${from.isEmpty ? 'Your trip' : from} → $to · typical options, not live prices',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12.5)),
+            if (empty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: Text('No suggestions returned — try again.',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.6)))),
+              ),
+            if (flights.isNotEmpty) _sectionHeader(Icons.flight_rounded, 'Flights', const Color(0xFF38BDF8)),
+            for (final f in flights)
+              _card(
+                title: _join([f['airline'], f['flightNo']]),
+                subtitle: _join([f['route'], f['stops']?.toLowerCase() == 'direct' ? 'Direct' : (f['stops'] != null && f['stops']!.isNotEmpty ? 'via ${f['stops']}' : null), f['duration']]),
+                trailing: _join([f['priceRange'], f['note']]),
+                onTap: () => onAdd('flight', _join([f['airline'], f['flightNo']]),
+                    _join([f['route'], f['stops'], f['duration'], f['priceRange'], f['note']])),
+              ),
+            if (trains.isNotEmpty) _sectionHeader(Icons.train_rounded, 'Trains', const Color(0xFF34D399)),
+            for (final t in trains)
+              _card(
+                title: _join([t['operator'], t['name']]),
+                subtitle: _join([t['route'], t['duration']]),
+                trailing: _join([t['priceRange'], t['note']]),
+                onTap: () => onAdd('train', _join([t['operator'], t['name']]),
+                    _join([t['route'], t['duration'], t['priceRange'], t['note']])),
+              ),
+            if (hotels.isNotEmpty) _sectionHeader(Icons.hotel_rounded, 'Hotels', const Color(0xFFA78BFA)),
+            for (final h in hotels)
+              _card(
+                title: _join([h['name'], h['rating']]),
+                subtitle: _join([h['area'], h['note']]),
+                trailing: h['pricePerNight'] != null && h['pricePerNight']!.isNotEmpty ? '${h['pricePerNight']} / night' : '',
+                onTap: () => onAdd('hotel', h['name'] ?? 'Hotel',
+                    _join([h['area'], h['pricePerNight'] != null && h['pricePerNight']!.isNotEmpty ? '${h['pricePerNight']}/night' : null, h['rating'], h['note']])),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _ReservationSheet extends StatefulWidget {
   final Reservation? existing;
@@ -1151,7 +1370,7 @@ class _ReservationSheetState extends State<_ReservationSheet> {
   late String _type;
   DateTime? _date;
 
-  static const _types = ['flight', 'hotel', 'restaurant', 'activity', 'other'];
+  static const _types = ['flight', 'train', 'hotel', 'restaurant', 'activity', 'other'];
 
   @override
   void initState() {
