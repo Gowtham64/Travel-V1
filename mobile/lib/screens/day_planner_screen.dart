@@ -11,6 +11,7 @@ import 'package:supabase_flutter/supabase_flutter.dart' show Supabase, RealtimeC
 import '../widgets/app_design.dart';
 import '../services/collab_service.dart';
 import 'smart_itinerary_screen.dart';
+import 'trip_demo_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
@@ -55,8 +56,6 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     ('activity', 'Activity', Icons.local_activity_rounded),
   ];
 
-  IconData _transportIcon(String id) =>
-      _transportModes.firstWhere((m) => m.$1 == id, orElse: () => _transportModes.first).$3;
   double _transportSpeed(String id) =>
       _transportModes.firstWhere((m) => m.$1 == id, orElse: () => _transportModes.first).$4;
   IconData _categoryIcon(String id) =>
@@ -484,6 +483,50 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     }
   }
 
+  /// Play a visual "demo" of the saved trip: a marker travels through the
+  /// itinerary's located stops. Geocodes any missing coordinates first (bounded).
+  Future<void> _startDemo() async {
+    if (_days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Add some days & places first.')));
+      return;
+    }
+    final context0 = widget.tripName.replaceAll(RegExp(r'\s*\(.*\)\s*'), '').trim();
+    final stops = <DemoStop>[];
+    int geocodes = 0;
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Preparing demo…'), duration: Duration(seconds: 1)));
+    for (int di = 0; di < _days.length; di++) {
+      final day = _days[di];
+      for (final it in day.items) {
+        LatLng? p;
+        if (it.hasCoords) {
+          p = LatLng(it.lat!, it.lng!);
+        } else if (geocodes < 15 && it.text.trim().isNotEmpty) {
+          geocodes++;
+          try {
+            final gp = await _api.geocode(context0.isEmpty ? it.text : '${it.text}, $context0');
+            p = LatLng(gp.lat, gp.lng);
+            it.lat = gp.lat; // cache back so future demos/map reuse it
+            it.lng = gp.lng;
+          } catch (_) {}
+        }
+        if (p != null) {
+          stops.add(DemoStop(dayLabel: 'Day ${di + 1}', time: it.time, name: it.text, category: it.category, point: p));
+        }
+      }
+    }
+    if (geocodes > 0) _persist();
+    if (!mounted) return;
+    if (stops.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Need at least 2 locatable places for a demo — add places with locations.')),
+      );
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => TripDemoScreen(stops: stops, tripName: context0.isEmpty ? widget.tripName : context0),
+    ));
+  }
+
   /// Open the smart AI planner (start date/time + timeline + auto breaks). Its
   /// "Use this plan" imports the result into a day planner.
   void _openSmartPlanner() {
@@ -698,6 +741,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         actions: [
           IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
+          IconButton(tooltip: 'Demo / preview trip', icon: const Icon(Icons.play_circle_outline_rounded, color: Colors.white), onPressed: _startDemo),
           IconButton(tooltip: 'Share & collaborate', icon: const Icon(Icons.group_add_rounded, color: Colors.white), onPressed: _shareTrip),
           IconButton(tooltip: 'Join a shared trip', icon: const Icon(Icons.login_rounded, color: Colors.white), onPressed: _joinByCode),
           IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Colors.white), onPressed: _import),
