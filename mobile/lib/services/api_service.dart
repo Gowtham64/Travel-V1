@@ -503,7 +503,14 @@ class ApiService {
       throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
     }
     if (response.statusCode != 200) {
-      throw ApiException('AI request failed (${response.statusCode})');
+      // Prefer the server's human-readable message (e.g. a rate-limit notice)
+      // over a bare status code.
+      String msg = 'AI request failed (${response.statusCode})';
+      try {
+        final err = (jsonDecode(response.body) as Map)['error'];
+        if (err is String && err.trim().isNotEmpty) msg = err;
+      } catch (_) {/* keep the default */}
+      throw ApiException(msg);
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final days = (body['days'] as List? ?? [])

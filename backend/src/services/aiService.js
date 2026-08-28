@@ -366,24 +366,36 @@ async function smartItinerary({
     return ctx + placeLine + prefLine + paceLine + directiveLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
   }
 
-  // One model call for the whole trip. Multiple back-to-back calls tripped the
-  // free-tier per-minute rate limit; a single call avoids that. reasoning_effort
-  // "low" keeps the token budget for the JSON (gpt-oss otherwise spends much of
-  // it on hidden reasoning), letting several days fit in one response.
+  // One model call for the whole trip (multiple back-to-back calls tripped the
+  // per-minute limit). reasoning_effort "low" keeps the token budget for the JSON
+  // rather than gpt-oss's hidden reasoning. Each Groq model has its OWN daily
+  // token quota, so on a rate-limit (429) we fall back to the next model instead
+  // of failing — this keeps planning working after one model's daily cap is hit.
+  const MODELS =
+    PROVIDER === "groq"
+      ? ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+      : [undefined];
   let days = [];
   let lastErr = null;
-  try {
-    const text = await generateWithRetry(batchPrompt(1, total), {
-      system: ITINERARY_SYSTEM,
-      json: true,
-      model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
-      reasoningEffort: "low",
-      maxTokens: 7000,
-    });
-    days = safeParseSmart(text);
-  } catch (err) {
-    lastErr = err;
-    console.error("Itinerary generation failed:", err.response ? `${err.response.status} ${JSON.stringify(err.response.data).slice(0, 300)}` : err.message);
+  for (const m of MODELS) {
+    try {
+      const text = await generateWithRetry(batchPrompt(1, total), {
+        system: ITINERARY_SYSTEM,
+        json: true,
+        model: m,
+        // reasoning_effort only applies to gpt-oss (reasoning) models.
+        reasoningEffort: m && m.includes("gpt-oss") ? "low" : undefined,
+        maxTokens: 7000,
+      });
+      days = safeParseSmart(text);
+      if (days.length) break;
+    } catch (err) {
+      lastErr = err;
+      const status = err.response ? err.response.status : 0;
+      console.error(`Itinerary model ${m} failed:`, status, err.response ? JSON.stringify(err.response.data).slice(0, 200) : err.message);
+      // Only fall through to the next model when this one is rate-limited.
+      if (status !== 429) break;
+    }
   }
 
   // Surface the real error instead of a silent "empty plan" when nothing came back.

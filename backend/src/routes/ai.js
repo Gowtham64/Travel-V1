@@ -43,11 +43,23 @@ function handleError(res, err) {
   }
   const status = err.response ? err.response.status : 502;
   const upstream = err.response && err.response.data ? err.response.data : null;
+  const upstreamMessage = upstream && upstream.error ? upstream.error.message : err.message;
   console.error("AI request failed:", err.message, JSON.stringify(upstream || {}));
+  // A rate limit is temporary, not a server fault — tell the user clearly and
+  // pass along the "try again in X" hint the provider gives, if any.
+  if (status === 429) {
+    const m = /try again in ([0-9hms.\s]+)/i.exec(upstreamMessage || "");
+    return res.status(429).json({
+      error: m
+        ? `The AI is busy right now (daily limit reached). Please try again in ${m[1].trim()}.`
+        : "The AI is busy right now (rate limit reached). Please try again in a few minutes.",
+      upstreamStatus: 429,
+    });
+  }
   return res.status(502).json({
     error: "AI request failed",
     upstreamStatus: status,
-    upstreamMessage: upstream && upstream.error ? upstream.error.message : err.message,
+    upstreamMessage,
     upstreamStatusText: upstream && upstream.error ? upstream.error.status : undefined,
   });
 }
