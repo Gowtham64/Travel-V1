@@ -1,5 +1,6 @@
 const express = require("express");
 const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
+const { groundItinerary } = require("../services/itineraryGeo");
 
 const router = express.Router();
 
@@ -115,9 +116,10 @@ router.post("/smart-itinerary", async (req, res) => {
     return res.status(400).json({ error: "destination is required" });
   }
   try {
+    const startLocation = b.startLocation ? String(b.startLocation) : "";
     const days = await smartItinerary({
       destination: String(b.destination),
-      startLocation: b.startLocation ? String(b.startLocation) : "",
+      startLocation,
       places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
       startDate: b.startDate ? String(b.startDate) : "",
       startTime: b.startTime ? String(b.startTime) : "08:00",
@@ -128,6 +130,13 @@ router.post("/smart-itinerary", async (req, res) => {
       preferences: b.preferences ? String(b.preferences) : "",
       directive: b.directive ? String(b.directive) : "",
     });
+    // Replace AI-estimated travel legs with real geocoded + routed distance/time
+    // (best-effort; keeps AI numbers for any leg that can't be resolved).
+    try {
+      await groundItinerary(days, startLocation);
+    } catch (err) {
+      console.error("Itinerary distance grounding skipped:", err.message);
+    }
     res.json({ days });
   } catch (err) {
     handleError(res, err);
