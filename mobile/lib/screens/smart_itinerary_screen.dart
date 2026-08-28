@@ -103,7 +103,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     if (_itinerary.isNotEmpty) _generate();
   }
 
-  Future<void> _import() async {
+  /// Convert the AI timeline to PlanDays and persist it locally. Returns the
+  /// tripKey it was saved under.
+  Future<String> _persistPlan() async {
     final planDays = <PlanDay>[];
     for (int i = 0; i < _itinerary.length; i++) {
       final d = _itinerary[i];
@@ -124,7 +126,23 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     final dest = _destCtrl.text.trim();
     final tripKey = 'smart_${dest.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
     await TripExtrasStore(tripKey).saveDays(planDays);
+    return tripKey;
+  }
+
+  /// Save the itinerary without leaving the screen.
+  Future<void> _save() async {
+    await _persistPlan();
     if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Itinerary saved ✓ — find it in the day planner')),
+    );
+  }
+
+  /// Save and open the day-by-day planner to start following the trip.
+  Future<void> _start() async {
+    final tripKey = await _persistPlan();
+    if (!mounted) return;
+    final dest = _destCtrl.text.trim();
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => DayPlannerScreen(tripKey: tripKey, tripName: '$dest (AI plan)'),
     ));
@@ -404,14 +422,30 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         step: const Duration(milliseconds: 60),
       ),
       const SizedBox(height: 6),
-      AccentButton(
-        onPressed: _import,
-        child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Icon(Icons.download_done_rounded, color: Colors.white, size: 20),
-          SizedBox(width: 8),
-          Text('USE THIS PLAN'),
-        ]),
-      ),
+      Row(children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: _save,
+            icon: const Icon(Icons.bookmark_add_rounded, size: 18, color: Colors.white),
+            label: const Text('Save', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: AccentButton(
+            onPressed: _start,
+            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+              SizedBox(width: 6),
+              Text('START TRIP'),
+            ]),
+          ),
+        ),
+      ]),
     ];
   }
 
