@@ -39,8 +39,8 @@ function round(n) {
   return Math.round(n);
 }
 
-function ticketCost(mode, distanceKm) {
-  const r = TICKET_RATES[mode];
+function ticketCost(mode, distanceKm, rates = TICKET_RATES) {
+  const r = (rates && rates[mode]) || TICKET_RATES[mode];
   if (!r) return 0;
   const km = Number(distanceKm) || 0;
   return Math.max(r.min, r.base + r.perKm * km);
@@ -66,6 +66,7 @@ function estimateBudget({
   toll,
   transportLegs = [],
   localTransportKm = 0,
+  ticketRates = TICKET_RATES,
   options = {},
 }) {
   const international = !!options.international;
@@ -96,7 +97,7 @@ function estimateBudget({
   // Transport tickets: flight/train/bus/ferry legs, priced per person per leg.
   let transportCost = 0;
   for (const leg of Array.isArray(transportLegs) ? transportLegs : []) {
-    transportCost += ticketCost(leg.mode, leg.distanceKm) * travellers;
+    transportCost += ticketCost(leg.mode, leg.distanceKm, ticketRates) * travellers;
   }
 
   // Local getting-around at the destination (taxis/ride-hail), per group.

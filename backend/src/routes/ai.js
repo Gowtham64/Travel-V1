@@ -8,6 +8,7 @@ function isInIndia(pt) {
   return !!pt && pt.lat >= 6.5 && pt.lat <= 37.5 && pt.lng >= 68.0 && pt.lng <= 97.5;
 }
 const { estimateBudget } = require("../services/budgetService");
+const priceService = require("../services/priceService");
 
 const router = express.Router();
 
@@ -182,19 +183,26 @@ router.post("/smart-itinerary", async (req, res) => {
 
       const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));
       const eff = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : 15;
-      // Rough toll estimate (~₹0.7/km of self-driving) — none when abroad.
-      const tollGuess = Math.round(driveKm * 0.7);
+      // Live daily prices (fuel, tickets, toll, food/stay/taxi, FX).
+      const rates = priceService.getRates();
+      // Rough toll estimate from the live ₹/km of self-driving — none when abroad.
+      const tollGuess = Math.round(driveKm * rates.tollPerKm);
       budget = estimateBudget({
         driveKm: Math.round(driveKm),
         localTransportKm: Math.round(localKm),
         transportLegs,
+        ticketRates: rates.ticketRates,
         estimatedDays: durationDays,
         vehicle: { efficiencyKmPerLiter: eff },
         toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
         options: {
           international,
           travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
-          ...(Number(b.fuelPrice) > 0 ? { fuelPricePerLiter: Number(b.fuelPrice) } : {}),
+          fuelPricePerLiter: Number(b.fuelPrice) > 0 ? Number(b.fuelPrice) : rates.fuel.petrolPerLiter,
+          // Food / stay / local taxi at the live domestic or international rate.
+          foodPerDay: international ? rates.intl.foodPerDay : rates.foodPerDay,
+          stayPerNight: international ? rates.intl.stayPerNight : rates.stayPerNight,
+          localTaxiPerKm: international ? rates.intl.localTaxiPerKm : rates.localTaxiPerKm,
         },
       });
     } catch (err) {

@@ -12,7 +12,9 @@ const aiRouter = require("./routes/ai");
 const accountRouter = require("./routes/account");
 const currencyRouter = require("./routes/currency");
 const treksRouter = require("./routes/treks");
+const pricesRouter = require("./routes/prices");
 const statusRouter = require("./routes/status");
+const priceService = require("./services/priceService");
 const { metricsMiddleware } = require("./services/metricsService");
 
 const app = express();
@@ -91,6 +93,7 @@ app.use("/api/ai", aiLimiter, aiRouter);
 app.use("/api/account", accountRouter);
 app.use("/api/currency", currencyRouter);
 app.use("/api/treks", treksRouter);
+app.use("/api/prices", pricesRouter);
 app.use("/", statusRouter);
 
 // --- 404 for unmatched API routes (sanitized JSON, never an HTML stack page) ---
@@ -144,6 +147,9 @@ if (require.main === module) {
   checkConfig();
   app.listen(PORT, () => {
     console.log(`Travel app backend listening on http://localhost:${PORT}`);
+    // Refresh daily prices on boot and every 24h (fuel, tickets, toll, food/stay,
+    // FX). getRates() also lazily refreshes when the cache is >24h stale.
+    priceService.startDailyRefresh();
   });
 }
 

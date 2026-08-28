@@ -1,3 +1,6 @@
 
 # Secrets — never commit
 .env
+
+# Runtime price cache (regenerated daily)
+src/data/prices.json
