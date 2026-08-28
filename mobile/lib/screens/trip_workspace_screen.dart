@@ -8,6 +8,7 @@ import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import 'itinerary_screen.dart';
+import 'bookings_screen.dart';
 
 /// A tabbed "trip workspace" — the single place that brings a trip together:
 /// Map, Itinerary, an interactive Packing checklist, an Expense tracker with
@@ -2301,6 +2302,31 @@ class _PlanTabState extends State<_PlanTab> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               child: Text(_searchError!, style: const TextStyle(color: Voy.danger, fontSize: 12.5)),
             ),
+          // Inline bookings column: saved reservations + AI flight/train/hotel
+          // suggestions for this journey.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Voy.surface2,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Voy.hairline),
+              ),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 300),
+                child: SingleChildScrollView(
+                  child: BookingsScreen(
+                    store: widget.store,
+                    fromName: widget.startAddress,
+                    toName: widget.end.name ?? '',
+                    travellers: 2,
+                    embedded: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
           Expanded(
             child: _results.isEmpty
                 ? Center(
