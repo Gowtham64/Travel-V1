@@ -20,6 +20,7 @@ import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import '../utils/plan_export.dart';
 import '../utils/gsap_demo.dart';
+import 'bookings_screen.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -746,6 +747,31 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
+  /// Open the bookings manager (saved reservations + AI-suggested flights,
+  /// trains & hotels) for this journey. Origin/destination are parsed from the
+  /// trip name (e.g. "Mandya → London (round trip)").
+  void _openBookings() {
+    String from = '';
+    String to = '';
+    final name = widget.tripName;
+    final sep = RegExp(r'\s*(?:→|->)\s*|\s+to\s+', caseSensitive: false);
+    final parts = name.split(sep);
+    if (parts.length >= 2) {
+      from = parts.first.trim();
+      to = parts[1].replaceAll(RegExp(r'\(.*\)'), '').trim();
+    } else {
+      to = name.replaceAll(RegExp(r'\(.*\)'), '').trim();
+    }
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => BookingsScreen(
+        store: _store,
+        fromName: from,
+        toName: to,
+        travellers: 2,
+      ),
+    ));
+  }
+
   Future<void> _renameDay(PlanDay day) async {
     final ctrl = TextEditingController(text: day.title);
     final text = await showDialog<String>(
@@ -952,6 +978,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         actions: [
           IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
+          IconButton(tooltip: 'Bookings (flights, trains & hotels)', icon: const Icon(Icons.airplane_ticket_outlined, color: Colors.white), onPressed: _openBookings),
           IconButton(tooltip: 'Demo / preview trip', icon: const Icon(Icons.play_circle_outline_rounded, color: Colors.white), onPressed: _startDemo),
           IconButton(tooltip: 'Share & collaborate', icon: const Icon(Icons.group_add_rounded, color: Colors.white), onPressed: _shareTrip),
           IconButton(tooltip: 'Join a shared trip', icon: const Icon(Icons.login_rounded, color: Colors.white), onPressed: _joinByCode),
