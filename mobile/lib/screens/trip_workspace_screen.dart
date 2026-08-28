@@ -99,6 +99,7 @@ class TripWorkspaceScreen extends StatelessWidget {
               end: end,
               waypoints: waypoints,
               startAddress: startAddress,
+              endAddress: endAddress,
             ),
             ItineraryScreen(
               plan: plan,
@@ -1729,6 +1730,7 @@ class _PlanTab extends StatefulWidget {
   final GeoPoint end;
   final List<GeoPoint> waypoints;
   final String startAddress;
+  final String endAddress;
   const _PlanTab({
     required this.store,
     required this.plan,
@@ -1736,6 +1738,7 @@ class _PlanTab extends StatefulWidget {
     required this.end,
     required this.waypoints,
     required this.startAddress,
+    this.endAddress = '',
   });
   @override
   State<_PlanTab> createState() => _PlanTabState();
@@ -2319,7 +2322,7 @@ class _PlanTabState extends State<_PlanTab> {
                   child: BookingsScreen(
                     store: widget.store,
                     fromName: widget.startAddress,
-                    toName: widget.end.name ?? '',
+                    toName: widget.endAddress.isNotEmpty ? widget.endAddress : (widget.end.name ?? ''),
                     travellers: 2,
                     embedded: true,
                   ),

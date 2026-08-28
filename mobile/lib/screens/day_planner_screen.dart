@@ -747,12 +747,19 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
-  /// Origin/destination for this journey, parsed from the trip name
-  /// (e.g. "Mandya → London (round trip)"), used for booking suggestions.
+  /// Origin/destination for this journey, used for booking suggestions.
+  /// Looks for a "from X to Y" phrase in the trip name or any AI day title
+  /// (e.g. "Journey from Mandya to New York City"), then an "A → B" trip name,
+  /// then falls back to the trip name as the destination.
   ({String from, String to}) _journeyEndpoints() {
-    final sep = RegExp(r'\s*(?:→|->)\s*|\s+to\s+', caseSensitive: false);
-    final parts = widget.tripName.split(sep);
     String clean(String s) => s.replaceAll(RegExp(r'\(.*\)'), '').trim();
+    final candidates = <String>[widget.tripName, for (final d in _days) d.title];
+    final fromTo = RegExp(r'from\s+(.+?)\s+to\s+(.+)', caseSensitive: false);
+    for (final s in candidates) {
+      final m = fromTo.firstMatch(s);
+      if (m != null) return (from: clean(m.group(1)!), to: clean(m.group(2)!));
+    }
+    final parts = widget.tripName.split(RegExp(r'\s*(?:→|->)\s*'));
     if (parts.length >= 2) return (from: clean(parts.first), to: clean(parts[1]));
     return (from: '', to: clean(widget.tripName));
   }
