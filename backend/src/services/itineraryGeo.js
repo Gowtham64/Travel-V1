@@ -3,15 +3,31 @@ const axios = require("axios");
 // Block types that represent an actual geographic place we can geocode.
 const PLACE_TYPES = new Set(["activity", "checkin", "checkout", "start", "return", "shopping", "freetime"]);
 
+function haversineKm(a, b) {
+  const r = 6371.0;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return r * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 /**
- * Geocode a free-text place name to { lat, lng }, biased toward `near` when given.
- * Uses OpenRouteService (same key as routing). Returns null on failure.
+ * Geocode a free-text place name to { lat, lng }. Uses OpenRouteService (same
+ * key as routing). `focus` (a {lat,lng}) biases results toward that area so a
+ * same-named place elsewhere isn't returned. Returns null on failure.
  */
-async function geocode(name, near) {
+async function geocode(name, near, focus) {
   const key = process.env.ORS_API_KEY;
   if (!key || !name) return null;
   try {
     const params = { api_key: key, text: near ? `${name}, ${near}` : name, size: 1 };
+    if (focus) {
+      params["focus.point.lat"] = focus.lat;
+      params["focus.point.lon"] = focus.lng;
+    }
     const res = await axios.get("https://api.openrouteservice.org/geocode/search", {
       params,
       timeout: 8000,
@@ -46,19 +62,25 @@ async function route(from, to) {
  * geocoded + routed values. Best-effort: any block/leg that can't be resolved
  * keeps the AI's original numbers. Mutates `days` in place.
  */
-async function groundItinerary(days, startLocation = "") {
+async function groundItinerary(days, startLocation = "", destination = "") {
   if (!Array.isArray(days) || !process.env.ORS_API_KEY) return days;
-  const near = startLocation || (days[0] && days[0].title) || "";
   const cache = new Map();
   let geocodes = 0;
 
-  async function coordFor(name) {
+  // Anchor everything on the destination so same-named places elsewhere are
+  // rejected. Local stops must be within ~250km of this centre to be trusted.
+  const destCenter = destination ? await geocode(destination, "") : null;
+
+  async function coordFor(name, { allowFar = false } = {}) {
     if (!name) return null;
     const kkey = name.toLowerCase().trim();
     if (cache.has(kkey)) return cache.get(kkey);
     if (geocodes >= 40) return null; // stay well under ORS free-tier limits
     geocodes += 1;
-    const c = await geocode(name, near);
+    let c = await geocode(name, destination || "", destCenter);
+    // Reject a match that lands implausibly far from the destination — almost
+    // certainly the wrong same-named place. Keep the AI estimate for that leg.
+    if (c && destCenter && !allowFar && haversineKm(destCenter, c) > 250) c = null;
     cache.set(kkey, c);
     return c;
   }
@@ -80,8 +102,9 @@ async function groundItinerary(days, startLocation = "") {
       for (let j = i - 1; j >= 0; j -= 1) {
         if (blocks[j]._coord) { from = blocks[j]._coord; break; }
       }
-      // The first leg of the day often starts from the trip's starting location.
-      if (!from) from = await coordFor(startLocation);
+      // The first leg of the day often starts from the trip's starting location
+      // (which can legitimately be far from the destination).
+      if (!from) from = await coordFor(startLocation, { allowFar: true });
       let to = null;
       for (let j = i + 1; j < blocks.length; j += 1) {
         if (blocks[j]._coord) { to = blocks[j]._coord; break; }

@@ -133,7 +133,7 @@ router.post("/smart-itinerary", async (req, res) => {
     // Replace AI-estimated travel legs with real geocoded + routed distance/time
     // (best-effort; keeps AI numbers for any leg that can't be resolved).
     try {
-      await groundItinerary(days, startLocation);
+      await groundItinerary(days, startLocation, String(b.destination));
     } catch (err) {
       console.error("Itinerary distance grounding skipped:", err.message);
     }
