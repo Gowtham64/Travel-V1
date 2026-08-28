@@ -121,14 +121,16 @@ async function findTreksNear(lat, lng, radiusMeters = 20000, limit = 20) {
   }
   const r = Math.min(Math.max(Number(radiusMeters) || 20000, 1000), 60000);
 
-  // `out geom` returns the actual line geometry (for ways) and member geometries
-  // (for relations) so the client can draw the trail, not just a start pin.
+  // Discovery stays lightweight: `out center` (one representative point per
+  // element) keeps this fast and reliable. Full trail geometry is heavy —
+  // especially for hiking relations — so it's fetched lazily per-trail via
+  // getTrekGeometry() only when a user opens a trek.
   const query =
     `[out:json][timeout:25];\n(\n` +
-    `  relation["route"~"hiking|foot|mountain"]["name"](around:${r},${lat},${lng});\n` +
+    `  relation["route"~"hiking|foot"]["name"](around:${r},${lat},${lng});\n` +
     `  way["highway"="path"]["name"]["sac_scale"](around:${r},${lat},${lng});\n` +
     `  way["highway"~"path|footway"]["name"]["route"="hiking"](around:${r},${lat},${lng});\n` +
-    `);\nout geom tags;`;
+    `);\nout center tags;`;
 
   const data = await queryOverpass(query);
   const elements = data.elements || [];
@@ -143,33 +145,25 @@ async function findTreksNear(lat, lng, radiusMeters = 20000, limit = 20) {
     const nameKey = name.toLowerCase().trim();
     if (seen.has(nameKey)) continue;
 
-    const path = extractGeometry(el);
-    // Representative point: geometry start, else bbox centre, else element center.
-    let elat = path.length ? path[0].lat : null;
-    let elng = path.length ? path[0].lng : null;
+    // Representative point: element center (ways/relations), node lat/lon, or bbox centre.
+    let elat = el.lat ?? (el.center && el.center.lat);
+    let elng = el.lon ?? (el.center && el.center.lon);
     if (elat == null && el.bounds) {
       elat = (el.bounds.minlat + el.bounds.maxlat) / 2;
       elng = (el.bounds.minlon + el.bounds.maxlon) / 2;
     }
-    if (elat == null) {
-      elat = el.lat ?? (el.center && el.center.lat);
-      elng = el.lon ?? (el.center && el.center.lon);
-    }
     if (elat == null || elng == null) continue;
 
     seen.add(nameKey);
-    const geomLengthKm = path.length > 1 ? pathLengthKm(path) : null;
     treks.push({
       id: `${el.type}/${el.id}`,
       name,
       lat: elat,
       lng: elng,
       distanceFromSearchKm: Math.round(haversineDistanceKm({ lat, lng }, { lat: elat, lng: elng }) * 10) / 10,
-      // Prefer the mapper's distance tag; fall back to the measured geometry length.
-      lengthKm: lengthKmFromTags(tags) ?? (geomLengthKm ? Math.round(geomLengthKm * 10) / 10 : null),
+      lengthKm: lengthKmFromTags(tags),
       difficulty: difficultyFromTags(tags),
       type: tags.route ? `${tags.route} route` : "trail",
-      path: simplifyPath(path, 200),
       tags,
     });
   }
@@ -179,8 +173,32 @@ async function findTreksNear(lat, lng, radiusMeters = 20000, limit = 20) {
   return treks.slice(0, Math.max(1, Math.min(Number(limit) || 20, 50)));
 }
 
+/**
+ * Fetch the trail geometry for a single trek by its OSM id ("way/123" or
+ * "relation/456"). Cheap because it targets exactly one element with `out geom`.
+ *
+ * @param {string} id
+ * @returns {Promise<{path:Array<{lat:number,lng:number}>, lengthKm:(number|null)}>}
+ */
+async function getTrekGeometry(id) {
+  const [type, rawId] = String(id).split("/");
+  const numId = parseInt(rawId, 10);
+  if (!["way", "relation", "node"].includes(type) || !Number.isFinite(numId)) {
+    throw new Error(`invalid trek id "${id}" (expected way/<n>, relation/<n> or node/<n>)`);
+  }
+  const query = `[out:json][timeout:25];${type}(${numId});out geom;`;
+  const data = await queryOverpass(query);
+  const el = (data.elements || [])[0];
+  if (!el) return { path: [], lengthKm: null };
+  const full = extractGeometry(el);
+  const path = simplifyPath(full, 300);
+  const lengthKm = full.length > 1 ? Math.round(pathLengthKm(full) * 10) / 10 : null;
+  return { path, lengthKm };
+}
+
 module.exports = {
   findTreksNear,
+  getTrekGeometry,
   difficultyFromTags,
   lengthKmFromTags,
   extractGeometry,

@@ -1,8 +1,28 @@
 const express = require("express");
-const { findTreksNear } = require("../services/treksService");
+const { findTreksNear, getTrekGeometry } = require("../services/treksService");
 const { getWikiPlaces } = require("../services/wikiService");
 
 const router = express.Router();
+
+/**
+ * GET /api/treks/geometry?id=way/123
+ *
+ * Lazily fetch one trail's line geometry (kept out of the discovery list so that
+ * stays fast). Returns { path: [{lat,lng}], lengthKm }.
+ */
+router.get("/geometry", async (req, res) => {
+  const id = req.query.id;
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({ error: "id query param is required (e.g. way/123)" });
+  }
+  try {
+    const geom = await getTrekGeometry(id);
+    res.json(geom);
+  } catch (err) {
+    console.error("Trek geometry failed:", err.message);
+    res.status(502).json({ error: "Failed to load trek geometry", detail: err.message });
+  }
+});
 
 /**
  * GET /api/treks?lat=..&lng=..&radius=..&limit=..

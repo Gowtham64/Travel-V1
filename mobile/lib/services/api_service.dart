@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
 
 class ApiException implements Exception {
@@ -149,6 +150,23 @@ class ApiService {
     return (body['treks'] as List? ?? [])
         .map((e) => Trek.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  /// Lazily fetch one trail's line geometry (kept out of the discovery list so
+  /// that stays fast). Returns the ordered points and measured length in km.
+  Future<({List<LatLng> path, double? lengthKm})> fetchTrekGeometry(String id) async {
+    final uri = Uri.parse('$baseUrl/api/treks/geometry').replace(queryParameters: {'id': id});
+    final response = await http.get(uri).timeout(const Duration(seconds: 60), onTimeout: () {
+      throw ApiException('Trail is taking too long to load. Try again in a moment.');
+    });
+    if (response.statusCode != 200) {
+      throw ApiException('Trail geometry failed (${response.statusCode})');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final path = (body['path'] as List? ?? [])
+        .map((e) => LatLng(((e as Map)['lat'] as num).toDouble(), (e['lng'] as num).toDouble()))
+        .toList();
+    return (path: path, lengthKm: (body['lengthKm'] as num?)?.toDouble());
   }
 
   Future<TripPlan> planTrip({

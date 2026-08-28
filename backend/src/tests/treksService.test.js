@@ -1,6 +1,6 @@
 jest.mock("axios");
 const axios = require("axios");
-const { findTreksNear, difficultyFromTags, lengthKmFromTags } = require("../services/treksService");
+const { findTreksNear, getTrekGeometry, difficultyFromTags, lengthKmFromTags } = require("../services/treksService");
 
 describe("difficultyFromTags", () => {
   test("maps sac_scale to a friendly label", () => {
@@ -51,7 +51,13 @@ describe("findTreksNear", () => {
     expect(treks[0].distanceFromSearchKm).toBeLessThan(treks[1].distanceFromSearchKm);
   });
 
-  test("extracts way geometry, measures length, and simplifies the path", async () => {
+  test("throws on non-finite coordinates", async () => {
+    await expect(findTreksNear(NaN, 77.0)).rejects.toThrow();
+  });
+});
+
+describe("getTrekGeometry", () => {
+  test("extracts way geometry and measures length", async () => {
     axios.post.mockResolvedValue({
       data: {
         elements: [
@@ -63,17 +69,14 @@ describe("findTreksNear", () => {
               { lat: 12.1, lon: 77.0 },
               { lat: 12.2, lon: 77.0 },
             ],
-            tags: { name: "Ridge Way", highway: "path", sac_scale: "hiking" },
           },
         ],
       },
     });
-    const treks = await findTreksNear(12.0, 77.0, 30000, 20);
-    expect(treks).toHaveLength(1);
-    expect(treks[0].path.length).toBe(3);
-    expect(treks[0].lat).toBeCloseTo(12.0, 3); // representative = geometry start
-    expect(treks[0].lengthKm).toBeGreaterThan(20); // ~22km measured from geometry
-    expect(treks[0].lengthKm).toBeLessThan(24);
+    const geom = await getTrekGeometry("way/10");
+    expect(geom.path.length).toBe(3);
+    expect(geom.lengthKm).toBeGreaterThan(20); // ~22km
+    expect(geom.lengthKm).toBeLessThan(24);
   });
 
   test("concatenates relation member geometry", async () => {
@@ -87,17 +90,15 @@ describe("findTreksNear", () => {
               { type: "way", geometry: [ { lat: 12.0, lon: 77.0 }, { lat: 12.05, lon: 77.0 } ] },
               { type: "way", geometry: [ { lat: 12.05, lon: 77.0 }, { lat: 12.1, lon: 77.0 } ] },
             ],
-            tags: { name: "Grand Loop", route: "hiking" },
           },
         ],
       },
     });
-    const treks = await findTreksNear(12.0, 77.0);
-    expect(treks[0].path.length).toBe(4);
-    expect(treks[0].type).toBe("hiking route");
+    const geom = await getTrekGeometry("relation/20");
+    expect(geom.path.length).toBe(4);
   });
 
-  test("throws on non-finite coordinates", async () => {
-    await expect(findTreksNear(NaN, 77.0)).rejects.toThrow();
+  test("rejects a malformed id", async () => {
+    await expect(getTrekGeometry("garbage")).rejects.toThrow();
   });
 });

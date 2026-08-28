@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
@@ -409,7 +410,6 @@ class _TrekDiscoveryScreenState extends State<TrekDiscoveryScreen> {
                     _chip(Icons.place_outlined, '${t.distanceFromSearchKm.toStringAsFixed(1)} km away', AppColors.accentLight),
                     if (t.lengthKm != null) _chip(Icons.straighten, '${t.lengthKm!.toStringAsFixed(1)} km', const Color(0xFF8B5CF6)),
                     if (t.difficulty != null) _chip(Icons.terrain, t.difficulty!, difficultyColor(t.difficulty)),
-                    if (t.hasPath) _chip(Icons.timeline, 'Trail mapped', const Color(0xFF22C55E)),
                   ]),
                   if (t.description != null) ...[
                     const SizedBox(height: 12),
@@ -440,10 +440,40 @@ class TrekDetailScreen extends StatefulWidget {
 }
 
 class _TrekDetailScreenState extends State<TrekDetailScreen> {
+  final _api = ApiService();
   late VehicleModel _vehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
   int _travellers = 2;
   late final TextEditingController _fuelController =
       TextEditingController(text: (_vehicle.tankCapacity * 0.6).toStringAsFixed(0));
+
+  // Trail geometry is fetched lazily when this screen opens.
+  List<LatLng> _path = const [];
+  double? _measuredLengthKm;
+  bool _loadingPath = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _path = widget.trek.path; // usually empty (list omits geometry)
+    _loadGeometry();
+  }
+
+  Future<void> _loadGeometry() async {
+    try {
+      final geom = await _api.fetchTrekGeometry(widget.trek.id);
+      if (!mounted) return;
+      setState(() {
+        _path = geom.path;
+        _measuredLengthKm = geom.lengthKm;
+        _loadingPath = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingPath = false); // fall back to the trailhead pin
+    }
+  }
+
+  double? get _displayLengthKm => widget.trek.lengthKm ?? _measuredLengthKm;
 
   @override
   void dispose() {
@@ -452,8 +482,8 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
   }
 
   LatLngBounds? _pathBounds() {
-    if (!widget.trek.hasPath) return null;
-    return LatLngBounds.fromPoints(widget.trek.path);
+    if (_path.length < 2) return null;
+    return LatLngBounds.fromPoints(_path);
   }
 
   @override
@@ -501,39 +531,63 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
 
   Widget _mapCard(Trek t) {
     final bounds = _pathBounds();
+    final hasPath = _path.length > 1;
     return GlassCard(
       padding: const EdgeInsets.all(6),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: SizedBox(
           height: 260,
-          child: FlutterMap(
-            options: MapOptions(
-              initialCenter: t.toLatLng(),
-              initialZoom: 12,
-              initialCameraFit: bounds != null
-                  ? CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(28))
-                  : null,
-            ),
+          child: Stack(
             children: [
-              TileLayer(
-                urlTemplate: AppConfig.hasMapboxToken
-                    ? 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
-                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.voyplan.app',
-              ),
-              if (t.hasPath)
-                PolylineLayer(polylines: [
-                  Polyline(points: t.path, strokeWidth: 4, color: const Color(0xFF22C55E)),
-                ]),
-              MarkerLayer(markers: [
-                Marker(
-                  point: t.hasPath ? t.path.first : t.toLatLng(),
-                  width: 44,
-                  height: 44,
-                  child: const Icon(Icons.hiking_rounded, color: Color(0xFF22C55E), size: 38),
+              FlutterMap(
+                // Rebuild fresh once geometry arrives so initialCameraFit re-applies.
+                key: ValueKey('trekmap_${hasPath ? 'path' : 'pin'}'),
+                options: MapOptions(
+                  initialCenter: hasPath ? _path.first : t.toLatLng(),
+                  initialZoom: 12,
+                  initialCameraFit: bounds != null
+                      ? CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(28))
+                      : null,
                 ),
-              ]),
+                children: [
+                  TileLayer(
+                    urlTemplate: AppConfig.hasMapboxToken
+                        ? 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
+                        : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    userAgentPackageName: 'com.voyplan.app',
+                  ),
+                  if (hasPath)
+                    PolylineLayer(polylines: [
+                      Polyline(points: _path, strokeWidth: 4, color: const Color(0xFF22C55E)),
+                    ]),
+                  MarkerLayer(markers: [
+                    Marker(
+                      point: hasPath ? _path.first : t.toLatLng(),
+                      width: 44,
+                      height: 44,
+                      child: const Icon(Icons.hiking_rounded, color: Color(0xFF22C55E), size: 38),
+                    ),
+                  ]),
+                ],
+              ),
+              if (_loadingPath)
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      SizedBox(width: 8),
+                      Text('Loading trail…', style: TextStyle(color: Colors.white, fontSize: 11.5)),
+                    ]),
+                  ),
+                ),
             ],
           ),
         ),
@@ -552,7 +606,7 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
           Text(t.type, style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
           const SizedBox(height: 16),
           Row(children: [
-            _stat('Length', t.lengthKm != null ? '${t.lengthKm!.toStringAsFixed(1)} km' : '—'),
+            _stat('Length', _displayLengthKm != null ? '${_displayLengthKm!.toStringAsFixed(1)} km' : '—'),
             _stat('Difficulty', t.difficulty ?? '—',
                 color: _TrekDiscoveryScreenState.difficultyColor(t.difficulty)),
             _stat('Trailhead', '${t.distanceFromSearchKm.toStringAsFixed(1)} km'),
