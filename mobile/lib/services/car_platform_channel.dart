@@ -30,6 +30,9 @@ class CarPlatformChannel {
   static Future<void> updateNavigation({
     required ManeuverInstruction maneuver,
     required CarTelemetry telemetry,
+    double? currentLat,
+    double? currentLng,
+    double? bearingDeg,
   }) async {
     try {
       await _channel.invokeMethod('updateNavigation', {
@@ -41,6 +44,10 @@ class CarPlatformChannel {
         'remainingDistanceKm': telemetry.remainingDistanceKm,
         'remainingDurationMin': telemetry.remainingDurationMin,
         'formattedEta': telemetry.formattedEta,
+        // Live position + heading so the car map can follow the vehicle in real time.
+        if (currentLat != null) 'currentLat': currentLat,
+        if (currentLng != null) 'currentLng': currentLng,
+        if (bearingDeg != null) 'bearingDeg': bearingDeg,
       });
     } catch (_) {
       // Channel fallback

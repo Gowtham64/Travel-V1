@@ -2,7 +2,6 @@ package com.example.travel_app.car
 
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.Paint
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
@@ -147,36 +146,33 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
             canvas.drawColor(Color.rgb(229, 227, 223)) // map paper tone under tiles
 
             val route = CarNavState.route
-            val area = visibleArea ?: Rect(0, 0, surfaceWidth, surfaceHeight)
+            // Fill the ENTIRE surface with the map; Android Auto floats its card
+            // (the "Start a trip…" message / routing info) on top. visibleArea is
+            // only a hint for where NOT to place critical content, not the map bounds.
+            val area = Rect(0, 0, surfaceWidth, surfaceHeight)
             if (area.width() <= 0 || area.height() <= 0) return
 
-            // Center the map: on the route when there is one, else the estimated
-            // position, else a sensible default so an idle screen still shows a map.
-            val center: LatLngD = when {
-                route.size >= 2 -> {
-                    var minLat = 90.0; var maxLat = -90.0; var minLng = 180.0; var maxLng = -180.0
-                    for (p in route) {
-                        if (p.lat < minLat) minLat = p.lat
-                        if (p.lat > maxLat) maxLat = p.lat
-                        if (p.lng < minLng) minLng = p.lng
-                        if (p.lng > maxLng) maxLng = p.lng
+            val livePos = CarNavState.currentPosition()
+            if (CarNavState.isNavigating && livePos != null) {
+                // Google-Maps-style: follow the vehicle, zoomed in, heading arrow.
+                mapRenderer.draw(canvas, area, livePos, route, fixedZoom = 16, bearingDeg = CarNavState.bearing)
+            } else {
+                // Idle / overview: frame the whole route, else a sensible default.
+                val center: LatLngD = when {
+                    route.size >= 2 -> {
+                        var minLat = 90.0; var maxLat = -90.0; var minLng = 180.0; var maxLng = -180.0
+                        for (p in route) {
+                            if (p.lat < minLat) minLat = p.lat
+                            if (p.lat > maxLat) maxLat = p.lat
+                            if (p.lng < minLng) minLng = p.lng
+                            if (p.lng > maxLng) maxLng = p.lng
+                        }
+                        LatLngD((minLat + maxLat) / 2, (minLng + maxLng) / 2)
                     }
-                    LatLngD((minLat + maxLat) / 2, (minLng + maxLng) / 2)
+                    CarNavState.start != null -> CarNavState.start!!
+                    else -> LatLngD(12.9716, 77.5946) // Bengaluru fallback
                 }
-                CarNavState.estimatedPosition() != null -> CarNavState.estimatedPosition()!!
-                CarNavState.start != null -> CarNavState.start!!
-                else -> LatLngD(12.9716, 77.5946) // Bengaluru fallback
-            }
-
-            mapRenderer.draw(canvas, area, center, route)
-
-            if (route.size < 2) {
-                val hint = Paint().apply {
-                    color = Color.argb(200, 20, 20, 20)
-                    textSize = 30f
-                    isAntiAlias = true
-                }
-                canvas.drawText("Start a trip on your phone to navigate", area.left + 24f, area.bottom - 28f, hint)
+                mapRenderer.draw(canvas, area, center, route)
             }
         } finally {
             try {

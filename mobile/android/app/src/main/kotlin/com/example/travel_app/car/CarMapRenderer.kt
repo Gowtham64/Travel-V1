@@ -62,12 +62,19 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
      * Render the map into [canvas] within [area], centred on [center] and framing
      * [route] if present. Missing tiles are fetched asynchronously.
      */
-    fun draw(canvas: Canvas, area: Rect, center: LatLngD, route: List<LatLngD>) {
+    fun draw(
+        canvas: Canvas,
+        area: Rect,
+        center: LatLngD,
+        route: List<LatLngD>,
+        fixedZoom: Int? = null,
+        bearingDeg: Double? = null,
+    ) {
         val w = (area.width()).toDouble()
         val h = (area.height()).toDouble()
         if (w <= 0 || h <= 0) return
 
-        val z = zoomForBounds(route, w, h)
+        val z = fixedZoom ?: zoomForBounds(route, w, h)
         val cwx = lngToWorldX(center.lng, z)
         val cwy = latToWorldY(center.lat, z)
         val cx = area.left + w / 2.0
@@ -123,13 +130,36 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
             canvas.drawCircle(sx(route.last().lng), sy(route.last().lat), 16f, dot)
         }
 
-        // Current position (estimated) marker.
-        CarNavState.estimatedPosition()?.let {
-            val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
-            canvas.drawCircle(sx(it.lng), sy(it.lat), 20f, ring)
-            val fill = Paint().apply { color = Color.rgb(37, 99, 235); isAntiAlias = true }
-            canvas.drawCircle(sx(it.lng), sy(it.lat), 14f, fill)
+        // Vehicle marker at the current position.
+        CarNavState.currentPosition()?.let {
+            val px = sx(it.lng)
+            val py = sy(it.lat)
+            if (bearingDeg != null) {
+                drawHeadingArrow(canvas, px, py, bearingDeg)
+            } else {
+                val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
+                canvas.drawCircle(px, py, 20f, ring)
+                val fill = Paint().apply { color = Color.rgb(37, 99, 235); isAntiAlias = true }
+                canvas.drawCircle(px, py, 14f, fill)
+            }
         }
+    }
+
+    /** A Google-Maps-style directional chevron pointing along [bearingDeg]. */
+    private fun drawHeadingArrow(canvas: Canvas, x: Float, y: Float, bearingDeg: Double) {
+        canvas.save()
+        canvas.rotate(bearingDeg.toFloat(), x, y)
+        val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true; style = Paint.Style.FILL }
+        canvas.drawCircle(x, y, 26f, ring)
+        val body = Paint().apply { color = Color.rgb(37, 99, 235); isAntiAlias = true; style = Paint.Style.FILL }
+        val p = Path()
+        p.moveTo(x, y - 22f)          // tip (points "up" before rotation = along bearing)
+        p.lineTo(x - 15f, y + 16f)
+        p.lineTo(x, y + 8f)
+        p.lineTo(x + 15f, y + 16f)
+        p.close()
+        canvas.drawPath(p, body)
+        canvas.restore()
     }
 
     private fun fetchTile(z: Int, x: Int, y: Int, key: String) {

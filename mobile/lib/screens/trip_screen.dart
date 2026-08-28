@@ -1460,6 +1460,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _voice.speak(phrase);
     }
 
+    // Stream the live fix to Android Auto / CarPlay so the car map follows us.
+    _pushCarNav(
+      here,
+      (pos.heading.isFinite && pos.heading >= 0) ? pos.heading : 0.0,
+      maneuver,
+      remainingKm,
+      remainingMin,
+      speedKmh,
+      throttle: false, // GPS already arrives ~1/s
+    );
+
     // Arrival: within ~120 m of the destination.
     final destDist = _getDistance(here, routePoints.last);
     if (destDist < 0.0011 && !_visitedStops.contains('live_arrival')) {
@@ -1792,6 +1803,21 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _isTurningRight = rightTurnTicks > 0;
         _tripProgressPercent = progressPercent;
       });
+
+      // Mirror the simulated drive to Android Auto / CarPlay (throttled) so the
+      // car map follows along even when test-driving without a real GPS fix.
+      final double remKm = ((1 - progressPercent) * _currentPlan.distanceKm).clamp(0.0, _currentPlan.distanceKm);
+      final int remMin = ((1 - progressPercent) * _currentPlan.durationMin).round();
+      double bearingDeg = currentHeading * 180.0 / pi;
+      bearingDeg = ((bearingDeg % 360) + 360) % 360;
+      final camManeuver = _carGuidance.calculateManeuver(
+        currentPos: currentLatLng,
+        routePoints: _currentPlan.coordinates,
+        end: widget.end,
+        waypoints: _currentWaypoints,
+      );
+      _pushCarNav(currentLatLng, bearingDeg, camManeuver, remKm, remMin,
+          _currentSpeedModifier * 60.0);
 
       // Move and rotate camera smoothly to face the direction of travel (like Google Maps Navigation).
       // The camera targets a point AHEAD of the vehicle (along the heading) so the car sits in the
@@ -2397,6 +2423,39 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       routeCoordinates: _currentPlan.coordinates,
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
+  }
+
+  // Throttle live car updates so we don't spam the channel at 60fps.
+  DateTime _lastCarPush = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Stream the live position + maneuver + ETA to the connected head unit so the
+  /// car map follows the vehicle in real time. Called from both live-GPS and the
+  /// simulated drive, regardless of the phone's own car-mode UI.
+  void _pushCarNav(LatLng pos, double bearingDeg, ManeuverInstruction maneuver,
+      double remainingKm, int remainingMin, double speedKmh,
+      {bool throttle = true}) {
+    if (_currentPlan.coordinates.isEmpty) return;
+    final now = DateTime.now();
+    if (throttle && now.difference(_lastCarPush).inMilliseconds < 350) return;
+    _lastCarPush = now;
+    final v = widget.vehicle;
+    final double litresNeeded =
+        v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
+    final telemetry = CarTelemetry(
+      speedKmh: speedKmh,
+      remainingDistanceKm: remainingKm,
+      remainingDurationMin: remainingMin,
+      progressPercent: _tripProgressPercent,
+      hasTollAhead: (_currentPlan.toll?.fastagTollCost ?? 0) > 0,
+      needsRefuel: v.currentFuelLiters < litresNeeded,
+    );
+    CarPlatformChannel.updateNavigation(
+      maneuver: maneuver,
+      telemetry: telemetry,
+      currentLat: pos.latitude,
+      currentLng: pos.longitude,
+      bearingDeg: bearingDeg,
+    );
   }
 
   /// Enters the fullscreen, CarPlay-style driving UI. On mobile it locks to

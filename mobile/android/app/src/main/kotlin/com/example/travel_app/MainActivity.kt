@@ -33,12 +33,23 @@ class MainActivity : FlutterActivity() {
                         CarNavState.remainingDistanceKm = num(call.argument("remainingDistanceKm"))
                         CarNavState.remainingDurationMin = num(call.argument("remainingDurationMin")).toInt()
                         CarNavState.formattedEta = call.argument<String>("formattedEta") ?: ""
+                        // Live position + heading (may be absent on some ticks).
+                        CarNavState.curLat = (call.argument("currentLat") as? Number)?.toDouble() ?: CarNavState.curLat
+                        CarNavState.curLng = (call.argument("currentLng") as? Number)?.toDouble() ?: CarNavState.curLng
+                        CarNavState.bearing = (call.argument("bearingDeg") as? Number)?.toDouble() ?: CarNavState.bearing
                         CarNavState.isNavigating = true
                         CarNavState.notifyChanged()
                         result.success(null)
                     }
                     "setNavigationState" -> {
-                        CarNavState.isNavigating = call.argument<Boolean>("isNavigating") ?: false
+                        val nav = call.argument<Boolean>("isNavigating") ?: false
+                        CarNavState.isNavigating = nav
+                        if (!nav) {
+                            // Trip ended: drop the live fix so the idle map isn't stale.
+                            CarNavState.curLat = null
+                            CarNavState.curLng = null
+                            CarNavState.bearing = null
+                        }
                         CarNavState.notifyChanged()
                         result.success(null)
                     }

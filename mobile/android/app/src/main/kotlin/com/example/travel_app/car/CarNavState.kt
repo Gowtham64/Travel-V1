@@ -33,6 +33,12 @@ object CarNavState {
     var remainingDurationMin: Int = 0
     var formattedEta: String = ""
 
+    // Live vehicle position + heading (degrees, clockwise from north) streamed
+    // from the phone while navigating. Null until the first fix arrives.
+    var curLat: Double? = null
+    var curLng: Double? = null
+    var bearing: Double? = null
+
     private val listeners = mutableListOf<() -> Unit>()
 
     fun addListener(l: () -> Unit) { listeners.add(l) }
@@ -49,6 +55,13 @@ object CarNavState {
         var total = 0.0
         for (i in 1 until route.size) total += haversineKm(route[i - 1], route[i])
         return total
+    }
+
+    /** Live position if the phone has sent one, else the route-estimated point. */
+    fun currentPosition(): LatLngD? {
+        val la = curLat; val lo = curLng
+        if (la != null && lo != null) return LatLngD(la, lo)
+        return estimatedPosition()
     }
 
     /**
