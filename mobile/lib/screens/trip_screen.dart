@@ -1357,6 +1357,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _styleBeforeNav = _mapStyle;
       _mapStyle = MapStyle.traffic2D;
     });
+    _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
     _voice.reset();
     _voice.speak('Starting navigation. Drive safely.', force: true);
 
@@ -1518,6 +1519,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _isTollStop = false;
       _tripProgressPercent = 0.0;
     });
+    _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
 
     double currentDistance = 0.0;
     double currentHeading = 0.0;
@@ -1859,6 +1861,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _isTollStop = false;
       _tripProgressPercent = 0.0;
     });
+    CarPlatformChannel.setNavigationState(isNavigating: false); // clear the car screen
   }
 
   /// Preview + Start buttons for the animated journey. Preview is a fast aerial
@@ -2381,6 +2384,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         currency: _currentPlan.budget?.currency ?? 'INR',
       ),
     ));
+  }
+
+  /// Push the active route to the connected head unit (Android Auto / CarPlay)
+  /// and mark navigation active, so the car screen can draw the route + guidance.
+  void _pushRouteToCar() {
+    if (_currentPlan.coordinates.isEmpty) return;
+    CarPlatformChannel.setRoute(
+      start: widget.start,
+      end: widget.end,
+      waypoints: _currentWaypoints,
+      routeCoordinates: _currentPlan.coordinates,
+    );
+    CarPlatformChannel.setNavigationState(isNavigating: true);
   }
 
   /// Enters the fullscreen, CarPlay-style driving UI. On mobile it locks to

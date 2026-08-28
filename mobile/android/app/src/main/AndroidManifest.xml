@@ -1,11 +1,29 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Required to render Android Auto's NavigationTemplate. -->
+    <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
 
     <application
         android:label="Voyplan"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Android Auto: minimum Car App API level this app targets. -->
+        <meta-data
+            android:name="androidx.car.app.minCarApiLevel"
+            android:value="1" />
+
+        <!-- The navigation service Android Auto binds to when the phone connects. -->
+        <service
+            android:name=".car.TravelCarAppService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="androidx.car.app.CarAppService" />
+                <category android:name="androidx.car.app.category.NAVIGATION" />
+            </intent-filter>
+        </service>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
