@@ -248,9 +248,68 @@ function safeParseSmart(text) {
   return [];
 }
 
+// Shared planning rules, reused by every batch prompt.
+const ITINERARY_RULES =
+  `Think carefully about the REAL geographic location of each named place. Use only real, ` +
+  `specific, well-known places (never generic names like "Temple 1"). Order stops to MINIMISE ` +
+  `backtracking — group nearby places on the same day. Schedule each day morning to night as an ` +
+  `ordered sequence of time blocks. Insert breaks WITHOUT being asked: breakfast (~08:00), lunch ` +
+  `(~13:00), dinner (~20:00), an afternoon coffee break, rest after long/strenuous activity, ` +
+  `hotel check-in on the FIRST day and check-out on the FINAL day, transfer time between places. ` +
+  `Every "travel"/"return" block MUST include "travelMode": drive|flight|train|bus|ferry|walk. ` +
+  `Pick the REALISTIC mode: for an overseas trip or any leg over ~700 km use "flight" (with short ` +
+  `"drive" airport transfers either side); use "train"/"bus" only if that's genuinely how people ` +
+  `travel it; otherwise "drive". For a DRIVE leg give an ACCURATE road distance (km) and a time ` +
+  `consistent with it (~30 km/h city, ~55 km/h highway; 12 km ≈ 25 min, never 5). For a FLIGHT leg ` +
+  `distanceKm is great-circle air distance and travelMin the in-air time (e.g. BLR→Dubai ≈ 5139 km, ` +
+  `≈ 240 min), NOT a driving time. travelMin and distanceKm must agree; a 0 km transfer is 0 min. ` +
+  `Use realistic visit durations (major temple 1.5–3 h, viewpoint 30–45 min, museum 1–2 h). Never ` +
+  `place sightseeing inside a meal window. Keep each reason under ~10 words. Block "type" is one of: ` +
+  `start, activity, travel, meal, coffee, rest, checkin, checkout, buffer, shopping, freetime, return. ` +
+  `For meal blocks set breakType to breakfast|lunch|dinner.`;
+
+const ITINERARY_JSON_HINT =
+  `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
+  `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
+  `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":""}]}]} — travel blocks set ` +
+  `travelMode; no prose, no markdown.`;
+
+const ITINERARY_SYSTEM =
+  "You are an expert, meticulous, world-aware travel planner with strong geographic knowledge. " +
+  "You produce realistic, well-sequenced, time-blocked itineraries with automatic meal/rest " +
+  "breaks and accurate, internally-consistent travel distances/times. Only suggest real, specific " +
+  "places. Output strict, COMPLETE JSON for exactly the requested days — never truncate.";
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+// Call generate() with a couple of retries on transient (rate-limit / 5xx) errors.
+async function generateWithRetry(prompt, opts, tries = 3) {
+  let lastErr;
+  for (let i = 0; i < tries; i += 1) {
+    try {
+      return await generate(prompt, opts);
+    } catch (err) {
+      lastErr = err;
+      const status = err.response ? err.response.status : 0;
+      // Only retry things that might succeed on a second try.
+      if (status && status !== 429 && status < 500) break;
+      if (i < tries - 1) await sleep(1200 * (i + 1));
+    }
+  }
+  throw lastErr;
+}
+
 /**
  * Generate a realistic, time-blocked day-by-day itinerary with automatic
  * meal/rest breaks, travel time and per-block reasoning.
+ *
+ * Long itineraries are generated in small day-batches and stitched together, so
+ * no single model call exceeds the provider's token budget (which would truncate
+ * the JSON — dropping days — or trip the free-tier rate limit). Batches are
+ * best-effort: if one fails after retries, whatever days succeeded are returned
+ * rather than failing the whole request.
  */
 async function smartItinerary({
   destination,
@@ -265,76 +324,73 @@ async function smartItinerary({
   preferences = "",
   directive = "",
 }) {
-  const placeLine = places.length ? `Must-visit places: ${places.join(", ")}. ` : "";
+  const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
+  const placeLine = places.length ? `Must-visit places (spread across the trip): ${places.join(", ")}. ` : "";
   const paceLine =
     mode === "packed"
       ? "Pace: PACKED — fit in as much as reasonably possible, shorter breaks. "
       : mode === "relaxed"
       ? "Pace: RELAXED — fewer activities, longer meals/rest, plenty of free time. "
       : "Pace: BALANCED — a comfortable mix of sightseeing, meals and rest. ";
-  const endLine = endDate || endTime ? `The trip should end around ${endDate} ${endTime}. ` : "";
   const prefLine = preferences ? `Traveller preferences: ${preferences}. ` : "";
   const directiveLine = directive ? `IMPORTANT adjustment for this version: ${directive}. ` : "";
-  // A round trip: leave home, visit the destination, and return home at the end.
-  const roundTripLine = startLocation
-    ? `This is a ROUND TRIP from the traveller's home ("${startLocation}"). ` +
-      `Day 1 MUST begin at "${startLocation}" with a "travel" block departing home to reach ` +
-      `"${destination}" (include this outbound journey with realistic distance/time). ` +
-      `The FINAL day MUST end with the traveller returning ALL THE WAY BACK to "${startLocation}": ` +
-      `add a final "return" (or "travel") block from the destination back home with realistic ` +
-      `distance and time, after check-out. The itinerary starts and ends at home. `
-    : "";
+  const homeLine = startLocation ? ` starting from the traveller's home "${startLocation}"` : "";
 
-  const prompt =
-    `Create a realistic, time-blocked day-by-day itinerary for a trip to "${destination}"` +
-    (startLocation ? ` starting from "${startLocation}"` : "") +
-    `. The trip starts on ${startDate || "day 1"} at ${startTime} and lasts ${durationDays} day(s). ` +
-    roundTripLine + endLine + placeLine + prefLine + paceLine + directiveLine +
-    `Think carefully about the REAL geographic location of each named place. Use only real, ` +
-    `specific, well-known places (never generic names like "Temple 1"). Order stops to MINIMISE ` +
-    `backtracking — group places that are close together on the same day and visit them in a ` +
-    `sensible geographic sequence. ` +
-    `Schedule each day from morning to night as an ordered sequence of time blocks. ` +
-    `Automatically insert breaks WITHOUT being asked: breakfast (~08:00), lunch (~12:30–13:30), ` +
-    `dinner (~19:30–20:30), an afternoon coffee/snack break, rest breaks after long or strenuous ` +
-    `activities, hotel check-in on day 1 and check-out on the final day, travel/transfer time ` +
-    `between places, and short buffer time between activities. ` +
-    `Every "travel"/"return" block MUST include "travelMode": one of drive|flight|train|bus|ferry|walk. ` +
-    `Choose the REALISTIC mode: for an overseas trip or any leg longer than ~700 km, use "flight" ` +
-    `(with airport transfers as short "drive" legs on either side); use "train"/"bus" only if that ` +
-    `is genuinely how people make that journey; otherwise "drive". ` +
-    `For a DRIVE leg, give an ACCURATE real-world road distance (km) between those two specific ` +
-    `places and a travel time (minutes) that is CONSISTENT with that distance — roughly ` +
-    `distance ÷ 30 km/h in cities and ÷ 55 km/h on highways (e.g. 12 km in a town ≈ 25 min, ` +
-    `never 5 min). For a FLIGHT leg, distanceKm is the great-circle air distance and travelMin is ` +
-    `the realistic in-air flight time (e.g. Bengaluru→Dubai ≈ 5139 km, ≈ 240 min), NOT a driving time. ` +
-    `travelMin and distanceKm must agree with the chosen mode; a 0 km transfer must be 0 min. ` +
-    `Use realistic visit durations per place (a major temple/darshan 1.5–3 h incl. queue, a ` +
-    `viewpoint 30–45 min, a museum 1–2 h). Respect the typical opening/closing hours of well-known ` +
-    `attractions (approximate from your own knowledge) and religious darshan timings. ` +
-    `Never place sightseeing inside a meal window — move the meal to a suitable nearby spot instead. ` +
-    `Avoid unrealistic back-to-back activities. ` +
-    `Order blocks by start time and keep each reason under ~12 words. ` +
-    `Block "type" is one of: start, activity, travel, meal, coffee, rest, checkin, checkout, buffer, ` +
-    `shopping, freetime, return. For meal blocks set breakType to breakfast|lunch|dinner. ` +
-    `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
-    `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
-    `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":""}]}]} — travel blocks set ` +
-    `travelMode (drive|flight|train|bus|ferry|walk); no prose, no markdown.`;
+  // Build the prompt for one batch of days [from..to] of a `total`-day round trip.
+  function batchPrompt(from, to) {
+    const isFirst = from === 1;
+    const isLast = to === total;
+    const count = to - from + 1;
+    const dayWord = count === 1 ? `day ${from}` : `days ${from}–${to}`;
+    let ctx =
+      `You are planning a ${total}-day trip to "${destination}"${homeLine}, which starts on ` +
+      `${startDate || "day 1"} at ${startTime}. Produce ONLY ${dayWord} of ${total}, as ${count} ` +
+      `day object(s) numbered exactly ${from}${count > 1 ? `..${to}` : ""}. `;
+    if (startLocation && isFirst) {
+      ctx +=
+        `This is a ROUND TRIP: day 1 MUST begin at "${startLocation}" with a travel block ` +
+        `departing home to reach "${destination}" (realistic mode, distance & time), then hotel check-in. `;
+    } else if (!isFirst) {
+      ctx += `Continue seamlessly: the traveller is already at "${destination}" (resuming from their hotel). Do NOT repeat the outbound journey. `;
+    }
+    if (startLocation && isLast) {
+      ctx +=
+        `Day ${total} is the FINAL day and MUST end with hotel check-out and a "return" block taking ` +
+        `the traveller ALL THE WAY BACK to "${startLocation}" (realistic mode, distance & time). `;
+    }
+    if (isLast && (endDate || endTime)) ctx += `The trip should end around ${endDate} ${endTime}. `;
+    return ctx + placeLine + prefLine + paceLine + directiveLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
+  }
 
-  const text = await generate(prompt, {
-    system:
-      "You are an expert, meticulous, world-aware travel planner with strong geographic knowledge. " +
-      "You produce realistic, well-sequenced, time-blocked itineraries with automatic meal/rest " +
-      "breaks and accurate travel distances/times that are internally consistent. " +
-      "Only suggest real, specific places. Output strict, complete JSON — never truncate.",
-    json: true,
-    // A stronger model markedly improves planning quality and distance/time realism.
-    model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
-    // Kept under Groq's free-tier 8000 tokens/minute budget (prompt + output).
-    maxTokens: 6000,
-  });
-  return safeParseSmart(text);
+  const BATCH = 2; // days per model call — keeps each response well under the token cap
+  const out = [];
+  for (let from = 1; from <= total; from += BATCH) {
+    const to = Math.min(from + BATCH - 1, total);
+    const count = to - from + 1;
+    let batch = [];
+    try {
+      const text = await generateWithRetry(batchPrompt(from, to), {
+        system: ITINERARY_SYSTEM,
+        json: true,
+        model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
+        // ~2000 output tokens/day + headroom, capped to stay under the free-tier
+        // per-minute budget on any single call.
+        maxTokens: Math.min(6000, count * 2000 + 1000),
+      });
+      batch = safeParseSmart(text);
+    } catch (err) {
+      console.error(`Itinerary batch days ${from}-${to} failed:`, err.message);
+      break; // return the days gathered so far rather than failing the request
+    }
+    if (!batch.length) break;
+    out.push(...batch);
+    if (to < total) await sleep(400); // gentle spacing between calls
+  }
+
+  // Renumber sequentially and cap to the requested length.
+  const days = out.slice(0, total);
+  days.forEach((d, i) => { d.day = i + 1; });
+  return days;
 }
 
 module.exports = { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
