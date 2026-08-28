@@ -15,7 +15,9 @@ async function queryOverpass(query) {
     try {
       const response = await axios.post(url, encoded, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        timeout: 30000,
+        // Short per-mirror cap so a slow/overloaded mirror fails fast and we fail
+        // over to the next one well within the client's overall timeout.
+        timeout: 18000,
       });
       return response.data;
     } catch (err) {
@@ -61,6 +63,10 @@ function lengthKmFromTags(tags) {
   if (/m\b/i.test(String(raw)) && !/km/i.test(String(raw))) return Math.round((val / 1000) * 10) / 10;
   return Math.round(val * 10) / 10;
 }
+
+// Names that indicate a road/urban way rather than a trek, used to filter noise
+// from broad `highway=path` matches (unless the way is explicitly graded).
+const ROAD_NOISE_RE = /\b(road|street|st|avenue|ave|lane|hostel|residential|parking|entrance|highway|flyover|bridge|dead[ -]?end)\b/i;
 
 // Flatten an Overpass element's `out geom` output into an ordered [{lat,lng}].
 // Ways carry `geometry`; relations carry per-member `geometry` we concatenate.
@@ -121,15 +127,20 @@ async function findTreksNear(lat, lng, radiusMeters = 20000, limit = 20) {
   }
   const r = Math.min(Math.max(Number(radiusMeters) || 20000, 1000), 60000);
 
-  // Discovery stays lightweight: `out center` (one representative point per
-  // element) keeps this fast and reliable. Full trail geometry is heavy —
-  // especially for hiking relations — so it's fetched lazily per-trail via
-  // getTrekGeometry() only when a user opens a trek.
+  // Discovery is WAYS-ONLY on purpose: an `around` filter on route *relations*
+  // forces Overpass to test every member's geometry and reliably times out, while
+  // the equivalent way query returns in ~1s. We match graded trails (sac_scale)
+  // and hiking-tagged ways. `out center` gives one representative point each;
+  // the full trail geometry is fetched lazily per-trek via getTrekGeometry().
+  // Fast, reliable (~1s): named `highway=path` (trail-dominant) plus any graded
+  // way (sac_scale / trail_visibility present). We deliberately avoid bare
+  // `highway=track` and `["route"="hiking"]` on ways — both drag in roads or
+  // reliably time out on Overpass (~28s).
   const query =
-    `[out:json][timeout:25];\n(\n` +
-    `  relation["route"~"hiking|foot"]["name"](around:${r},${lat},${lng});\n` +
-    `  way["highway"="path"]["name"]["sac_scale"](around:${r},${lat},${lng});\n` +
-    `  way["highway"~"path|footway"]["name"]["route"="hiking"](around:${r},${lat},${lng});\n` +
+    `[out:json][timeout:20];\n(\n` +
+    `  way["highway"="path"]["name"](around:${r},${lat},${lng});\n` +
+    `  way["highway"~"footway|steps|track|path"]["name"]["sac_scale"](around:${r},${lat},${lng});\n` +
+    `  way["highway"~"path|track"]["name"]["trail_visibility"](around:${r},${lat},${lng});\n` +
     `);\nout center tags;`;
 
   const data = await queryOverpass(query);
@@ -141,6 +152,12 @@ async function findTreksNear(lat, lng, radiusMeters = 20000, limit = 20) {
     const tags = el.tags || {};
     const name = tags.name;
     if (!name) continue;
+    // Some footpaths are named like roads ("Hostel Road", "residential road").
+    // Keep genuinely-graded ways (sac_scale/trail_visibility) regardless, but
+    // drop road/urban-named ones that aren't graded — they aren't treks.
+    const graded = tags.sac_scale || tags.trail_visibility;
+    if (!graded && ROAD_NOISE_RE.test(name)) continue;
+
     // De-dupe by name (a trail can appear as both a relation and its member ways).
     const nameKey = name.toLowerCase().trim();
     if (seen.has(nameKey)) continue;

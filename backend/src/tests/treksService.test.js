@@ -51,6 +51,23 @@ describe("findTreksNear", () => {
     expect(treks[0].distanceFromSearchKm).toBeLessThan(treks[1].distanceFromSearchKm);
   });
 
+  test("filters road-named ways unless they are graded trails", async () => {
+    axios.post.mockResolvedValue({
+      data: {
+        elements: [
+          { type: "way", id: 1, center: { lat: 12.01, lon: 77.01 }, tags: { name: "Chokramudi trail", highway: "path" } },
+          { type: "way", id: 2, center: { lat: 12.02, lon: 77.02 }, tags: { name: "Mens Hostel Road", highway: "path" } },
+          { type: "way", id: 3, center: { lat: 12.03, lon: 77.03 }, tags: { name: "Old Fort Road", highway: "path", sac_scale: "hiking" } },
+        ],
+      },
+    });
+    const treks = await findTreksNear(12.0, 77.0);
+    const names = treks.map((t) => t.name);
+    expect(names).toContain("Chokramudi trail");
+    expect(names).toContain("Old Fort Road"); // graded -> kept despite the name
+    expect(names).not.toContain("Mens Hostel Road"); // road-named + ungraded -> dropped
+  });
+
   test("throws on non-finite coordinates", async () => {
     await expect(findTreksNear(NaN, 77.0)).rejects.toThrow();
   });
