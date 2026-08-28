@@ -49,7 +49,8 @@ async function geminiGenerate(prompt, opts, key) {
 // Groq and OpenRouter both speak the OpenAI chat-completions format.
 async function openaiCompatGenerate(prompt, opts, key) {
   const base = PROVIDER === "groq" ? "https://api.groq.com/openai/v1" : "https://openrouter.ai/api/v1";
-  const model = PROVIDER === "groq" ? GROQ_MODEL : OPENROUTER_MODEL;
+  // Allow a per-call model override (e.g. a stronger model for itineraries).
+  const model = opts.model || (PROVIDER === "groq" ? GROQ_MODEL : OPENROUTER_MODEL);
   const messages = [];
   if (opts.system) messages.push({ role: "system", content: opts.system });
   messages.push({ role: "user", content: prompt });
@@ -260,14 +261,24 @@ async function smartItinerary({
     (startLocation ? ` starting from "${startLocation}"` : "") +
     `. The trip starts on ${startDate || "day 1"} at ${startTime} and lasts ${durationDays} day(s). ` +
     endLine + placeLine + prefLine + paceLine + directiveLine +
+    `Think carefully about the REAL geographic location of each named place. Use only real, ` +
+    `specific, well-known places (never generic names like "Temple 1"). Order stops to MINIMISE ` +
+    `backtracking — group places that are close together on the same day and visit them in a ` +
+    `sensible geographic sequence. ` +
     `Schedule each day from morning to night as an ordered sequence of time blocks. ` +
     `Automatically insert breaks WITHOUT being asked: breakfast (~08:00), lunch (~12:30–13:30), ` +
     `dinner (~19:30–20:30), an afternoon coffee/snack break, rest breaks after long or strenuous ` +
     `activities, hotel check-in on day 1 and check-out on the final day, travel/transfer time ` +
-    `between places, and short buffer time between activities. Give realistic travel time (minutes) ` +
-    `and distance (km) for each transfer. Respect the typical opening/closing hours of well-known ` +
-    `attractions (approximate from your own knowledge). Never place sightseeing inside a meal window — ` +
-    `move the meal to a suitable nearby spot instead. Avoid unrealistic back-to-back activities. ` +
+    `between places, and short buffer time between activities. ` +
+    `For every transfer, give an ACCURATE real-world road distance (km) between those two specific ` +
+    `places and a travel time (minutes) that is CONSISTENT with that distance — roughly ` +
+    `distance ÷ 30 km/h in cities and ÷ 55 km/h on highways (e.g. 12 km in a town ≈ 25 min, ` +
+    `never 5 min). travelMin and distanceKm must agree; a 0 km transfer must be 0 min. ` +
+    `Use realistic visit durations per place (a major temple/darshan 1.5–3 h incl. queue, a ` +
+    `viewpoint 30–45 min, a museum 1–2 h). Respect the typical opening/closing hours of well-known ` +
+    `attractions (approximate from your own knowledge) and religious darshan timings. ` +
+    `Never place sightseeing inside a meal window — move the meal to a suitable nearby spot instead. ` +
+    `Avoid unrealistic back-to-back activities. ` +
     `Order blocks by start time and keep each reason under ~12 words. ` +
     `Block "type" is one of: start, activity, travel, meal, coffee, rest, checkin, checkout, buffer, ` +
     `shopping, freetime, return. For meal blocks set breakType to breakfast|lunch|dinner. ` +
@@ -277,12 +288,14 @@ async function smartItinerary({
 
   const text = await generate(prompt, {
     system:
-      "You are an expert, world-aware travel planner. You produce realistic, well-paced, " +
-      "time-blocked itineraries with automatic meal/rest breaks, travel time and buffers. " +
-      "Only suggest real places. Output strict, complete JSON — never truncate.",
+      "You are an expert, meticulous, world-aware travel planner with strong geographic knowledge. " +
+      "You produce realistic, well-sequenced, time-blocked itineraries with automatic meal/rest " +
+      "breaks and accurate travel distances/times that are internally consistent. " +
+      "Only suggest real, specific places. Output strict, complete JSON — never truncate.",
     json: true,
-    // Enough for a complete multi-day timeline, but kept under Groq's free-tier
-    // 8000 tokens/minute budget (prompt + output must fit) to avoid a 413.
+    // A stronger model markedly improves planning quality and distance/time realism.
+    model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
+    // Kept under Groq's free-tier 8000 tokens/minute budget (prompt + output).
     maxTokens: 6000,
   });
   return safeParseSmart(text);
