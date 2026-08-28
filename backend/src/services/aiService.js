@@ -366,35 +366,30 @@ async function smartItinerary({
     return ctx + placeLine + prefLine + paceLine + directiveLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
   }
 
-  const BATCH = 2; // days per model call — keeps each response well under the token cap
-  const out = [];
-  for (let from = 1; from <= total; from += BATCH) {
-    const to = Math.min(from + BATCH - 1, total);
-    const count = to - from + 1;
-    let batch = [];
-    try {
-      const text = await generateWithRetry(batchPrompt(from, to), {
-        system: ITINERARY_SYSTEM,
-        json: true,
-        model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
-        // Low reasoning effort keeps the token budget for the JSON itself; with
-        // it, a 2-day batch's actual usage stays small enough that batches don't
-        // trip the free-tier per-minute limit.
-        reasoningEffort: "low",
-        maxTokens: Math.min(8000, count * 2600 + 1500),
-      });
-      batch = safeParseSmart(text);
-    } catch (err) {
-      console.error(`Itinerary batch days ${from}-${to} failed:`, err.message);
-      break; // return the days gathered so far rather than failing the request
-    }
-    if (!batch.length) break;
-    out.push(...batch);
-    if (to < total) await sleep(400); // gentle spacing between calls
+  // One model call for the whole trip. Multiple back-to-back calls tripped the
+  // free-tier per-minute rate limit; a single call avoids that. reasoning_effort
+  // "low" keeps the token budget for the JSON (gpt-oss otherwise spends much of
+  // it on hidden reasoning), letting several days fit in one response.
+  let days = [];
+  let lastErr = null;
+  try {
+    const text = await generateWithRetry(batchPrompt(1, total), {
+      system: ITINERARY_SYSTEM,
+      json: true,
+      model: PROVIDER === "groq" ? "openai/gpt-oss-120b" : undefined,
+      reasoningEffort: "low",
+      maxTokens: 7000,
+    });
+    days = safeParseSmart(text);
+  } catch (err) {
+    lastErr = err;
+    console.error("Itinerary generation failed:", err.response ? `${err.response.status} ${JSON.stringify(err.response.data).slice(0, 300)}` : err.message);
   }
 
-  // Renumber sequentially and cap to the requested length.
-  const days = out.slice(0, total);
+  // Surface the real error instead of a silent "empty plan" when nothing came back.
+  if (!days.length && lastErr) throw lastErr;
+
+  days = days.slice(0, total);
   days.forEach((d, i) => { d.day = i + 1; });
   return days;
 }
