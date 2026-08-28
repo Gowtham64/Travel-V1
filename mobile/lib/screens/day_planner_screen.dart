@@ -6,7 +6,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase, RealtimeChannel;
 import '../widgets/app_design.dart';
+import '../services/collab_service.dart';
 import 'smart_itinerary_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
@@ -61,7 +64,14 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   late final TripExtrasStore _store = TripExtrasStore(widget.tripKey);
   final _api = ApiService();
+  final _collab = CollabService();
   final _searchCtrl = TextEditingController();
+
+  // Collaboration: when this plan is linked to a cloud shared_trip, edits sync
+  // both ways in real time.
+  SharedTrip? _shared;
+  RealtimeChannel? _channel;
+  bool _applyingRemote = false; // guard so remote updates don't echo back
 
   List<PlanDay> _days = [];
   int _selectedDay = 0;
@@ -87,6 +97,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   @override
   void dispose() {
     _searchCtrl.dispose();
+    _channel?.unsubscribe();
     super.dispose();
   }
 
@@ -99,7 +110,42 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     });
   }
 
-  void _persist() => _store.saveDays(_days);
+  void _persist() {
+    _store.saveDays(_days);
+    // If this plan is shared and we can edit, push the change to collaborators.
+    final s = _shared;
+    if (s != null && !_applyingRemote && _collab.canEdit(s)) {
+      _collab.updateData(s.id, {'days': _days.map((d) => d.toJson()).toList()}).catchError((_) {});
+    }
+  }
+
+  Map<String, dynamic> _dataPayload() => {'days': _days.map((d) => d.toJson()).toList()};
+
+  void _applyRemote(Map<String, dynamic> data) {
+    final list = (data['days'] as List?) ?? [];
+    final days = list.map((e) => PlanDay.fromJson((e as Map).cast<String, dynamic>())).toList();
+    _applyingRemote = true;
+    setState(() {
+      _days = days;
+      if (_selectedDay >= _days.length) _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+    });
+    _store.saveDays(_days); // cache locally, but DON'T re-push
+    _applyingRemote = false;
+  }
+
+  void _subscribeShared(SharedTrip t) {
+    _channel?.unsubscribe();
+    _channel = _collab.subscribe(t.id, (data, updatedBy) {
+      final myId = Supabase.instance.client.auth.currentSession?.user.id;
+      if (updatedBy != null && updatedBy == myId) return; // ignore our own echo
+      _applyRemote(data);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Trip updated by a collaborator'), duration: Duration(seconds: 2)),
+        );
+      }
+    });
+  }
 
   void _addDay() {
     setState(() {
@@ -311,6 +357,131 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
       ),
     );
+  }
+
+  /// Share this plan for collaboration: creates a cloud copy (if not already
+  /// shared), then shows the link + code and starts live sync.
+  Future<void> _shareTrip() async {
+    if (!_collab.isSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to share and collaborate on trips.')),
+      );
+      return;
+    }
+    try {
+      if (_shared == null) {
+        final s = await _collab.createSharedTrip(
+          tripType: 'itinerary',
+          name: widget.tripName,
+          data: _dataPayload(),
+        );
+        if (!mounted) return;
+        setState(() => _shared = s);
+        _subscribeShared(s);
+      }
+      _showShareSheet(_shared!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Share failed: $e')));
+      }
+    }
+  }
+
+  void _showShareSheet(SharedTrip t) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Voy.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              const Icon(Icons.groups_rounded, color: AppColors.accentLight),
+              const SizedBox(width: 8),
+              const Text('Collaborate on this trip', style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              const Icon(Icons.circle, color: Color(0xFF22C55E), size: 10),
+              const SizedBox(width: 5),
+              const Text('Live', style: TextStyle(color: Color(0xFF22C55E), fontSize: 12, fontWeight: FontWeight.w700)),
+            ]),
+            const SizedBox(height: 6),
+            const Text('Anyone with the link can view. Signed-in people who join can edit — changes sync live.',
+                style: TextStyle(color: Voy.sub, fontSize: 12.5)),
+            const SizedBox(height: 16),
+            _copyRow(ctx, 'Join code', t.shareCode),
+            const SizedBox(height: 10),
+            _copyRow(ctx, 'Share link', t.shareUrl),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _copyRow(BuildContext ctx, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: Voy.surface2, borderRadius: BorderRadius.circular(12), border: Border.all(color: Voy.hairline)),
+      child: Row(children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: Voy.sub, fontSize: 11)),
+            const SizedBox(height: 2),
+            Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 13.5, fontWeight: FontWeight.w600)),
+          ]),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy_rounded, color: AppColors.accentLight, size: 20),
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: value));
+            ScaffoldMessenger.of(ctx).showSnackBar(const SnackBar(content: Text('Copied ✓'), duration: Duration(seconds: 1)));
+          },
+        ),
+      ]),
+    );
+  }
+
+  /// Join an existing shared trip by its code, replacing the current view.
+  Future<void> _joinByCode() async {
+    if (!_collab.isSignedIn) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign in to join a shared trip.')));
+      return;
+    }
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Join a shared trip'),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.characters,
+          style: const TextStyle(color: Voy.ink),
+          decoration: const InputDecoration(labelText: 'Share code'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Join')),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty) return;
+    try {
+      final t = await _collab.joinByCode(code);
+      if (t == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No trip found for that code.')));
+        return;
+      }
+      if (!mounted) return;
+      setState(() => _shared = t);
+      _applyRemote(t.data);
+      _subscribeShared(t);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joined "${t.name}" ✓ — edits sync live')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Join failed: $e')));
+    }
   }
 
   /// Open the smart AI planner (start date/time + timeline + auto breaks). Its
@@ -527,6 +698,8 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         actions: [
           IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
+          IconButton(tooltip: 'Share & collaborate', icon: const Icon(Icons.group_add_rounded, color: Colors.white), onPressed: _shareTrip),
+          IconButton(tooltip: 'Join a shared trip', icon: const Icon(Icons.login_rounded, color: Colors.white), onPressed: _joinByCode),
           IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Colors.white), onPressed: _import),
           IconButton(tooltip: 'Export PDF', icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white), onPressed: _exportPdf),
           IconButton(tooltip: 'Add to calendar (.ics)', icon: const Icon(Icons.event_outlined, color: Colors.white), onPressed: _exportIcs),
