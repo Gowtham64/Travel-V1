@@ -39,6 +39,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   String? _error;
   List<SmartDay> _itinerary = [];
   TripBudget? _budget;
+  int _splitCount = 2; // how many ways to split the budget
 
   @override
   void dispose() {
@@ -94,6 +95,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       setState(() {
         _itinerary = res.days;
         _budget = res.budget;
+        _splitCount = _travellers; // default: split among travellers
       });
       if (res.days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
     } catch (e) {
@@ -509,9 +511,43 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             Text(m(b.total), style: const TextStyle(color: AppColors.accentLight, fontSize: 18, fontWeight: FontWeight.w800)),
           ]),
           const SizedBox(height: 4),
-          Text('≈ ${m(b.perDay)}/day' + (b.travellers > 1 ? ' · ${m((b.total / b.travellers).round())}/person' : ''),
+          Text('≈ ${m(b.perDay)}/day',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
-          const SizedBox(height: 6),
+          const SizedBox(height: 12),
+          // Split the budget
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.groups_rounded, size: 18, color: AppColors.accentLight),
+                  const SizedBox(width: 8),
+                  const Text('Split the budget', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  const Spacer(),
+                  _stepBtn(Icons.remove, () => setState(() => _splitCount = (_splitCount - 1).clamp(1, 20))),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text('$_splitCount', style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                  ),
+                  _stepBtn(Icons.add, () => setState(() => _splitCount = (_splitCount + 1).clamp(1, 20))),
+                ]),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Text('$_splitCount ${_splitCount == 1 ? 'person' : 'people'} pay', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12.5)),
+                  const Spacer(),
+                  Text('${m((b.total / _splitCount).round())} each',
+                      style: const TextStyle(color: AppColors.accentLight, fontSize: 15, fontWeight: FontWeight.w800)),
+                ]),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
           Text('Fuel from the routed distance; tolls, food & stay estimated. Adjust travellers above.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
         ],
