@@ -128,8 +128,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final body = _buildBody();
-    if (widget.embedded) return body;
+    // Embedded: render as a plain column (buttons + list) to sit inside another
+    // scrollable panel (e.g. the trip planner's side column). Standalone: a full
+    // screen with its own app bar and floating buttons.
+    if (widget.embedded) return _embeddedColumn();
     return Scaffold(
       backgroundColor: Voy.bg,
       appBar: AppBar(
@@ -137,7 +139,104 @@ class _BookingsScreenState extends State<BookingsScreen> {
         title: const Text('Bookings'),
         foregroundColor: Voy.ink,
       ),
-      body: body,
+      body: _buildBody(),
+    );
+  }
+
+  Widget _embeddedColumn() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
+      );
+    }
+    final sorted = [..._items]..sort((a, b) {
+        if (a.date == null && b.date == null) return 0;
+        if (a.date == null) return 1;
+        if (b.date == null) return -1;
+        return a.date!.compareTo(b.date!);
+      });
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          const Icon(Icons.airplane_ticket_outlined, size: 18, color: Colors.white),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Bookings', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800))),
+          TextButton.icon(
+            onPressed: () => _addOrEdit(),
+            icon: const Icon(Icons.add_rounded, size: 16),
+            label: const Text('Add'),
+            style: TextButton.styleFrom(foregroundColor: Voy.brand, padding: const EdgeInsets.symmetric(horizontal: 8)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _suggesting ? null : _suggest,
+            icon: _suggesting
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Icon(Icons.auto_awesome_rounded, size: 18),
+            label: Text(_suggesting ? 'Finding…' : 'Suggest flights, trains & hotels'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF6D5EF6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (sorted.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Text('No bookings yet — get AI suggestions above, or add your own.',
+                textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12.5)),
+          )
+        else
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: sorted.length,
+            itemBuilder: (ctx, i) {
+              final r = sorted[i];
+              return Container(
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                child: ListTile(
+                  dense: true,
+                  onTap: () => _addOrEdit(r),
+                  leading: Icon(_bkTypeIcon(r.type), color: Voy.brand, size: 20),
+                  title: Text(r.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                  subtitle: Text(
+                    [
+                      _bkTypeLabel(r.type),
+                      if (r.date != null) _bkFmtDate(r.date!),
+                      if (r.notes.isNotEmpty) r.notes,
+                    ].join(' · '),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11.5),
+                  ),
+                  trailing: IconButton(
+                    icon: Icon(Icons.close_rounded, size: 16, color: Colors.white.withValues(alpha: 0.5)),
+                    onPressed: () {
+                      setState(() => _items.removeWhere((x) => x.id == r.id));
+                      _persist();
+                    },
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
     );
   }
 

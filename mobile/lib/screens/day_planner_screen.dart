@@ -747,29 +747,14 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
-  /// Open the bookings manager (saved reservations + AI-suggested flights,
-  /// trains & hotels) for this journey. Origin/destination are parsed from the
-  /// trip name (e.g. "Mandya → London (round trip)").
-  void _openBookings() {
-    String from = '';
-    String to = '';
-    final name = widget.tripName;
+  /// Origin/destination for this journey, parsed from the trip name
+  /// (e.g. "Mandya → London (round trip)"), used for booking suggestions.
+  ({String from, String to}) _journeyEndpoints() {
     final sep = RegExp(r'\s*(?:→|->)\s*|\s+to\s+', caseSensitive: false);
-    final parts = name.split(sep);
-    if (parts.length >= 2) {
-      from = parts.first.trim();
-      to = parts[1].replaceAll(RegExp(r'\(.*\)'), '').trim();
-    } else {
-      to = name.replaceAll(RegExp(r'\(.*\)'), '').trim();
-    }
-    Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => BookingsScreen(
-        store: _store,
-        fromName: from,
-        toName: to,
-        travellers: 2,
-      ),
-    ));
+    final parts = widget.tripName.split(sep);
+    String clean(String s) => s.replaceAll(RegExp(r'\(.*\)'), '').trim();
+    if (parts.length >= 2) return (from: clean(parts.first), to: clean(parts[1]));
+    return (from: '', to: clean(widget.tripName));
   }
 
   Future<void> _renameDay(PlanDay day) async {
@@ -978,7 +963,6 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         actions: [
           IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
-          IconButton(tooltip: 'Bookings (flights, trains & hotels)', icon: const Icon(Icons.airplane_ticket_outlined, color: Colors.white), onPressed: _openBookings),
           IconButton(tooltip: 'Demo / preview trip', icon: const Icon(Icons.play_circle_outline_rounded, color: Colors.white), onPressed: _startDemo),
           IconButton(tooltip: 'Share & collaborate', icon: const Icon(Icons.group_add_rounded, color: Colors.white), onPressed: _shareTrip),
           IconButton(tooltip: 'Join a shared trip', icon: const Icon(Icons.login_rounded, color: Colors.white), onPressed: _joinByCode),
@@ -1464,6 +1448,29 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         if (_searchError != null)
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text(_searchError!, style: const TextStyle(color: Color(0xFFFB7185), fontSize: 12.5))),
+        // Inline bookings column: saved reservations + AI flight/train/hotel
+        // suggestions for this journey (bounded so it shares the panel height).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+          child: GlassCard(
+            padding: const EdgeInsets.all(16),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: SingleChildScrollView(
+                child: Builder(builder: (_) {
+                  final ep = _journeyEndpoints();
+                  return BookingsScreen(
+                    store: _store,
+                    fromName: ep.from,
+                    toName: ep.to,
+                    travellers: 2,
+                    embedded: true,
+                  );
+                }),
+              ),
+            ),
+          ),
+        ),
         Expanded(
           child: _results.isEmpty
               ? Center(
