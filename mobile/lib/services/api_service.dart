@@ -461,6 +461,49 @@ class ApiService {
     return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
   }
 
+  /// Smart, time-blocked AI itinerary with automatic breaks + per-block reasons.
+  Future<List<SmartDay>> aiSmartItinerary({
+    required String destination,
+    String startLocation = '',
+    List<String> places = const [],
+    String startDate = '',
+    String startTime = '08:00',
+    String endDate = '',
+    String endTime = '',
+    int durationDays = 1,
+    String mode = 'balanced',
+    String preferences = '',
+    String directive = '',
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/ai/smart-itinerary'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'destination': destination,
+            'startLocation': startLocation,
+            'places': places,
+            'startDate': startDate,
+            'startTime': startTime,
+            'endDate': endDate,
+            'endTime': endTime,
+            'durationDays': durationDays,
+            'mode': mode,
+            'preferences': preferences,
+            if (directive.isNotEmpty) 'directive': directive,
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+    if (response.statusCode == 503) {
+      throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
+    }
+    if (response.statusCode != 200) {
+      throw ApiException('AI request failed (${response.statusCode})');
+    }
+    final list = (jsonDecode(response.body) as Map<String, dynamic>)['days'] as List? ?? [];
+    return list.map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>())).toList();
+  }
+
   Future<String> aiAsk({
     required String question,
     Map<String, dynamic>? context,

@@ -1,5 +1,5 @@
 const express = require("express");
-const { recommendStops, searchPlaces, ask, buildItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 
 const router = express.Router();
 
@@ -103,6 +103,32 @@ router.post("/itinerary", async (req, res) => {
       weather: weather ? String(weather) : "",
     });
     res.json({ days: itinerary });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
+// Smart, time-blocked itinerary with automatic breaks + per-block reasons.
+router.post("/smart-itinerary", async (req, res) => {
+  const b = req.body || {};
+  if (!b.destination) {
+    return res.status(400).json({ error: "destination is required" });
+  }
+  try {
+    const days = await smartItinerary({
+      destination: String(b.destination),
+      startLocation: b.startLocation ? String(b.startLocation) : "",
+      places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
+      startDate: b.startDate ? String(b.startDate) : "",
+      startTime: b.startTime ? String(b.startTime) : "08:00",
+      endDate: b.endDate ? String(b.endDate) : "",
+      endTime: b.endTime ? String(b.endTime) : "",
+      durationDays: Math.max(1, Math.min(Number(b.durationDays) || 1, 14)),
+      mode: ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced",
+      preferences: b.preferences ? String(b.preferences) : "",
+      directive: b.directive ? String(b.directive) : "",
+    });
+    res.json({ days });
   } catch (err) {
     handleError(res, err);
   }

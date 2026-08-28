@@ -136,6 +136,65 @@ class Trek {
       );
 }
 
+/// One time block in the smart AI itinerary timeline.
+class TimelineBlock {
+  String start;
+  String end;
+  final String type; // start|activity|travel|meal|coffee|rest|checkin|checkout|buffer|shopping|freetime|return
+  String title;
+  final String place;
+  final int durationMin;
+  final int travelMin;
+  final double distanceKm;
+  final String breakType; // breakfast|lunch|dinner|... (for meal/break blocks)
+  final String reason;
+
+  TimelineBlock({
+    required this.start,
+    required this.end,
+    required this.type,
+    required this.title,
+    this.place = '',
+    this.durationMin = 0,
+    this.travelMin = 0,
+    this.distanceKm = 0,
+    this.breakType = '',
+    this.reason = '',
+  });
+
+  factory TimelineBlock.fromJson(Map<String, dynamic> j) => TimelineBlock(
+        start: (j['start'] ?? '').toString(),
+        end: (j['end'] ?? '').toString(),
+        type: (j['type'] ?? 'activity').toString(),
+        title: (j['title'] ?? '').toString(),
+        place: (j['place'] ?? '').toString(),
+        durationMin: (j['durationMin'] as num?)?.toInt() ?? 0,
+        travelMin: (j['travelMin'] as num?)?.toInt() ?? 0,
+        distanceKm: (j['distanceKm'] as num?)?.toDouble() ?? 0,
+        breakType: (j['breakType'] ?? '').toString(),
+        reason: (j['reason'] ?? '').toString(),
+      );
+}
+
+/// One day of the smart AI itinerary timeline.
+class SmartDay {
+  final int day;
+  final String date;
+  final String title;
+  final List<TimelineBlock> blocks;
+
+  SmartDay({required this.day, this.date = '', this.title = '', required this.blocks});
+
+  factory SmartDay.fromJson(Map<String, dynamic> j) => SmartDay(
+        day: (j['day'] as num?)?.toInt() ?? 1,
+        date: (j['date'] ?? '').toString(),
+        title: (j['title'] ?? '').toString(),
+        blocks: (j['blocks'] as List? ?? [])
+            .map((e) => TimelineBlock.fromJson((e as Map).cast<String, dynamic>()))
+            .toList(),
+      );
+}
+
 class FuelPlan {
   final bool needsRefuel;
   final double totalDistanceKm;

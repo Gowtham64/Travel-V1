@@ -189,4 +189,93 @@ async function listModels() {
   return (res.data?.data || []).map((m) => m.id).slice(0, 60);
 }
 
-module.exports = { recommendStops, searchPlaces, ask, buildItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
+// ── Smart, time-blocked itinerary (AI travel-assistant) ───────────────────────
+
+function safeParseSmart(text) {
+  try {
+    const data = JSON.parse(text);
+    const days = Array.isArray(data?.days) ? data.days : [];
+    return days
+      .map((d, i) => ({
+        day: Number(d.day) || i + 1,
+        date: d.date ? String(d.date) : "",
+        title: d.title ? String(d.title) : `Day ${i + 1}`,
+        blocks: (Array.isArray(d.blocks) ? d.blocks : [])
+          .map((b) => ({
+            start: String(b.start || ""),
+            end: String(b.end || ""),
+            type: String(b.type || "activity"),
+            title: String(b.title || b.place || ""),
+            place: String(b.place || ""),
+            durationMin: Number(b.durationMin) || 0,
+            travelMin: Number(b.travelMin) || 0,
+            distanceKm: Number(b.distanceKm) || 0,
+            breakType: b.breakType ? String(b.breakType) : "",
+            reason: b.reason ? String(b.reason) : "",
+          }))
+          .filter((b) => b.title || b.type),
+      }))
+      .filter((d) => d.blocks.length);
+  } catch (_) {/* fall through */}
+  return [];
+}
+
+/**
+ * Generate a realistic, time-blocked day-by-day itinerary with automatic
+ * meal/rest breaks, travel time and per-block reasoning.
+ */
+async function smartItinerary({
+  destination,
+  startLocation = "",
+  places = [],
+  startDate = "",
+  startTime = "08:00",
+  endDate = "",
+  endTime = "",
+  durationDays = 1,
+  mode = "balanced",
+  preferences = "",
+  directive = "",
+}) {
+  const placeLine = places.length ? `Must-visit places: ${places.join(", ")}. ` : "";
+  const paceLine =
+    mode === "packed"
+      ? "Pace: PACKED — fit in as much as reasonably possible, shorter breaks. "
+      : mode === "relaxed"
+      ? "Pace: RELAXED — fewer activities, longer meals/rest, plenty of free time. "
+      : "Pace: BALANCED — a comfortable mix of sightseeing, meals and rest. ";
+  const endLine = endDate || endTime ? `The trip should end around ${endDate} ${endTime}. ` : "";
+  const prefLine = preferences ? `Traveller preferences: ${preferences}. ` : "";
+  const directiveLine = directive ? `IMPORTANT adjustment for this version: ${directive}. ` : "";
+
+  const prompt =
+    `Create a realistic, time-blocked day-by-day itinerary for a trip to "${destination}"` +
+    (startLocation ? ` starting from "${startLocation}"` : "") +
+    `. The trip starts on ${startDate || "day 1"} at ${startTime} and lasts ${durationDays} day(s). ` +
+    endLine + placeLine + prefLine + paceLine + directiveLine +
+    `Schedule each day from morning to night as an ordered sequence of time blocks. ` +
+    `Automatically insert breaks WITHOUT being asked: breakfast (~08:00), lunch (~12:30–13:30), ` +
+    `dinner (~19:30–20:30), an afternoon coffee/snack break, rest breaks after long or strenuous ` +
+    `activities, hotel check-in on day 1 and check-out on the final day, travel/transfer time ` +
+    `between places, and short buffer time between activities. Give realistic travel time (minutes) ` +
+    `and distance (km) for each transfer. Respect the typical opening/closing hours of well-known ` +
+    `attractions (approximate from your own knowledge). Never place sightseeing inside a meal window — ` +
+    `move the meal to a suitable nearby spot instead. Avoid unrealistic back-to-back activities. ` +
+    `Order blocks by start time and keep each reason under ~12 words. ` +
+    `Block "type" is one of: start, activity, travel, meal, coffee, rest, checkin, checkout, buffer, ` +
+    `shopping, freetime, return. For meal blocks set breakType to breakfast|lunch|dinner. ` +
+    `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
+    `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
+    `"distanceKm":0,"breakType":"breakfast","reason":""}]}]} — no prose, no markdown.`;
+
+  const text = await generate(prompt, {
+    system:
+      "You are an expert, world-aware travel planner. You produce realistic, well-paced, " +
+      "time-blocked itineraries with automatic meal/rest breaks, travel time and buffers. " +
+      "Only suggest real places. Output strict JSON.",
+    json: true,
+  });
+  return safeParseSmart(text);
+}
+
+module.exports = { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };

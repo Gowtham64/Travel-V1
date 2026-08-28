@@ -7,6 +7,7 @@ import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_design.dart';
+import 'smart_itinerary_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
@@ -312,126 +313,12 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
-  /// Generate a full day-by-day itinerary with AI, then populate the planner.
-  Future<void> _buildWithAI() async {
-    final destCtrl = TextEditingController(
-      text: (widget.tripName.isNotEmpty && widget.tripName != 'My Trip Plan') ? widget.tripName : '',
+  /// Open the smart AI planner (start date/time + timeline + auto breaks). Its
+  /// "Use this plan" imports the result into a day planner.
+  void _openSmartPlanner() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const SmartItineraryScreen()),
     );
-    final daysCtrl = TextEditingController(text: '3');
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Build itinerary with AI'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: destCtrl,
-              autofocus: true,
-              style: const TextStyle(color: Voy.ink),
-              decoration: const InputDecoration(labelText: 'Destination', hintText: 'e.g. Coorg, Karnataka'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: daysCtrl,
-              keyboardType: TextInputType.number,
-              style: const TextStyle(color: Voy.ink),
-              decoration: const InputDecoration(labelText: 'Number of days'),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Build')),
-        ],
-      ),
-    );
-    if (go != true) return;
-    final dest = destCtrl.text.trim();
-    final days = (int.tryParse(daysCtrl.text.trim()) ?? 3).clamp(1, 14);
-    if (dest.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a destination first.')));
-      return;
-    }
-    // Confirm before overwriting an existing plan.
-    if (_days.any((d) => d.items.isNotEmpty)) {
-      final replace = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Replace current plan?'),
-          content: const Text('This will replace your existing days with the AI-generated itinerary.'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Replace')),
-          ],
-        ),
-      );
-      if (replace != true) return;
-    }
-
-    setState(() => _loading = true);
-    try {
-      final aiDays = await _api.aiBuildItinerary(start: dest, end: dest, days: days, purpose: 'leisure');
-      final planDays = <PlanDay>[];
-      for (int i = 0; i < aiDays.length; i++) {
-        final d = aiDays[i];
-        final acts = (d['activities'] as List? ?? []);
-        final items = <PlanItem>[];
-        for (int j = 0; j < acts.length; j++) {
-          final m = (acts[j] as Map).cast<String, dynamic>();
-          final title = (m['title'] ?? '').toString().trim();
-          if (title.isEmpty) continue;
-          items.add(PlanItem(
-            id: '${_uid()}_${i}_$j',
-            text: title,
-            time: (m['time'] ?? '').toString(),
-            note: (m['note'] ?? '').toString(),
-          ));
-        }
-        planDays.add(PlanDay(id: '${_uid()}_d$i', title: (d['title'] ?? 'Day ${i + 1}').toString(), items: items));
-      }
-      if (planDays.isEmpty) throw Exception('AI returned an empty plan');
-      setState(() {
-        _days = planDays;
-        _selectedDay = 0;
-        _loading = false;
-      });
-      _persist();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Built a $days-day plan for $dest ✓ · pinning places…')));
-      _geocodeItineraryPins(dest); // background best-effort
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI build failed: $e')));
-    }
-  }
-
-  /// Best-effort: geocode each AI activity near the destination so real places
-  /// get map pins. A proximity guard drops matches far from the destination
-  /// (Mapbox can resolve a same-named place elsewhere, or a generic activity).
-  Future<void> _geocodeItineraryPins(String dest) async {
-    double? cLat, cLng;
-    try {
-      final c = await _api.geocode(dest);
-      cLat = c.lat;
-      cLng = c.lng;
-    } catch (_) {}
-    for (final day in List.of(_days)) {
-      for (final item in List.of(day.items)) {
-        if (item.hasCoords) continue;
-        try {
-          final gp = await _api.geocode('${item.text}, $dest');
-          // Skip pins implausibly far from the destination centre (~200km).
-          if (cLat != null && _haversineKm(cLat, cLng!, gp.lat, gp.lng) > 200) continue;
-          if (!mounted) return;
-          setState(() {
-            item.lat = gp.lat;
-            item.lng = gp.lng;
-          });
-        } catch (_) {}
-      }
-    }
-    if (mounted) _persist();
   }
 
   Future<void> _renameDay(PlanDay day) async {
@@ -639,7 +526,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
           ],
         ),
         actions: [
-          IconButton(tooltip: 'Build itinerary with AI', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _buildWithAI),
+          IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
           IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Colors.white), onPressed: _import),
           IconButton(tooltip: 'Export PDF', icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white), onPressed: _exportPdf),
           IconButton(tooltip: 'Add to calendar (.ics)', icon: const Icon(Icons.event_outlined, color: Colors.white), onPressed: _exportIcs),
@@ -768,7 +655,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             SizedBox(
               width: 220,
               child: AccentButton(
-                onPressed: _buildWithAI,
+                onPressed: _openSmartPlanner,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   Icon(Icons.auto_awesome, size: 18, color: Colors.white),
