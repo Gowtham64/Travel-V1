@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_design.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
@@ -28,6 +29,10 @@ class DayPlannerScreen extends StatefulWidget {
 String _uid() => DateTime.now().microsecondsSinceEpoch.toString();
 
 class _DayPlannerScreenState extends State<DayPlannerScreen> {
+  // Cinematic theme (matches the trek tool): animated background + glass cards.
+  static const String _bgUrl =
+      'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2000&auto=format&fit=crop';
+
   late final TripExtrasStore _store = TripExtrasStore(widget.tripKey);
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
@@ -332,52 +337,68 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Voy.bg,
+      extendBodyBehindAppBar: true,
+      backgroundColor: AppColors.obsidian,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Trip Planner', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 17)),
-            Text(widget.tripName, style: const TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.w500)),
+            const Text('Trip Planner', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 17)),
+            Text(widget.tripName, style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
         actions: [
-          IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Voy.ink), onPressed: _import),
-          IconButton(tooltip: 'Export PDF', icon: const Icon(Icons.picture_as_pdf_outlined, color: Voy.ink), onPressed: _exportPdf),
-          IconButton(tooltip: 'Add to calendar (.ics)', icon: const Icon(Icons.event_outlined, color: Voy.ink), onPressed: _exportIcs),
+          IconButton(tooltip: 'Import places', icon: const Icon(Icons.file_upload_outlined, color: Colors.white), onPressed: _import),
+          IconButton(tooltip: 'Export PDF', icon: const Icon(Icons.picture_as_pdf_outlined, color: Colors.white), onPressed: _exportPdf),
+          IconButton(tooltip: 'Add to calendar (.ics)', icon: const Icon(Icons.event_outlined, color: Colors.white), onPressed: _exportIcs),
           const SizedBox(width: 4),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : LayoutBuilder(
-              builder: (context, c) {
-                final wide = c.maxWidth >= 900;
-                if (wide) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      SizedBox(width: 320, child: _daysPanel()),
-                      const VerticalDivider(width: 1, color: Voy.hairline),
-                      Expanded(child: _map()),
-                      const VerticalDivider(width: 1, color: Voy.hairline),
-                      SizedBox(width: 320, child: _placesPanel()),
-                    ],
-                  );
-                }
-                return Scaffold(
-                  backgroundColor: Colors.transparent,
-                  floatingActionButton: FloatingActionButton.extended(
-                    onPressed: _openPlacesSheet,
-                    backgroundColor: Voy.brand,
-                    foregroundColor: const Color(0xFF04211F),
-                    icon: const Icon(Icons.add_location_alt_rounded),
-                    label: const Text('Add place'),
-                  ),
-                  body: _daysPanel(),
-                );
-              },
-            ),
+      body: AnimatedBackground(
+        imageUrl: _bgUrl,
+        overlayOpacity: 0.62,
+        child: SafeArea(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : LayoutBuilder(
+                  builder: (context, c) {
+                    final wide = c.maxWidth >= 900;
+                    if (wide) {
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(width: 340, child: _daysPanel()),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(4, 12, 4, 12),
+                              child: GlassCard(
+                                padding: const EdgeInsets.all(6),
+                                child: ClipRRect(borderRadius: BorderRadius.circular(18), child: _map()),
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: 340, child: _placesPanel()),
+                        ],
+                      );
+                    }
+                    return Scaffold(
+                      backgroundColor: Colors.transparent,
+                      floatingActionButton: FloatingActionButton.extended(
+                        onPressed: _openPlacesSheet,
+                        backgroundColor: AppColors.accent,
+                        foregroundColor: Colors.white,
+                        icon: const Icon(Icons.add_location_alt_rounded),
+                        label: const Text('Add place'),
+                      ),
+                      body: _daysPanel(),
+                    );
+                  },
+                ),
+        ),
+      ),
     );
   }
 
@@ -449,13 +470,20 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.view_day_rounded, size: 54, color: Voy.sub.withValues(alpha: 0.5)),
+            Icon(Icons.view_day_rounded, size: 54, color: Colors.white.withValues(alpha: 0.4)),
             const SizedBox(height: 14),
-            const Text('Plan your days', style: TextStyle(color: Voy.ink, fontSize: 17, fontWeight: FontWeight.w700)),
+            const Text('Plan your days', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700)),
             const SizedBox(height: 6),
-            const Text('Add days, then search & add places to each.', style: TextStyle(color: Voy.sub, fontSize: 13)),
-            const SizedBox(height: 14),
-            ElevatedButton.icon(onPressed: _addDay, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add first day')),
+            Text('Add days, then search & add places to each.', style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 200,
+              child: AccentButton(
+                onPressed: _addDay,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: const Text('ADD FIRST DAY'),
+              ),
+            ),
           ],
         ),
       );
@@ -463,39 +491,95 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       children: [
-        for (int di = 0; di < _days.length; di++) _dayCard(di),
+        _dayChipRow(),
         const SizedBox(height: 4),
-        OutlinedButton.icon(onPressed: _addDay, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add day')),
+        ...RevealIn.stagger(
+          [for (int di = 0; di < _days.length; di++) _dayCard(di)],
+          initial: const Duration(milliseconds: 60),
+          step: const Duration(milliseconds: 50),
+        ),
+        const SizedBox(height: 4),
+        AccentButton(
+          onPressed: _addDay,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.add_rounded, size: 18, color: Colors.white),
+            SizedBox(width: 6),
+            Text('ADD DAY'),
+          ]),
+        ),
       ],
+    );
+  }
+
+  /// Horizontal filter-chip row to jump between days (trek-tool chip pattern).
+  Widget _dayChipRow() {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        itemCount: _days.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, i) {
+          final selected = i == _selectedDay;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedDay = i),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              decoration: BoxDecoration(
+                color: selected ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                    color: selected ? AppColors.accentLight : Colors.white.withValues(alpha: 0.15),
+                    width: selected ? 1.4 : 1),
+              ),
+              child: Text('Day ${i + 1}',
+                  style: TextStyle(
+                      color: selected ? AppColors.accentLight : Colors.white.withValues(alpha: 0.8),
+                      fontSize: 12.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500)),
+            ),
+          );
+        },
+      ),
     );
   }
 
   Widget _dayCard(int di) {
     final day = _days[di];
     final selected = di == _selectedDay;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 14),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: selected ? Voy.brand : Voy.hairline, width: selected ? 1.6 : 1),
-      ),
-      child: InkWell(
-        onTap: () => setState(() => _selectedDay = di),
-        borderRadius: BorderRadius.circular(18),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        glow: selected,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+                color: selected ? AppColors.accentLight : Colors.transparent,
+                width: selected ? 1.4 : 0),
+          ),
+          child: InkWell(
+            onTap: () => setState(() => _selectedDay = di),
+            borderRadius: BorderRadius.circular(24),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(color: Voy.brand.withValues(alpha: selected ? 0.25 : 0.15), borderRadius: BorderRadius.circular(9)),
-                    child: Text('${di + 1}', style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800)),
-                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(color: AppColors.accentLight.withValues(alpha: selected ? 0.28 : 0.16), borderRadius: BorderRadius.circular(9)),
+                        child: Text('${di + 1}', style: const TextStyle(color: AppColors.accentLight, fontWeight: FontWeight.w800)),
+                      ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(day.title, style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700))),
                   _weatherBadge(day),
@@ -600,6 +684,8 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                 ),
               ),
             ],
+              ),
+            ),
           ),
         ),
       ),
@@ -672,77 +758,103 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   // ---- places ----
   Widget _placesPanel({ScrollController? scrollController}) {
     final targetDay = _days.isEmpty ? null : _days[_selectedDay.clamp(0, _days.length - 1)];
-    return Container(
-      color: Voy.bg,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+          child: GlassCard(
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Add place / activity', style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                const Text('Add place / activity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
-                Text(targetDay == null ? 'Add a day first' : 'Adding to ${targetDay.title}', style: const TextStyle(color: Voy.brand, fontSize: 12, fontWeight: FontWeight.w700)),
+                Text(targetDay == null ? 'Add a day first' : 'Adding to ${targetDay.title}', style: const TextStyle(color: AppColors.accentLight, fontSize: 12, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _searchCtrl,
-                  style: const TextStyle(color: Voy.ink),
+                  style: const TextStyle(color: Colors.white),
                   textInputAction: TextInputAction.search,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
                     hintText: 'Search places (AI)…',
-                    prefixIcon: const Icon(Icons.search_rounded, color: Voy.sub),
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.08),
+                    prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withValues(alpha: 0.7)),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+                    ),
                     suffixIcon: _searching
                         ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
-                        : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: Voy.brand), onPressed: _search),
+                        : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: AppColors.accentLight), onPressed: _search),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: TextButton.icon(onPressed: _promptAddItem, icon: const Icon(Icons.edit_rounded, size: 16), label: const Text('Add your own')),
+                  child: TextButton.icon(onPressed: _promptAddItem, icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.accentLight), label: const Text('Add your own', style: TextStyle(color: AppColors.accentLight))),
                 ),
               ],
             ),
           ),
-          if (_searchError != null)
-            Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), child: Text(_searchError!, style: const TextStyle(color: Voy.danger, fontSize: 12.5))),
-          Expanded(
-            child: _results.isEmpty
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Text(_searching ? 'Searching…' : 'Search for attractions, food, stays…', textAlign: TextAlign.center, style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 13)),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: scrollController,
-                    padding: const EdgeInsets.fromLTRB(10, 4, 10, 20),
-                    itemCount: _results.length,
-                    itemBuilder: (ctx, i) {
-                      final r = _results[i];
-                      final name = r['name'] ?? '';
-                      final area = r['area'] ?? '';
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          title: Text(name, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
-                          subtitle: (area.isEmpty && (r['why'] ?? '').isEmpty)
-                              ? null
-                              : Text([area, r['why'] ?? ''].where((s) => s.isNotEmpty).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add_circle_rounded, color: Voy.brand),
-                            onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
-                          ),
-                        ),
-                      );
-                    },
+        ),
+        if (_searchError != null)
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text(_searchError!, style: const TextStyle(color: Color(0xFFFB7185), fontSize: 12.5))),
+        Expanded(
+          child: _results.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Text(_searching ? 'Searching…' : 'Search for attractions, food, stays…', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
                   ),
-          ),
-        ],
-      ),
+                )
+              : ListView.builder(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 20),
+                  itemCount: _results.length,
+                  itemBuilder: (ctx, i) {
+                    final r = _results[i];
+                    final name = r['name'] ?? '';
+                    final area = r['area'] ?? '';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: GlassCard(
+                        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                        glow: false,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                                  if (!(area.isEmpty && (r['why'] ?? '').isEmpty))
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 3),
+                                      child: Text([area, r['why'] ?? ''].where((s) => s.isNotEmpty).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add_circle_rounded, color: AppColors.accentLight),
+                              onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }

@@ -9,6 +9,7 @@ import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
 import 'atlas_screen.dart';
 import 'trek_discovery_screen.dart';
+import 'day_planner_screen.dart';
 import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
@@ -81,6 +82,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // pick one, then plan a trip around its trailhead.
   void _planRoundTrip() =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()));
+  // Day-by-day vacation planner (organise days, add places, map pins).
+  void _openDayPlanner() =>
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
 
   Future<void> _logout() async {
@@ -479,11 +483,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
     }
 
-    return Row(
+    return Column(
       children: [
-        btn(Icons.trending_flat_rounded, 'Plan one-way trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
-        const SizedBox(width: 12),
-        btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF7C3AED), const Color(0xFF8F81F2), _planRoundTrip),
+        Row(
+          children: [
+            btn(Icons.trending_flat_rounded, 'Plan one-way trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
+            const SizedBox(width: 12),
+            btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF7C3AED), const Color(0xFF8F81F2), _planRoundTrip),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            btn(Icons.view_day_rounded, 'Day-by-day planner', const Color(0xFF2E75B6), const Color(0xFF60A5FA), _openDayPlanner),
+          ],
+        ),
       ],
     );
   }
