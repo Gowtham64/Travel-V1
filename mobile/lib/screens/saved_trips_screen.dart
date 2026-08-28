@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/api_service.dart';
+import '../services/trip_extras_store.dart';
 import '../models/trip_models.dart';
 import '../widgets/app_design.dart';
 import 'trip_screen.dart';
+import 'day_planner_screen.dart';
 
 class SavedTripsScreen extends StatefulWidget {
   const SavedTripsScreen({super.key});
@@ -20,6 +22,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
   bool _loadingTripDetails = false;
   String? _error;
   List<dynamic> _trips = [];
+  List<Map<String, dynamic>> _localPlans = []; // day-by-day / AI itineraries saved on this device
 
   @override
   void initState() {
@@ -28,35 +31,43 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
   }
 
   Future<void> _loadTrips() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'You must be logged in to view saved trips';
-        _loading = false;
-      });
-      return;
-    }
+    // Local day-by-day / AI itineraries are available to everyone (no login).
+    final localPlans = await TripExtrasStore.savedPlans();
 
-    try {
-      final trips = await _api.getSavedTrips(session.accessToken);
-      if (!mounted) return;
-      setState(() {
-        _trips = trips;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = e.toString();
-      });
-    } finally {
-      // Guard against setState after the user navigated away mid-request.
-      if (mounted) {
-        setState(() {
-          _loading = false;
-        });
+    final session = Supabase.instance.client.auth.currentSession;
+    List<dynamic> cloudTrips = [];
+    String? err;
+    if (session != null) {
+      try {
+        cloudTrips = await _api.getSavedTrips(session.accessToken);
+      } catch (e) {
+        err = e.toString();
       }
     }
+
+    if (!mounted) return;
+    setState(() {
+      _localPlans = localPlans;
+      _trips = cloudTrips;
+      // Only surface an error if we have nothing at all to show.
+      _error = (localPlans.isEmpty && cloudTrips.isEmpty && err != null) ? err : null;
+      _loading = false;
+    });
+  }
+
+  Future<void> _openLocalPlan(Map<String, dynamic> p) async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => DayPlannerScreen(
+        tripKey: (p['key'] ?? '').toString(),
+        tripName: (p['name'] ?? 'My Trip Plan').toString(),
+      ),
+    ));
+    _loadTrips(); // refresh counts/order on return
+  }
+
+  Future<void> _deleteLocalPlan(Map<String, dynamic> p) async {
+    await TripExtrasStore.removeFromIndex((p['key'] ?? '').toString());
+    _loadTrips();
   }
 
   @override
@@ -186,7 +197,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
       );
     }
 
-    if (_trips.isEmpty) {
+    if (_trips.isEmpty && _localPlans.isEmpty) {
       // Wrapped in a scrollable so the user can still pull-to-refresh here.
       return RefreshIndicator(
         color: AppColors.accentLight,
@@ -223,27 +234,86 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     return RefreshIndicator(
       color: AppColors.accentLight,
       onRefresh: _loadTrips,
-      child: ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: kToolbarHeight + MediaQuery.of(context).padding.top,
-        bottom: 24,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: kToolbarHeight + MediaQuery.of(context).padding.top,
+          bottom: 24,
+        ),
+        children: [
+          if (_localPlans.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text('Your itineraries', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+            for (int i = 0; i < _localPlans.length; i++)
+              RevealIn(delay: Duration(milliseconds: 40 + i * 45), child: _localPlanCard(_localPlans[i])),
+            const SizedBox(height: 10),
+          ],
+          if (_trips.isNotEmpty) ...[
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text('Saved road trips', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+            ),
+            for (int i = 0; i < _trips.length; i++)
+              RevealIn(delay: Duration(milliseconds: 40 + i * 45), child: _cloudTripCard(_trips[i])),
+          ],
+        ],
       ),
-      itemCount: _trips.length,
-      itemBuilder: (context, index) {
-        final trip = _trips[index];
-        final start = trip['start_point']?['address'] ?? 'Unknown Start';
-        final end = trip['end_point']?['address'] ?? 'Unknown End';
+    );
+  }
 
-        return RevealIn(
-          delay: Duration(milliseconds: 40 + index * 45),
-          child: _buildTripCard(
-            trip: trip,
-            start: start,
-            end: end,
-            onTap: () async {
+  /// A locally-saved day-by-day / AI itinerary card.
+  Widget _localPlanCard(Map<String, dynamic> p) {
+    final name = (p['name'] ?? 'My Trip Plan').toString();
+    final days = (p['days'] as num?)?.toInt() ?? 0;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        padding: EdgeInsets.zero,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(24),
+            onTap: () => _openLocalPlan(p),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                Container(
+                  width: 42, height: 42, alignment: Alignment.center,
+                  decoration: BoxDecoration(color: AppColors.accentLight.withOpacity(0.18), borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.event_note_rounded, color: AppColors.accentLight),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 2),
+                    Text('$days day${days == 1 ? '' : 's'} · on this device', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12.5)),
+                  ]),
+                ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded, color: Colors.white.withOpacity(0.6)),
+                  onPressed: () => _deleteLocalPlan(p),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _cloudTripCard(dynamic trip) {
+    final start = trip['start_point']?['address'] ?? 'Unknown Start';
+    final end = trip['end_point']?['address'] ?? 'Unknown End';
+    return _buildTripCard(
+      trip: trip,
+      start: start,
+      end: end,
+      onTap: () async {
               final startLat = trip['start_point']?['lat'] as num?;
               final startLng = trip['start_point']?['lng'] as num?;
               final endLat = trip['end_point']?['lat'] as num?;
@@ -348,10 +418,6 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                 }
               }
             },
-          ),
-        );
-      },
-      ),
     );
   }
 

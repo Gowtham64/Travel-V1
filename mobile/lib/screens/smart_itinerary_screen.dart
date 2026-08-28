@@ -133,7 +133,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     }
     final dest = _destCtrl.text.trim();
     final tripKey = 'smart_${dest.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
-    await TripExtrasStore(tripKey).saveDays(planDays);
+    await TripExtrasStore(tripKey).saveDays(planDays, name: '$dest (AI plan)');
     return tripKey;
   }
 

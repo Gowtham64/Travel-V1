@@ -107,10 +107,12 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       _days = days;
       _loading = false;
     });
+    // Ensure any opened, non-empty plan is listed under "Saved trips".
+    if (days.isNotEmpty) _store.saveDays(days, name: widget.tripName);
   }
 
   void _persist() {
-    _store.saveDays(_days);
+    _store.saveDays(_days, name: widget.tripName);
     // If this plan is shared and we can edit, push the change to collaborators.
     final s = _shared;
     if (s != null && !_applyingRemote && _collab.canEdit(s)) {
@@ -128,7 +130,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       _days = days;
       if (_selectedDay >= _days.length) _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
     });
-    _store.saveDays(_days); // cache locally, but DON'T re-push
+    _store.saveDays(_days, name: widget.tripName); // cache locally, but DON'T re-push
     _applyingRemote = false;
   }
 
