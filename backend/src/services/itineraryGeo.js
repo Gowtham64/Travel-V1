@@ -42,6 +42,29 @@ async function geocode(name, near, focus) {
 }
 
 /**
+ * Best-effort ISO3 country code for a place name (e.g. "IND", "ARE"), via the
+ * ORS geocoder. Returns null if it can't be resolved. Used to decide whether a
+ * trip is international (outside India) for budget pricing.
+ */
+async function geocodeCountry(name) {
+  const key = process.env.ORS_API_KEY;
+  if (!key || !name) return null;
+  try {
+    const res = await axios.get("https://api.openrouteservice.org/geocode/search", {
+      params: { api_key: key, text: name, size: 1 },
+      timeout: 8000,
+    });
+    const f = res.data && res.data.features && res.data.features[0];
+    const p = f && f.properties;
+    if (!p) return null;
+    // ORS/Pelias exposes ISO3 as `country_a`; fall back to the country name.
+    return (p.country_a || p.country || "").toString().toUpperCase() || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
  * Real driving distance/time between two points via the public OSRM server.
  * Returns { km, min } or null.
  */
@@ -135,4 +158,4 @@ async function groundItinerary(days, startLocation = "", destination = "") {
   return days;
 }
 
-module.exports = { groundItinerary, geocode, route };
+module.exports = { groundItinerary, geocode, geocodeCountry, route };

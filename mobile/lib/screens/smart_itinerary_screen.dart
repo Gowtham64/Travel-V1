@@ -603,13 +603,30 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             const Icon(Icons.account_balance_wallet_rounded, color: AppColors.accentLight, size: 20),
             const SizedBox(width: 8),
             const Text('Estimated budget', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+            if (b.international) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                ),
+                child: const Text('International',
+                    style: TextStyle(color: Color(0xFF7DD3FC), fontSize: 10.5, fontWeight: FontWeight.w700)),
+              ),
+            ],
             const Spacer(),
             Text('${b.days}d · ${b.travellers} pax',
                 style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 12)),
           ]),
           const SizedBox(height: 10),
-          row(Icons.local_gas_station_rounded, 'Fuel', b.fuel, const Color(0xFFF97316)),
-          row(Icons.toll_rounded, 'Tolls', b.tolls, const Color(0xFFEAB308)),
+          if (b.transport > 0)
+            row(Icons.flight_rounded, 'Flights / tickets', b.transport, const Color(0xFF38BDF8)),
+          if (b.fuel > 0) row(Icons.local_gas_station_rounded, 'Fuel', b.fuel, const Color(0xFFF97316)),
+          if (b.tolls > 0) row(Icons.toll_rounded, 'Tolls', b.tolls, const Color(0xFFEAB308)),
+          if (b.localTransport > 0)
+            row(Icons.local_taxi_rounded, 'Local transport', b.localTransport, const Color(0xFFFACC15)),
           row(Icons.restaurant_rounded, 'Food', b.food, const Color(0xFF22C55E)),
           row(Icons.hotel_rounded, 'Hotel stay', b.stay, const Color(0xFF8B5CF6)),
           row(Icons.more_horiz_rounded, 'Buffer (10%)', b.buffer, Colors.white54),
@@ -657,7 +674,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          Text('Fuel from the routed distance; tolls, food & stay estimated. Adjust travellers above.',
+          Text(
+              b.international
+                  ? 'Flights/tickets priced per person; food, stay & local transport at international rates. Adjust travellers above.'
+                  : 'Fuel from the routed distance; tolls, food & stay estimated. Adjust travellers above.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 11)),
         ],
       ),

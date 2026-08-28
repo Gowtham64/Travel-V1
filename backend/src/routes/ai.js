@@ -1,6 +1,6 @@
 const express = require("express");
 const { recommendStops, searchPlaces, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
-const { groundItinerary } = require("../services/itineraryGeo");
+const { groundItinerary, geocodeCountry } = require("../services/itineraryGeo");
 const { estimateBudget } = require("../services/budgetService");
 
 const router = express.Router();
@@ -139,29 +139,49 @@ router.post("/smart-itinerary", async (req, res) => {
       console.error("Itinerary distance grounding skipped:", err.message);
     }
 
-    // Full trip budget: fuel (from total drive distance) + tolls + food + stay.
+    // Is the destination outside India? If so, price food/stay at international
+    // rates and treat destination driving as taxis rather than personal fuel.
+    let international = false;
+    try {
+      const country = await geocodeCountry(String(b.destination));
+      // Treat a confidently-non-India country as international. Unknown → domestic.
+      if (country && !["IND", "INDIA"].includes(country)) international = true;
+    } catch (_) {/* default domestic */}
+
+    // Full trip budget: fuel + tolls + transport tickets + local transport + food + stay.
     let budget = null;
     try {
-      let totalKm = 0;
+      let driveKm = 0; // legs driven in the traveller's own vehicle (domestic)
+      let localKm = 0; // destination getting-around (taxis) — used when abroad
+      const transportLegs = []; // flight/train/bus/ferry legs, ticket-priced
       for (const day of days) {
         for (const blk of day.blocks || []) {
           if (blk.type !== "travel" && blk.type !== "return") continue;
-          // Fuel & tolls apply only to legs the traveller actually drives.
-          // Flight/train/bus/ferry legs are not petrol/toll costs for the car.
           const mode = String(blk.travelMode || "drive").toLowerCase();
-          if (mode === "drive" || mode === "walk") totalKm += Number(blk.distanceKm) || 0;
+          const km = Number(blk.distanceKm) || 0;
+          if (mode === "flight" || mode === "train" || mode === "bus" || mode === "ferry") {
+            transportLegs.push({ mode, distanceKm: km });
+          } else if (mode === "drive" || mode === "walk") {
+            // Abroad, the traveller doesn't drive their own car — local hops are
+            // taxis; at home they burn fuel (and pay tolls) in their own vehicle.
+            if (international) localKm += km;
+            else driveKm += km;
+          }
         }
       }
       const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));
       const eff = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : 15;
-      // Rough toll estimate (~₹0.7/km of driving) since we have no per-road toll data here.
-      const tollGuess = Math.round(totalKm * 0.7);
+      // Rough toll estimate (~₹0.7/km of self-driving) — none when abroad.
+      const tollGuess = Math.round(driveKm * 0.7);
       budget = estimateBudget({
-        distanceKm: Math.round(totalKm),
+        driveKm: Math.round(driveKm),
+        localTransportKm: Math.round(localKm),
+        transportLegs,
         estimatedDays: durationDays,
         vehicle: { efficiencyKmPerLiter: eff },
         toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
         options: {
+          international,
           travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
           ...(Number(b.fuelPrice) > 0 ? { fuelPricePerLiter: Number(b.fuelPrice) } : {}),
         },

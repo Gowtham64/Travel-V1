@@ -331,8 +331,11 @@ class TripBudget {
   final int days;
   final int nights;
   final int travellers;
+  final bool international;
   final int fuel;
   final int tolls;
+  final int transport; // flight/train/bus/ferry tickets
+  final int localTransport; // destination taxis / local getting-around
   final int food;
   final int stay;
   final int buffer;
@@ -344,8 +347,11 @@ class TripBudget {
     required this.days,
     required this.nights,
     required this.travellers,
+    this.international = false,
     required this.fuel,
     required this.tolls,
+    this.transport = 0,
+    this.localTransport = 0,
     required this.food,
     required this.stay,
     required this.buffer,
@@ -360,8 +366,11 @@ class TripBudget {
       days: (json['days'] as num?)?.toInt() ?? 1,
       nights: (json['nights'] as num?)?.toInt() ?? 0,
       travellers: (json['travellers'] as num?)?.toInt() ?? 1,
+      international: json['international'] as bool? ?? false,
       fuel: (b['fuel'] as num?)?.toInt() ?? 0,
       tolls: (b['tolls'] as num?)?.toInt() ?? 0,
+      transport: (b['transport'] as num?)?.toInt() ?? 0,
+      localTransport: (b['localTransport'] as num?)?.toInt() ?? 0,
       food: (b['food'] as num?)?.toInt() ?? 0,
       stay: (b['stay'] as num?)?.toInt() ?? 0,
       buffer: (b['buffer'] as num?)?.toInt() ?? 0,
