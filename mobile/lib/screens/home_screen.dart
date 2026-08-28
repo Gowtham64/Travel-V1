@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Row(
           children: [
-            btn(Icons.trending_flat_rounded, 'Plan one-way trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
+            btn(Icons.trending_flat_rounded, 'One-way road trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
             const SizedBox(width: 12),
             btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF7C3AED), const Color(0xFF8F81F2), _planRoundTrip),
           ],
@@ -495,7 +495,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(height: 12),
         Row(
           children: [
-            btn(Icons.view_day_rounded, 'Day-by-day planner', const Color(0xFF2E75B6), const Color(0xFF60A5FA), _openDayPlanner),
+            btn(Icons.auto_awesome_rounded, 'AI round-trip planner', const Color(0xFF2E75B6), const Color(0xFF60A5FA), _openDayPlanner),
           ],
         ),
       ],
