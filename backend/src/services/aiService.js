@@ -281,7 +281,9 @@ async function smartItinerary({
       "time-blocked itineraries with automatic meal/rest breaks, travel time and buffers. " +
       "Only suggest real places. Output strict, complete JSON — never truncate.",
     json: true,
-    maxTokens: 8000, // multi-day timelines are long; avoid truncated JSON
+    // Enough for a complete multi-day timeline, but kept under Groq's free-tier
+    // 8000 tokens/minute budget (prompt + output must fit) to avoid a 413.
+    maxTokens: 6000,
   });
   return safeParseSmart(text);
 }
