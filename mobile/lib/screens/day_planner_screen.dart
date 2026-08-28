@@ -14,6 +14,7 @@ import 'smart_itinerary_screen.dart';
 import 'trip_demo_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
+import '../models/vehicles_data.dart';
 import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import '../utils/plan_export.dart';
@@ -46,7 +47,11 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     ('train', 'Train', Icons.train_rounded, 70),
     ('bus', 'Bus', Icons.directions_bus_rounded, 40),
     ('flight', 'Flight', Icons.flight_rounded, 500),
+    ('combined', 'Combined', Icons.alt_route_rounded, 45),
   ];
+
+  bool _isOwnVehicleMode(String m) => m == 'car' || m == 'bike';
+  bool _isBookingMode(String m) => m == 'train' || m == 'bus' || m == 'flight' || m == 'combined';
 
   // Item categories (id, label, icon).
   static const List<(String, String, IconData)> _itemCategories = [
@@ -215,50 +220,214 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   Widget _transportRow(PlanDay day) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: SizedBox(
-        height: 34,
-        child: ListView(
-          scrollDirection: Axis.horizontal,
-          children: [
-            for (final m in _transportModes)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() => day.transportMode = m.$1);
-                    _persist();
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: day.transportMode == m.$1
-                          ? AppColors.accentLight.withValues(alpha: 0.22)
-                          : Colors.white.withValues(alpha: 0.06),
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 34,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: [
+                for (final m in _transportModes)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() => day.transportMode = m.$1);
+                        _persist();
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
                           color: day.transportMode == m.$1
-                              ? AppColors.accentLight
-                              : Colors.white.withValues(alpha: 0.15)),
+                              ? AppColors.accentLight.withValues(alpha: 0.22)
+                              : Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                              color: day.transportMode == m.$1
+                                  ? AppColors.accentLight
+                                  : Colors.white.withValues(alpha: 0.15)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(m.$3, size: 15,
+                              color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub),
+                          const SizedBox(width: 5),
+                          Text(m.$2,
+                              style: TextStyle(
+                                  color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600)),
+                        ]),
+                      ),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(m.$3, size: 15,
-                          color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub),
-                      const SizedBox(width: 5),
-                      Text(m.$2,
-                          style: TextStyle(
-                              color: day.transportMode == m.$1 ? AppColors.accentLight : Voy.sub,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600)),
-                    ]),
                   ),
-                ),
+              ],
+            ),
+          ),
+          _transportDetail(day),
+        ],
+      ),
+    );
+  }
+
+  /// Mode-specific detail: pick your own vehicle (car/bike), or add booking
+  /// details (bus/train/flight). Combined shows both.
+  Widget _transportDetail(PlanDay day) {
+    final m = day.transportMode;
+    final rows = <Widget>[];
+    if (_isOwnVehicleMode(m) || m == 'combined') {
+      final v = day.vehicleId == null
+          ? null
+          : predefinedVehicles.where((e) => e.id == day.vehicleId).cast<VehicleModel?>().firstWhere((_) => true, orElse: () => null);
+      rows.add(_detailChip(
+        icon: Icons.directions_car_filled_rounded,
+        label: v != null ? '${v.name} · ${v.mileage.toStringAsFixed(0)} km/L' : 'Select your vehicle',
+        set: v != null,
+        onTap: () => _pickVehicle(day),
+      ));
+    }
+    if (_isBookingMode(m)) {
+      final b = day.booking;
+      final has = b != null && !b.isEmpty;
+      final summary = has
+          ? [b.carrier, b.number, if (b.from.isNotEmpty || b.to.isNotEmpty) '${b.from}→${b.to}'].where((s) => s.isNotEmpty).join(' · ')
+          : 'Add booking details';
+      rows.add(_detailChip(
+        icon: Icons.confirmation_number_rounded,
+        label: summary.isEmpty ? 'Add booking details' : summary,
+        set: has,
+        onTap: () => _editBooking(day),
+      ));
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(spacing: 8, runSpacing: 8, children: rows),
+    );
+  }
+
+  Widget _detailChip({required IconData icon, required String label, required bool set, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: set ? AppColors.accent.withValues(alpha: 0.18) : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: set ? AppColors.accentLight.withValues(alpha: 0.6) : Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, size: 15, color: set ? AppColors.accentLight : Voy.sub),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 240),
+            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: set ? Colors.white : Voy.sub, fontSize: 12.5, fontWeight: FontWeight.w600)),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.edit_rounded, size: 13, color: Voy.sub.withValues(alpha: 0.7)),
+        ]),
+      ),
+    );
+  }
+
+  /// Choose the traveller's own vehicle for a car/bike/combined day.
+  Future<void> _pickVehicle(PlanDay day) async {
+    // Bikes show motorcycles; car & combined show cars (combined can still add a booking).
+    final wantType = day.transportMode == 'bike' ? 'motorcycle' : 'car';
+    final list = predefinedVehicles.where((v) => v.type == wantType).toList();
+    final chosen = await showModalBottomSheet<VehicleModel>(
+      context: context,
+      backgroundColor: Voy.surface,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Align(alignment: Alignment.centerLeft, child: Text('Select your vehicle', style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800))),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: list.length,
+                itemBuilder: (c, i) {
+                  final v = list[i];
+                  final sel = v.id == day.vehicleId;
+                  return ListTile(
+                    leading: Icon(day.transportMode == 'bike' ? Icons.two_wheeler_rounded : Icons.directions_car_rounded, color: sel ? AppColors.accentLight : Voy.sub),
+                    title: Text(v.name, style: const TextStyle(color: Voy.ink)),
+                    subtitle: Text('${v.mileage.toStringAsFixed(0)} km/L · ${v.tankCapacity.toStringAsFixed(0)} L tank', style: const TextStyle(color: Voy.sub, fontSize: 12)),
+                    trailing: sel ? const Icon(Icons.check_circle_rounded, color: AppColors.accentLight) : null,
+                    onTap: () => Navigator.pop(ctx, v),
+                  );
+                },
               ),
+            ),
           ],
         ),
       ),
     );
+    if (chosen != null) {
+      setState(() => day.vehicleId = chosen.id);
+      _persist();
+    }
+  }
+
+  /// Enter/edit booking details for a bus/train/flight/combined day.
+  Future<void> _editBooking(PlanDay day) async {
+    final b = day.booking ?? TransportBooking();
+    final carrier = TextEditingController(text: b.carrier);
+    final number = TextEditingController(text: b.number);
+    final from = TextEditingController(text: b.from);
+    final to = TextEditingController(text: b.to);
+    final depart = TextEditingController(text: b.depart);
+    final arrive = TextEditingController(text: b.arrive);
+    final seat = TextEditingController(text: b.seat);
+    final pnr = TextEditingController(text: b.pnr);
+    final mode = day.transportMode;
+    final carrierLabel = mode == 'flight' ? 'Airline' : mode == 'train' ? 'Train name' : mode == 'bus' ? 'Bus operator' : 'Operator';
+    final numberLabel = mode == 'flight' ? 'Flight no.' : mode == 'train' ? 'Train no.' : 'Service no.';
+
+    Widget f(TextEditingController c, String label) => Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: TextField(controller: c, style: const TextStyle(color: Voy.ink), decoration: InputDecoration(labelText: label)),
+        );
+
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('${mode[0].toUpperCase()}${mode.substring(1)} booking'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            f(carrier, carrierLabel),
+            f(number, numberLabel),
+            Row(children: [Expanded(child: f(from, 'From')), const SizedBox(width: 10), Expanded(child: f(to, 'To'))]),
+            Row(children: [Expanded(child: f(depart, 'Departs')), const SizedBox(width: 10), Expanded(child: f(arrive, 'Arrives'))]),
+            Row(children: [Expanded(child: f(seat, 'Seat')), const SizedBox(width: 10), Expanded(child: f(pnr, 'PNR / ref'))]),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (saved == true) {
+      setState(() {
+        day.booking = TransportBooking(
+          carrier: carrier.text.trim(), number: number.text.trim(),
+          from: from.text.trim(), to: to.text.trim(),
+          depart: depart.text.trim(), arrive: arrive.text.trim(),
+          seat: seat.text.trim(), pnr: pnr.text.trim(),
+        );
+      });
+      _persist();
+    }
   }
 
   /// Add/edit dialog capturing category, time, name and note. Returns a new/edited

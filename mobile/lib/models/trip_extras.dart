@@ -120,20 +120,68 @@ class PlanItem {
       );
 }
 
+/// Booking details for a public-transport leg (bus / train / flight).
+class TransportBooking {
+  String carrier; // operator / airline / train name
+  String number; // flight no / train no / bus service
+  String from;
+  String to;
+  String depart; // departure time (free text, e.g. "09:15")
+  String arrive; // arrival time
+  String seat;
+  String pnr; // booking / PNR reference
+
+  TransportBooking({
+    this.carrier = '',
+    this.number = '',
+    this.from = '',
+    this.to = '',
+    this.depart = '',
+    this.arrive = '',
+    this.seat = '',
+    this.pnr = '',
+  });
+
+  bool get isEmpty =>
+      carrier.isEmpty && number.isEmpty && from.isEmpty && to.isEmpty &&
+      depart.isEmpty && arrive.isEmpty && seat.isEmpty && pnr.isEmpty;
+
+  Map<String, dynamic> toJson() => {
+        'carrier': carrier, 'number': number, 'from': from, 'to': to,
+        'depart': depart, 'arrive': arrive, 'seat': seat, 'pnr': pnr,
+      };
+  factory TransportBooking.fromJson(Map<String, dynamic> j) => TransportBooking(
+        carrier: (j['carrier'] ?? '').toString(),
+        number: (j['number'] ?? '').toString(),
+        from: (j['from'] ?? '').toString(),
+        to: (j['to'] ?? '').toString(),
+        depart: (j['depart'] ?? '').toString(),
+        arrive: (j['arrive'] ?? '').toString(),
+        seat: (j['seat'] ?? '').toString(),
+        pnr: (j['pnr'] ?? '').toString(),
+      );
+}
+
 /// A single day in the day-by-day organizer, holding an ordered list of items
 /// the traveller can reorder (drag-and-drop).
 class PlanDay {
   final String id;
   String title;
   String hotel; // accommodation for the day (optional)
-  // How the traveller gets around this day: 'car' | 'bike' | 'walk' | 'train' | 'flight' | 'bus'.
+  // How the traveller gets around this day: car | bike | walk | train | flight | bus | combined.
   String transportMode;
+  // For car/bike: the traveller's own vehicle id (from predefinedVehicles).
+  String? vehicleId;
+  // For bus/train/flight (and combined): the booking details.
+  TransportBooking? booking;
   List<PlanItem> items;
   PlanDay({
     required this.id,
     this.title = '',
     this.hotel = '',
     this.transportMode = 'car',
+    this.vehicleId,
+    this.booking,
     List<PlanItem>? items,
   }) : items = items ?? [];
 
@@ -142,6 +190,8 @@ class PlanDay {
         'title': title,
         'hotel': hotel,
         'transportMode': transportMode,
+        if (vehicleId != null) 'vehicleId': vehicleId,
+        if (booking != null && !booking!.isEmpty) 'booking': booking!.toJson(),
         'items': items.map((e) => e.toJson()).toList(),
       };
   factory PlanDay.fromJson(Map<String, dynamic> j) => PlanDay(
@@ -149,6 +199,8 @@ class PlanDay {
         title: (j['title'] ?? '').toString(),
         hotel: (j['hotel'] ?? '').toString(),
         transportMode: (j['transportMode'] ?? 'car').toString(),
+        vehicleId: j['vehicleId']?.toString(),
+        booking: j['booking'] != null ? TransportBooking.fromJson((j['booking'] as Map).cast<String, dynamic>()) : null,
         items: (j['items'] as List?)
                 ?.map((e) => PlanItem.fromJson((e as Map).cast<String, dynamic>()))
                 .toList() ??
