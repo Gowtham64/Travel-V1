@@ -1,15 +1,23 @@
 const axios = require("axios");
 
 // Provider-agnostic AI. Set AI_PROVIDER = gemini | groq | openrouter to force one,
-// otherwise auto-detect from whichever key is present (Groq/OpenRouter preferred —
-// they need no billing, unlike Gemini's billing-gated free tier).
+// otherwise auto-detect from whichever key is present. Gemini is preferred when
+// its key is set — its free tier is far larger than Groq's (which caps at 200k
+// tokens/day per model and was returning 429s once exhausted).
 const PROVIDER = (
   process.env.AI_PROVIDER ||
-  (process.env.GROQ_API_KEY ? "groq" : process.env.OPENROUTER_API_KEY ? "openrouter" : "gemini")
+  (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
+    ? "gemini"
+    : process.env.GROQ_API_KEY
+    ? "groq"
+    : process.env.OPENROUTER_API_KEY
+    ? "openrouter"
+    : "gemini")
 ).toLowerCase();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+// gemini-2.0-flash was retired; gemini-3.6-flash is the current fast model.
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY;
 // Groq decommissioned llama-3.3-70b-versatile for this key (404). Default to a
 // currently-available production model; override with GROQ_MODEL if needed.
