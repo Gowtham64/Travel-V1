@@ -110,8 +110,13 @@ async function groundItinerary(days, startLocation = "", destination = "") {
         if (blocks[j]._coord) { to = blocks[j]._coord; break; }
       }
       if (from && to) {
+        const aiKm = Number(blocks[i].distanceKm) || 0;
         const r = await route(from, to);
-        if (r) {
+        // Only trust the routed value when it broadly agrees with the AI's
+        // estimate (or the AI had none). This rejects wrong from/to inferences
+        // that collapse to ~0 km or explode to a far same-named place.
+        const agrees = aiKm < 1 || (r && r.km >= aiKm * 0.35 && r.km <= aiKm * 3);
+        if (r && r.km > 0 && agrees) {
           blocks[i].distanceKm = r.km;
           blocks[i].travelMin = r.min;
           blocks[i].grounded = true;
