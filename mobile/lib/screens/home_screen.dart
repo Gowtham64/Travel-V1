@@ -440,8 +440,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onTap: onTap,
       child: _glass(
         radius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        child: Row(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+        // Vertical layout (icon above label) so the three tiles stay clean on
+        // narrow phones instead of wrapping the text letter-by-letter.
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 42,
@@ -453,8 +456,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
               child: Icon(icon, color: Colors.white, size: 21),
             ),
-            const SizedBox(width: 12),
-            Expanded(child: Text(label, style: const TextStyle(color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w700))),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  style: const TextStyle(color: Voy.ink, fontSize: 13.5, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
           ],
         ),
       ),
