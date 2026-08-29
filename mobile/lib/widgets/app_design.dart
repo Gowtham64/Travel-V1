@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 
@@ -316,19 +317,25 @@ class _RevealInState extends State<RevealIn>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _anim;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(vsync: this, duration: widget.duration);
     _anim = CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
-    Future.delayed(widget.delay, () {
-      if (mounted) _controller.forward();
-    });
+    if (widget.delay == Duration.zero) {
+      _controller.forward();
+    } else {
+      _timer = Timer(widget.delay, () {
+        if (mounted) _controller.forward();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _timer?.cancel();
     _controller.dispose();
     super.dispose();
   }

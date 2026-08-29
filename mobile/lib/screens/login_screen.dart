@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../widgets/app_design.dart';
+import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -148,17 +149,27 @@ class _LoginScreenState extends State<LoginScreen> {
           await Supabase.instance.client.auth.signInWithPassword(
             phone: identifier,
             password: password,
-          );
+          ).timeout(const Duration(seconds: 10));
         } else {
           await Supabase.instance.client.auth.signInWithPassword(
             email: identifier,
             password: password,
-          );
+          ).timeout(const Duration(seconds: 10));
         }
       } on AuthException catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('An unexpected error occurred: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login failed: ${e.toString().contains('TimeoutException') ? 'Connection timed out. Please try again or continue as Guest.' : e}'),
+              action: SnackBarAction(
+                label: 'Guest Mode',
+                onPressed: _continueAsGuest,
+              ),
+            ),
+          );
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -172,16 +183,29 @@ class _LoginScreenState extends State<LoginScreen> {
         OAuthProvider.google,
         // Native: returns to the app via the registered deep link; web: the page URL.
         redirectTo: _authRedirectUrl(),
-      );
+      ).timeout(const Duration(seconds: 10));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to sign in with Google: $e')),
+          SnackBar(
+            content: Text('Failed to sign in with Google: ${e.toString().contains('TimeoutException') ? 'Connection timed out.' : e}'),
+            action: SnackBarAction(
+              label: 'Guest Mode',
+              onPressed: _continueAsGuest,
+            ),
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  void _continueAsGuest() {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 
   @override
@@ -329,6 +353,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           icon: Image.network(
                             'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
                             height: 20,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, color: Colors.white),
                           ),
                           label: const Text(
                             'Sign in with Google',
@@ -339,6 +364,20 @@ class _LoginScreenState extends State<LoginScreen> {
                             side: BorderSide(color: Colors.white.withOpacity(0.3)),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             backgroundColor: Colors.white.withOpacity(0.05),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          onPressed: _continueAsGuest,
+                          icon: const Icon(Icons.directions_car, color: Colors.white),
+                          label: const Text(
+                            'Continue as Guest (Skip Login)',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            backgroundColor: const Color(0xFF6366F1),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
                         ),
                       ]),

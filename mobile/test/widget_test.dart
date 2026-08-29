@@ -4,14 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app/main.dart';
 
+import 'package:google_fonts/google_fonts.dart';
+
 void main() {
   setUpAll(() {
     HttpOverrides.global = MockHttpOverrides();
+    GoogleFonts.config.allowRuntimeFetching = false;
   });
 
   testWidgets('App starts and displays MaterialApp', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const TravelApp());
+    await tester.pump(const Duration(milliseconds: 100));
 
     // Verify that MaterialApp is present.
     expect(find.byType(MaterialApp), findsOneWidget);

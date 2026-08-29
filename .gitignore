@@ -12,3 +12,16 @@ mobile/android/.gradle/
 
 # Web deploy build artifact (force-pushed to gh-pages by deploy_web.sh)
 gh-pages-deploy/
+
+# OS / editor junk
+.DS_Store
+**/.DS_Store
+
+# Build outputs & large binaries (distributed via GitHub Releases, not committed)
+*.apk
+*.ipa
+*.zip
+*.app/
+Voyplan.app/
+web/Voyplan.ipa
+live.js

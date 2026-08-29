@@ -14,10 +14,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   if (supabaseUrl != 'YOUR_SUPABASE_URL' && supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY') {
-    await Supabase.initialize(
-      url: supabaseUrl,
-      anonKey: supabaseAnonKey,
-    );
+    try {
+      await Supabase.initialize(
+        url: supabaseUrl,
+        anonKey: supabaseAnonKey,
+      ).timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('Supabase initialization warning: $e');
+    }
   }
 
   runApp(const TravelApp());
@@ -130,13 +134,16 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     }
 
     try {
-      final session = Supabase.instance.client.auth.currentSession;
-      setState(() {
-        _isAuthenticated = session != null;
-        _isLoading = false;
-      });
+      final client = Supabase.instance.client;
+      final session = client.auth.currentSession;
+      if (mounted) {
+        setState(() {
+          _isAuthenticated = session != null;
+          _isLoading = false;
+        });
+      }
 
-      Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      client.auth.onAuthStateChange.listen((data) {
         final session = data.session;
         if (mounted) {
           setState(() {
@@ -144,12 +151,14 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
           });
         }
       });
-    } catch (_) {
-      // Fallback for tests/local development when Supabase is not initialized
-      setState(() {
-        _isAuthenticated = true;
-        _isLoading = false;
-      });
+    } catch (e) {
+      debugPrint('Auth check error: $e');
+      if (mounted) {
+        setState(() {
+          _isAuthenticated = false;
+          _isLoading = false;
+        });
+      }
     }
   }
 

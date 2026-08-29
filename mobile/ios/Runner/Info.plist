@@ -22,8 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -38,20 +36,22 @@
 			</array>
 		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs the camera to capture travel moments for your gallery.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to location to set your trip starting point.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to location when open to set your trip starting point.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app needs access to your photos so you can add them to your travel gallery.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your travel gallery.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>This app needs the camera to capture travel moments for your gallery.</string>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to your photos so you can add them to your travel gallery.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

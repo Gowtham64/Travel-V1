@@ -28,53 +28,26 @@ cd .. # back to project root
 echo "=== Step 3: Preparing deployment directory ==="
 # Prevent GitHub Pages from processing with Jekyll (ensures all Flutter web files serve correctly)
 touch $DEPLOY_DIR/.nojekyll
-cp index.html $DEPLOY_DIR/
-if [ -f "ios-install.html" ]; then
-    cp ios-install.html $DEPLOY_DIR/
-    echo "  ✓ iPhone install guide page copied to deployment as ios-install.html"
-fi
-if [ -f "favicon.png" ]; then
-    cp favicon.png $DEPLOY_DIR/
-fi
-if [ -f "favicon.svg" ]; then
-    cp favicon.svg $DEPLOY_DIR/
-fi
-if [ -f "preview.png" ]; then
-    cp preview.png $DEPLOY_DIR/
-fi
-if [ -f "manifest.json" ]; then
-    cp manifest.json $DEPLOY_DIR/
-fi
-if [ -f "manifest.plist" ]; then
-    cp manifest.plist $DEPLOY_DIR/
-    echo "  ✓ iOS OTA Download Manifest copied to deployment as manifest.plist"
-fi
-if [ -f "apps.json" ]; then
-    cp apps.json $DEPLOY_DIR/
-    echo "  ✓ SideStore/AltStore source copied to deployment as apps.json"
-fi
-if [ -f "mobile/build/app/outputs/flutter-apk/app-release.apk" ]; then
-    cp mobile/build/app/outputs/flutter-apk/app-release.apk $DEPLOY_DIR/Voyplan.apk
-    echo "  ✓ Android APK copied to deployment as Voyplan.apk"
-elif [ -f "Voyplan.apk" ]; then
-    cp Voyplan.apk $DEPLOY_DIR/Voyplan.apk
-    echo "  ✓ Root Voyplan.apk copied to deployment as Voyplan.apk"
-fi
-if [ -f "mobile/build/ios/ipa/Voyplan.ipa" ]; then
-    cp mobile/build/ios/ipa/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
-    echo "  ✓ iOS IPA package copied to deployment as Voyplan.ipa"
-elif [ -f "Voyplan.ipa" ]; then
-    cp Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
-    echo "  ✓ Root Voyplan.ipa copied to deployment as Voyplan.ipa"
-fi
-if [ -f "Voyplan-Simulator.zip" ]; then
-    cp Voyplan-Simulator.zip $DEPLOY_DIR/Voyplan-Simulator.zip
-    echo "  ✓ iOS Simulator bundle copied to deployment as Voyplan-Simulator.zip"
+# Landing site lives under web/ ; everything there is served at the site root.
+cp web/index.html $DEPLOY_DIR/
+for f in ios-install.html favicon.png favicon.svg preview.png manifest.json manifest.plist apps.json; do
+    [ -f "web/$f" ] && cp "web/$f" $DEPLOY_DIR/
+done
+echo "  ✓ Landing site (index + iPhone guide + manifests + source) copied"
+
+# iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
+# The Android APK is distributed via GitHub Releases, so it is NOT bundled here.
+if [ -f "mobile/build/ios/iphoneos/Voyplan.ipa" ]; then
+    cp mobile/build/ios/iphoneos/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
+    echo "  ✓ iOS IPA (fresh build) copied as Voyplan.ipa"
+elif [ -f "web/Voyplan.ipa" ]; then
+    cp web/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
+    echo "  ✓ iOS IPA (web/Voyplan.ipa) copied as Voyplan.ipa"
 fi
 
 # GSAP-powered trip demo page + its vendored libs (served at site root).
-if [ -d "webdemo" ]; then
-    cp webdemo/demo.html webdemo/promo.html webdemo/gsap.min.js webdemo/leaflet.js webdemo/leaflet.css $DEPLOY_DIR/
+if [ -d "web/webdemo" ]; then
+    cp web/webdemo/demo.html web/webdemo/promo.html web/webdemo/gsap.min.js web/webdemo/leaflet.js web/webdemo/leaflet.css $DEPLOY_DIR/
 fi
 
 # Create the /app subdirectory and move the flutter build into it
