@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/trip_extras.dart';
 import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
+import '../services/auth_guard.dart';
 import '../theme/app_theme.dart';
 
 /// A self-contained bookings manager: list saved flight/train/hotel/etc.
@@ -53,6 +54,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   void _persist() => widget.store.saveReservations(_items);
 
   void _addSuggestion(String type, String title, String notes) {
+    if (!AuthGuard.ensure(context, action: 'save bookings')) return;
     setState(() => _items.add(Reservation(
           id: _bkUid(),
           type: type,
@@ -109,6 +111,7 @@ class _BookingsScreenState extends State<BookingsScreen> {
   }
 
   Future<void> _addOrEdit([Reservation? existing]) async {
+    if (!AuthGuard.ensure(context, action: 'save bookings')) return;
     final result = await showModalBottomSheet<Reservation>(
       context: context,
       isScrollControlled: true,

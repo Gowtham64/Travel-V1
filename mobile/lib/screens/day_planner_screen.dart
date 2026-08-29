@@ -23,6 +23,7 @@ import '../utils/gsap_demo.dart';
 import 'bookings_screen.dart';
 import 'active_trip_screen.dart';
 import 'gallery_screen.dart';
+import '../services/auth_guard.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -162,6 +163,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   }
 
   void _addDay() {
+    if (!AuthGuard.ensure(context, action: 'edit trips')) return;
     setState(() {
       _days.add(PlanDay(id: _uid(), title: 'Day ${_days.length + 1}'));
       _selectedDay = _days.length - 1;
@@ -189,6 +191,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   }
 
   Future<void> _addSearchedPlace(String name, String area, PlanDay day) async {
+    if (!AuthGuard.ensure(context, action: 'add places to a trip')) return;
     final label = area.isEmpty ? name : '$name — $area';
     final item = PlanItem(id: _uid(), text: label);
     setState(() => day.items.add(item));
@@ -206,6 +209,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   }
 
   Future<void> _promptAddItem() async {
+    if (!AuthGuard.ensure(context, action: 'add places to a trip')) return;
     if (_days.isEmpty) _addDay();
     final item = await _editItemDialog();
     if (item != null && item.text.isNotEmpty) {
@@ -345,7 +349,9 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   Future<void> _pickVehicle(PlanDay day) async {
     // Bikes show motorcycles; car & combined show cars (combined can still add a booking).
     final wantType = day.transportMode == 'bike' ? 'motorcycle' : 'car';
-    final list = predefinedVehicles.where((v) => v.type == wantType).toList();
+    // The user's saved account vehicles first, then the built-in list.
+    final saved = (await _api.savedVehicles()).where((v) => v.type == wantType).toList();
+    final list = [...saved, ...predefinedVehicles.where((v) => v.type == wantType)];
     final chosen = await showModalBottomSheet<VehicleModel>(
       context: context,
       backgroundColor: Voy.surface,
@@ -559,12 +565,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   /// Share this plan for collaboration: creates a cloud copy (if not already
   /// shared), then shows the link + code and starts live sync.
   Future<void> _shareTrip() async {
-    if (!_collab.isSignedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to share and collaborate on trips.')),
-      );
-      return;
-    }
+    if (!AuthGuard.ensure(context, action: 'share & collaborate on trips')) return;
     try {
       if (_shared == null) {
         final s = await _collab.createSharedTrip(
@@ -642,10 +643,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   /// Join an existing shared trip by its code, replacing the current view.
   Future<void> _joinByCode() async {
-    if (!_collab.isSignedIn) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sign in to join a shared trip.')));
-      return;
-    }
+    if (!AuthGuard.ensure(context, action: 'join a shared trip')) return;
     final ctrl = TextEditingController();
     final code = await showDialog<String>(
       context: context,

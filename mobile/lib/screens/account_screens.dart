@@ -94,6 +94,23 @@ CrudConfig? configForMenu(String id) {
         fields: const [CrudField('title', 'Car', required: true), CrudField('provider', 'Rental company'), CrudField('reference', 'Booking ID')],
         titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')].where((e) => e.isNotEmpty).join(' · '),
       );
+    case 'my_vehicles':
+      return CrudConfig(
+        path: 'vehicles', title: 'My Vehicles', icon: Icons.directions_car_rounded, accent: Voy.brand,
+        emptyHint: 'Save your car or bike so you can pick it while planning trips.',
+        fields: const [
+          CrudField('name', 'Vehicle name (e.g. My Swift)', required: true),
+          CrudField('type', 'Type — car or bike', required: true),
+          CrudField('mileage_kmpl', 'Mileage (km/L)', kind: FieldKind.number),
+          CrudField('tank_liters', 'Tank capacity (L)', kind: FieldKind.number),
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => [
+          _s(m, 'type'),
+          _s(m, 'mileage_kmpl').isEmpty ? '' : '${_s(m, 'mileage_kmpl')} km/L',
+          _s(m, 'tank_liters').isEmpty ? '' : '${_s(m, 'tank_liters')} L',
+        ].where((e) => e.isNotEmpty).join(' · '),
+      );
     case 'activities':
       return CrudConfig(
         path: 'bookings', type: 'activity', title: 'Activities', icon: Icons.local_activity_outlined,

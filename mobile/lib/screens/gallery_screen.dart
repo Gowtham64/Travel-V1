@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
+import '../services/auth_guard.dart';
 import '../theme/app_theme.dart';
 import '../utils/device_gallery.dart';
 
@@ -76,6 +77,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
   }
 
   Future<void> _addPhotos() async {
+    if (!AuthGuard.ensure(context, action: 'add photos to your gallery')) return;
     if (_photos.length >= _maxPhotos) {
       _snack('Gallery is full ($_maxPhotos photos). Remove some to add more.');
       return;
@@ -167,6 +169,7 @@ class _GalleryScreenState extends State<GalleryScreen> {
 
   /// Save a device photo into the trip gallery (compressed) with an optional caption.
   Future<void> _saveDeviceToTrip(DevicePhoto p) async {
+    if (!AuthGuard.ensure(context, action: 'add photos to your gallery')) return;
     if (_photos.length >= _maxPhotos) { _snack('Gallery is full ($_maxPhotos photos).'); return; }
     setState(() => _busy = true);
     try {

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
+import '../models/vehicles_data.dart';
 import '../config/app_config.dart';
 
 class ApiException implements Exception {
@@ -60,6 +61,26 @@ class ApiService {
     final res = await http.get(uri, headers: _authHeaders()).timeout(const Duration(seconds: 30));
     if (res.statusCode != 200) throw ApiException(_accountErr(res));
     return (jsonDecode(res.body) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+  }
+
+  /// The signed-in user's saved vehicles, mapped to VehicleModel for the
+  /// planners' vehicle pickers. Returns [] for guests or on any error.
+  Future<List<VehicleModel>> savedVehicles() async {
+    try {
+      final rows = await accountList('vehicles');
+      return rows.map((r) {
+        final t = (r['type'] ?? 'car').toString().toLowerCase();
+        return VehicleModel(
+          id: 'saved_${r['id']}',
+          name: (r['name'] ?? 'My vehicle').toString(),
+          type: t.contains('bike') || t.contains('motor') ? 'motorcycle' : 'car',
+          mileage: double.tryParse('${r['mileage_kmpl'] ?? ''}') ?? 15,
+          tankCapacity: double.tryParse('${r['tank_liters'] ?? ''}') ?? 40,
+        );
+      }).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   Future<Map<String, dynamic>> accountCreate(String path, Map<String, dynamic> data) async {

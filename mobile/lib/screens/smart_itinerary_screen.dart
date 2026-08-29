@@ -4,6 +4,7 @@ import '../models/trip_extras.dart';
 import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
+import '../services/auth_guard.dart';
 import '../widgets/app_design.dart';
 import 'day_planner_screen.dart';
 
@@ -143,6 +144,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   /// Save the itinerary without leaving the screen.
   Future<void> _save() async {
+    if (!AuthGuard.ensure(context, action: 'save trips')) return;
     await _persistPlan();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -152,6 +154,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   /// Save and open the day-by-day planner to start following the trip.
   Future<void> _start() async {
+    if (!AuthGuard.ensure(context, action: 'save & start trips')) return;
     final tripKey = await _persistPlan();
     if (!mounted) return;
     final dest = _destCtrl.text.trim();
@@ -452,7 +455,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   /// chosen transport type. The vehicle's mileage feeds the fuel/budget calc.
   Future<void> _pickVehicle() async {
     final wantType = _transportMode == 'bike' ? 'motorcycle' : 'car';
-    final list = predefinedVehicles.where((v) => v.type == wantType).toList();
+    // Saved account vehicles first, then the built-in list.
+    final saved = (await _api.savedVehicles()).where((v) => v.type == wantType).toList();
+    final list = [...saved, ...predefinedVehicles.where((v) => v.type == wantType)];
     final chosen = await showModalBottomSheet<VehicleModel>(
       context: context,
       backgroundColor: const Color(0xFF161326),

@@ -117,6 +117,8 @@ router.use("/budgets", crud("budgets", ["trip_id", "total", "currency", "breakdo
 router.use("/documents", crud("documents", ["type", "title", "file_url", "expires_at", "note"]));
 router.use("/emergency", crud("emergency_contacts", ["name", "relation", "phone", "category", "is_local_service", "blood_group", "medical_notes"]));
 router.use("/packing", crud("packing_items", ["trip_id", "category", "name", "qty", "packed"]));
+// Saved vehicles (car/bike) tied to the account, reusable in the trip planners.
+router.use("/vehicles", crud("user_vehicles", ["name", "type", "mileage_kmpl", "tank_liters"]));
 
 // ---- Notifications (PATCH read:true to mark read) ----
 router.use("/notifications", crud("notifications", ["type", "title", "body", "read", "scheduled_at"]));

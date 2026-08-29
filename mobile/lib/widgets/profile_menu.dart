@@ -89,6 +89,7 @@ class _ProfileMenuSheet extends StatelessWidget {
           _Item('wallet', 'Travel Wallet', Icons.account_balance_wallet_outlined),
         ]),
         _Section('🧳', 'Travel Tools', const [
+          _Item('my_vehicles', 'My Vehicles', Icons.directions_car_rounded),
           _Item('packing', 'Packing Checklist', Icons.checklist_rtl_rounded),
           _Item('documents', 'Documents', Icons.description_outlined),
           _Item('emergency', 'Emergency Contacts', Icons.emergency_outlined),
