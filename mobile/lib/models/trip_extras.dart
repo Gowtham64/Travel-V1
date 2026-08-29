@@ -2,6 +2,32 @@
 // expense tracker (with splitting), and reservations. All are plain, JSON-
 // serializable value types persisted locally per trip (see TripExtrasStore).
 
+/// A photo/moment in the travel gallery. The image is stored inline as a
+/// compressed data URL (JPEG base64) so it persists locally with no backend.
+class GalleryPhoto {
+  final String id;
+  String dataUrl; // 'data:image/jpeg;base64,...'
+  String caption;
+  DateTime createdAt;
+
+  GalleryPhoto({
+    required this.id,
+    required this.dataUrl,
+    this.caption = '',
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  Map<String, dynamic> toJson() =>
+      {'id': id, 'dataUrl': dataUrl, 'caption': caption, 'createdAt': createdAt.toIso8601String()};
+
+  factory GalleryPhoto.fromJson(Map<String, dynamic> j) => GalleryPhoto(
+        id: j['id'].toString(),
+        dataUrl: (j['dataUrl'] ?? '').toString(),
+        caption: (j['caption'] ?? '').toString(),
+        createdAt: DateTime.tryParse((j['createdAt'] ?? '').toString()) ?? DateTime.now(),
+      );
+}
+
 /// A single packing-list entry the traveller can tick off.
 class PackingItem {
   final String id;

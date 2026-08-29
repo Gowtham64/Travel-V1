@@ -77,6 +77,20 @@ class TripExtrasStore {
   Future<void> saveJournal(List<JournalEntry> items) =>
       _save(_journalKey, items.map((e) => e.toJson()).toList());
 
+  String get _galleryKey => 'trip_$tripKey.gallery';
+  Future<List<GalleryPhoto>> loadGallery() => _load(_galleryKey, GalleryPhoto.fromJson);
+  /// Persist the gallery. Returns false if the write failed (e.g. the browser's
+  /// local-storage quota was exceeded) so the UI can warn the traveller.
+  Future<bool> saveGallery(List<GalleryPhoto> items) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_galleryKey, jsonEncode(items.map((e) => e.toJson()).toList()));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<PlanDay>> loadDays() => _load(_daysKey, PlanDay.fromJson);
 
   /// Save the day-by-day plan. When [name] is given and the plan is non-empty,

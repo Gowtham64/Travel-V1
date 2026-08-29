@@ -22,6 +22,7 @@ import '../utils/plan_export.dart';
 import '../utils/gsap_demo.dart';
 import 'bookings_screen.dart';
 import 'active_trip_screen.dart';
+import 'gallery_screen.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -751,6 +752,12 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
+  void _openGallery() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => GalleryScreen(store: _store, tripName: widget.tripName),
+    ));
+  }
+
   /// Start (or resume) the trip: enter the live active-trip view focused on the
   /// current day's plan. Marks the trip as started on first launch.
   Future<void> _startTrip() async {
@@ -1000,6 +1007,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         ),
         actions: [
           IconButton(tooltip: 'Smart AI planner', icon: const Icon(Icons.auto_awesome, color: AppColors.accentLight), onPressed: _openSmartPlanner),
+          IconButton(tooltip: 'Travel gallery (photos)', icon: const Icon(Icons.photo_library_outlined, color: Colors.white), onPressed: _openGallery),
           IconButton(tooltip: 'Demo / preview trip', icon: const Icon(Icons.play_circle_outline_rounded, color: Colors.white), onPressed: _startDemo),
           IconButton(tooltip: 'Share & collaborate', icon: const Icon(Icons.group_add_rounded, color: Colors.white), onPressed: _shareTrip),
           IconButton(tooltip: 'Join a shared trip', icon: const Icon(Icons.login_rounded, color: Colors.white), onPressed: _joinByCode),
