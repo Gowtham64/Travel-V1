@@ -29,9 +29,16 @@
         content="A cinematic road-trip planner with intelligent routing, live navigation, weather, and budgets.">
     <meta property="twitter:image" content="https://gowtham64.github.io/Travel-V1/preview.png">
 
-    <!-- Favicon -->
+    <!-- Favicon & Touch Icons -->
     <link rel="icon" href="favicon.svg" type="image/svg+xml">
     <link rel="icon" href="favicon.png" type="image/png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="manifest" href="manifest.json">
+
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voyplan">
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -336,6 +343,55 @@
         }
 
         .hero-btn.ghost:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.16); }
+
+        /* Official Apple App Store & Google Play Store Badges */
+        .app-store-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 1.35rem;
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 14px;
+            text-decoration: none;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
+        }
+
+        .app-store-badge:hover {
+            transform: translateY(-2px);
+            border-color: #ffffff;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        .app-store-badge svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .app-store-badge .badge-text {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            line-height: 1.15;
+        }
+
+        .app-store-badge .sub-text {
+            font-size: 0.62rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .app-store-badge .main-text {
+            font-size: 1.02rem;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            color: #ffffff;
+        }
 
         .chip {
             display: inline-flex;
@@ -917,7 +973,7 @@
                 <li><a href="#features">Features</a></li>
                 <li><a href="#preview">Experience</a></li>
                 <li><a href="#tech-stack">Tech</a></li>
-                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">Download APK</a></li>
+                <li><a href="Voyplan.apk">Download Android APK</a></li>
                 <li class="nav-cta"><a href="#hero">Sign In</a></li>
             </ul>
         </nav>
@@ -964,10 +1020,39 @@
                         </div>
                         <div class="hero-actions word" style="animation-delay:.95s">
                             <a class="hero-btn primary" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
-                            <a class="hero-btn ghost" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
-                                Download for Android
+                            
+                            <!-- Android APK -->
+                            <a class="app-store-badge" href="Voyplan.apk" title="Download the Android APK">
+                                <svg viewBox="0 0 24 24">
+                                    <path d="M3.609 1.814L13.792 12 3.61 22.186a1.41 1.41 0 0 1-.61-.314V2.128c.184-.132.396-.24.609-.314zm11.3 9.072l2.368-2.368-2.368-2.368-7.794-4.5-1.996 1.996 9.79 7.24zm0 2.228l-9.79 7.24 1.996 1.996 7.794-4.5 2.368-2.368-2.368-2.368zM19.78 12l-2.844 2.844 2.844 2.844c.48-.48.78-1.152.78-1.888s-.3-1.408-.78-1.888z"/>
+                                </svg>
+                                <span class="badge-text">
+                                    <span class="sub-text">DOWNLOAD FOR</span>
+                                    <span class="main-text">Android</span>
+                                </span>
                             </a>
+
+                            <!-- iPhone: sideload the .ipa (free, no App Store) -->
+                            <a class="hero-btn ghost" href="Voyplan.ipa" title="Download the iPhone app (.ipa) — install with AltStore, SideStore or TrollStore">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
+                                Download for iPhone (.ipa)
+                            </a>
+
+                            <a class="hero-btn ghost" href="#ios-install" title="How to install the iPhone app">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                                iPhone install guide
+                            </a>
+                        </div>
+                        <!-- iPhone install guide (free sideloading — Apple blocks direct website installs) -->
+                        <div id="ios-install" style="margin-top:18px;max-width:640px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.6;">
+                            <strong style="font-size:14.5px;">📱 Installing on iPhone (free)</strong>
+                            <p style="margin:8px 0 6px;opacity:.85;">Apple doesn't allow one-tap website installs like Android. Use a free sideloading tool with the <em>.ipa</em> above:</p>
+                            <ul style="margin:0;padding-left:18px;opacity:.9;">
+                                <li><strong>TrollStore</strong> — permanent, no expiry, no Apple ID. Best if your iPhone runs <strong>iOS 14–16.6.1</strong> (or 17.0 on some). See trollstore.app / the TrollStore install guide.</li>
+                                <li><strong>SideStore / AltStore</strong> — any iOS. Sign the .ipa with your own free Apple ID; apps refresh every 7 days automatically. (sidestore.io / altstore.io)</li>
+                                <li><strong>Sideloadly</strong> — plug your iPhone into a PC/Mac, drag the .ipa, sign with a free Apple ID (sideloadly.io).</li>
+                            </ul>
+                            <p style="margin:8px 0 0;opacity:.7;">Prefer nothing to install? Open this site in <strong>Safari → Share → Add to Home Screen</strong> to use Voyplan as a full-screen web app.</p>
                         </div>
                     </div>
 
@@ -1150,9 +1235,30 @@
                     <p>Sign in above, or jump straight in and explore.</p>
                     <div class="cta-actions">
                         <a class="btn-cta" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
-                        <a class="btn-cta ghost" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">
+                        
+                        <a class="app-store-badge" href="Voyplan.ipa">
+                            <svg viewBox="0 0 170 170">
+                                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.16-1.9-14.48-6.1-3.21-2.63-7.14-7.27-11.8-13.9-6.3-9.06-11.37-19.04-15.2-29.96-3.84-10.92-5.76-21.36-5.76-31.33 0-14.73 3.73-26.7 11.19-35.91 7.46-9.21 16.73-13.9 27.81-14.07 4.58 0 9.77 1.25 15.57 3.75 5.8 2.5 9.74 3.75 11.82 3.75 1.83 0 5.85-1.25 12.06-3.75 6.21-2.5 11.16-3.66 14.85-3.5 11.26.49 20.31 4.54 27.15 12.15-9.84 5.96-14.63 14.15-14.37 24.58.26 10.56 4.67 19.14 13.23 25.74 3.84 3.01 8.23 5.25 13.17 6.72-2.5 7.47-5.9 15.17-10.2 23.1zM119.22 31.08c0-7.08 2.56-13.84 7.68-20.27 5.12-6.43 11.58-10.2 19.38-11.31.25 1.08.38 2.08.38 3 0 7.08-2.61 13.97-7.83 20.67-5.22 6.7-11.75 10.45-19.61 11.25-.08-.83-.12-1.83-.12-3.00z"/>
+                            </svg>
+                            <span class="badge-text">
+                                <span class="sub-text">Download on the</span>
+                                <span class="main-text">App Store</span>
+                            </span>
+                        </a>
+
+                        <a class="app-store-badge" href="Voyplan.apk">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M3.609 1.814L13.792 12 3.61 22.186a1.41 1.41 0 0 1-.61-.314V2.128c.184-.132.396-.24.609-.314zm11.3 9.072l2.368-2.368-2.368-2.368-7.794-4.5-1.996 1.996 9.79 7.24zm0 2.228l-9.79 7.24 1.996 1.996 7.794-4.5 2.368-2.368-2.368-2.368zM19.78 12l-2.844 2.844 2.844 2.844c.48-.48.78-1.152.78-1.888s-.3-1.408-.78-1.888z"/>
+                            </svg>
+                            <span class="badge-text">
+                                <span class="sub-text">GET IT ON</span>
+                                <span class="main-text">Google Play</span>
+                            </span>
+                        </a>
+
+                        <a class="btn-cta ghost" href="Voyplan-Simulator.zip">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
-                            Download for Android
+                            iOS Simulator (.zip)
                         </a>
                     </div>
                     <p class="cta-note">
