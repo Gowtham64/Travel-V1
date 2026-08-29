@@ -25,7 +25,8 @@ flutter build web --base-href "/Travel-V1/app/" --release \
 cd .. # back to project root
 
 echo "=== Step 3: Preparing deployment directory ==="
-# Copy the static landing page and its assets to the root of the deployment dir
+# Prevent GitHub Pages from processing with Jekyll (ensures all Flutter web files serve correctly)
+touch $DEPLOY_DIR/.nojekyll
 cp index.html $DEPLOY_DIR/
 if [ -f "favicon.png" ]; then
     cp favicon.png $DEPLOY_DIR/
@@ -35,6 +36,35 @@ if [ -f "favicon.svg" ]; then
 fi
 if [ -f "preview.png" ]; then
     cp preview.png $DEPLOY_DIR/
+fi
+if [ -f "manifest.json" ]; then
+    cp manifest.json $DEPLOY_DIR/
+fi
+if [ -f "manifest.plist" ]; then
+    cp manifest.plist $DEPLOY_DIR/
+    echo "  ✓ iOS OTA Download Manifest copied to deployment as manifest.plist"
+fi
+if [ -f "apps.json" ]; then
+    cp apps.json $DEPLOY_DIR/
+    echo "  ✓ SideStore/AltStore source copied to deployment as apps.json"
+fi
+if [ -f "mobile/build/app/outputs/flutter-apk/app-release.apk" ]; then
+    cp mobile/build/app/outputs/flutter-apk/app-release.apk $DEPLOY_DIR/Voyplan.apk
+    echo "  ✓ Android APK copied to deployment as Voyplan.apk"
+elif [ -f "Voyplan.apk" ]; then
+    cp Voyplan.apk $DEPLOY_DIR/Voyplan.apk
+    echo "  ✓ Root Voyplan.apk copied to deployment as Voyplan.apk"
+fi
+if [ -f "mobile/build/ios/ipa/Voyplan.ipa" ]; then
+    cp mobile/build/ios/ipa/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
+    echo "  ✓ iOS IPA package copied to deployment as Voyplan.ipa"
+elif [ -f "Voyplan.ipa" ]; then
+    cp Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
+    echo "  ✓ Root Voyplan.ipa copied to deployment as Voyplan.ipa"
+fi
+if [ -f "Voyplan-Simulator.zip" ]; then
+    cp Voyplan-Simulator.zip $DEPLOY_DIR/Voyplan-Simulator.zip
+    echo "  ✓ iOS Simulator bundle copied to deployment as Voyplan-Simulator.zip"
 fi
 
 # GSAP-powered trip demo page + its vendored libs (served at site root).
@@ -96,6 +126,7 @@ git commit -m "Deploy static landing page + web app (build ${TIMESTAMP})"
 
 # Add the remote and force push to gh-pages branch
 git remote add origin https://github.com/Gowtham64/Travel-V1.git
+git config http.postBuffer 524288000
 echo "=== Step 6: Pushing to GitHub Pages ==="
 git push -f origin gh-pages
 

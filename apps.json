@@ -1,0 +1,37 @@
+{
+  "name": "Voyplan",
+  "identifier": "io.github.gowtham64.travelapp.source",
+  "sourceURL": "https://gowtham64.github.io/Travel-V1/apps.json",
+  "website": "https://gowtham64.github.io/Travel-V1/",
+  "tintColor": "#2E75B6",
+  "apps": [
+    {
+      "name": "Voyplan",
+      "bundleIdentifier": "com.gowtham.travelapp",
+      "developerName": "Gowtham",
+      "subtitle": "AI travel planner — routes, budget, bookings, gallery.",
+      "localizedDescription": "Voyplan is an AI-powered travel planner: plan one-way road trips or AI round trips, get a time-blocked itinerary with budget (fuel, tolls, flights, hotels, food), pick your vehicle, browse AI flight/train/hotel suggestions, start an active-trip today view, and keep a travel photo gallery.",
+      "iconURL": "https://gowtham64.github.io/Travel-V1/app/icons/Icon-512.png",
+      "tintColor": "#2E75B6",
+      "category": "travel",
+      "screenshotURLs": [],
+      "version": "0.1.0",
+      "versionDate": "2026-08-29",
+      "versionDescription": "Latest build: AI planning (Gemini), international budgets, booking suggestions, Start Trip active view, and travel gallery.",
+      "downloadURL": "https://gowtham64.github.io/Travel-V1/Voyplan.ipa",
+      "size": 20521905,
+      "minOSVersion": "13.0",
+      "versions": [
+        {
+          "version": "0.1.0",
+          "date": "2026-08-29",
+          "localizedDescription": "Latest build: AI planning (Gemini), international budgets, booking suggestions, Start Trip active view, and travel gallery.",
+          "downloadURL": "https://gowtham64.github.io/Travel-V1/Voyplan.ipa",
+          "size": 20521905,
+          "minOSVersion": "13.0"
+        }
+      ]
+    }
+  ],
+  "news": []
+}
