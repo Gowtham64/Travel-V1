@@ -1,3 +1,4 @@
+
 #!/bin/bash
 set -e
 
@@ -28,6 +29,10 @@ echo "=== Step 3: Preparing deployment directory ==="
 # Prevent GitHub Pages from processing with Jekyll (ensures all Flutter web files serve correctly)
 touch $DEPLOY_DIR/.nojekyll
 cp index.html $DEPLOY_DIR/
+if [ -f "ios-install.html" ]; then
+    cp ios-install.html $DEPLOY_DIR/
+    echo "  ✓ iPhone install guide page copied to deployment as ios-install.html"
+fi
 if [ -f "favicon.png" ]; then
     cp favicon.png $DEPLOY_DIR/
 fi
