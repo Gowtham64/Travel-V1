@@ -329,6 +329,14 @@
             flex-wrap: wrap;
             gap: 0.9rem;
             margin-top: 1.8rem;
+            max-width: 520px;
+        }
+        /* All three download buttons share one width so they align in a tidy grid. */
+        .hero-actions .hero-btn {
+            flex: 1 1 210px;
+            max-width: 250px;
+            justify-content: center;
+            box-sizing: border-box;
         }
 
         .hero-btn {
@@ -966,6 +974,32 @@
             gap: 1rem;
             justify-content: center;
         }
+        .cta-actions .btn-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            min-width: 240px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .footer-links a {
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .footer-links a:hover {
+            color: var(--ink);
+        }
 
         .btn-cta.ghost {
             background: transparent;
@@ -1379,6 +1413,11 @@
                         <circle cx="4" cy="4" r="2"></circle>
                     </svg>
                 </a>
+            </div>
+            <div class="footer-links reveal">
+                <a href="privacy.html">Privacy Policy</a>
+                <span aria-hidden="true">·</span>
+                <a href="terms.html">Terms &amp; Conditions</a>
             </div>
             <p class="reveal">&copy; 2026 Voyplan. All rights reserved.</p>
         </div>

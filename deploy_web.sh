@@ -30,7 +30,7 @@ echo "=== Step 3: Preparing deployment directory ==="
 touch $DEPLOY_DIR/.nojekyll
 # Landing site lives under web/ ; everything there is served at the site root.
 cp web/index.html $DEPLOY_DIR/
-for f in ios-install.html favicon.png favicon.svg preview.png manifest.json manifest.plist apps.json; do
+for f in ios-install.html privacy.html terms.html favicon.png favicon.svg preview.png manifest.json manifest.plist apps.json; do
     [ -f "web/$f" ] && cp "web/$f" $DEPLOY_DIR/
 done
 echo "  ✓ Landing site (index + iPhone guide + manifests + source) copied"
