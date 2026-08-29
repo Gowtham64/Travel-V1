@@ -110,7 +110,9 @@
             padding: 0 2rem;
         }
 
-        h1, h2, h3 {
+        h1,
+        h2,
+        h3 {
             font-family: var(--font-heading);
             font-weight: 600;
             line-height: 1.08;
@@ -247,11 +249,28 @@
         }
 
         @keyframes kenburns {
-            0%   { opacity: 0; transform: scale(1.06); }
-            7%   { opacity: 1; }
-            30%  { opacity: 1; transform: scale(1.16); }
-            37%  { opacity: 0; }
-            100% { opacity: 0; transform: scale(1.16); }
+            0% {
+                opacity: 0;
+                transform: scale(1.06);
+            }
+
+            7% {
+                opacity: 1;
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.16);
+            }
+
+            37% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.16);
+            }
         }
 
         .hero-scrim {
@@ -324,7 +343,10 @@
             transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.2s ease;
         }
 
-        .hero-btn svg { width: 19px; height: 19px; }
+        .hero-btn svg {
+            width: 19px;
+            height: 19px;
+        }
 
         .hero-btn.primary {
             background: linear-gradient(100deg, var(--teal), var(--teal-deep));
@@ -332,7 +354,10 @@
             box-shadow: 0 10px 30px rgba(45, 212, 191, 0.3);
         }
 
-        .hero-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(45, 212, 191, 0.42); }
+        .hero-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 40px rgba(45, 212, 191, 0.42);
+        }
 
         .hero-btn.ghost {
             background: rgba(255, 255, 255, 0.08);
@@ -342,7 +367,10 @@
             -webkit-backdrop-filter: blur(8px);
         }
 
-        .hero-btn.ghost:hover { transform: translateY(-2px); background: rgba(255, 255, 255, 0.16); }
+        .hero-btn.ghost:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.16);
+        }
 
         /* Official Apple App Store & Google Play Store Badges */
         .app-store-badge {
@@ -408,7 +436,11 @@
             color: rgba(255, 255, 255, 0.92);
         }
 
-        .chip svg { width: 15px; height: 15px; color: var(--teal); }
+        .chip svg {
+            width: 15px;
+            height: 15px;
+            color: var(--teal);
+        }
 
         /* Word-by-word hero reveal */
         .word {
@@ -419,7 +451,10 @@
         }
 
         @keyframes wordUp {
-            to { opacity: 1; transform: translateY(0); }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* Scroll cue */
@@ -462,10 +497,23 @@
         }
 
         @keyframes scrollDot {
-            0% { opacity: 0; top: 6px; }
-            40% { opacity: 1; }
-            80% { opacity: 0; top: 16px; }
-            100% { opacity: 0; }
+            0% {
+                opacity: 0;
+                top: 6px;
+            }
+
+            40% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 0;
+                top: 16px;
+            }
+
+            100% {
+                opacity: 0;
+            }
         }
 
         /* ─────────────  GLASS AUTH CARD  ───────────── */
@@ -532,7 +580,9 @@
             padding: 0.95rem 0;
         }
 
-        .auth-field input::placeholder { color: rgba(255, 255, 255, 0.68); }
+        .auth-field input::placeholder {
+            color: rgba(255, 255, 255, 0.68);
+        }
 
         .auth-field input:-webkit-autofill,
         .auth-field input:-webkit-autofill:focus {
@@ -582,7 +632,9 @@
             cursor: pointer;
         }
 
-        .auth-toggle span { color: var(--teal); }
+        .auth-toggle span {
+            color: var(--teal);
+        }
 
         .auth-divider {
             display: flex;
@@ -619,7 +671,9 @@
             transition: background 0.2s ease;
         }
 
-        .btn-google:hover { background: rgba(255, 255, 255, 0.2); }
+        .btn-google:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
 
         .auth-msg {
             min-height: 1.2rem;
@@ -628,8 +682,13 @@
             margin-top: 0.6rem;
         }
 
-        .auth-msg.error { color: #ffb4a8; }
-        .auth-msg.success { color: #b7f5c8; }
+        .auth-msg.error {
+            color: #ffb4a8;
+        }
+
+        .auth-msg.success {
+            color: #b7f5c8;
+        }
 
         .auth-guest {
             display: block;
@@ -641,9 +700,13 @@
             transition: color 0.2s ease;
         }
 
-        .auth-guest:hover { color: #fff; }
+        .auth-guest:hover {
+            color: #fff;
+        }
 
-        .hide { display: none !important; }
+        .hide {
+            display: none !important;
+        }
 
         /* ─────────────  MARQUEE  ───────────── */
         .marquee {
@@ -680,11 +743,16 @@
         }
 
         @keyframes marquee {
-            to { transform: translateX(-50%); }
+            to {
+                transform: translateX(-50%);
+            }
         }
 
         /* ─────────────  SECTIONS  ───────────── */
-        section.block { padding: 7rem 0; position: relative; }
+        section.block {
+            padding: 7rem 0;
+            position: relative;
+        }
 
         .section-head {
             max-width: 640px;
@@ -738,7 +806,9 @@
             border-color: rgba(45, 212, 191, 0.4);
         }
 
-        .feature-card:hover::before { opacity: 1; }
+        .feature-card:hover::before {
+            opacity: 1;
+        }
 
         .feature-card .icon {
             font-size: 1.8rem;
@@ -765,7 +835,9 @@
         }
 
         /* Experience / preview */
-        #preview { background: var(--bg-2); }
+        #preview {
+            background: var(--bg-2);
+        }
 
         .exp-grid {
             display: grid;
@@ -794,7 +866,9 @@
             background: linear-gradient(180deg, transparent 30%, rgba(5, 7, 10, 0.88));
         }
 
-        .exp-card:hover { transform: scale(1.02); }
+        .exp-card:hover {
+            transform: scale(1.02);
+        }
 
         .exp-card .cap {
             position: relative;
@@ -815,9 +889,17 @@
             margin-top: 0.3rem;
         }
 
-        .exp-a { background-image: linear-gradient(135deg, rgba(15,118,110,0.6), rgba(5,7,10,0.2)), url('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=1600'); }
-        .exp-b { background-image: linear-gradient(135deg, rgba(245,197,99,0.45), rgba(5,7,10,0.2)), url('https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=1600'); }
-        .exp-c { background-image: linear-gradient(135deg, rgba(255,122,77,0.5), rgba(5,7,10,0.2)), url('https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3?q=80&w=1600'); }
+        .exp-a {
+            background-image: linear-gradient(135deg, rgba(15, 118, 110, 0.6), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=1600');
+        }
+
+        .exp-b {
+            background-image: linear-gradient(135deg, rgba(245, 197, 99, 0.45), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=1600');
+        }
+
+        .exp-c {
+            background-image: linear-gradient(135deg, rgba(255, 122, 77, 0.5), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3?q=80&w=1600');
+        }
 
         /* Tech stack */
         .tech-stack-list {
@@ -856,8 +938,16 @@
             border: 1px solid var(--line);
         }
 
-        .cta-band h2 { font-size: clamp(2rem, 5vw, 3.4rem); margin-bottom: 1rem; }
-        .cta-band p { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
+        .cta-band h2 {
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            margin-bottom: 1rem;
+        }
+
+        .cta-band p {
+            color: var(--muted);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
 
         .btn-cta {
             display: inline-block;
@@ -891,7 +981,10 @@
             box-shadow: 0 16px 40px rgba(45, 212, 191, 0.18);
         }
 
-        .btn-cta.ghost svg { width: 20px; height: 20px; }
+        .btn-cta.ghost svg {
+            width: 20px;
+            height: 20px;
+        }
 
         .cta-note {
             margin-top: 1.25rem;
@@ -919,7 +1012,10 @@
             transition: color 0.3s ease, transform 0.3s ease;
         }
 
-        .social-links a:hover { color: var(--teal); transform: translateY(-2px); }
+        .social-links a:hover {
+            color: var(--teal);
+            transform: translateY(-2px);
+        }
 
         footer p {
             margin-top: 1.2rem;
@@ -946,20 +1042,32 @@
                 gap: 2.5rem;
             }
 
-            .auth-card { margin: 0 auto; }
+            .auth-card {
+                margin: 0 auto;
+            }
 
-            .nav-links li:not(.nav-cta) { display: none; }
+            .nav-links li:not(.nav-cta) {
+                display: none;
+            }
 
-            .scroll-cue { display: none; }
+            .scroll-cue {
+                display: none;
+            }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
+
+            *,
+            *::before,
+            *::after {
                 animation-duration: 0.001s !important;
                 animation-iteration-count: 1 !important;
                 transition-duration: 0.001s !important;
             }
-            .hero-bg .slide:nth-child(1) { opacity: 1; }
+
+            .hero-bg .slide:nth-child(1) {
+                opacity: 1;
+            }
         }
     </style>
 </head>
@@ -972,8 +1080,8 @@
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#preview">Experience</a></li>
-                <li><a href="#tech-stack">Tech</a></li>
-                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">Download Android APK</a></li>
+                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">Download
+                        Android APK</a></li>
                 <li class="nav-cta"><a href="#hero">Sign In</a></li>
             </ul>
         </nav>
@@ -1006,34 +1114,50 @@
                         </p>
                         <div class="hero-chips word" style="animation-delay:.85s">
                             <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"></path><path d="M12 8v4l3 2"></path></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2a10 10 0 1 0 10 10"></path>
+                                    <path d="M12 8v4l3 2"></path>
+                                </svg>
                                 Live navigation
                             </span>
                             <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path><path d="M9 3v15M15 6v15"></path></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path>
+                                    <path d="M9 3v15M15 6v15"></path>
+                                </svg>
                                 3D cinematic playback
                             </span>
                             <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><path d="M8 19v1M12 19v2M16 19v1"></path></svg>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>
+                                    <path d="M8 19v1M12 19v2M16 19v1"></path>
+                                </svg>
                                 Route weather
                             </span>
                         </div>
                         <div class="hero-actions word" style="animation-delay:.95s">
-                            <a class="hero-btn primary" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
-                            
+                            <a class="hero-btn primary"
+                                href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
+
                             <!-- Android APK -->
-                            <a class="app-store-badge" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk" title="Download the Android APK">
-                                <svg viewBox="0 0 24 24">
-                                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/>
-                                </svg>
-                                <span class="badge-text">
-                                    <span class="sub-text">DOWNLOAD FOR</span>
-                                    <span class="main-text">Android</span>
-                                </span>
+
+
+                            <span class="badge-text">
+                                <span class="sub-text">DOWNLOAD FOR</span>
+                                <span class="main-text">Android</span>
+                            </span>
                             </a>
 
-                            <a class="hero-btn ghost" href="ios-install.html" title="How to install the iPhone app (step-by-step)">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4M12 8h.01"></path></svg>
+                            <a class="hero-btn ghost" href="ios-install.html"
+                                title="How to install the iPhone app (step-by-step)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 16v-4M12 8h.01"></path>
+                                </svg>
                                 iPhone install guide
                             </a>
                         </div>
@@ -1099,7 +1223,8 @@
 
                         <div class="auth-msg" id="auth-msg"></div>
 
-                        <a class="auth-guest" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Continue as guest &rarr;</a>
+                        <a class="auth-guest" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Continue as
+                            guest &rarr;</a>
                     </div>
                 </div>
             </div>
@@ -1133,12 +1258,14 @@
                     <div class="feature-card reveal">
                         <div class="icon">🗺️</div>
                         <h3>Intelligent Routing</h3>
-                        <p>Optimized multi-stop routes computed on real-world road networks, with reorderable waypoints.</p>
+                        <p>Optimized multi-stop routes computed on real-world road networks, with reorderable waypoints.
+                        </p>
                     </div>
                     <div class="feature-card reveal">
                         <div class="icon">🧭</div>
                         <h3>Live GPS Navigation</h3>
-                        <p>Start a trip and follow your real location in real time — speed, heading, remaining distance and ETA.</p>
+                        <p>Start a trip and follow your real location in real time — speed, heading, remaining distance
+                            and ETA.</p>
                     </div>
                     <div class="feature-card reveal">
                         <div class="icon">⛽</div>
@@ -1148,12 +1275,14 @@
                     <div class="feature-card reveal">
                         <div class="icon">🏞️</div>
                         <h3>Discover Places</h3>
-                        <p>Restaurants, hotels, fuel, EV charging, temples, viewpoints and attractions right along your route.</p>
+                        <p>Restaurants, hotels, fuel, EV charging, temples, viewpoints and attractions right along your
+                            route.</p>
                     </div>
                     <div class="feature-card reveal">
                         <div class="icon">🎬</div>
                         <h3>3D Cinematic Playback</h3>
-                        <p>Preview the whole route as an aerial fly-through, or watch a full simulated drive with stopovers.</p>
+                        <p>Preview the whole route as an aerial fly-through, or watch a full simulated drive with
+                            stopovers.</p>
                     </div>
                     <div class="feature-card reveal">
                         <div class="icon">🌦️</div>
@@ -1174,40 +1303,27 @@
                 </div>
                 <div class="exp-grid">
                     <div class="exp-card exp-a reveal">
-                        <div class="cap"><div class="k">01 · Plan</div><h3>Set your route &amp; stops</h3></div>
+                        <div class="cap">
+                            <div class="k">01 · Plan</div>
+                            <h3>Set your route &amp; stops</h3>
+                        </div>
                     </div>
                     <div class="exp-card exp-b reveal">
-                        <div class="cap"><div class="k">02 · Discover</div><h3>Find places along the way</h3></div>
+                        <div class="cap">
+                            <div class="k">02 · Discover</div>
+                            <h3>Find places along the way</h3>
+                        </div>
                     </div>
                     <div class="exp-card exp-c reveal">
-                        <div class="cap"><div class="k">03 · Drive</div><h3>Preview &amp; navigate live</h3></div>
+                        <div class="cap">
+                            <div class="k">03 · Drive</div>
+                            <h3>Preview &amp; navigate live</h3>
+                        </div>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- Tech stack -->
-        <section id="tech-stack" class="block">
-            <div class="container">
-                <div class="section-head center reveal">
-                    <div class="eyebrow">Built with</div>
-                    <h2>A modern, full-stack toolkit.</h2>
-                </div>
-                <ul class="tech-stack-list reveal">
-                    <li>Flutter</li>
-                    <li>Dart</li>
-                    <li>Node.js</li>
-                    <li>Express</li>
-                    <li>Supabase</li>
-                    <li>Mapbox</li>
-                    <li>OpenRouteService</li>
-                    <li>TollGuru</li>
-                    <li>Overpass</li>
-                    <li>Nominatim</li>
-                    <li>Open-Meteo</li>
-                </ul>
-            </div>
-        </section>
 
         <!-- CTA -->
         <section class="block">
@@ -1217,11 +1333,13 @@
                     <h2>Your next road trip starts here.</h2>
                     <p>Sign in above, or jump straight in and explore.</p>
                     <div class="cta-actions">
-                        <a class="btn-cta" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app &rarr;</a>
-                        
+                        <a class="btn-cta" href="https://gowtham64.github.io/Travel-V1/app/?guest=true">Launch web app
+                            &rarr;</a>
+
                         <a class="app-store-badge" href="Voyplan.ipa">
                             <svg viewBox="0 0 170 170">
-                                <path d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.16-1.9-14.48-6.1-3.21-2.63-7.14-7.27-11.8-13.9-6.3-9.06-11.37-19.04-15.2-29.96-3.84-10.92-5.76-21.36-5.76-31.33 0-14.73 3.73-26.7 11.19-35.91 7.46-9.21 16.73-13.9 27.81-14.07 4.58 0 9.77 1.25 15.57 3.75 5.8 2.5 9.74 3.75 11.82 3.75 1.83 0 5.85-1.25 12.06-3.75 6.21-2.5 11.16-3.66 14.85-3.5 11.26.49 20.31 4.54 27.15 12.15-9.84 5.96-14.63 14.15-14.37 24.58.26 10.56 4.67 19.14 13.23 25.74 3.84 3.01 8.23 5.25 13.17 6.72-2.5 7.47-5.9 15.17-10.2 23.1zM119.22 31.08c0-7.08 2.56-13.84 7.68-20.27 5.12-6.43 11.58-10.2 19.38-11.31.25 1.08.38 2.08.38 3 0 7.08-2.61 13.97-7.83 20.67-5.22 6.7-11.75 10.45-19.61 11.25-.08-.83-.12-1.83-.12-3.00z"/>
+                                <path
+                                    d="M150.37 130.25c-2.45 5.66-5.35 10.87-8.71 15.66-4.58 6.53-8.33 11.05-11.22 13.56-4.48 4.12-9.28 6.23-14.42 6.35-3.69 0-8.14-1.05-13.32-3.18-5.19-2.12-9.97-3.17-14.34-3.17-4.58 0-9.49 1.05-14.75 3.17-5.26 2.13-9.5 3.24-12.74 3.35-4.34.13-9.16-1.9-14.48-6.1-3.21-2.63-7.14-7.27-11.8-13.9-6.3-9.06-11.37-19.04-15.2-29.96-3.84-10.92-5.76-21.36-5.76-31.33 0-14.73 3.73-26.7 11.19-35.91 7.46-9.21 16.73-13.9 27.81-14.07 4.58 0 9.77 1.25 15.57 3.75 5.8 2.5 9.74 3.75 11.82 3.75 1.83 0 5.85-1.25 12.06-3.75 6.21-2.5 11.16-3.66 14.85-3.5 11.26.49 20.31 4.54 27.15 12.15-9.84 5.96-14.63 14.15-14.37 24.58.26 10.56 4.67 19.14 13.23 25.74 3.84 3.01 8.23 5.25 13.17 6.72-2.5 7.47-5.9 15.17-10.2 23.1zM119.22 31.08c0-7.08 2.56-13.84 7.68-20.27 5.12-6.43 11.58-10.2 19.38-11.31.25 1.08.38 2.08.38 3 0 7.08-2.61 13.97-7.83 20.67-5.22 6.7-11.75 10.45-19.61 11.25-.08-.83-.12-1.83-.12-3.00z" />
                             </svg>
                             <span class="badge-text">
                                 <span class="sub-text">Download on the</span>
@@ -1229,9 +1347,11 @@
                             </span>
                         </a>
 
-                        <a class="app-store-badge" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">
+                        <a class="app-store-badge"
+                            href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk">
                             <svg viewBox="0 0 24 24">
-                                <path d="M3.609 1.814L13.792 12 3.61 22.186a1.41 1.41 0 0 1-.61-.314V2.128c.184-.132.396-.24.609-.314zm11.3 9.072l2.368-2.368-2.368-2.368-7.794-4.5-1.996 1.996 9.79 7.24zm0 2.228l-9.79 7.24 1.996 1.996 7.794-4.5 2.368-2.368-2.368-2.368zM19.78 12l-2.844 2.844 2.844 2.844c.48-.48.78-1.152.78-1.888s-.3-1.408-.78-1.888z"/>
+                                <path
+                                    d="M3.609 1.814L13.792 12 3.61 22.186a1.41 1.41 0 0 1-.61-.314V2.128c.184-.132.396-.24.609-.314zm11.3 9.072l2.368-2.368-2.368-2.368-7.794-4.5-1.996 1.996 9.79 7.24zm0 2.228l-9.79 7.24 1.996 1.996 7.794-4.5 2.368-2.368-2.368-2.368zM19.78 12l-2.844 2.844 2.844 2.844c.48-.48.78-1.152.78-1.888s-.3-1.408-.78-1.888z" />
                             </svg>
                             <span class="badge-text">
                                 <span class="sub-text">GET IT ON</span>
@@ -1240,7 +1360,10 @@
                         </a>
 
                         <a class="btn-cta ghost" href="Voyplan-Simulator.zip">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path>
+                            </svg>
                             iOS Simulator (.zip)
                         </a>
                     </div>
@@ -1268,7 +1391,7 @@
                     </svg>
                 </a>
             </div>
-            <p class="reveal">&copy; 2024 Gowtham. Built for a portfolio. All rights reserved.</p>
+            <p class="reveal">&copy; 2026 Voyplan. All rights reserved.</p>
         </div>
     </footer>
 
