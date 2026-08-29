@@ -95,6 +95,8 @@ class PlanItem {
   double? lng;
   // What kind of stop this is: 'place' | 'restaurant' | 'stay' | 'activity'.
   String category;
+  // Checked off during an active trip.
+  bool done;
   PlanItem({
     required this.id,
     this.text = '',
@@ -103,12 +105,13 @@ class PlanItem {
     this.lat,
     this.lng,
     this.category = 'place',
+    this.done = false,
   });
 
   bool get hasCoords => lat != null && lng != null;
 
   Map<String, dynamic> toJson() =>
-      {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng, 'category': category};
+      {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng, 'category': category, 'done': done};
   factory PlanItem.fromJson(Map<String, dynamic> j) => PlanItem(
         id: j['id'].toString(),
         text: (j['text'] ?? '').toString(),
@@ -117,6 +120,7 @@ class PlanItem {
         lat: (j['lat'] as num?)?.toDouble(),
         lng: (j['lng'] as num?)?.toDouble(),
         category: (j['category'] ?? 'place').toString(),
+        done: j['done'] == true,
       );
 }
 

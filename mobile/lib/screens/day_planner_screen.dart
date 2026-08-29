@@ -21,6 +21,7 @@ import '../services/api_service.dart';
 import '../utils/plan_export.dart';
 import '../utils/gsap_demo.dart';
 import 'bookings_screen.dart';
+import 'active_trip_screen.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -83,6 +84,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   List<PlanDay> _days = [];
   int _selectedDay = 0;
   bool _loading = true;
+  DateTime? _startedAt; // non-null once the trip is started (active-trip mode)
 
   List<Map<String, String>> _results = [];
   bool _searching = false;
@@ -110,9 +112,11 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   Future<void> _load() async {
     final days = await _store.loadDays();
+    final startedAt = await _store.loadStartedAt();
     if (!mounted) return;
     setState(() {
       _days = days;
+      _startedAt = startedAt;
       _loading = false;
     });
     // Ensure any opened, non-empty plan is listed under "Saved trips".
@@ -747,6 +751,32 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     );
   }
 
+  /// Start (or resume) the trip: enter the live active-trip view focused on the
+  /// current day's plan. Marks the trip as started on first launch.
+  Future<void> _startTrip() async {
+    if (_days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add or generate a day first, then start the trip.')),
+      );
+      return;
+    }
+    _startedAt ??= DateTime.now();
+    await _store.saveStartedAt(_startedAt);
+    if (!mounted) return;
+    final ended = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => ActiveTripScreen(
+        store: _store,
+        days: _days,
+        startedAt: _startedAt!,
+        tripName: widget.tripName,
+      ),
+    ));
+    if (!mounted) return;
+    // Reflect any check-offs and a possible "End trip".
+    if (ended == true) _startedAt = null;
+    setState(() {});
+  }
+
   /// Origin/destination for this journey, used for booking suggestions.
   /// Looks for a "from X to Y" phrase in the trip name or any AI day title
   /// (e.g. "Journey from Mandya to New York City"), then an "A → B" trip name,
@@ -1123,6 +1153,23 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       children: [
+        // Start / resume the live active-trip view.
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _startTrip,
+            icon: Icon(_startedAt == null ? Icons.play_arrow_rounded : Icons.navigation_rounded, size: 20),
+            label: Text(_startedAt == null ? 'START TRIP' : 'RESUME ACTIVE TRIP',
+                style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF34D27B),
+              foregroundColor: const Color(0xFF04211F),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
         _dayChipRow(),
         const SizedBox(height: 4),
         ...RevealIn.stagger(

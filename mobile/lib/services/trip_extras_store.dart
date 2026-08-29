@@ -15,6 +15,29 @@ class TripExtrasStore {
   String get _reservationsKey => 'trip_$tripKey.reservations';
   String get _journalKey => 'trip_$tripKey.journal';
   String get _daysKey => 'trip_$tripKey.days';
+  String get _startedKey => 'trip_$tripKey.startedAt';
+
+  /// When the traveller pressed "Start Trip" (active-trip mode), or null.
+  Future<DateTime?> loadStartedAt() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_startedKey);
+      return (raw == null || raw.isEmpty) ? null : DateTime.tryParse(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveStartedAt(DateTime? when) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (when == null) {
+        await prefs.remove(_startedKey);
+      } else {
+        await prefs.setString(_startedKey, when.toIso8601String());
+      }
+    } catch (_) {/* best-effort */}
+  }
 
   Future<List<T>> _load<T>(String key, T Function(Map<String, dynamic>) fromJson) async {
     try {
