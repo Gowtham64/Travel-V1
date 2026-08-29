@@ -1,6 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Travel gallery: read the device photo library (Android 13+ uses the
+         granular media permission; older versions use READ_EXTERNAL_STORAGE). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- Required to render Android Auto's NavigationTemplate. -->
     <uses-permission android:name="androidx.car.app.NAVIGATION_TEMPLATES" />
     <!-- Required because NavigationScreen draws the route on the car map surface

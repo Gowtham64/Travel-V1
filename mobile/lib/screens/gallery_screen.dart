@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
 import '../theme/app_theme.dart';
+import '../utils/device_gallery.dart';
 
 /// Travel gallery: store photos & moments for a trip. Images are compressed and
 /// kept locally (per trip) as data URLs, so it works offline and for guests.
@@ -23,6 +24,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
   final Map<String, Uint8List> _decoded = {}; // id -> raw bytes (thumbnail cache)
   bool _loading = true;
   bool _busy = false;
+
+  // Device-gallery mode (native only).
+  String _mode = 'trip'; // 'trip' | 'device'
+  List<DevicePhoto> _devicePhotos = [];
+  bool _deviceLoading = false;
+  String? _deviceError;
+  final Map<String, Uint8List?> _thumbCache = {};
 
   static const int _maxPhotos = 60;
 
@@ -131,6 +139,54 @@ class _GalleryScreenState extends State<GalleryScreen> {
     if (!ok && mounted) _snack("Couldn't save changes (storage full).");
   }
 
+  // ---- Device gallery (native) ----
+
+  Future<void> _loadDevice() async {
+    if (_devicePhotos.isNotEmpty || _deviceLoading) return;
+    setState(() { _deviceLoading = true; _deviceError = null; });
+    try {
+      final granted = await DeviceGallery.ensurePermission();
+      if (!granted) {
+        setState(() { _deviceLoading = false; _deviceError = 'Photo access not granted. Allow it in settings to see your gallery.'; });
+        return;
+      }
+      final photos = await DeviceGallery.recent(limit: 200);
+      if (!mounted) return;
+      setState(() { _devicePhotos = photos; _deviceLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() { _deviceLoading = false; _deviceError = 'Could not read the device gallery.'; });
+    }
+  }
+
+  Future<Uint8List?> _thumbFor(DevicePhoto p) async {
+    if (_thumbCache.containsKey(p.id)) return _thumbCache[p.id];
+    final t = await p.thumb();
+    _thumbCache[p.id] = t;
+    return t;
+  }
+
+  /// Save a device photo into the trip gallery (compressed) with an optional caption.
+  Future<void> _saveDeviceToTrip(DevicePhoto p) async {
+    if (_photos.length >= _maxPhotos) { _snack('Gallery is full ($_maxPhotos photos).'); return; }
+    setState(() => _busy = true);
+    try {
+      final raw = await p.origin();
+      if (raw == null) { setState(() => _busy = false); _snack('Could not read that photo.'); return; }
+      final jpg = _compress(raw);
+      if (jpg == null) { setState(() => _busy = false); _snack('Could not process that photo.'); return; }
+      final photo = GalleryPhoto(id: 'd${DateTime.now().microsecondsSinceEpoch}', dataUrl: 'data:image/jpeg;base64,${base64Encode(jpg)}');
+      _decoded[photo.id] = jpg;
+      final next = [photo, ..._photos];
+      final ok = await widget.store.saveGallery(next);
+      if (!mounted) return;
+      if (!ok) { _decoded.remove(photo.id); setState(() => _busy = false); _snack('Not enough device storage.'); return; }
+      setState(() { _photos = next; _busy = false; });
+      _snack('Saved to your trip moments.');
+    } catch (_) {
+      if (mounted) { setState(() => _busy = false); _snack('Could not add that photo.'); }
+    }
+  }
+
   void _snack(String msg) {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -173,61 +229,157 @@ class _GalleryScreenState extends State<GalleryScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _busy ? null : _addPhotos,
-        backgroundColor: Voy.brand,
-        foregroundColor: const Color(0xFF04211F),
-        icon: _busy
-            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF04211F)))
-            : const Icon(Icons.add_a_photo_rounded),
-        label: Text(_busy ? 'Adding…' : 'Add photos'),
-      ),
+      floatingActionButton: _mode == 'trip'
+          ? FloatingActionButton.extended(
+              onPressed: _busy ? null : _addPhotos,
+              backgroundColor: Voy.brand,
+              foregroundColor: const Color(0xFF04211F),
+              icon: _busy
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF04211F)))
+                  : const Icon(Icons.add_a_photo_rounded),
+              label: Text(_busy ? 'Adding…' : 'Add photos'),
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _photos.isEmpty
-              ? _empty()
-              : GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(10, 10, 10, 96),
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 180,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: _photos.length,
-                  itemBuilder: (_, i) {
-                    final p = _photos[i];
-                    final bytes = _decoded[p.id] ?? _bytesOf(p);
-                    return GestureDetector(
-                      onTap: () => _openPhoto(i),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            bytes.isEmpty
-                                ? Container(color: Voy.surface2, child: const Icon(Icons.broken_image_outlined, color: Voy.sub))
-                                : Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
-                            if (p.caption.isNotEmpty)
-                              Positioned(
-                                left: 0, right: 0, bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter, end: Alignment.bottomCenter,
-                                      colors: [Colors.transparent, Colors.black87],
-                                    ),
-                                  ),
-                                  child: Text(p.caption, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
-                                ),
-                              ),
-                          ],
-                        ),
+          : Column(
+              children: [
+                if (DeviceGallery.supported) _modeToggle(),
+                Expanded(child: _mode == 'device' ? _deviceGrid() : _tripBody()),
+              ],
+            ),
+    );
+  }
+
+  Widget _modeToggle() {
+    Widget chip(String value, String label, IconData icon) {
+      final sel = _mode == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            setState(() => _mode = value);
+            if (value == 'device') _loadDevice();
+          },
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: sel ? Voy.brand.withValues(alpha: 0.2) : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: sel ? Voy.brand : Voy.hairline),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(icon, size: 16, color: sel ? Voy.brand : Voy.sub),
+              const SizedBox(width: 6),
+              Text(label, style: TextStyle(color: sel ? Voy.brand : Voy.sub, fontSize: 13, fontWeight: FontWeight.w700)),
+            ]),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+      child: Row(children: [
+        chip('trip', 'Trip moments', Icons.collections_bookmark_rounded),
+        chip('device', 'My device', Icons.phone_iphone_rounded),
+      ]),
+    );
+  }
+
+  Widget _tripBody() {
+    if (_photos.isEmpty) return _empty();
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 96),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 180, crossAxisSpacing: 8, mainAxisSpacing: 8),
+      itemCount: _photos.length,
+      itemBuilder: (_, i) {
+        final p = _photos[i];
+        final bytes = _decoded[p.id] ?? _bytesOf(p);
+        return GestureDetector(
+          onTap: () => _openPhoto(i),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                bytes.isEmpty
+                    ? Container(color: Voy.surface2, child: const Icon(Icons.broken_image_outlined, color: Voy.sub))
+                    : Image.memory(bytes, fit: BoxFit.cover, gaplessPlayback: true),
+                if (p.caption.isNotEmpty)
+                  Positioned(
+                    left: 0, right: 0, bottom: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter, end: Alignment.bottomCenter,
+                          colors: [Colors.transparent, Colors.black87]),
                       ),
-                    );
-                  },
-                ),
+                      child: Text(p.caption, maxLines: 2, overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _deviceGrid() {
+    if (_deviceLoading) return const Center(child: CircularProgressIndicator());
+    if (_deviceError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.no_photography_outlined, size: 48, color: Voy.sub),
+            const SizedBox(height: 12),
+            Text(_deviceError!, textAlign: TextAlign.center, style: const TextStyle(color: Voy.sub)),
+            const SizedBox(height: 12),
+            OutlinedButton(onPressed: () { setState(() { _devicePhotos = []; }); _loadDevice(); }, child: const Text('Retry')),
+          ]),
+        ),
+      );
+    }
+    if (_devicePhotos.isEmpty) {
+      return const Center(child: Text('No photos found on this device.', style: TextStyle(color: Voy.sub)));
+    }
+    return GridView.builder(
+      padding: const EdgeInsets.fromLTRB(10, 6, 10, 24),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 130, crossAxisSpacing: 6, mainAxisSpacing: 6),
+      itemCount: _devicePhotos.length,
+      itemBuilder: (_, i) {
+        final p = _devicePhotos[i];
+        return GestureDetector(
+          onTap: _busy ? null : () => _saveDeviceToTrip(p),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: FutureBuilder<Uint8List?>(
+              future: _thumbFor(p),
+              builder: (_, snap) {
+                if (snap.connectionState != ConnectionState.done) {
+                  return Container(color: Voy.surface2);
+                }
+                final t = snap.data;
+                return Stack(fit: StackFit.expand, children: [
+                  (t == null || t.isEmpty)
+                      ? Container(color: Voy.surface2, child: const Icon(Icons.image_outlined, color: Voy.sub))
+                      : Image.memory(t, fit: BoxFit.cover, gaplessPlayback: true),
+                  const Positioned(
+                    right: 4, bottom: 4,
+                    child: Icon(Icons.add_circle, color: Colors.white70, size: 20),
+                  ),
+                ]);
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 
