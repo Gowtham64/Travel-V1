@@ -1500,10 +1500,11 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(onPressed: _promptAddItem, icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.accentLight), label: const Text('Add your own', style: TextStyle(color: AppColors.accentLight))),
-                ),
+                Row(children: [
+                  TextButton.icon(onPressed: _promptAddItem, icon: const Icon(Icons.edit_rounded, size: 16, color: AppColors.accentLight), label: const Text('Add your own', style: TextStyle(color: AppColors.accentLight))),
+                  const Spacer(),
+                  TextButton.icon(onPressed: _openGallery, icon: const Icon(Icons.photo_library_rounded, size: 16, color: AppColors.accentLight), label: const Text('Gallery', style: TextStyle(color: AppColors.accentLight))),
+                ]),
               ],
             ),
           ),

@@ -9,6 +9,7 @@ import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import 'itinerary_screen.dart';
 import 'bookings_screen.dart';
+import 'gallery_screen.dart';
 
 /// A tabbed "trip workspace" — the single place that brings a trip together:
 /// Map, Itinerary, an interactive Packing checklist, an Expense tracker with
@@ -2289,14 +2290,21 @@ class _PlanTabState extends State<_PlanTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
+                Row(children: [
+                  TextButton.icon(
                     onPressed: _promptAddItem,
                     icon: const Icon(Icons.edit_rounded, size: 16),
                     label: const Text('Add your own'),
                   ),
-                ),
+                  const Spacer(),
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => GalleryScreen(store: widget.store, tripName: widget.startAddress.isNotEmpty ? '${widget.startAddress} trip' : 'My Trip'),
+                    )),
+                    icon: const Icon(Icons.photo_library_rounded, size: 16),
+                    label: const Text('Gallery'),
+                  ),
+                ]),
               ],
             ),
           ),
