@@ -7,6 +7,8 @@ import '../services/api_service.dart';
 import '../models/trip_models.dart';
 import 'trip_planner_screen.dart';
 import 'saved_trips_screen.dart';
+import 'gallery_screen.dart';
+import '../services/trip_extras_store.dart';
 import 'atlas_screen.dart';
 import 'trek_discovery_screen.dart';
 import 'day_planner_screen.dart';
@@ -86,6 +88,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _openDayPlanner() =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+
+  /// A global travel gallery for all the traveller's photos & moments,
+  /// independent of any single trip.
+  void _openGallery() => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GalleryScreen(store: TripExtrasStore('global-gallery'), tripName: 'My Travel Gallery'),
+        ),
+      );
 
   Future<void> _logout() async {
     try {
@@ -418,6 +429,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         Expanded(child: _quickTile(Icons.add_location_alt_rounded, 'Plan trip', Voy.brand, _planTrip)),
         const SizedBox(width: 12),
         Expanded(child: _quickTile(Icons.bookmark_rounded, 'Saved trips', Voy.violet, _openSaved)),
+        const SizedBox(width: 12),
+        Expanded(child: _quickTile(Icons.photo_library_rounded, 'Gallery', Voy.pink, _openGallery)),
       ],
     );
   }
