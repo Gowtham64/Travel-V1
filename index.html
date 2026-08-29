@@ -1043,16 +1043,19 @@
                                 iPhone install guide
                             </a>
                         </div>
-                        <!-- iPhone install guide (free sideloading — Apple blocks direct website installs) -->
-                        <div id="ios-install" style="margin-top:18px;max-width:640px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.6;">
-                            <strong style="font-size:14.5px;">📱 Installing on iPhone (free)</strong>
-                            <p style="margin:8px 0 6px;opacity:.85;">Apple doesn't allow one-tap website installs like Android. Use a free sideloading tool with the <em>.ipa</em> above:</p>
-                            <ul style="margin:0;padding-left:18px;opacity:.9;">
-                                <li><strong>TrollStore</strong> — permanent, no expiry, no Apple ID. Best if your iPhone runs <strong>iOS 14–16.6.1</strong> (or 17.0 on some). See trollstore.app / the TrollStore install guide.</li>
-                                <li><strong>SideStore / AltStore</strong> — any iOS (incl. iOS 26). Sign with your own free Apple ID; apps auto-refresh every 7 days. Easiest: in SideStore tap <strong>Sources → + </strong> and add <code>https://gowtham64.github.io/Travel-V1/apps.json</code>, then install Voyplan and get updates automatically. (sidestore.io / altstore.io)</li>
-                                <li><strong>Sideloadly</strong> — plug your iPhone into a PC/Mac, drag the .ipa, sign with a free Apple ID (sideloadly.io).</li>
-                            </ul>
-                            <p style="margin:8px 0 0;opacity:.7;">Prefer nothing to install? Open this site in <strong>Safari → Share → Add to Home Screen</strong> to use Voyplan as a full-screen web app.</p>
+                        <!-- iPhone install guide — simple laptop + trust flow -->
+                        <div id="ios-install" style="margin-top:18px;max-width:640px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:16px 18px;font-size:13.5px;line-height:1.7;">
+                            <strong style="font-size:14.5px;">📱 Install on iPhone (free — via your laptop)</strong>
+                            <p style="margin:8px 0 10px;opacity:.8;">Apple doesn't allow one-tap installs from a website, so you install once from a computer with a free Apple ID:</p>
+                            <ol style="margin:0;padding-left:20px;opacity:.92;">
+                                <li>On your laptop (Mac or Windows), download and open <strong>Sideloadly</strong> from <strong>sideloadly.io</strong>. <span style="opacity:.7;">(On Windows, also install iTunes from apple.com for the drivers.)</span></li>
+                                <li>Tap <strong>“Download for iPhone (.ipa)”</strong> above to get <em>Voyplan.ipa</em> onto the laptop.</li>
+                                <li>Connect your iPhone with a cable, unlock it, and tap <strong>Trust This Computer</strong>.</li>
+                                <li>In Sideloadly: drag in <strong>Voyplan.ipa</strong>, enter your <strong>Apple ID</strong> (a free one works), and click <strong>Start</strong>.</li>
+                                <li>On the iPhone, open <strong>Settings → General → VPN &amp; Device Management</strong>, tap your Apple ID, and tap <strong>Trust</strong>.</li>
+                                <li>Open <strong>Voyplan</strong> from your home screen. ✅</li>
+                            </ol>
+                            <p style="margin:10px 0 0;opacity:.7;">A free Apple ID signs the app for <strong>7 days</strong> — just re-run Sideloadly to refresh it. Prefer no install? Open this site in <strong>Safari → Share → Add to Home Screen</strong>.</p>
                         </div>
                     </div>
 
