@@ -3335,7 +3335,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ),
     );
   }
-  }
 
   Widget _buildStopHighlightCard(double topPadding) {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
