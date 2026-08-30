@@ -100,19 +100,25 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
   // ---- Maneuver card -------------------------------------------------------
 
   Widget _maneuverCard() {
+    // Show the road name as a subtitle only when it adds information the
+    // instruction line doesn't already carry.
+    final road = widget.maneuver.roadName;
+    final showRoad = road != null &&
+        road.trim().isNotEmpty &&
+        !widget.maneuver.instruction.toLowerCase().contains(road.toLowerCase());
     return _card(
       padding: const EdgeInsets.all(16),
       accentBorder: true,
       child: Row(
         children: [
           Container(
-            width: 66,
-            height: 66,
+            width: 72,
+            height: 72,
             decoration: BoxDecoration(
               color: _green,
               borderRadius: BorderRadius.circular(18),
             ),
-            child: Icon(widget.maneuver.icon, size: 42, color: Colors.white),
+            child: Icon(widget.maneuver.icon, size: 46, color: Colors.white),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -123,7 +129,7 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                 Text(
                   widget.maneuver.formattedDistance,
                   style: const TextStyle(
-                    fontSize: 30,
+                    fontSize: 32,
                     fontWeight: FontWeight.w800,
                     color: _green,
                     letterSpacing: 0.3,
@@ -133,10 +139,19 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                 const SizedBox(height: 4),
                 Text(
                   widget.maneuver.instruction,
-                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w600, color: _text),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: _text),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (showRoad) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    'on $road',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: _sub),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ],
             ),
           ),
@@ -238,25 +253,57 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
     );
   }
 
+  /// Wall-clock arrival time, e.g. "3:45 PM", from the remaining duration.
+  String get _arrivalClock {
+    final arrive = DateTime.now().add(Duration(minutes: widget.telemetry.remainingDurationMin));
+    final h24 = arrive.hour;
+    final period = h24 >= 12 ? 'PM' : 'AM';
+    final h12 = h24 % 12 == 0 ? 12 : h24 % 12;
+    final mm = arrive.minute.toString().padLeft(2, '0');
+    return '$h12:$mm $period';
+  }
+
   Widget _etaBlock() {
-    return Row(
+    // "Arriving" state once we're basically on top of the destination.
+    final arriving = widget.telemetry.remainingDistanceKm < 0.15;
+    final progress = widget.telemetry.progressPercent.clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(Icons.navigation_rounded, color: _green, size: 26),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+        Row(
           children: [
-            Text(
-              widget.telemetry.formattedEta,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _text, height: 1.0),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${widget.telemetry.remainingDistanceKm.toStringAsFixed(1)} km left',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _sub),
-            ),
+            Icon(arriving ? Icons.pin_drop_rounded : Icons.navigation_rounded, color: _green, size: 26),
+            const SizedBox(width: 12),
+            if (arriving)
+              Text('Arriving',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _green, height: 1.0))
+            else ...[
+              Text(
+                widget.telemetry.formattedEta,
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: _text, height: 1.0),
+              ),
+              const SizedBox(width: 10),
+              Text('· $_arrivalClock',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: _sub)),
+            ],
           ],
+        ),
+        const SizedBox(height: 8),
+        // Route progress bar.
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: _hairline,
+            valueColor: AlwaysStoppedAnimation<Color>(_green),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          '${widget.telemetry.remainingDistanceKm.toStringAsFixed(1)} km left · ${(progress * 100).round()}%',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _sub),
         ),
       ],
     );
