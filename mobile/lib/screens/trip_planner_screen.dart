@@ -952,8 +952,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.low]) {
       try {
         return await Geolocator.getCurrentPosition(
-          desiredAccuracy: accuracy,
-          timeLimit: const Duration(seconds: 15),
+          locationSettings: LocationSettings(
+            accuracy: accuracy,
+            timeLimit: const Duration(seconds: 15),
+          ),
         );
       } catch (_) {
         // try the next (less demanding) accuracy

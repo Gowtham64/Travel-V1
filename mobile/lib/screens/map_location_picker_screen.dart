@@ -46,8 +46,10 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
     try {
       if (kIsWeb) {
         final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
         );
         final currentLatLng = LatLng(position.latitude, position.longitude);
         if (mounted) {
@@ -71,8 +73,10 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
         final position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 5),
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 5),
+          ),
         );
         final currentLatLng = LatLng(position.latitude, position.longitude);
         if (mounted) {

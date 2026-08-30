@@ -1364,8 +1364,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     // Snap camera to the user immediately using the last/first fix.
     try {
       final first = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
       );
       _onLivePosition(first, routePoints);
     } catch (_) {
