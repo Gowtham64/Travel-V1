@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/trip_models.dart';
@@ -74,6 +75,16 @@ class _ThreeDMapState extends State<ThreeDMap> {
 
   bool _validPoint(GeoPoint p) => _validLL(p.lat, p.lng);
 
+  /// A zoom level that comfortably frames a lat/lng span (in degrees) — a safe
+  /// replacement for fit-to-bounds (which crashes on a pitched MapLibre camera).
+  double _zoomForSpan(double latSpanDeg, double lngSpanDeg) {
+    final maxSpan = math.max(latSpanDeg.abs(), lngSpanDeg.abs());
+    if (maxSpan <= 0 || !maxSpan.isFinite) return 13.0;
+    // The world spans 360° at zoom 0; subtract a little for padding.
+    final z = (math.log(360.0 / maxSpan) / math.ln2) - 0.6;
+    return z.clamp(2.0, 15.0);
+  }
+
   Future<void> _onStyleLoaded() async {
     final c = _controller;
     if (c == null || _routeDrawn) return;
@@ -97,40 +108,19 @@ class _ThreeDMapState extends State<ThreeDMap> {
       if (_validPoint(wp)) await _addMarker(wp, '#2E75B6');
     }
 
-    // Fit the camera to the route bounds — but guard against a degenerate
-    // (zero/near-zero area) box, which makes newLatLngBounds throw and crash.
+    // Frame the whole route. We deliberately DON'T use CameraUpdate.newLatLngBounds
+    // here: the map has a tilted (pitched) camera, and MapLibre GL Native throws
+    // std::domain_error — aborting the whole app (SIGABRT) — when asked to fit
+    // bounds with a non-zero pitch. Instead we compute a centre + zoom ourselves
+    // and move with newLatLngZoom, which is safe at any pitch.
     if (route.length >= 2) {
-      var minLat = route.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
-      var maxLat = route.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
-      var minLng = route.map((p) => p.lng).reduce((a, b) => a < b ? a : b);
-      var maxLng = route.map((p) => p.lng).reduce((a, b) => a > b ? a : b);
-
-      // If the span is tiny (all stops clustered together), just center on it
-      // at a sensible zoom instead of fitting an impossible bounds.
-      const minSpan = 0.02; // ~2 km
-      if ((maxLat - minLat) < minSpan && (maxLng - minLng) < minSpan) {
-        await c.animateCamera(CameraUpdate.newLatLngZoom(
-          LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2), 12.5));
-      } else {
-        // Pad slightly and clamp so the box is always valid & non-degenerate.
-        minLat = (minLat - 0.01).clamp(-90.0, 90.0);
-        maxLat = (maxLat + 0.01).clamp(-90.0, 90.0);
-        minLng = (minLng - 0.01).clamp(-180.0, 180.0);
-        maxLng = (maxLng + 0.01).clamp(-180.0, 180.0);
-        try {
-          await c.animateCamera(CameraUpdate.newLatLngBounds(
-            LatLngBounds(
-              southwest: LatLng(minLat, minLng),
-              northeast: LatLng(maxLat, maxLng),
-            ),
-            left: 48, right: 48, top: 48, bottom: 48,
-          ));
-        } catch (_) {
-          // Extremely defensive: fall back to a centered view.
-          await c.animateCamera(CameraUpdate.newLatLngZoom(
-            LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2), 6));
-        }
-      }
+      final minLat = route.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
+      final maxLat = route.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
+      final minLng = route.map((p) => p.lng).reduce((a, b) => a < b ? a : b);
+      final maxLng = route.map((p) => p.lng).reduce((a, b) => a > b ? a : b);
+      final center = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+      await c.animateCamera(
+          CameraUpdate.newLatLngZoom(center, _zoomForSpan(maxLat - minLat, maxLng - minLng)));
     }
 
     final pos = widget.animatedVehiclePosition;
