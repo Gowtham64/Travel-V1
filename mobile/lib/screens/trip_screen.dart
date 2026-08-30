@@ -963,7 +963,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ),
     );
   }
-  }
 
   void _showMapStyleSheet() {
     showModalBottomSheet(
