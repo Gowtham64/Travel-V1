@@ -197,12 +197,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       setState(() => _loading = true);
       final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;
-      // Same trip summary (tolls, fuel, times) shown after DONE. Skipped for the
-      // headless preview test hook so it can drive straight into the trip.
-      if (!(kIsWeb && Uri.base.toString().contains('test_preview=true'))) {
-        await _showTripSummaryDialog(plan, vehicle);
-        if (!mounted) return;
-      }
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => TripScreen(
           plan: plan,
@@ -421,11 +415,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         ));
         return;
       }
-
-      // Trip summary (toll details, fuel price, times) right after DONE, so the
-      // user reviews the estimate before the drive.
-      await _showTripSummaryDialog(plan, vehicle);
-      if (!mounted) return;
 
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
@@ -1467,9 +1456,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     : const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.auto_awesome_rounded, size: 20),
-                          SizedBox(width: 10),
-                          Text('Plan my trip', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.3)),
+                          Text('Next', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          SizedBox(width: 8),
+                          Icon(Icons.arrow_forward_rounded, size: 22),
                         ],
                       ),
               ),
