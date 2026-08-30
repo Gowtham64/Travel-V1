@@ -60,9 +60,12 @@ class _ThreeDMapState extends State<ThreeDMap> {
     super.didUpdateWidget(old);
     final pos = widget.animatedVehiclePosition;
     if (pos != null && pos != old.animatedVehiclePosition && _validPoint(pos)) {
-      _controller?.animateCamera(
-        CameraUpdate.newLatLngZoom(_ll(pos), widget.customZoom ?? 15.5),
-      );
+      final zoom = widget.customZoom ?? 15.5;
+      // A 3D tilt is only safe once we're zoomed in (following the vehicle);
+      // pitch at low zoom makes MapLibre's projection throw std::domain_error.
+      _controller?.animateCamera(CameraUpdate.newCameraPosition(
+        CameraPosition(target: _ll(pos), zoom: zoom, tilt: zoom >= 13 ? 45 : 0),
+      ));
       _updateVehicle(pos);
     }
   }
@@ -160,7 +163,10 @@ class _ThreeDMapState extends State<ThreeDMap> {
     final target = firstValid != null ? _ll(firstValid) : const LatLng(20.5937, 78.9629);
     return MapLibreMap(
       styleString: _streetStyle,
-      initialCameraPosition: CameraPosition(target: target, zoom: 5, tilt: 45),
+      // NO tilt at this low overview zoom — a pitched camera at low zoom makes
+      // MapLibre GL Native throw std::domain_error and abort the app. Tilt is
+      // applied later only while following the vehicle at high zoom.
+      initialCameraPosition: CameraPosition(target: target, zoom: 5, tilt: 0),
       onMapCreated: (c) => _controller = c,
       onStyleLoadedCallback: _onStyleLoaded,
       myLocationEnabled: false,
