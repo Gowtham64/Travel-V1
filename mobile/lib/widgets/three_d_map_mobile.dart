@@ -58,7 +58,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
   void didUpdateWidget(covariant ThreeDMap old) {
     super.didUpdateWidget(old);
     final pos = widget.animatedVehiclePosition;
-    if (pos != null && pos != old.animatedVehiclePosition) {
+    if (pos != null && pos != old.animatedVehiclePosition && _validPoint(pos)) {
       _controller?.animateCamera(
         CameraUpdate.newLatLngZoom(_ll(pos), widget.customZoom ?? 15.5),
       );
@@ -66,42 +66,75 @@ class _ThreeDMapState extends State<ThreeDMap> {
     }
   }
 
+  /// A geographic point is only safe to hand to the native map if it's finite
+  /// and inside the valid lat/lng ranges. Anything else makes MapLibre GL Native
+  /// throw std::domain_error, which aborts the whole app (SIGABRT).
+  bool _validLL(double lat, double lng) =>
+      lat.isFinite && lng.isFinite && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
+  bool _validPoint(GeoPoint p) => _validLL(p.lat, p.lng);
+
   Future<void> _onStyleLoaded() async {
     final c = _controller;
     if (c == null || _routeDrawn) return;
     _routeDrawn = true;
 
-    if (widget.routePoints.isNotEmpty) {
+    final route = widget.routePoints.where(_validPoint).toList();
+
+    if (route.length >= 2) {
       await c.addLine(LineOptions(
-        geometry: widget.routePoints.map(_ll).toList(),
+        geometry: route.map(_ll).toList(),
         lineColor: '#2E75B6',
         lineWidth: 6.0,
         lineJoin: 'round',
       ));
     }
 
-    // Start / end / waypoint markers as colored circles.
-    await _addMarker(widget.start, '#4CAF50');
-    await _addMarker(widget.end, '#E53935');
+    // Start / end / waypoint markers as colored circles (valid points only).
+    if (_validPoint(widget.start)) await _addMarker(widget.start, '#4CAF50');
+    if (_validPoint(widget.end)) await _addMarker(widget.end, '#E53935');
     for (final wp in widget.waypoints) {
-      await _addMarker(wp, '#2E75B6');
+      if (_validPoint(wp)) await _addMarker(wp, '#2E75B6');
     }
 
-    // Fit the camera to the route bounds.
-    if (widget.routePoints.length >= 2) {
-      final lats = widget.routePoints.map((p) => p.lat);
-      final lngs = widget.routePoints.map((p) => p.lng);
-      await c.animateCamera(CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(lats.reduce((a, b) => a < b ? a : b), lngs.reduce((a, b) => a < b ? a : b)),
-          northeast: LatLng(lats.reduce((a, b) => a > b ? a : b), lngs.reduce((a, b) => a > b ? a : b)),
-        ),
-        left: 48, right: 48, top: 48, bottom: 48,
-      ));
+    // Fit the camera to the route bounds — but guard against a degenerate
+    // (zero/near-zero area) box, which makes newLatLngBounds throw and crash.
+    if (route.length >= 2) {
+      var minLat = route.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
+      var maxLat = route.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
+      var minLng = route.map((p) => p.lng).reduce((a, b) => a < b ? a : b);
+      var maxLng = route.map((p) => p.lng).reduce((a, b) => a > b ? a : b);
+
+      // If the span is tiny (all stops clustered together), just center on it
+      // at a sensible zoom instead of fitting an impossible bounds.
+      const minSpan = 0.02; // ~2 km
+      if ((maxLat - minLat) < minSpan && (maxLng - minLng) < minSpan) {
+        await c.animateCamera(CameraUpdate.newLatLngZoom(
+          LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2), 12.5));
+      } else {
+        // Pad slightly and clamp so the box is always valid & non-degenerate.
+        minLat = (minLat - 0.01).clamp(-90.0, 90.0);
+        maxLat = (maxLat + 0.01).clamp(-90.0, 90.0);
+        minLng = (minLng - 0.01).clamp(-180.0, 180.0);
+        maxLng = (maxLng + 0.01).clamp(-180.0, 180.0);
+        try {
+          await c.animateCamera(CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(minLat, minLng),
+              northeast: LatLng(maxLat, maxLng),
+            ),
+            left: 48, right: 48, top: 48, bottom: 48,
+          ));
+        } catch (_) {
+          // Extremely defensive: fall back to a centered view.
+          await c.animateCamera(CameraUpdate.newLatLngZoom(
+            LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2), 6));
+        }
+      }
     }
 
     final pos = widget.animatedVehiclePosition;
-    if (pos != null) _updateVehicle(pos);
+    if (pos != null && _validPoint(pos)) _updateVehicle(pos);
   }
 
   Future<void> _addMarker(GeoPoint p, String color) async {
@@ -133,9 +166,8 @@ class _ThreeDMapState extends State<ThreeDMap> {
 
   @override
   Widget build(BuildContext context) {
-    final target = widget.routePoints.isNotEmpty
-        ? _ll(widget.routePoints.first)
-        : const LatLng(20.5937, 78.9629);
+    final firstValid = widget.routePoints.where(_validPoint).cast<GeoPoint?>().firstWhere((_) => true, orElse: () => null);
+    final target = firstValid != null ? _ll(firstValid) : const LatLng(20.5937, 78.9629);
     return MapLibreMap(
       styleString: _streetStyle,
       initialCameraPosition: CameraPosition(target: target, zoom: 5, tilt: 45),
