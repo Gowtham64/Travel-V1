@@ -660,13 +660,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     final appBarWidget = AppBar(
-      title: const Text('Your Trip', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-      backgroundColor: Colors.black.withOpacity(0.4),
+      title: Text(
+        '${widget.start.name ?? widget.startAddress} → ${widget.end.name ?? widget.endAddress}',
+        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 17),
+        overflow: TextOverflow.ellipsis,
+      ),
+      backgroundColor: const Color(0xFF0B0F1A),
       elevation: 0,
       iconTheme: const IconThemeData(color: Colors.white),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
       actions: [
         if (_saving || _recalculating)
           const Center(
@@ -676,57 +677,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
           )
         else ...[
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.event_note_rounded, color: Colors.white),
-              tooltip: 'Itinerary',
-              onPressed: _openItinerary,
-            ),
+          IconButton(
+            icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
+            tooltip: 'Share Trip',
+            onPressed: _shareTrip,
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.dashboard_customize_rounded, color: Colors.white),
-              tooltip: 'Trip Workspace (packing, expenses, bookings)',
-              onPressed: _openWorkspace,
-            ),
+          IconButton(
+            icon: Icon(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_border_rounded, color: Colors.white, size: 22),
+            tooltip: 'Save Trip',
+            onPressed: _saveTrip,
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.share, color: Colors.white),
-              tooltip: 'Share Trip',
-              onPressed: _shareTrip,
-            ),
+          IconButton(
+            icon: const Icon(Icons.event_note_rounded, color: Colors.white, size: 22),
+            tooltip: 'Itinerary',
+            onPressed: _openItinerary,
           ),
-          Container(
-            margin: const EdgeInsets.only(right: 8, top: 8, bottom: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.bookmark_add, color: Colors.white),
-              tooltip: 'Save Trip',
-              onPressed: _saveTrip,
-            ),
+          IconButton(
+            icon: const Icon(Icons.dashboard_customize_rounded, color: Colors.white, size: 22),
+            tooltip: 'Workspace',
+            onPressed: _openWorkspace,
           ),
         ],
       ],
@@ -734,7 +703,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     if (isDesktop) {
       return Scaffold(
-        backgroundColor: const Color(0xFF121212),
+        backgroundColor: const Color(0xFF0B0F1A),
         appBar: appBarWidget,
         body: Row(
           children: [
@@ -742,13 +711,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             Container(
               width: 420,
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                border: Border(right: BorderSide(color: Colors.white.withOpacity(0.1))),
+                color: const Color(0xFF1A1F2E),
+                border: Border(right: BorderSide(color: Colors.white.withOpacity(0.08))),
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 20),
+                  _buildOverviewSpeedAndProgress(),
+                  const SizedBox(height: 12),
                   _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress, destination: widget.end.name ?? widget.endAddress, tripStart: _tripStart),
+                  const SizedBox(height: 12),
+                  _buildStartButton(),
                   const SizedBox(height: 12),
                   _buildDepartureSelector(),
                   const SizedBox(height: 12),
@@ -777,75 +750,219 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       );
     }
 
+    // ───────────────────────── Mobile Layout ─────────────────────────
+    // When driving/navigating (_isPlayingAnimation is true): Driving Screen (Map-first hero)
+    if (_isPlayingAnimation) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF0B0F1A),
+        body: _buildMapStackWithOverlays(mapWidget, topPadding: MediaQuery.of(context).padding.top + 8.0, rightPadding: 16.0),
+      );
+    }
+
+    // When planning (_isPlayingAnimation is false): Screen 1 — Trip Overview
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: const Color(0xFF0B0F1A),
       appBar: appBarWidget,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Top portion: Map
-          Expanded(
-            flex: 50, // 50% height for Map
-            child: _buildMapStackWithOverlays(mapWidget, topPadding: 16.0, rightPadding: 16.0),
-          ),
-          // Bottom portion: Details (Summary + POIs)
-          Expanded(
-            flex: 50, // 50% height for Details
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                border: Border(top: BorderSide(color: Colors.white.withOpacity(0.1))),
+      body: SafeArea(
+        bottom: true,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox(height: 6),
+              // 1. "Live navigation · following GPS" status pill (green)
+              _buildStatusPill(),
+              const SizedBox(height: 8),
+              // 2. Circular speedometer (current km/h) with 'D' badge + trip progress block
+              _buildOverviewSpeedAndProgress(),
+              const SizedBox(height: 8),
+              // 3. Stats strip + Cost breakdown (with Total est. cost) + Weather card
+              _SummaryCard(
+                plan: _currentPlan,
+                vehicle: widget.vehicle,
+                locationName: widget.start.name ?? widget.startAddress,
+                destination: widget.end.name ?? widget.endAddress,
+                tripStart: _tripStart,
               ),
-              child: (_isPlayingAnimation && (_activeStopHighlight != null || _isTollStop))
-                  ? Center(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.symmetric(horizontal: 24, vertical: isMobile ? 4 : 12),
-                        child: _buildStopHighlightCard(0.0),
+              const SizedBox(height: 4),
+              // 4. Primary "Start" Button
+              _buildStartButton(),
+              const SizedBox(height: 12),
+              // 5. Trip options & Secondary actions
+              _buildDepartureSelector(),
+              const SizedBox(height: 12),
+              _buildTripToolkit(),
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
+              const SizedBox(height: 8),
+              if (_loadingPOIs)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Column(
+                    children: [
+                      CircularProgressIndicator(color: Color(0xFF3B82F6)),
+                      SizedBox(height: 12),
+                      Text(
+                        "Finding nearby food, fuel & stays...",
+                        style: TextStyle(color: Colors.white60, fontSize: 13),
                       ),
-                    )
-                  // Whole details panel scrolls as one unit so the weather strip and
-                  // budget card below the summary are always reachable on small screens.
-                  : SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 16),
-                          _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress, destination: widget.end.name ?? widget.endAddress, tripStart: _tripStart),
-                          const SizedBox(height: 12),
-                          _buildDepartureSelector(),
-                          const SizedBox(height: 12),
-                          _buildDriveActions(),
-                          const SizedBox(height: 10),
-                          _buildTripActions(),
-                          const SizedBox(height: 12),
-                          _buildTripToolkit(),
-                          const SizedBox(height: 8),
-                          const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
-                          const SizedBox(height: 8),
-                          if (_loadingPOIs)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 28),
-                              child: Column(
-                                children: [
-                                  CircularProgressIndicator(),
-                                  SizedBox(height: 12),
-                                  Text(
-                                    "Finding nearby food, fuel & stays...",
-                                    style: TextStyle(color: Colors.white60, fontSize: 13),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            _buildPOIList(null, shrinkWrap: true),
-                          const SizedBox(height: 16),
-                        ],
+                    ],
+                  ),
+                )
+              else
+                _buildPOIList(null, shrinkWrap: true),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Live navigation status pill with green theme and stop indicator
+  Widget _buildStatusPill() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF10B981).withOpacity(0.18),
+          borderRadius: BorderRadius.circular(30),
+          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFF10B981),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Live navigation · following your GPS',
+                style: TextStyle(
+                  color: Color(0xFF10B981),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Icon(Icons.stop_rounded, color: Colors.white, size: 14),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Speedometer & Progress Row for Trip Overview
+  Widget _buildOverviewSpeedAndProgress() {
+    final hours = _currentPlan.durationMin ~/ 60;
+    final mins = _currentPlan.durationMin % 60;
+    final durationText = hours > 0 ? '${hours}h ${mins}m left' : '${mins} min left';
+    final etaText = _formatEta(_currentPlan.durationMin);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _buildSpeedometer(compact: true),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      durationText,
+                      style: const TextStyle(
+                        color: Color(0xFF10B981),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1A1F2E),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withOpacity(0.12)),
+                      ),
+                      child: Text(
+                        '$_displaySpeedKmh km/h',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_currentPlan.distanceKm.toStringAsFixed(1)} km · $etaText',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.6),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: _tripProgressPercent > 0 ? _tripProgressPercent : 0.05,
+                    backgroundColor: Colors.white12,
+                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                    minHeight: 4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// Primary full-width "Start" button for Overview
+  Widget _buildStartButton() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: ElevatedButton.icon(
+        onPressed: _startLiveNavigation,
+        icon: const Icon(Icons.play_arrow_rounded, size: 26),
+        label: const Text(
+          'Start',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+        ),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2563EB),
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 54),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 4,
+          shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
+        ),
+      ),
+    );
+  }
   }
 
   void _showMapStyleSheet() {
@@ -2588,17 +2705,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _buildTopHUD(topPadding),
         _buildBottomHUD(),
 
-        // Driver-cluster speedometer during preview/navigation. On mobile it sits
-        // ABOVE the bottom info banner (not on top of it) and is a touch smaller.
-        if (_isPlayingAnimation)
+        // On desktop, place speedometer separately; on mobile it is integrated in the bottom bar
+        if (_isPlayingAnimation && isDesktop)
           Positioned(
             left: 16,
-            bottom: isDesktop ? 24 : 132,
+            bottom: 24,
             child: ScaleTransition(
               scale: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOutBack),
               child: FadeTransition(
                 opacity: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOut),
-                child: _buildSpeedometer(compact: !isDesktop),
+                child: _buildSpeedometer(compact: false),
               ),
             ),
           ),
@@ -2955,74 +3071,160 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _buildTopHUD(double topPadding) {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
-    String bannerText = _isPreviewMode
-        ? "Previewing route…"
-        : (_isLiveNavigating ? "Live navigation • following your GPS" : "Drive straight on highway");
-    IconData leadingIcon = _isPreviewMode ? Icons.visibility : Icons.navigation;
-    Color iconColor = _isPreviewMode
-        ? Colors.tealAccent
-        : (_isLiveNavigating ? Colors.greenAccent : Colors.blueAccent);
+
+    final currentPos = _animatedVehiclePosition ?? widget.start.toLatLng();
+    final maneuver = _carGuidance.calculateManeuver(
+      currentPos: currentPos,
+      routePoints: _currentPlan.coordinates,
+      end: widget.end,
+      waypoints: _currentWaypoints,
+    );
+
+    IconData turnIcon = Icons.straight_rounded;
+    if (maneuver.type == ManeuverType.turnRight || maneuver.type == ManeuverType.slightRight || _isTurningRight) {
+      turnIcon = Icons.turn_right_rounded;
+    } else if (maneuver.type == ManeuverType.turnLeft || maneuver.type == ManeuverType.slightLeft || _isTurningLeft) {
+      turnIcon = Icons.turn_left_rounded;
+    } else if (maneuver.type == ManeuverType.destination) {
+      turnIcon = Icons.flag_rounded;
+    }
+
+    String distanceStr = maneuver.distanceMeters > 1000
+        ? '${(maneuver.distanceMeters / 1000).toStringAsFixed(1)} km'
+        : '${maneuver.distanceMeters.round()} m';
+
+    String instruction = maneuver.instruction;
+    String sub = 'toward ${widget.end.name ?? widget.endAddress}';
 
     if (_isTollStop) {
-      bannerText = "🛂 FASTag Toll Plaza: Auto-paying toll...";
-      leadingIcon = Icons.payment;
-      iconColor = Colors.amber;
+      turnIcon = Icons.payment_rounded;
+      distanceStr = 'Toll Plaza';
+      instruction = 'FASTag Auto-paying toll...';
+      sub = 'NHAI Express Lane';
     } else if (_activeStopHighlight != null) {
-      if (_activeStopHighlight!.name == (widget.end.name ?? "Destination")) {
-        bannerText = "🎉 Welcome! Arrived at destination!";
-        leadingIcon = Icons.celebration;
-        iconColor = Colors.green;
-      } else {
-        bannerText = "🛑 Stopover: ${_activeStopHighlight!.name}";
-        leadingIcon = Icons.place;
-        iconColor = Colors.redAccent;
-      }
-    } else if (_isTurningLeft) {
-      bannerText = "↩️ In 150m: Turn left onto next highway";
-      leadingIcon = Icons.turn_left;
-      iconColor = Colors.orange;
-    } else if (_isTurningRight) {
-      bannerText = "↪️ In 150m: Turn right onto next highway";
-      leadingIcon = Icons.turn_right;
-      iconColor = Colors.orange;
+      turnIcon = Icons.place_rounded;
+      distanceStr = 'Stopover';
+      instruction = _activeStopHighlight!.name;
+      sub = 'Arrived at waypoint';
     } else if (_currentSpeedModifier < 0.6) {
-      bannerText = "⚠️ Sharp Bend: Decelerating...";
-      leadingIcon = Icons.warning;
-      iconColor = Colors.redAccent;
+      turnIcon = Icons.warning_amber_rounded;
+      instruction = 'Sharp bend · Decelerating';
     }
 
     return Positioned(
-      left: 16,
       top: topPadding,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A1A).withOpacity(0.9),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.15)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.4),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      left: 16,
+      right: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Pinned Turn Banner
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1F2E).withOpacity(0.96),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.55),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(leadingIcon, color: iconColor, size: 24),
-            const SizedBox(width: 12),
-            Text(
-              bannerText,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-              ),
+            child: Row(
+              children: [
+                // Green vertical accent indicator on left edge
+                Container(
+                  width: 4,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(turnIcon, color: Colors.white, size: 28),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        distanceStr,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        instruction,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        sub,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.55),
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          // Compact "Rain ahead" weather pill top-left over map
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF59E0B).withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35),
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('🌧 ', style: TextStyle(fontSize: 12)),
+                Text(
+                  'Rain ahead',
+                  style: TextStyle(
+                    color: Color(0xFFF59E0B),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3039,13 +3241,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _buildBottomHUD() {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
-    // Live navigation uses real GPS-derived values; the simulation uses its
-    // internal progress model.
-    final int speedKmh = _isLiveNavigating
-        ? _liveSpeedKmh.round()
-        : (_isTollStop || _activeStopHighlight != null ? 0 : (_currentSpeedModifier * 80).round());
-    // Preview mode derives remaining distance/time from the REAL plan scaled by
-    // simulated progress (previously hardcoded to 140 km / 110 min / 3:45 PM).
+
     final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
     final String remainingDistanceKm = _isLiveNavigating
         ? _liveRemainingKm.toStringAsFixed(1)
@@ -3055,73 +3251,82 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         : (_currentPlan.durationMin * remainingFrac).round();
     final String etaText = _formatEta(remainingMinutes);
 
-    final bool isDesktop = MediaQuery.of(context).size.width > 900;
     return Positioned(
       left: 16,
-      // Desktop keeps a right gap (speedometer sits bottom-left); mobile uses the
-      // full width because the speedometer now sits above this banner.
-      right: isDesktop ? 80 : 16,
+      right: 16,
       bottom: 24,
       child: Center(
         child: Container(
           constraints: const BoxConstraints(maxWidth: 500),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A).withOpacity(0.9),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.15)),
+            color: const Color(0xFF1A1F2E).withOpacity(0.96),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.12)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 12,
+                color: Colors.black.withOpacity(0.55),
+                blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _activeStopHighlight?.name == (widget.end.name ?? "Destination") 
-                            ? "Arrived!" 
-                            : "$remainingMinutes min left",
-                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 18),
+              // Persistent compact speed dial
+              _buildSpeedometer(compact: true),
+              const SizedBox(width: 14),
+              // Remaining stats & progress bar
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _activeStopHighlight?.name == (widget.end.name ?? "Destination")
+                          ? "Arrived!"
+                          : "$remainingMinutes min left",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        "$remainingDistanceKm km • $etaText",
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "$remainingDistanceKm km · $etaText",
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.blueAccent.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
                     ),
-                    child: Text(
-                      "$speedKmh km/h",
-                      style: const TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold, fontSize: 16),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(3),
+                      child: LinearProgressIndicator(
+                        value: _tripProgressPercent,
+                        backgroundColor: Colors.white12,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                        minHeight: 4,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _tripProgressPercent,
-                  backgroundColor: Colors.white12,
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
-                  minHeight: 6,
+              const SizedBox(width: 12),
+              // Red circular "X" button to end navigation
+              Material(
+                color: const Color(0xFFEF4444),
+                shape: const CircleBorder(),
+                elevation: 4,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _stopAnimation,
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                  ),
                 ),
               ),
             ],
@@ -3129,6 +3334,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
   }
 
   Widget _buildStopHighlightCard(double topPadding) {
@@ -3773,9 +3979,13 @@ class _SummaryCard extends StatelessWidget {
 
     final toll = plan.toll;
     final curr = (toll?.currency == 'INR' || toll?.currency == null) ? '₹' : toll!.currency;
-    // Fuel is shown location-based (region price × litres) for consistency with
-    // the trip toolkit's cost split.
     final fuelDisplay = _estimateFuelCost(plan.distanceKm, vehicle);
+
+    final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+    final fp = fuelPriceFor(locationName);
+    final fuelVal = (plan.distanceKm / eff) * fp.perLiter;
+    final tollVal = (toll?.fastagTollCost ?? toll?.minTollCost ?? 0.0);
+    final totalCostVal = (fuelVal + tollVal).round();
 
     return Center(
       child: ConstrainedBox(
@@ -3785,24 +3995,30 @@ class _SummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Stats Row perfectly aligned with the inner content of the card below
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14),
+              // ── 3-Column Stats Strip with Dividers ──
+              Container(
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1F2E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.start),
-                    _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center),
-                    _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.end),
+                    Expanded(child: _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.center)),
+                    Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),
+                    Expanded(child: _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center)),
+                    Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),
+                    Expanded(child: _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.center)),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
-              // ── Fee Card ──
+              const SizedBox(height: 12),
+              // ── Cost Breakdown Card ──
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: const Color(0xFF1A1F2E),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
@@ -3810,10 +4026,10 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     _feeRow(
                       icon: Icons.contactless,
-                      iconColor: const Color(0xFF00E5A0),
+                      iconColor: const Color(0xFF10B981),
                       label: 'FASTag Fees',
                       badge: 'FASTAG',
-                      badgeColor: const Color(0xFF00E5A0),
+                      badgeColor: const Color(0xFF10B981),
                       value: toll == null
                           ? 'Checking...'
                           : (!toll.hasTolls
@@ -3824,13 +4040,13 @@ class _SummaryCard extends StatelessWidget {
                                       ? '$curr ${toll.minTollCost!.toStringAsFixed(0)}'
                                       : 'Has Tolls'))),
                     ),
-                    const Divider(color: Colors.white12, height: 16),
+                    Divider(color: Colors.white.withOpacity(0.08), height: 16),
                     _feeRow(
                       icon: Icons.toll,
-                      iconColor: const Color(0xFFFF6B6B),
+                      iconColor: const Color(0xFFEF4444),
                       label: 'Cash Toll',
                       badge: 'CASH',
-                      badgeColor: const Color(0xFFFF6B6B),
+                      badgeColor: const Color(0xFFEF4444),
                       subtitle: '2× FASTag rate (NHAI)',
                       value: toll == null
                           ? 'Checking...'
@@ -3841,23 +4057,102 @@ class _SummaryCard extends StatelessWidget {
                               : (toll.minTollCost != null
                                   ? '$curr ${(toll.minTollCost! * 2).toStringAsFixed(0)}'
                                   : 'Has Tolls'))),
+                    ),
+                    Divider(color: Colors.white.withOpacity(0.08), height: 16),
+                    _feeRow(
+                      icon: Icons.local_gas_station,
+                      iconColor: const Color(0xFFF59E0B),
+                      label: 'Fuel Cost',
+                      badge: 'EST.',
+                      badgeColor: const Color(0xFFF59E0B),
+                      value: fuelDisplay,
+                    ),
+                    Divider(color: Colors.white.withOpacity(0.12), height: 20),
+                    // Total est. cost
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Total est. cost',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            '$curr $totalCostVal',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const Divider(color: Colors.white12, height: 16),
-                _feeRow(
-                  icon: Icons.local_gas_station,
-                  iconColor: Colors.orangeAccent,
-                  label: 'Fuel Cost',
-                  badge: 'EST.',
-                  badgeColor: Colors.orangeAccent,
-                  value: fuelDisplay,
+              ),
+              // ── Weather on route Card ──
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1A1F2E),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.08)),
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(9),
+                          ),
+                          child: const Icon(Icons.thermostat_rounded, color: Color(0xFFF59E0B), size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Weather on route',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 18),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Rain or storms expected on part of your route',
+                              style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (plan.weather != null && plan.weather!.points.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _WeatherStrip(weather: plan.weather!),
               ],
-            ),
-          ),
-          if (plan.weather != null && plan.weather!.points.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _WeatherStrip(weather: plan.weather!),
-          ],
           if (plan.departureAdvice != null && plan.departureAdvice!.recommendation.isNotEmpty) ...[
             const SizedBox(height: 12),
             _DepartureBanner(
@@ -4654,7 +4949,7 @@ class _SpeedGaugePainter extends CustomPainter {
       ..strokeWidth = 6
       ..strokeCap = StrokeCap.round
       ..shader = const SweepGradient(
-        colors: [Color(0xFF60A5FA), Color(0xFF1a73e8)],
+        colors: [Color(0xFF10B981), Color(0xFF00E5A0)],
       ).createShader(rect);
     canvas.drawArc(rect, startAngle, sweep * frac, false, progress);
   }
