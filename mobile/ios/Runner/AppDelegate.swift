@@ -11,19 +11,46 @@ import UserNotifications
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
     if let controller = window?.rootViewController as? FlutterViewController {
-      let channel = FlutterMethodChannel(
-        name: "com.travelapp.notification",
-        binaryMessenger: controller.binaryMessenger)
-      channel.setMethodCallHandler { [weak self] call, result in
-        self?.handleNotification(call)
-        result(nil)
-      }
+      let messenger = controller.binaryMessenger
+
+      FlutterMethodChannel(name: "com.travelapp.notification", binaryMessenger: messenger)
+        .setMethodCallHandler { [weak self] call, result in
+          self?.handleNotification(call)
+          result(nil)
+        }
+
+      FlutterMethodChannel(name: "com.travelapp.liveactivity", binaryMessenger: messenger)
+        .setMethodCallHandler { call, result in
+          Self.handleLiveActivity(call)
+          result(nil)
+        }
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+  }
+
+  // MARK: - iOS Live Activity (Dynamic Island + lock screen)
+
+  private static func handleLiveActivity(_ call: FlutterMethodCall) {
+    guard #available(iOS 16.1, *) else { return }
+    let args = call.arguments as? [String: Any] ?? [:]
+    switch call.method {
+    case "start":
+      LiveActivityManager.shared.start(destination: args["destination"] as? String ?? "Trip")
+    case "update":
+      LiveActivityManager.shared.update(
+        eta: args["eta"] as? String ?? "",
+        distanceLeftKm: args["distanceLeftKm"] as? Double ?? 0,
+        progress: args["progress"] as? Double ?? 0,
+        arriving: args["arriving"] as? Bool ?? false)
+    case "end":
+      LiveActivityManager.shared.end()
+    default:
+      break
+    }
   }
 
   // MARK: - Live trip-progress local notification

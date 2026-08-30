@@ -1,4 +1,3 @@
-import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -15,7 +14,7 @@ class LiveActivityService {
 
   static const MethodChannel _channel = MethodChannel('com.travelapp.liveactivity');
 
-  bool get _isIOS => !kIsWeb && Platform.isIOS;
+  bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   Future<void> start({required String destination}) async {
     if (!_isIOS) return;

@@ -789,18 +789,61 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   /// day's geocoded stops (in order) as the route and the day's chosen vehicle,
   /// then opens the full driving screen (map, voice guidance, car mode + the
   /// live trip-progress notification).
+  /// Turn an itinerary line into a geocodable place query: strip leading verbs
+  /// ("Drive to", "Visit"…) and generic activity words that aren't places.
+  String? _placeQueryFor(PlanItem it) {
+    var t = it.text.trim();
+    // Drop obvious non-place activities (meals, breaks, check-in…).
+    final skip = RegExp(r'^(breakfast|lunch|dinner|brunch|coffee|tea|snack|'
+        r'lunch break|meal break|rest|free time|check-?in|check-?out|'
+        r'hotel check-?in|hotel check-?out|depart|return)\b', caseSensitive: false);
+    if (skip.hasMatch(t)) return null;
+    // Strip leading directional verbs.
+    t = t.replaceFirst(
+        RegExp(r'^(drive to|go to|head to|travel to|reach|visit|explore|'
+            r'stop at|arrive at|see|to)\s+', caseSensitive: false),
+        '');
+    t = t.replaceAll(RegExp(r'\(.*?\)'), '').trim();
+    return t.isEmpty ? null : t;
+  }
+
   Future<void> _startNavigation() async {
     if (_days.isEmpty) return;
     final day = _days[_selectedDay.clamp(0, _days.length - 1)];
-    final stops = <GeoPoint>[
-      for (final it in day.items)
-        if (it.hasCoords) GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text),
-    ];
+    setState(() => _navLoading = true);
+
+    // Collect route stops in order. Use existing coords; geocode the rest
+    // on-demand (AI itinerary items usually aren't geocoded yet).
+    final stops = <GeoPoint>[];
+    try {
+      // Trip context to disambiguate short names (e.g. "to Tirupati").
+      final ctx = _journeyEndpoints();
+      for (final it in day.items) {
+        if (it.hasCoords) {
+          stops.add(GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text));
+          continue;
+        }
+        final q = _placeQueryFor(it);
+        if (q == null) continue;
+        try {
+          final gp = await _api.geocode(q.contains(',') ? q : '$q, ${ctx.to}');
+          it.lat = gp.lat;
+          it.lng = gp.lng;
+          stops.add(GeoPoint(lat: gp.lat, lng: gp.lng, name: it.text));
+        } catch (_) {/* couldn't locate this one — skip it */}
+      }
+      // Cache the freshly geocoded coords.
+      await _store.saveDays(_days, name: widget.tripName);
+    } catch (_) {/* fall through to the count check */}
+
     if (stops.length < 2) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(
-            'Need at least 2 located stops to navigate. Tap a stop to set its place, then try again.')),
-      );
+      if (mounted) {
+        setState(() => _navLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(
+              "Couldn't locate enough stops to navigate. Add place names to at least 2 stops and try again.")),
+        );
+      }
       return;
     }
 
