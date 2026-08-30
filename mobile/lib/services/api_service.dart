@@ -375,6 +375,32 @@ class ApiService {
     return jsonDecode(response.body) as List<dynamic>;
   }
 
+  /// Destination autocomplete via the backend (the client's Mapbox token is
+  /// URL-restricted to the website, so native apps must proxy through here).
+  /// Returns up to 6 suggestions: [{name, lat, lng}].
+  Future<List<Map<String, dynamic>>> autocompletePlaces(String query) async {
+    final q = query.trim();
+    if (q.length < 2) return [];
+    final uri = Uri.parse('$baseUrl/api/geocode/suggest')
+        .replace(queryParameters: {'q': q});
+    try {
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200) return [];
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final list = (data['suggestions'] as List?) ?? [];
+      return list.map((e) {
+        final m = e as Map<String, dynamic>;
+        return {
+          'name': (m['name'] ?? '').toString(),
+          'lat': (m['lat'] as num).toDouble(),
+          'lng': (m['lng'] as num).toDouble(),
+        };
+      }).where((m) => (m['name'] as String).isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   Future<String?> reverseGeocode(double lat, double lng) async {
     final uri = Uri.parse('$baseUrl/api/trip/reverse-geocode?lat=$lat&lng=$lng');
     try {

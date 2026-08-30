@@ -6,7 +6,6 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../utils/landing_redirect.dart';
@@ -110,7 +109,6 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   final Map<int, List<Map<String, dynamic>>> _suggestions = {};
   int? _activeSuggestIndex;
   Timer? _suggestDebounce;
-  static const String _mapboxToken = AppConfig.mapboxToken;
   Vehicle? _tempVehicle;
   
   Map<String, List<PlaceOfInterest>> _pois = {};
@@ -1023,29 +1021,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
     _suggestDebounce = Timer(const Duration(milliseconds: 320), () async {
       try {
-        final uri = Uri.parse(
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(q)}.json',
-        ).replace(queryParameters: {
-          'autocomplete': 'true',
-          'limit': '5',
-          // Worldwide results (international trips need non-India destinations),
-          // but bias toward India so domestic places still rank first.
-          'proximity': '78.9629,20.5937',
-          'language': 'en',
-          'access_token': _mapboxToken,
-        });
-        final res = await http.get(uri).timeout(const Duration(seconds: 8));
-        if (res.statusCode != 200) return;
-        final body = jsonDecode(res.body) as Map<String, dynamic>;
-        final feats = (body['features'] as List?) ?? [];
-        final list = feats.map((f) {
-          final c = (f['center'] as List);
-          return {
-            'name': f['place_name'] as String? ?? '',
-            'lng': (c[0] as num).toDouble(),
-            'lat': (c[1] as num).toDouble(),
-          };
-        }).toList();
+        // Proxy through the backend: the client Mapbox token is URL-restricted
+        // to the website and is rejected (403) from the native app.
+        final list = await _api.autocompletePlaces(q);
         if (!mounted) return;
         setState(() {
           _suggestions[index] = list;
@@ -2323,27 +2301,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
     _placeSearchDebounce = Timer(const Duration(milliseconds: 320), () async {
       try {
-        final uri = Uri.parse(
-          'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(q)}.json',
-        ).replace(queryParameters: {
-          'autocomplete': 'true',
-          'limit': '6',
-          // Worldwide, biased toward India so domestic places rank first.
-          'proximity': '78.9629,20.5937',
-          'language': 'en',
-          'access_token': _mapboxToken,
-        });
-        final res = await http.get(uri).timeout(const Duration(seconds: 8));
-        if (res.statusCode != 200) return;
-        final feats = ((jsonDecode(res.body) as Map<String, dynamic>)['features'] as List?) ?? [];
-        final list = feats.map((f) {
-          final c = f['center'] as List;
-          return {
-            'name': f['place_name'] as String? ?? '',
-            'lng': (c[0] as num).toDouble(),
-            'lat': (c[1] as num).toDouble(),
-          };
-        }).toList();
+        // Proxy through the backend (URL-restricted client token is 403'd on native).
+        final list = await _api.autocompletePlaces(q);
         if (mounted) setState(() => _placeSuggestions = list);
       } catch (_) {/* ignore transient search errors */}
     });

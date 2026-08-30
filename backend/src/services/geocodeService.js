@@ -86,4 +86,81 @@ async function geocodeAddress(query) {
   }
 }
 
-module.exports = { geocodeAddress };
+/**
+ * Autocomplete: return up to `limit` place suggestions for a partial query.
+ * Used by the mobile/web planner's destination field. The public Mapbox token
+ * shipped in the client is URL-restricted (browser-only), so native apps can't
+ * call Mapbox directly — they proxy through here, where the server token (or
+ * the free Nominatim fallback) does the lookup.
+ *
+ * @returns {Promise<Array<{name:string, lat:number, lng:number}>>}
+ */
+async function suggestPlaces(query, limit = 6) {
+  const q = (query || "").trim();
+  if (q.length < 2) return [];
+
+  // 1) Mapbox (best fuzzy matching) using the SERVER token. Worldwide, biased
+  //    toward India so domestic places rank first. Skipped/failed silently if
+  //    the token is missing or restricted — we fall back to Nominatim.
+  if (MAPBOX_TOKEN) {
+    try {
+      const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        q
+      )}.json`;
+      const response = await axios.get(url, {
+        params: {
+          access_token: MAPBOX_TOKEN,
+          autocomplete: true,
+          limit,
+          proximity: "78.9629,20.5937",
+          language: "en",
+        },
+        timeout: 8000,
+      });
+      const feats = (response.data && response.data.features) || [];
+      const list = feats
+        .filter((f) => Array.isArray(f.center) && f.center.length === 2)
+        .map((f) => ({
+          name: f.place_name || "",
+          lng: parseFloat(f.center[0]),
+          lat: parseFloat(f.center[1]),
+        }))
+        .filter((s) => s.name);
+      if (list.length > 0) return list;
+    } catch (err) {
+      console.warn(
+        "Mapbox autocomplete failed, falling back to Nominatim:",
+        err.response ? err.response.status : err.message
+      );
+    }
+  }
+
+  // 2) Free OpenStreetMap Nominatim fallback — worldwide, no token, works from
+  //    the server. (No country lock so international destinations resolve.)
+  try {
+    const response = await axios.get(
+      "https://nominatim.openstreetmap.org/search",
+      {
+        params: { q, format: "json", limit, addressdetails: 0 },
+        headers: {
+          "User-Agent":
+            "TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/; contact: travel-app)",
+        },
+        timeout: 8000,
+      }
+    );
+    const data = response.data || [];
+    return data
+      .map((r) => ({
+        name: r.display_name || "",
+        lat: parseFloat(r.lat),
+        lng: parseFloat(r.lon),
+      }))
+      .filter((s) => s.name && !Number.isNaN(s.lat) && !Number.isNaN(s.lng));
+  } catch (err) {
+    console.error("Nominatim autocomplete failed:", err.message);
+    return [];
+  }
+}
+
+module.exports = { geocodeAddress, suggestPlaces };
