@@ -16,7 +16,12 @@ final class LiveActivityManager {
     private var activity: Activity<TripActivityAttributes>?
 
     func start(destination: String) {
-        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
+        NSLog("VOYPLAN LiveActivity start: enabled=\(enabled) dest=\(destination)")
+        guard enabled else {
+            NSLog("VOYPLAN LiveActivity: Live Activities are DISABLED in Settings")
+            return
+        }
         // Replace any stale activity first.
         end()
         let attributes = TripActivityAttributes(destination: destination)
@@ -31,8 +36,9 @@ final class LiveActivityManager {
                 activity = try Activity.request(
                     attributes: attributes, contentState: state)
             }
+            NSLog("VOYPLAN LiveActivity: started id=\(activity?.id ?? "nil")")
         } catch {
-            NSLog("Live Activity start failed: \(error)")
+            NSLog("VOYPLAN LiveActivity start FAILED: \(error)")
         }
     }
 

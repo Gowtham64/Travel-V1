@@ -34,7 +34,11 @@ import UserNotifications
   // MARK: - iOS Live Activity (Dynamic Island + lock screen)
 
   private static func handleLiveActivity(_ call: FlutterMethodCall) {
-    guard #available(iOS 16.1, *) else { return }
+    NSLog("VOYPLAN liveactivity channel: \(call.method)")
+    guard #available(iOS 16.1, *) else {
+      NSLog("VOYPLAN liveactivity: iOS < 16.1, unsupported")
+      return
+    }
     let args = call.arguments as? [String: Any] ?? [:]
     switch call.method {
     case "start":
@@ -55,6 +59,7 @@ import UserNotifications
   // MARK: - Live trip-progress local notification
 
   private func handleNotification(_ call: FlutterMethodCall) {
+    NSLog("VOYPLAN notification channel: \(call.method)")
     switch call.method {
     case "start":
       requestAuth()
