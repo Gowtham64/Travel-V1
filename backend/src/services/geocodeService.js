@@ -99,6 +99,48 @@ async function suggestPlaces(query, limit = 6) {
   const q = (query || "").trim();
   if (q.length < 2) return [];
 
+  // 0) OpenRouteService (Pelias) autocomplete — PRIMARY. Works from cloud IPs
+  //    (unlike Nominatim, which blocks Render), worldwide, purpose-built for
+  //    typeahead. Focused on India so domestic places rank first.
+  const orsKey = process.env.ORS_API_KEY;
+  if (orsKey) {
+    try {
+      const res = await axios.get(
+        "https://api.openrouteservice.org/geocode/autocomplete",
+        {
+          params: {
+            api_key: orsKey,
+            text: q,
+            size: limit,
+            "focus.point.lon": 78.9629,
+            "focus.point.lat": 20.5937,
+          },
+          timeout: 8000,
+        }
+      );
+      const feats = (res.data && res.data.features) || [];
+      const list = feats
+        .filter(
+          (f) =>
+            f.geometry &&
+            Array.isArray(f.geometry.coordinates) &&
+            f.geometry.coordinates.length === 2
+        )
+        .map((f) => ({
+          name: (f.properties && (f.properties.label || f.properties.name)) || "",
+          lng: parseFloat(f.geometry.coordinates[0]),
+          lat: parseFloat(f.geometry.coordinates[1]),
+        }))
+        .filter((s) => s.name);
+      if (list.length > 0) return list;
+    } catch (err) {
+      console.warn(
+        "ORS autocomplete failed, trying Mapbox/Nominatim:",
+        err.response ? err.response.status : err.message
+      );
+    }
+  }
+
   // 1) Mapbox (best fuzzy matching) using the SERVER token. Worldwide, biased
   //    toward India so domestic places rank first. Skipped/failed silently if
   //    the token is missing or restricted — we fall back to Nominatim.
