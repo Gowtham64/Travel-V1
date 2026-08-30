@@ -6,30 +6,29 @@ import UserNotifications
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let tripNotifId = "trip_progress"
 
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let messenger = controller.binaryMessenger
-
-      FlutterMethodChannel(name: "com.travelapp.notification", binaryMessenger: messenger)
-        .setMethodCallHandler { [weak self] call, result in
-          self?.handleNotification(call)
-          result(nil)
-        }
-
-      FlutterMethodChannel(name: "com.travelapp.liveactivity", binaryMessenger: messenger)
-        .setMethodCallHandler { call, result in
-          Self.handleLiveActivity(call)
-          result(nil)
-        }
-    }
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
-  }
-
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    // Register our channels here — in the new Flutter iOS engine the
+    // FlutterViewController isn't the window's rootViewController at
+    // didFinishLaunching, so registering there silently no-ops. The plugin
+    // registry's messenger is always available at this point.
+    if let messenger = engineBridge.pluginRegistry
+        .registrar(forPlugin: "VoyplanChannels")?.messenger() {
+      setupChannels(messenger)
+    }
+  }
+
+  private func setupChannels(_ messenger: FlutterBinaryMessenger) {
+    FlutterMethodChannel(name: "com.travelapp.notification", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak self] call, result in
+        self?.handleNotification(call)
+        result(nil)
+      }
+    FlutterMethodChannel(name: "com.travelapp.liveactivity", binaryMessenger: messenger)
+      .setMethodCallHandler { call, result in
+        Self.handleLiveActivity(call)
+        result(nil)
+      }
   }
 
   // MARK: - iOS Live Activity (Dynamic Island + lock screen)
