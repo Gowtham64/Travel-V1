@@ -1028,7 +1028,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         ).replace(queryParameters: {
           'autocomplete': 'true',
           'limit': '5',
-          'country': 'in',
+          // Worldwide results (international trips need non-India destinations),
+          // but bias toward India so domestic places still rank first.
+          'proximity': '78.9629,20.5937',
           'language': 'en',
           'access_token': _mapboxToken,
         });
@@ -2326,7 +2328,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         ).replace(queryParameters: {
           'autocomplete': 'true',
           'limit': '6',
-          'country': 'in',
+          // Worldwide, biased toward India so domestic places rank first.
+          'proximity': '78.9629,20.5937',
           'language': 'en',
           'access_token': _mapboxToken,
         });

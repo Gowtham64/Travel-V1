@@ -17,7 +17,9 @@ async function geocodeWithMapbox(query) {
     params: {
       access_token: MAPBOX_TOKEN,
       limit: 1,
-      country: "in", // keep consistent with the app's India focus
+      // Worldwide (international destinations must resolve too), biased toward
+      // India so domestic place names still win when ambiguous.
+      proximity: "78.9629,20.5937",
       language: "en",
     },
     timeout: 10000,
@@ -43,7 +45,8 @@ async function geocodeWithNominatim(query) {
   const response = await axios.get(
     "https://nominatim.openstreetmap.org/search",
     {
-      params: { q: query, format: "json", limit: 1, countrycodes: "in" },
+      // Worldwide search — no country lock — so international destinations resolve.
+      params: { q: query, format: "json", limit: 1 },
       headers: {
         // Nominatim requires a descriptive UA identifying the app.
         "User-Agent":
