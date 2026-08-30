@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
@@ -39,6 +40,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   String _transportMode = 'car'; // 'car' or 'bike' — drives the vehicle list + fuel calc
   VehicleModel? _vehicle;
 
+  // Destination / start-location autocomplete (via the backend proxy).
+  Timer? _acDebounce;
+  List<Map<String, dynamic>> _destSuggestions = [];
+  List<Map<String, dynamic>> _startSuggestions = [];
+
   bool _loading = false;
   String? _error;
   List<SmartDay> _itinerary = [];
@@ -47,6 +53,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   @override
   void dispose() {
+    _acDebounce?.cancel();
     _destCtrl.dispose();
     _startLocCtrl.dispose();
     _placesCtrl.dispose();
@@ -282,6 +289,111 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     );
   }
 
+  /// Debounced place autocomplete for the destination / start fields. Queries
+  /// the backend proxy (the client Mapbox token is URL-restricted, so direct
+  /// Mapbox calls 403 from the app).
+  void _onPlaceQuery(String query, bool isDest) {
+    _acDebounce?.cancel();
+    final q = query.trim();
+    if (q.length < 3) {
+      setState(() {
+        if (isDest) {
+          _destSuggestions = [];
+        } else {
+          _startSuggestions = [];
+        }
+      });
+      return;
+    }
+    _acDebounce = Timer(const Duration(milliseconds: 320), () async {
+      final list = await _api.autocompletePlaces(q);
+      if (!mounted) return;
+      setState(() {
+        if (isDest) {
+          _destSuggestions = list;
+        } else {
+          _startSuggestions = list;
+        }
+      });
+    });
+  }
+
+  /// A place text field with a live autocomplete dropdown underneath.
+  Widget _placeField(
+    TextEditingController c,
+    String hint,
+    IconData icon, {
+    required bool isDest,
+  }) {
+    final suggestions = isDest ? _destSuggestions : _startSuggestions;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: c,
+          style: const TextStyle(color: Colors.white),
+          onChanged: (v) => _onPlaceQuery(v, isDest),
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+            prefixIcon: Icon(icon, color: Colors.white70, size: 20),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+          ),
+        ),
+        if (suggestions.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13233B).withValues(alpha: 0.98),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+            ),
+            child: Column(
+              children: [
+                for (final s in suggestions)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        c.text = s['name'] as String;
+                        if (isDest) {
+                          _destSuggestions = [];
+                        } else {
+                          _startSuggestions = [];
+                        }
+                      });
+                      FocusScope.of(context).unfocus();
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+                      child: Row(children: [
+                        const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(s['name'] as String,
+                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              maxLines: 2, overflow: TextOverflow.ellipsis),
+                        ),
+                      ]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   Widget _pill(String label, IconData icon, VoidCallback onTap) => Expanded(
         child: OutlinedButton.icon(
           onPressed: onTap,
@@ -305,9 +417,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text('Set your start date & time — the AI schedules everything, breaks included.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
-          _field(_destCtrl, 'Destination (e.g. Coorg, Karnataka)', Icons.explore_rounded),
+          _placeField(_destCtrl, 'Destination (e.g. Coorg, Karnataka)', Icons.explore_rounded, isDest: true),
           const SizedBox(height: 10),
-          _field(_startLocCtrl, 'Starting location (optional)', Icons.my_location_rounded),
+          _placeField(_startLocCtrl, 'Starting location (optional)', Icons.my_location_rounded, isDest: false),
           const SizedBox(height: 10),
           _field(_placesCtrl, 'Places to visit (comma-separated, optional)', Icons.place_rounded, maxLines: 2),
           const SizedBox(height: 14),
