@@ -326,17 +326,31 @@
 
         .hero-actions {
             display: flex;
-            flex-wrap: wrap;
-            gap: 0.9rem;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
             margin-top: 1.8rem;
-            max-width: 520px;
+            align-items: stretch;
         }
-        /* All three download buttons share one width so they align in a tidy grid. */
+        /* All three buttons share one row with equal width */
         .hero-actions .hero-btn {
-            flex: 1 1 210px;
-            max-width: 250px;
+            flex: 1 1 0;
+            min-width: 0;
             justify-content: center;
             box-sizing: border-box;
+            white-space: nowrap;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 720px) {
+            .hero-actions {
+                flex-wrap: wrap;
+            }
+            .hero-actions .hero-btn {
+                flex: 1 1 100%;
+                padding: 0.85rem 1.6rem;
+                font-size: 0.98rem;
+            }
         }
 
         .hero-btn {
