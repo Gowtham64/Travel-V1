@@ -19,6 +19,7 @@ import '../services/car_guidance_service.dart';
 import '../services/voice_guide.dart';
 import '../utils/calendar_helper.dart';
 import '../services/car_platform_channel.dart';
+import '../services/trip_notification_service.dart';
 import '../widgets/three_d_map.dart';
 import '../widgets/car_mode_overlay.dart';
 import 'itinerary_screen.dart';
@@ -181,6 +182,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _positionStream?.cancel();
     _voice.dispose();
     _mapController.dispose();
+    TripNotificationService.instance.end(); // never leave a stale trip notification
     // Restore normal orientation/chrome if we left while in Car Mode.
     if (_isCarMode && !kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -1890,6 +1892,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _tripProgressPercent = 0.0;
     });
     CarPlatformChannel.setNavigationState(isNavigating: false); // clear the car screen
+    TripNotificationService.instance.end(); // clear the live trip notification
   }
 
   /// Preview + Start buttons for the animated journey. Preview is a fast aerial
@@ -2425,6 +2428,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       routeCoordinates: _currentPlan.coordinates,
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
+    // Live trip-progress notification (lock screen + shade) + iOS Live Activity.
+    TripNotificationService.instance.start(destination: widget.endAddress);
   }
 
   // Throttle live car updates so we don't spam the channel at 60fps.
@@ -2457,6 +2462,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       currentLat: pos.latitude,
       currentLng: pos.longitude,
       bearingDeg: bearingDeg,
+    );
+
+    // Refresh the live trip-progress notification / Live Activity.
+    final arriving = remainingKm < 0.15;
+    TripNotificationService.instance.update(
+      destination: widget.endAddress,
+      etaText: telemetry.formattedEta,
+      distanceLeftKm: remainingKm,
+      progressPercent: _tripProgressPercent,
+      speedKmh: speedKmh,
+      arriving: arriving,
     );
   }
 

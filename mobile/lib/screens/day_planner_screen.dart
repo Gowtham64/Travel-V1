@@ -15,7 +15,9 @@ import 'smart_itinerary_screen.dart';
 import 'trip_demo_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import '../models/trip_extras.dart';
+import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
+import 'trip_screen.dart';
 import '../services/trip_extras_store.dart';
 import '../services/api_service.dart';
 import '../utils/plan_export.dart';
@@ -85,6 +87,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   List<PlanDay> _days = [];
   int _selectedDay = 0;
+  bool _navLoading = false;
   bool _loading = true;
   DateTime? _startedAt; // non-null once the trip is started (active-trip mode)
 
@@ -782,6 +785,71 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     setState(() {});
   }
 
+  /// Launch turn-by-turn driving navigation for the selected day. Uses the
+  /// day's geocoded stops (in order) as the route and the day's chosen vehicle,
+  /// then opens the full driving screen (map, voice guidance, car mode + the
+  /// live trip-progress notification).
+  Future<void> _startNavigation() async {
+    if (_days.isEmpty) return;
+    final day = _days[_selectedDay.clamp(0, _days.length - 1)];
+    final stops = <GeoPoint>[
+      for (final it in day.items)
+        if (it.hasCoords) GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text),
+    ];
+    if (stops.length < 2) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+            'Need at least 2 located stops to navigate. Tap a stop to set its place, then try again.')),
+      );
+      return;
+    }
+
+    // Build the driving vehicle from the day's selection (fall back to a car).
+    final vm = day.vehicleId == null
+        ? null
+        : predefinedVehicles
+            .where((e) => e.id == day.vehicleId)
+            .cast<VehicleModel?>()
+            .firstWhere((_) => true, orElse: () => null);
+    final vehicle = Vehicle(
+      type: vm?.type ?? 'car',
+      efficiencyKmPerLiter: vm?.mileage ?? 15,
+      tankCapacityLiters: vm?.tankCapacity ?? 40,
+      currentFuelLiters: vm?.tankCapacity ?? 40,
+    );
+
+    final start = stops.first;
+    final end = stops.last;
+    final waypoints = stops.sublist(1, stops.length - 1);
+
+    setState(() => _navLoading = true);
+    try {
+      final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
+      if (!mounted) return;
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => TripScreen(
+          plan: plan,
+          startAddress: start.name ?? 'Start',
+          endAddress: end.name ?? 'Destination',
+          vehicleType: vehicle.type,
+          poiCategories: const [],
+          start: start,
+          end: end,
+          waypoints: waypoints,
+          vehicle: vehicle,
+        ),
+      ));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not start navigation: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _navLoading = false);
+    }
+  }
+
   /// Origin/destination for this journey, used for booking suggestions.
   /// Looks for a "from X to Y" phrase in the trip name or any AI day title
   /// (e.g. "Journey from Mandya to New York City"), then an "A → B" trip name,
@@ -1171,6 +1239,26 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
               backgroundColor: const Color(0xFF34D27B),
               foregroundColor: const Color(0xFF04211F),
               padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        // Turn-by-turn driving navigation for the selected day's route.
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _navLoading ? null : _startNavigation,
+            icon: _navLoading
+                ? const SizedBox(
+                    width: 18, height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)))
+                : const Icon(Icons.navigation_rounded, size: 20, color: Color(0xFF38BDF8)),
+            label: Text(_navLoading ? 'Building route…' : 'START NAVIGATION (DRIVING)',
+                style: const TextStyle(color: Color(0xFF7DD3FC), fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF38BDF8), width: 1.4),
+              padding: const EdgeInsets.symmetric(vertical: 13),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),
