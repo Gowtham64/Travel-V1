@@ -19,13 +19,16 @@ class TripNotificationService {
   bool _active = false;
 
   /// Begin the trip-progress notification. [destination] names the trip.
-  Future<void> start({required String destination}) async {
+  Future<void> start({required String destination, String vehicleType = 'car'}) async {
     if (kIsWeb) return;
     _active = true;
     try {
-      await _channel.invokeMethod('start', {'destination': destination});
+      await _channel.invokeMethod('start', {
+        'destination': destination,
+        'vehicleType': vehicleType,
+      });
     } catch (_) {/* channel not wired on this platform */}
-    await LiveActivityService.instance.start(destination: destination);
+    await LiveActivityService.instance.start(destination: destination, vehicleType: vehicleType);
   }
 
   /// Update the live notification with the latest ETA / distance / progress.

@@ -16,10 +16,13 @@ class LiveActivityService {
 
   bool get _isIOS => !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
-  Future<void> start({required String destination}) async {
+  Future<void> start({required String destination, String vehicleType = 'car'}) async {
     if (!_isIOS) return;
     try {
-      await _channel.invokeMethod('start', {'destination': destination});
+      await _channel.invokeMethod('start', {
+        'destination': destination,
+        'vehicleType': vehicleType,
+      });
     } catch (_) {/* not available: Android, iOS < 16.1, or extension absent */}
   }
 

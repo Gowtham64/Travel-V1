@@ -42,7 +42,9 @@ import UserNotifications
     let args = call.arguments as? [String: Any] ?? [:]
     switch call.method {
     case "start":
-      LiveActivityManager.shared.start(destination: args["destination"] as? String ?? "Trip")
+      let dest = args["destination"] as? String ?? "Trip"
+      let vehicle = args["vehicleType"] as? String ?? "car"
+      LiveActivityManager.shared.start(destination: dest, vehicleType: vehicle)
     case "update":
       LiveActivityManager.shared.update(
         eta: args["eta"] as? String ?? "",

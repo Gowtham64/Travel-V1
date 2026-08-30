@@ -15,4 +15,5 @@ struct TripActivityAttributes: ActivityAttributes {
 
     /// Fixed for the whole activity.
     var destination: String
+    var vehicleType: String
 }

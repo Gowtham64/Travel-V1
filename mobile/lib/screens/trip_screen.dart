@@ -1471,9 +1471,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _visitedStops.clear();
       _tripProgressPercent = 0.0;
       _liveSpeedKmh = 0.0;
-      // Show live traffic on the map while actually driving; restore on stop.
-      _styleBeforeNav = _mapStyle;
-      _mapStyle = MapStyle.traffic2D;
     });
     _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
     _voice.reset();
@@ -1492,10 +1489,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       // Stream will deliver a fix shortly; ignore a slow first read.
     }
 
-    const settings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 5, // metres between updates
-    );
+    final LocationSettings settings = (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
+        ? AppleSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 3,
+            activityType: ActivityType.automotiveNavigation,
+            pauseLocationUpdatesAutomatically: false,
+            showBackgroundLocationIndicator: true,
+            allowBackgroundLocationUpdates: true,
+          )
+        : const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 3,
+          );
     _positionStream =
         Geolocator.getPositionStream(locationSettings: settings).listen(
       (pos) => _onLivePosition(pos, routePoints),
@@ -2545,7 +2551,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
     // Live trip-progress notification (lock screen + shade) + iOS Live Activity.
-    TripNotificationService.instance.start(destination: widget.endAddress);
+    TripNotificationService.instance.start(
+      destination: widget.endAddress,
+      vehicleType: widget.modelSubtype ?? widget.vehicle.type,
+    );
   }
 
   // Throttle live car updates so we don't spam the channel at 60fps.

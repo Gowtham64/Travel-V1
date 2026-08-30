@@ -15,16 +15,16 @@ final class LiveActivityManager {
     static let shared = LiveActivityManager()
     private var activity: Activity<TripActivityAttributes>?
 
-    func start(destination: String) {
+    func start(destination: String, vehicleType: String = "car") {
         let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
-        NSLog("VOYPLAN LiveActivity start: enabled=\(enabled) dest=\(destination)")
+        NSLog("VOYPLAN LiveActivity start: enabled=\(enabled) dest=\(destination) vehicle=\(vehicleType)")
         guard enabled else {
             NSLog("VOYPLAN LiveActivity: Live Activities are DISABLED in Settings")
             return
         }
         // Replace any stale activity first.
         end()
-        let attributes = TripActivityAttributes(destination: destination)
+        let attributes = TripActivityAttributes(destination: destination, vehicleType: vehicleType)
         let state = TripActivityAttributes.ContentState(
             eta: "…", distanceLeftKm: 0, progress: 0, arriving: false)
         do {
