@@ -2,13 +2,14 @@ import ActivityKit
 import WidgetKit
 import SwiftUI
 
-/// The Voyplan trip Live Activity: a delivery-tracker-style ETA card on the
-/// lock screen and a compact route indicator in the Dynamic Island with full
-/// multi-stop (waypoint), round-trip, and multi-vehicle support.
+/// The Voyplan trip Live Activity: A premium delivery-tracker-style Live Activity
+/// (Zomato-style) with a custom moving vehicle avatar along a solid-to-dashed
+/// route line, intermediate stop badges, and destination node.
 @available(iOS 16.1, *)
 struct VoyplanTripActivityLiveActivity: Widget {
+    private static let greenAccent = Color(red: 0.30, green: 0.82, blue: 0.45)
     private static let teal = Color(red: 0.20, green: 0.83, blue: 0.75)
-    private static let amber = Color(red: 0.96, green: 0.62, blue: 0.04)
+    private static let amber = Color(red: 0.98, green: 0.65, blue: 0.15)
 
     private func vehicleIcon(for type: String) -> String {
         let t = type.lowercased()
@@ -37,10 +38,11 @@ struct VoyplanTripActivityLiveActivity: Widget {
 
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TripActivityAttributes.self) { context in
-            // MARK: Lock screen / banner
+            // MARK: Lock screen / Banner View
             LockScreenView(context: context)
-                .padding(14)
-                .activityBackgroundTint(Color.black.opacity(0.88))
+                .padding(.horizontal, 18)
+                .padding(.vertical, 16)
+                .activityBackgroundTint(Color(red: 0.10, green: 0.10, blue: 0.11))
                 .activitySystemActionForegroundColor(Color.white)
 
         } dynamicIsland: { context in
@@ -48,72 +50,73 @@ struct VoyplanTripActivityLiveActivity: Widget {
             let iconName = vehicleIcon(for: activeVehicle)
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    Label {
-                        Text(context.state.arriving ? "Arriving" : context.state.eta)
-                            .font(.headline).foregroundColor(.white)
-                    } icon: {
-                        Image(systemName: iconName).foregroundColor(Self.teal)
+                    HStack(spacing: 6) {
+                        Image(systemName: iconName)
+                            .foregroundColor(Self.greenAccent)
+                            .font(.system(size: 16, weight: .bold))
+                        Text(context.state.arriving ? "Arrived" : context.state.eta)
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("\(String(format: "%.1f", context.state.distanceLeftKm)) km")
-                            .font(.subheadline.weight(.semibold)).foregroundColor(.white.opacity(0.9))
-                        if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                            Text("📍 \(shortName(nextStop))")
-                                .font(.system(size: 9, weight: .bold)).foregroundColor(Self.amber)
-                                .lineLimit(1)
-                        }
+                        Text("voyplan")
+                            .font(.system(size: 13, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                        Text("\(String(format: "%.1f", context.state.distanceLeftKm)) km left")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.7))
                     }
                 }
                 DynamicIslandExpandedRegion(.bottom) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        ProgressView(value: context.state.progress)
-                            .tint(Self.teal)
-                        HStack(spacing: 3) {
-                            Text(shortName(context.attributes.startPoint))
-                                .font(.caption2).foregroundColor(.white.opacity(0.6))
-                                .lineLimit(1)
-                            
-                            if !context.attributes.stops.isEmpty {
-                                ForEach(context.attributes.stops, id: \.self) { stop in
-                                    Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
-                                    Text(shortName(stop))
-                                        .font(.caption2.weight(.bold)).foregroundColor(Self.amber)
-                                        .lineLimit(1)
-                                }
-                            } else if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                                Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
-                                Text(shortName(nextStop))
-                                    .font(.caption2.weight(.bold)).foregroundColor(Self.amber)
-                                    .lineLimit(1)
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            Text("On time")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(Self.greenAccent)
+                            Text("|")
+                                .foregroundColor(.white.opacity(0.3))
+                                .font(.system(size: 11))
+                            if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
+                                Text("Next: \(shortName(nextStop))")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(Self.amber)
+                            } else {
+                                Text("To \(shortName(context.attributes.destination))")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundColor(.white.opacity(0.85))
                             }
-                            
-                            Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
-                            Text(shortName(context.attributes.destination))
-                                .font(.caption2.weight(.medium)).foregroundColor(.white.opacity(0.85))
-                                .lineLimit(1)
                         }
+                        
+                        // Zomato-style track in Dynamic Island
+                        TrackerLineView(
+                            progress: CGFloat(max(0.02, min(0.98, context.state.progress))),
+                            iconName: iconName,
+                            stops: context.attributes.stops,
+                            nextStop: context.state.nextStopName
+                        )
                     }
                 }
             } compactLeading: {
-                Image(systemName: iconName).foregroundColor(Self.teal)
+                Image(systemName: iconName).foregroundColor(Self.greenAccent)
             } compactTrailing: {
                 Text(context.state.arriving ? "•" : context.state.eta)
-                    .font(.caption2.weight(.semibold)).foregroundColor(.white)
+                    .font(.caption2.weight(.bold)).foregroundColor(.white)
             } minimal: {
-                Image(systemName: iconName).foregroundColor(Self.teal)
+                Image(systemName: iconName).foregroundColor(Self.greenAccent)
             }
-            .keylineTint(Self.teal)
+            .keylineTint(Self.greenAccent)
         }
     }
 }
 
+// MARK: - Lock Screen View (Zomato-Style Delivery Live Activity)
 @available(iOS 16.1, *)
 private struct LockScreenView: View {
     let context: ActivityViewContext<TripActivityAttributes>
-    private var teal: Color { Color(red: 0.20, green: 0.83, blue: 0.75) }
-    private var amber: Color { Color(red: 0.96, green: 0.62, blue: 0.04) }
+    private var greenAccent: Color { Color(red: 0.30, green: 0.85, blue: 0.45) }
+    private var amber: Color { Color(red: 0.98, green: 0.65, blue: 0.15) }
 
     private func vehicleIcon(for type: String) -> String {
         let t = type.lowercased()
@@ -143,163 +146,146 @@ private struct LockScreenView: View {
     var body: some View {
         let activeVehicle = context.state.currentVehicleType ?? context.attributes.vehicleType
         let iconName = vehicleIcon(for: activeVehicle)
-        let allStops = context.attributes.stops.isEmpty && context.state.nextStopName != nil
-            ? [context.state.nextStopName!]
-            : context.attributes.stops
-        
-        VStack(alignment: .leading, spacing: 10) {
-            // Header Row: Vehicle Icon + Full Route Trail + Badges
-            HStack(spacing: 8) {
-                Image(systemName: iconName)
-                    .foregroundColor(teal)
-                    .font(.system(size: 15, weight: .bold))
-                
-                HStack(spacing: 3) {
-                    Text(shortName(context.attributes.startPoint))
-                        .font(.caption.weight(.medium))
-                        .foregroundColor(.white.opacity(0.7))
-                        .lineLimit(1)
-                    
-                    if !allStops.isEmpty {
-                        ForEach(allStops.prefix(2), id: \.self) { st in
-                            Image(systemName: "arrow.right")
-                                .font(.system(size: 8))
-                                .foregroundColor(.white.opacity(0.35))
-                            Text(shortName(st))
-                                .font(.caption.weight(.bold))
-                                .foregroundColor(amber)
-                                .lineLimit(1)
-                        }
-                        if allStops.count > 2 {
-                            Text("+\(allStops.count - 2)")
-                                .font(.system(size: 9, weight: .bold))
-                                .foregroundColor(amber)
-                        }
-                    }
-                    
-                    Image(systemName: "arrow.right")
-                        .font(.system(size: 8))
-                        .foregroundColor(.white.opacity(0.35))
-                    Text(shortName(context.attributes.destination))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.white)
-                        .lineLimit(1)
-                }
-                
-                Spacer()
-                
-                if context.attributes.isRoundTrip {
-                    HStack(spacing: 3) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.system(size: 9, weight: .bold))
-                        Text("Round Trip")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.25))
-                    .foregroundColor(Color.blue.opacity(0.9))
-                    .cornerRadius(6)
-                } else {
-                    Text("Voyplan")
-                        .font(.caption2.weight(.bold))
-                        .foregroundColor(teal)
-                }
-            }
-            
-            // ETA & Total Distance Row
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(context.state.arriving ? "Arriving now"
-                                            : "Arriving in \(context.state.eta)")
-                    .font(.title3.weight(.bold))
-                    .foregroundColor(.white)
-                
-                Spacer()
-                
-                Text("\(String(format: "%.1f", context.state.distanceLeftKm)) km left")
-                    .font(.caption.weight(.medium))
-                    .foregroundColor(.white.opacity(0.75))
-            }
+        let dest = shortName(context.attributes.destination)
+        let orig = shortName(context.attributes.startPoint)
+        let nextStop = context.state.nextStopName != nil ? shortName(context.state.nextStopName!) : nil
+        let progress = CGFloat(max(0.04, min(0.96, context.state.progress)))
 
-            // Visual Stop Points Timeline Bar (Nodes)
-            if !allStops.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    // Visual Node Line
-                    HStack(spacing: 0) {
-                        // Start Node
-                        Circle()
-                            .fill(teal)
-                            .frame(width: 8, height: 8)
-                        
-                        Rectangle()
-                            .fill(teal.opacity(0.5))
-                            .frame(height: 2)
-                        
-                        // Intermediate Stop Nodes
-                        ForEach(0..<allStops.count, id: \.self) { idx in
-                            let isNext = (context.state.nextStopName != nil && allStops[idx].contains(context.state.nextStopName!)) || idx == 0
-                            HStack(spacing: 0) {
-                                ZStack {
-                                    Circle()
-                                        .fill(isNext ? amber : Color.white.opacity(0.3))
-                                        .frame(width: isNext ? 12 : 8, height: isNext ? 12 : 8)
-                                    if isNext {
-                                        Circle()
-                                            .fill(Color.black)
-                                            .frame(width: 4, height: 4)
-                                    }
-                                }
-                                Rectangle()
-                                    .fill(Color.white.opacity(0.25))
-                                    .frame(height: 2)
-                            }
-                        }
-                        
-                        // Destination Node
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.system(size: 11))
-                            .foregroundColor(.red)
-                    }
-                    
-                    // Stop Point Pill Card
-                    if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                        HStack(spacing: 6) {
-                            Image(systemName: "mappin.and.ellipse")
-                                .foregroundColor(amber)
-                                .font(.system(size: 12, weight: .bold))
-                            
-                            Text("Next Stop: \(nextStop)")
-                                .font(.caption.weight(.bold))
-                                .foregroundColor(amber)
-                                .lineLimit(1)
-                            
-                            if let d = context.state.nextStopDistanceKm, d > 0 {
-                                Text("· \(String(format: "%.1f", d)) km")
-                                    .font(.caption.weight(.medium))
-                                    .foregroundColor(.white.opacity(0.7))
-                            }
-                            
-                            Spacer()
-                            
-                            if let remaining = context.state.remainingStopsCount, remaining > 1 {
-                                Text("(\(remaining) stops total)")
-                                    .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(.white.opacity(0.5))
-                            }
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(amber.opacity(0.12))
-                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.35), lineWidth: 1))
-                        .cornerRadius(8)
-                    }
-                }
-                .padding(.vertical, 2)
+        VStack(alignment: .leading, spacing: 6) {
+            // Row 1: Source / Segment Header + Brand Logo (Zomato-style)
+            HStack {
+                Text(orig)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.65))
+                    .lineLimit(1)
+                
+                Spacer()
+                
+                Text("voyplan")
+                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .foregroundColor(.white)
+                    .tracking(-0.4)
             }
-            
-            // Route Travel Progress Bar
-            ProgressView(value: context.state.progress)
-                .tint(teal)
+            .padding(.bottom, 1)
+
+            // Row 2: Big Main Status Title (e.g. "Heading to Maddur" / "Driving to Mysore")
+            Text(context.state.arriving 
+                 ? "Arriving at \(dest)"
+                 : (nextStop != nil ? "Heading to \(nextStop!)" : "Driving to \(dest)"))
+                .font(.system(size: 21, weight: .bold))
+                .foregroundColor(.white)
+                .lineLimit(1)
+
+            // Row 3: Subtitle with Green "On time" + Remaining Time & Distance
+            HStack(spacing: 5) {
+                Text("On time")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(greenAccent)
+                
+                Text("|")
+                    .font(.system(size: 13))
+                    .foregroundColor(.white.opacity(0.35))
+                
+                Text("Arriving in \(context.state.eta)")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.9))
+                
+                Text("(\(String(format: "%.1f", context.state.distanceLeftKm)) km)")
+                    .font(.system(size: 12))
+                    .foregroundColor(.white.opacity(0.6))
+            }
+            .padding(.bottom, 6)
+
+            // Row 4: Custom Moving Vehicle Track (Zomato-Style)
+            TrackerLineView(
+                progress: progress,
+                iconName: iconName,
+                stops: context.attributes.stops,
+                nextStop: context.state.nextStopName
+            )
+            .frame(height: 32)
         }
     }
 }
+
+// MARK: - Zomato-Style Delivery / Navigation Track Line
+@available(iOS 16.1, *)
+private struct TrackerLineView: View {
+    let progress: CGFloat
+    let iconName: String
+    let stops: [String]
+    let nextStop: String?
+
+    var body: some View {
+        GeometryReader { geo in
+            let w = geo.size.width
+            let h = geo.size.height
+            let currentX = w * progress
+            let trackY = h / 2
+
+            ZStack(alignment: .leading) {
+                // Background Dashed/Dotted Line (Remaining Path)
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: trackY))
+                    path.addLine(to: CGPoint(x: w - 14, y: trackY))
+                }
+                .stroke(
+                    Color.white.opacity(0.35),
+                    style: StrokeStyle(lineWidth: 3.5, lineCap: .round, dash: [4, 6])
+                )
+
+                // Foreground Solid Line (Completed Path)
+                Path { path in
+                    path.move(to: CGPoint(x: 0, y: trackY))
+                    path.addLine(to: CGPoint(x: currentX, y: trackY))
+                }
+                .stroke(
+                    Color.white,
+                    style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
+                )
+
+                // Intermediate Waypoint Stop Node (if any)
+                if !stops.isEmpty {
+                    let stopX = w * 0.50
+                    ZStack {
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 22, height: 22)
+                            .shadow(color: Color.black.opacity(0.3), radius: 3)
+                        Image(systemName: "fork.knife")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.black)
+                    }
+                    .position(x: stopX, y: trackY)
+                }
+
+                // Moving Vehicle Avatar (Zomato Scooter/Car at current position)
+                ZStack {
+                    Circle()
+                        .fill(Color(red: 0.85, green: 0.18, blue: 0.18)) // Red pill badge
+                        .frame(width: 28, height: 28)
+                        .shadow(color: Color.black.opacity(0.45), radius: 4, x: 0, y: 2)
+                    
+                    Image(systemName: iconName)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.white)
+                }
+                .position(x: max(14, min(w - 28, currentX)), y: trackY)
+
+                // Destination Node (White Circle with Home/Flag icon)
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 24, height: 24)
+                        .shadow(color: Color.black.opacity(0.3), radius: 3)
+                    
+                    Image(systemName: "house.fill")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.black)
+                }
+                .position(x: w - 12, y: trackY)
+            }
+        }
+    }
+}
+
