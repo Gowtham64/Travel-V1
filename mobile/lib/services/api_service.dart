@@ -402,16 +402,52 @@ class ApiService {
   }
 
   Future<String?> reverseGeocode(double lat, double lng) async {
-    final uri = Uri.parse('$baseUrl/api/trip/reverse-geocode?lat=$lat&lng=$lng');
+    // 1. Direct Mapbox Reverse Geocoding (fast client-side, zero backend latency)
     try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+      final mapboxUri = Uri.parse(
+        'https://api.mapbox.com/geocoding/v5/mapbox.places/$lng,$lat.json?access_token=${AppConfig.mapboxToken}&limit=1&language=en'
+      );
+      final res = await http.get(mapboxUri).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final features = body['features'] as List? ?? [];
+        if (features.isNotEmpty) {
+          final placeName = features.first['place_name'] as String?;
+          if (placeName != null && placeName.trim().isNotEmpty) {
+            return placeName.trim();
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Backend reverse-geocoding service
+    try {
+      final uri = Uri.parse('$baseUrl/api/trip/reverse-geocode?lat=$lat&lng=$lng');
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['address'] as String?;
+        final addr = data['address'] as String?;
+        if (addr != null && addr.trim().isNotEmpty) {
+          return addr.trim();
+        }
       }
-    } catch (_) {
-      // Ignore and fallback to null
-    }
+    } catch (_) {}
+
+    // 3. OpenStreetMap Nominatim reverse geocode fallback
+    try {
+      final osmUri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=16'
+      );
+      final res = await http.get(osmUri, headers: {'User-Agent': 'VoyplanTravelApp/1.0'}).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final displayName = data['display_name'] as String?;
+        if (displayName != null && displayName.trim().isNotEmpty) {
+          return displayName.trim();
+        }
+      }
+    } catch (_) {}
+
     return null;
   }
 

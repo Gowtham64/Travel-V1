@@ -44,51 +44,58 @@ class _MapLocationPickerScreenState extends State<MapLocationPickerScreen> {
 
   Future<void> _centerOnCurrentLocation({bool initial = false}) async {
     try {
-      if (kIsWeb) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 5),
-          ),
-        );
-        final currentLatLng = LatLng(position.latitude, position.longitude);
-        if (mounted) {
+      if (!kIsWeb) {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
+        if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+          if (!initial && mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Location permission denied. Please allow in Settings.')),
+            );
+          }
+          return;
+        }
+
+        // Try cached fix first for instant camera move
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && mounted) {
+          final lastLatLng = LatLng(last.latitude, last.longitude);
           setState(() {
-            _mapCenter = currentLatLng;
+            _mapCenter = lastLatLng;
             if (initial && widget.initialCenter == null) {
-              _selectedPoint = currentLatLng;
-              _reverseGeocode(currentLatLng);
+              _selectedPoint = lastLatLng;
+              _reverseGeocode(lastLatLng);
             }
           });
-          _mapController.move(currentLatLng, 15.0);
+          _mapController.move(lastLatLng, 15.0);
         }
-        return;
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
+      Position? position;
+      for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.medium, LocationAccuracy.low]) {
+        try {
+          position = await Geolocator.getCurrentPosition(
+            locationSettings: LocationSettings(
+              accuracy: accuracy,
+              timeLimit: const Duration(seconds: 8),
+            ),
+          );
+          break;
+        } catch (_) {}
       }
 
-      if (permission == LocationPermission.whileInUse ||
-          permission == LocationPermission.always) {
-        final position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 5),
-          ),
-        );
+      if (position != null && mounted) {
         final currentLatLng = LatLng(position.latitude, position.longitude);
-        if (mounted) {
-          setState(() {
-            _mapCenter = currentLatLng;
-            if (initial && widget.initialCenter == null) {
-              _selectedPoint = currentLatLng;
-              _reverseGeocode(currentLatLng);
-            }
-          });
-          _mapController.move(currentLatLng, 15.0);
-        }
+        setState(() {
+          _mapCenter = currentLatLng;
+          if (initial && widget.initialCenter == null) {
+            _selectedPoint = currentLatLng;
+            _reverseGeocode(currentLatLng);
+          }
+        });
+        _mapController.move(currentLatLng, 15.0);
       }
     } catch (e) {
       debugPrint('Error getting current location: $e');

@@ -157,9 +157,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _resolvedStopCoords[_stopControllers.last.hashCode] = dest;
     }
 
-    // Automated test route search for headless integration testing
-    if (kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (kIsWeb) {
         final uri = Uri.base;
         if (uri.toString().contains('test_route=true')) {
           _runTestRoute();
@@ -169,8 +168,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         if (tripParam != null && tripParam.isNotEmpty) {
           _openSharedTrip(tripParam);
         }
-      });
-    }
+      }
+      // Automatically fetch current location for starting point if not set
+      if (_stopControllers.first.text.trim().isEmpty) {
+        _autoFetchCurrentLocationIfEmpty();
+      }
+    });
   }
 
   /// Decodes a shared-trip payload from the URL and plans it directly from the
@@ -912,58 +915,85 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     });
   }
 
+  Future<void> _autoFetchCurrentLocationIfEmpty() async {
+    if (!mounted || _stopControllers.first.text.trim().isNotEmpty) return;
+    try {
+      if (!kIsWeb) {
+        final permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.deniedForever) return;
+      }
+      await _useCurrentLocation(0, isAutoFetch: true);
+    } catch (_) {}
+  }
+
   Future<Position> _determinePosition() async {
-    // On native platforms, verify the location service + permission up front so
-    // we can give a specific, actionable error instead of a raw exception.
+    // 1. Permission checks on native platforms (iOS / Android)
     if (!kIsWeb) {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw 'Location services are turned off. Enable them in your device settings and try again.';
-      }
-      var permission = await Geolocator.checkPermission();
+      LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
+      if (permission == LocationPermission.deniedForever) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
+        throw 'Location permission is permanently denied. Enable it for this app in Settings.';
+      }
       if (permission == LocationPermission.denied) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
         throw 'Location permission was denied. Please allow it to use your current location.';
       }
-      if (permission == LocationPermission.deniedForever) {
-        throw 'Location permission is permanently denied. Enable it for this app in Settings.';
+      if (!serviceEnabled) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
+        throw 'Location services are turned off. Enable them in device settings and try again.';
       }
     }
 
-    // Accuracy ladder: prefer a precise fix, then degrade. When the OS/browser
-    // location works, high accuracy gives the user's real spot; if it can't
-    // resolve (no GPS + service issues), we fall to low, then to the IP guess
-    // below. Each attempt is time-boxed so a stuck request doesn't hang the UI.
-    for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.low]) {
+    // 2. Fast cached position if recently acquired (< 15 mins)
+    if (!kIsWeb) {
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && DateTime.now().difference(last.timestamp).inMinutes < 15) {
+          return last;
+        }
+      } catch (_) {}
+    }
+
+    // 3. Precision fix ladder: High -> Medium -> Low accuracy
+    for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.medium, LocationAccuracy.low]) {
       try {
         return await Geolocator.getCurrentPosition(
           locationSettings: LocationSettings(
             accuracy: accuracy,
-            timeLimit: const Duration(seconds: 15),
+            timeLimit: const Duration(seconds: 10),
           ),
         );
       } catch (_) {
-        // try the next (less demanding) accuracy
+        // Continue to lower accuracy if timeout or GPS lock delay
       }
     }
 
-    // Native only: a cached fix beats nothing (web plugin doesn't support it).
+    // 4. Any last known position on device
     if (!kIsWeb) {
       try {
         final last = await Geolocator.getLastKnownPosition();
         if (last != null) return last;
-      } catch (_) {/* fall through to the friendly error */}
+      } catch (_) {}
     }
 
-    // Last resort: approximate (city-level) location from the client's IP. This
-    // works even when the browser's geolocation backend is blocked/unavailable
-    // (VPN, corporate network, or macOS Location Services off for the browser).
+    // 5. IP-based location fallback
     final ipPos = await _ipApproxPosition();
     if (ipPos != null) return ipPos;
 
-    throw "Couldn't get your location. Make sure location is enabled and allowed for this site, then try again — or pick the spot on the map.";
+    throw "Couldn't acquire location. Please check your GPS and internet connection, or select on map.";
   }
 
   /// Approximate location from the caller's IP address (city-level). Tries a
@@ -1079,7 +1109,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
-  Future<void> _useCurrentLocation(int index) async {
+  Future<void> _useCurrentLocation(int index, {bool isAutoFetch = false}) async {
+    if (!mounted) return;
     setState(() => _loadingLocationForIndex[index] = true);
     try {
       final position = await _determinePosition();
@@ -1087,7 +1118,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       
       if (!mounted) return;
       
-      final displayName = address ?? '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+      final displayName = address ?? 'Current Location (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
       final controller = _stopControllers[index];
       
       setState(() {
@@ -1101,28 +1132,27 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         if (index == 0) _startFocusPoint = pt;
       });
 
-      // A coarse accuracy means we fell back to IP-based lookup (city-level),
-      // which is only a rough guess — be honest about it and nudge the user to
-      // refine, instead of claiming it's their precise current location.
-      final isApprox = position.accuracy >= 3000;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(isApprox
-              ? '≈ Approximate location ($displayName). Your device wouldn\'t share a precise fix — refine it on the map or type an address.'
-              : '✓ Updated to current location: $displayName'),
-          backgroundColor: isApprox ? const Color(0xFFB45309) : const Color(0xFF2E75B6),
-          duration: Duration(seconds: isApprox ? 6 : 3),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      if (!isAutoFetch) {
+        final isApprox = position.accuracy >= 3000;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isApprox
+                ? '≈ Approximate location ($displayName). Refine on map or type an address if needed.'
+                : '✓ Updated to current location: $displayName'),
+            backgroundColor: isApprox ? const Color(0xFFB45309) : const Color(0xFF2E75B6),
+            duration: Duration(seconds: isApprox ? 4 : 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     } catch (e) {
-      if (mounted) {
+      if (mounted && !isAutoFetch) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$e'),
             backgroundColor: Colors.redAccent,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
