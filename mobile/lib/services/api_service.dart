@@ -365,6 +365,10 @@ class ApiService {
     required List<GeoPoint> routeCoordinates,
     required List<String> categories,
   }) async {
+    final activeCategories = categories.isEmpty
+        ? ['attraction', 'viewpoint', 'restaurant', 'hotel', 'tea', 'fuel']
+        : categories;
+
     // Downsample coordinates if there are too many to keep payload size small (resolves 413 Payload Too Large)
     List<GeoPoint> sampledCoords = routeCoordinates;
     if (sampledCoords.length > 150) {
@@ -378,33 +382,121 @@ class ApiService {
       }
     }
 
-    final uri = Uri.parse('$baseUrl/api/trip/pois');
-    final response = await http
-        .post(
-          uri,
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'coordinates': sampledCoords.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
-            'categories': categories,
-          }),
-        )
-        .timeout(const Duration(seconds: 60), onTimeout: () {
-      throw ApiException('Finding places is taking too long. Please try again.');
-    });
+    try {
+      final uri = Uri.parse('$baseUrl/api/trip/pois');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'coordinates': sampledCoords.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+              'categories': activeCategories,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
 
-    if (response.statusCode != 200) {
-      throw ApiException('Fetching POIs failed (${response.statusCode}): ${response.body}');
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final placesJson = body['places'] as Map<String, dynamic>? ?? {};
+        final res = placesJson.map(
+          (key, value) => MapEntry(
+            key,
+            (value as List).map((e) => PlaceOfInterest.fromJson(e as Map<String, dynamic>)).toList(),
+          ),
+        );
+        if (res.values.any((l) => l.isNotEmpty)) {
+          return res;
+        }
+      }
+    } catch (_) {
+      // Backend failed or timed out; fall through to direct Mapbox category search
     }
 
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final placesJson = body['places'] as Map<String, dynamic>? ?? {};
+    // Direct Client-Side Mapbox Fallback for high-speed, 100% reliable POI search
+    return await _fetchPOIsWithMapboxFallback(sampledCoords, activeCategories);
+  }
 
-    return placesJson.map(
-      (key, value) => MapEntry(
-        key,
-        (value as List).map((e) => PlaceOfInterest.fromJson(e as Map<String, dynamic>)).toList(),
-      ),
-    );
+  Future<Map<String, List<PlaceOfInterest>>> _fetchPOIsWithMapboxFallback(
+    List<GeoPoint> coordinates,
+    List<String> categories,
+  ) async {
+    final Map<String, List<PlaceOfInterest>> result = {};
+    for (final cat in categories) {
+      result[cat] = [];
+    }
+
+    if (coordinates.isEmpty || !AppConfig.hasMapboxToken) {
+      return result;
+    }
+
+    // Sample 3-5 key points along the route
+    final samplePoints = <GeoPoint>[];
+    if (coordinates.length <= 4) {
+      samplePoints.addAll(coordinates);
+    } else {
+      samplePoints.add(coordinates.first);
+      samplePoints.add(coordinates[(coordinates.length * 0.33).toInt()]);
+      samplePoints.add(coordinates[(coordinates.length * 0.66).toInt()]);
+      samplePoints.add(coordinates.last);
+    }
+
+    final categoryQueryMap = {
+      'attraction': 'tourist attraction',
+      'viewpoint': 'viewpoint',
+      'restaurant': 'restaurant',
+      'dining': 'restaurant',
+      'hotel': 'hotel',
+      'tea': 'cafe tea',
+      'fuel': 'petrol station',
+      'temple': 'temple',
+      'hills': 'hill station',
+      'lake': 'lake',
+      'river': 'river',
+      'charging': 'ev charging',
+    };
+
+    final seenIds = <String>{};
+
+    for (final cat in categories) {
+      final queryTerm = categoryQueryMap[cat] ?? cat;
+      for (final pt in samplePoints) {
+        try {
+          final uri = Uri.parse(
+            'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(queryTerm)}.json'
+            '?proximity=${pt.lng},${pt.lat}&types=poi,landmark&limit=5&access_token=${AppConfig.mapboxToken}',
+          );
+          final resp = await http.get(uri).timeout(const Duration(seconds: 4));
+          if (resp.statusCode == 200) {
+            final data = jsonDecode(resp.body) as Map<String, dynamic>;
+            final features = data['features'] as List<dynamic>? ?? [];
+            for (final f in features) {
+              final center = f['center'] as List<dynamic>?;
+              final placeName = f['text'] as String? ?? f['place_name'] as String? ?? 'Place';
+              final fullAddress = f['place_name'] as String?;
+              if (center != null && center.length >= 2) {
+                final lng = (center[0] as num).toDouble();
+                final lat = (center[1] as num).toDouble();
+                final key = '$placeName-$lat-$lng';
+                if (!seenIds.contains(key)) {
+                  seenIds.add(key);
+                  result[cat]?.add(
+                    PlaceOfInterest(
+                      id: key.hashCode,
+                      name: placeName,
+                      lat: lat,
+                      lng: lng,
+                      address: fullAddress ?? placeName,
+                    ),
+                  );
+                }
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    return result;
   }
 
   Future<void> saveTrip({

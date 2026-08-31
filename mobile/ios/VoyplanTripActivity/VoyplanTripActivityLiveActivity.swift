@@ -216,12 +216,28 @@ private struct TrackerLineView: View {
     let stops: [String]
     let nextStop: String?
 
+    private func stopSymbol(for raw: String) -> String {
+        let st = raw.lowercased()
+        if st.contains("biryani") || st.contains("food") || st.contains("hotel") || st.contains("restaurant") || st.contains("mess") || st.contains("tiffin") || st.contains("maddur") || st.contains("dining") {
+            return "fork.knife"
+        } else if st.contains("tea") || st.contains("coffee") || st.contains("chai") || st.contains("cafe") {
+            return "cup.and.saucer.fill"
+        } else if st.contains("fuel") || st.contains("petrol") || st.contains("gas") || st.contains("shell") || st.contains("ioc") || st.contains("ev") || st.contains("charging") {
+            return "fuelpump.fill"
+        } else if st.contains("temple") || st.contains("palace") || st.contains("fort") || st.contains("hill") || st.contains("falls") || st.contains("view") || st.contains("waterfall") {
+            return "mountain.2.fill"
+        } else {
+            return "mappin"
+        }
+    }
+
     var body: some View {
         GeometryReader { geo in
             let w = geo.size.width
             let h = geo.size.height
             let currentX = w * progress
             let trackY = h / 2
+            let allStops = !stops.isEmpty ? stops : (nextStop != nil ? [nextStop!] : [])
 
             ZStack(alignment: .leading) {
                 // Background Dashed/Dotted Line (Remaining Path)
@@ -244,27 +260,37 @@ private struct TrackerLineView: View {
                     style: StrokeStyle(lineWidth: 3.5, lineCap: .round)
                 )
 
-                // Intermediate Waypoint Stop Node (if any)
-                if !stops.isEmpty {
-                    let stopX = w * 0.50
+                // Intermediate Waypoint Stop Nodes with Dynamic Category Symbols
+                ForEach(0..<allStops.count, id: \.self) { idx in
+                    let stopX = w * (CGFloat(idx + 1) / CGFloat(allStops.count + 1))
+                    let sym = stopSymbol(for: allStops[idx])
+                    let isPassed = currentX >= (stopX + 6)
+                    
                     ZStack {
                         Circle()
                             .fill(Color.white)
                             .frame(width: 22, height: 22)
-                            .shadow(color: Color.black.opacity(0.3), radius: 3)
-                        Image(systemName: "fork.knife")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundColor(.black)
+                            .shadow(color: Color.black.opacity(0.4), radius: 3)
+                        
+                        if isPassed {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 10, weight: .black))
+                                .foregroundColor(Color(red: 0.15, green: 0.70, blue: 0.35))
+                        } else {
+                            Image(systemName: sym)
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.black)
+                        }
                     }
                     .position(x: stopX, y: trackY)
                 }
 
-                // Moving Vehicle Avatar (Zomato Scooter/Car at current position)
+                // Moving Vehicle Avatar (Zomato-style Red Badge with Vehicle Symbol)
                 ZStack {
                     Circle()
-                        .fill(Color(red: 0.85, green: 0.18, blue: 0.18)) // Red pill badge
+                        .fill(Color(red: 0.85, green: 0.18, blue: 0.18))
                         .frame(width: 28, height: 28)
-                        .shadow(color: Color.black.opacity(0.45), radius: 4, x: 0, y: 2)
+                        .shadow(color: Color.black.opacity(0.5), radius: 4, x: 0, y: 2)
                     
                     Image(systemName: iconName)
                         .font(.system(size: 13, weight: .bold))
@@ -277,7 +303,7 @@ private struct TrackerLineView: View {
                     Circle()
                         .fill(Color.white)
                         .frame(width: 24, height: 24)
-                        .shadow(color: Color.black.opacity(0.3), radius: 3)
+                        .shadow(color: Color.black.opacity(0.4), radius: 3)
                     
                     Image(systemName: "house.fill")
                         .font(.system(size: 11, weight: .bold))
@@ -288,4 +314,5 @@ private struct TrackerLineView: View {
         }
     }
 }
+
 

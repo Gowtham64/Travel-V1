@@ -720,13 +720,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   }
 
   Future<void> _findPlacesBeforeTrip({List<String>? categories}) async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedVehicle == null) {
-      setState(() => _error = 'Please select a vehicle');
+    if (_stopControllers.isEmpty || 
+        _stopControllers.first.text.trim().isEmpty || 
+        _stopControllers.last.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please enter starting location and destination first to find places.'),
+          backgroundColor: const Color(0xFF2E75B6),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
       return;
     }
+    if (_selectedVehicle == null && _vehicles.isNotEmpty) {
+      _selectedVehicle = _vehicles.first;
+    }
     final cats = (categories == null || categories.isEmpty)
-        ? _selectedPOIs.toList()
+        ? (_selectedPOIs.isNotEmpty ? _selectedPOIs.toList() : ['attraction', 'viewpoint', 'restaurant', 'hotel', 'tea', 'fuel'])
         : categories;
 
     setState(() {
