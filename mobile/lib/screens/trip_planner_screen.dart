@@ -17,6 +17,8 @@ import 'trip_screen.dart';
 import 'trip_workspace_screen.dart';
 import 'itinerary_screen.dart';
 import 'saved_trips_screen.dart';
+import 'trip_history_screen.dart';
+import '../services/trip_history_service.dart';
 import '../widgets/app_design.dart';
 import '../widgets/globe_preview.dart';
 import 'map_location_picker_screen.dart';
@@ -1234,6 +1236,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               backgroundColor: Colors.transparent,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.history_rounded, color: Colors.white, size: 24),
+                  tooltip: 'Trip History',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const TripHistoryScreen()),
+                  ),
+                ),
+              ],
               flexibleSpace: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -1748,6 +1759,27 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.white.withOpacity(0.03),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                      leading: const Icon(Icons.history_rounded, color: Color(0xFF10B981), size: 24),
+                      title: const Text(
+                        'Trip History',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                      ),
+                      trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const TripHistoryScreen()));
                       },
                     ),
                   ),

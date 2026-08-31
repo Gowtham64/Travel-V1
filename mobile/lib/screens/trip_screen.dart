@@ -21,9 +21,10 @@ import '../utils/calendar_helper.dart';
 import '../services/car_platform_channel.dart';
 import '../services/trip_notification_service.dart';
 import '../widgets/three_d_map.dart';
-import '../widgets/car_mode_overlay.dart';
 import 'itinerary_screen.dart';
 import 'trip_workspace_screen.dart';
+import 'trip_history_screen.dart';
+import '../services/trip_history_service.dart';
 
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
@@ -677,6 +678,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
           )
         else ...[
+          IconButton(
+            icon: const Icon(Icons.history_rounded, color: Colors.white, size: 22),
+            tooltip: 'Trip History',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const TripHistoryScreen()),
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
             tooltip: 'Share Trip',
@@ -1602,6 +1610,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (destDist < 0.0011 && !_visitedStops.contains('live_arrival')) {
       _voice.speak('You have arrived at your destination.', force: true);
       _visitedStops.add('live_arrival');
+      _recordTripToHistory(completed: true);
       setState(() {
         _activeStopHighlight = PlaceOfInterest(
           id: 999,
@@ -1613,7 +1622,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 You have arrived at your destination!')),
+          const SnackBar(content: Text('🎉 You have arrived at your destination! Trip saved to history.')),
         );
       }
     }
@@ -2562,6 +2571,38 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       startPoint: widget.startAddress,
       stops: stops,
       isRoundTrip: isRoundTrip,
+    );
+
+    // Save trip to history store
+    _recordTripToHistory();
+  }
+
+  void _recordTripToHistory({bool completed = false}) {
+    if (_currentPlan.coordinates.isEmpty) return;
+    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+    final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
+    final toll = _currentPlan.toll?.fastagTollCost ?? 0.0;
+    final fuel = _currentPlan.fuelCost ?? 0.0;
+    final total = (toll + fuel) > 0 ? (toll + fuel) : (_currentPlan.estimatedCost ?? 0.0);
+
+    TripHistoryService.instance.saveTrip(
+      TripHistoryItem(
+        id: 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
+        title: '${widget.startAddress} → ${widget.endAddress}',
+        startAddress: widget.startAddress,
+        endAddress: widget.endAddress,
+        waypoints: stops,
+        distanceKm: _currentPlan.distanceKm,
+        durationMinutes: _currentPlan.durationMin,
+        vehicleType: widget.modelSubtype ?? widget.vehicle.type,
+        fuelCost: fuel,
+        tollCost: toll,
+        totalCost: total,
+        completedAt: DateTime.now(),
+        isRoundTrip: isRoundTrip,
+        totalStopsCount: stops.length,
+      ),
     );
   }
 
