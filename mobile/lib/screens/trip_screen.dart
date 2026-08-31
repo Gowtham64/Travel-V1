@@ -2550,10 +2550,18 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       routeCoordinates: _currentPlan.coordinates,
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
+    
+    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+    final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
+
     // Live trip-progress notification (lock screen + shade) + iOS Live Activity.
     TripNotificationService.instance.start(
       destination: widget.endAddress,
       vehicleType: widget.modelSubtype ?? widget.vehicle.type,
+      startPoint: widget.startAddress,
+      stops: stops,
+      isRoundTrip: isRoundTrip,
     );
   }
 
@@ -2589,6 +2597,23 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       bearingDeg: bearingDeg,
     );
 
+    // Find next upcoming intermediate waypoint / stop
+    String? nextStopName;
+    double? nextStopDistanceKm;
+    int remainingStops = 0;
+    for (final wp in _currentWaypoints) {
+      final wpLatLng = LatLng(wp.lat, wp.lng);
+      final d = _getDistance(pos, wpLatLng) * 111.0;
+      final wpId = 'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
+      if (!_visitedStops.contains(wpId) && d > 0.1) {
+        remainingStops++;
+        if (nextStopName == null) {
+          nextStopName = wp.name ?? 'Waypoint';
+          nextStopDistanceKm = d;
+        }
+      }
+    }
+
     // Refresh the live trip-progress notification / Live Activity.
     final arriving = remainingKm < 0.15;
     TripNotificationService.instance.update(
@@ -2598,6 +2623,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       progressPercent: _tripProgressPercent,
       speedKmh: speedKmh,
       arriving: arriving,
+      nextStopName: nextStopName,
+      nextStopDistanceKm: nextStopDistanceKm,
+      remainingStopsCount: remainingStops,
+      currentVehicleType: widget.modelSubtype ?? widget.vehicle.type,
     );
   }
 

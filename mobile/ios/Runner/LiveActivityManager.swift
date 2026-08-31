@@ -15,18 +15,38 @@ final class LiveActivityManager {
     static let shared = LiveActivityManager()
     private var activity: Activity<TripActivityAttributes>?
 
-    func start(destination: String, vehicleType: String = "car") {
+    func start(
+        destination: String,
+        vehicleType: String = "car",
+        startPoint: String = "Start",
+        stops: [String] = [],
+        isRoundTrip: Bool = false
+    ) {
         let enabled = ActivityAuthorizationInfo().areActivitiesEnabled
-        NSLog("VOYPLAN LiveActivity start: enabled=\(enabled) dest=\(destination) vehicle=\(vehicleType)")
+        NSLog("VOYPLAN LiveActivity start: enabled=\(enabled) dest=\(destination) vehicle=\(vehicleType) stops=\(stops)")
         guard enabled else {
             NSLog("VOYPLAN LiveActivity: Live Activities are DISABLED in Settings")
             return
         }
         // Replace any stale activity first.
         end()
-        let attributes = TripActivityAttributes(destination: destination, vehicleType: vehicleType)
+        let attributes = TripActivityAttributes(
+            destination: destination,
+            vehicleType: vehicleType,
+            startPoint: startPoint,
+            stops: stops,
+            isRoundTrip: isRoundTrip
+        )
         let state = TripActivityAttributes.ContentState(
-            eta: "…", distanceLeftKm: 0, progress: 0, arriving: false)
+            eta: "…",
+            distanceLeftKm: 0,
+            progress: 0,
+            arriving: false,
+            nextStopName: stops.first,
+            nextStopDistanceKm: nil,
+            remainingStopsCount: stops.count,
+            currentVehicleType: vehicleType
+        )
         do {
             if #available(iOS 16.2, *) {
                 activity = try Activity.request(
@@ -42,10 +62,27 @@ final class LiveActivityManager {
         }
     }
 
-    func update(eta: String, distanceLeftKm: Double, progress: Double, arriving: Bool) {
+    func update(
+        eta: String,
+        distanceLeftKm: Double,
+        progress: Double,
+        arriving: Bool,
+        nextStopName: String? = nil,
+        nextStopDistanceKm: Double? = nil,
+        remainingStopsCount: Int? = nil,
+        currentVehicleType: String? = nil
+    ) {
         guard let activity = activity else { return }
         let state = TripActivityAttributes.ContentState(
-            eta: eta, distanceLeftKm: distanceLeftKm, progress: progress, arriving: arriving)
+            eta: eta,
+            distanceLeftKm: distanceLeftKm,
+            progress: progress,
+            arriving: arriving,
+            nextStopName: nextStopName,
+            nextStopDistanceKm: nextStopDistanceKm,
+            remainingStopsCount: remainingStopsCount,
+            currentVehicleType: currentVehicleType
+        )
         Task {
             if #available(iOS 16.2, *) {
                 await activity.update(.init(state: state, staleDate: nil))

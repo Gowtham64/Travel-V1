@@ -11,9 +11,16 @@ struct TripActivityAttributes: ActivityAttributes {
         var distanceLeftKm: Double
         var progress: Double     // 0.0 ... 1.0
         var arriving: Bool
+        var nextStopName: String?
+        var nextStopDistanceKm: Double?
+        var remainingStopsCount: Int?
+        var currentVehicleType: String?
     }
 
     /// Fixed for the whole activity.
     var destination: String
     var vehicleType: String
+    var startPoint: String
+    var stops: [String]
+    var isRoundTrip: Bool
 }

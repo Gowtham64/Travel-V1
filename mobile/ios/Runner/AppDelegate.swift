@@ -44,13 +44,27 @@ import UserNotifications
     case "start":
       let dest = args["destination"] as? String ?? "Trip"
       let vehicle = args["vehicleType"] as? String ?? "car"
-      LiveActivityManager.shared.start(destination: dest, vehicleType: vehicle)
+      let startPoint = args["startPoint"] as? String ?? "Start"
+      let stops = args["stops"] as? [String] ?? []
+      let isRoundTrip = args["isRoundTrip"] as? Bool ?? false
+      LiveActivityManager.shared.start(
+        destination: dest,
+        vehicleType: vehicle,
+        startPoint: startPoint,
+        stops: stops,
+        isRoundTrip: isRoundTrip
+      )
     case "update":
       LiveActivityManager.shared.update(
         eta: args["eta"] as? String ?? "",
         distanceLeftKm: args["distanceLeftKm"] as? Double ?? 0,
         progress: args["progress"] as? Double ?? 0,
-        arriving: args["arriving"] as? Bool ?? false)
+        arriving: args["arriving"] as? Bool ?? false,
+        nextStopName: args["nextStopName"] as? String,
+        nextStopDistanceKm: args["nextStopDistanceKm"] as? Double,
+        remainingStopsCount: args["remainingStopsCount"] as? Int,
+        currentVehicleType: args["currentVehicleType"] as? String
+      )
     case "end":
       LiveActivityManager.shared.end()
     default:

@@ -19,19 +19,34 @@ class TripNotificationService {
   bool _active = false;
 
   /// Begin the trip-progress notification. [destination] names the trip.
-  Future<void> start({required String destination, String vehicleType = 'car'}) async {
+  Future<void> start({
+    required String destination,
+    String vehicleType = 'car',
+    String startPoint = 'Start',
+    List<String> stops = const [],
+    bool isRoundTrip = false,
+  }) async {
     if (kIsWeb) return;
     _active = true;
     try {
       await _channel.invokeMethod('start', {
         'destination': destination,
         'vehicleType': vehicleType,
+        'startPoint': startPoint,
+        'stops': stops,
+        'isRoundTrip': isRoundTrip,
       });
     } catch (_) {/* channel not wired on this platform */}
-    await LiveActivityService.instance.start(destination: destination, vehicleType: vehicleType);
+    await LiveActivityService.instance.start(
+      destination: destination,
+      vehicleType: vehicleType,
+      startPoint: startPoint,
+      stops: stops,
+      isRoundTrip: isRoundTrip,
+    );
   }
 
-  /// Update the live notification with the latest ETA / distance / progress.
+  /// Update the live notification with the latest ETA / distance / progress / waypoints.
   Future<void> update({
     required String destination,
     required String etaText,
@@ -39,6 +54,10 @@ class TripNotificationService {
     required double progressPercent, // 0..1
     required double speedKmh,
     bool arriving = false,
+    String? nextStopName,
+    double? nextStopDistanceKm,
+    int? remainingStopsCount,
+    String? currentVehicleType,
   }) async {
     if (kIsWeb || !_active) return;
     try {
@@ -49,6 +68,8 @@ class TripNotificationService {
         'progress': progressPercent.clamp(0.0, 1.0),
         'speedKmh': speedKmh,
         'arriving': arriving,
+        if (nextStopName != null) 'nextStopName': nextStopName,
+        if (nextStopDistanceKm != null) 'nextStopDistanceKm': nextStopDistanceKm,
       });
     } catch (_) {/* no-op */}
     await LiveActivityService.instance.update(
@@ -56,6 +77,10 @@ class TripNotificationService {
       distanceLeftKm: distanceLeftKm,
       progressPercent: progressPercent.clamp(0.0, 1.0),
       arriving: arriving,
+      nextStopName: nextStopName,
+      nextStopDistanceKm: nextStopDistanceKm,
+      remainingStopsCount: remainingStopsCount,
+      currentVehicleType: currentVehicleType,
     );
   }
 
