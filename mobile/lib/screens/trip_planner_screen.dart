@@ -733,8 +733,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       );
       return;
     }
-    if (_selectedVehicle == null && _vehicles.isNotEmpty) {
-      _selectedVehicle = _vehicles.first;
+    if (_selectedVehicle == null && predefinedVehicles.isNotEmpty) {
+      _selectedVehicle = predefinedVehicles.first;
     }
     final cats = (categories == null || categories.isEmpty)
         ? (_selectedPOIs.isNotEmpty ? _selectedPOIs.toList() : ['attraction', 'viewpoint', 'restaurant', 'hotel', 'tea', 'fuel'])
