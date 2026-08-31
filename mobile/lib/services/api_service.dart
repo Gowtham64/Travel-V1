@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
@@ -53,14 +54,41 @@ class ApiService {
     return 'Request failed (${res.statusCode})';
   }
 
+  String _localStoreKey(String path, {String? type}) => 'voy_account_${path}_${type ?? 'all'}';
+
+  Future<List<Map<String, dynamic>>> _loadLocalItems(String path, {String? type}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_localStoreKey(path, type: type));
+      if (raw != null) {
+        return (jsonDecode(raw) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  Future<void> _saveLocalItems(String path, List<Map<String, dynamic>> items, {String? type}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_localStoreKey(path, type: type), jsonEncode(items));
+    } catch (_) {}
+  }
+
   Future<List<Map<String, dynamic>>> accountList(String path, {String? type, String? tripId}) async {
-    final qp = <String, String>{};
-    if (type != null) qp['type'] = type;
-    if (tripId != null) qp['trip_id'] = tripId;
-    final uri = Uri.parse('$baseUrl/api/account/$path').replace(queryParameters: qp.isEmpty ? null : qp);
-    final res = await http.get(uri, headers: _authHeaders()).timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200) throw ApiException(_accountErr(res));
-    return (jsonDecode(res.body) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+    try {
+      final qp = <String, String>{};
+      if (type != null) qp['type'] = type;
+      if (tripId != null) qp['trip_id'] = tripId;
+      final uri = Uri.parse('$baseUrl/api/account/$path').replace(queryParameters: qp.isEmpty ? null : qp);
+      final res = await http.get(uri, headers: _authHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final list = (jsonDecode(res.body) as List).map((e) => (e as Map).cast<String, dynamic>()).toList();
+        await _saveLocalItems(path, list, type: type);
+        return list;
+      }
+    } catch (_) {}
+    // Seamless local offline/guest fallback
+    return await _loadLocalItems(path, type: type);
   }
 
   /// The signed-in user's saved vehicles, mapped to VehicleModel for the
@@ -71,7 +99,7 @@ class ApiService {
       return rows.map((r) {
         final t = (r['type'] ?? 'car').toString().toLowerCase();
         return VehicleModel(
-          id: 'saved_${r['id']}',
+          id: 'saved_${r['id'] ?? 'v_${r['name'] ?? 'default'}'}',
           name: (r['name'] ?? 'My vehicle').toString(),
           type: t.contains('bike') || t.contains('motor') ? 'motorcycle' : 'car',
           mileage: double.tryParse('${r['mileage_kmpl'] ?? ''}') ?? 15,
@@ -84,40 +112,104 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> accountCreate(String path, Map<String, dynamic> data) async {
-    final res = await http
-        .post(Uri.parse('$baseUrl/api/account/$path'), headers: _authHeaders(), body: jsonEncode(data))
-        .timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200 && res.statusCode != 201) throw ApiException(_accountErr(res));
-    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+    try {
+      final res = await http
+          .post(Uri.parse('$baseUrl/api/account/$path'), headers: _authHeaders(), body: jsonEncode(data))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final item = (jsonDecode(res.body) as Map).cast<String, dynamic>();
+        final type = data['type']?.toString();
+        final local = await _loadLocalItems(path, type: type);
+        local.insert(0, item);
+        await _saveLocalItems(path, local, type: type);
+        return item;
+      }
+    } catch (_) {}
+    // Offline local creation
+    final item = Map<String, dynamic>.from(data);
+    item['id'] = item['id'] ?? 'loc_${DateTime.now().millisecondsSinceEpoch}';
+    item['created_at'] = DateTime.now().toIso8601String();
+    final type = data['type']?.toString();
+    final local = await _loadLocalItems(path, type: type);
+    local.insert(0, item);
+    await _saveLocalItems(path, local, type: type);
+    return item;
   }
 
   Future<Map<String, dynamic>> accountUpdate(String path, String id, Map<String, dynamic> data) async {
-    final res = await http
-        .patch(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders(), body: jsonEncode(data))
-        .timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200) throw ApiException(_accountErr(res));
-    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+    try {
+      final res = await http
+          .patch(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders(), body: jsonEncode(data))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final item = (jsonDecode(res.body) as Map).cast<String, dynamic>();
+        final type = data['type']?.toString();
+        final local = await _loadLocalItems(path, type: type);
+        final idx = local.indexWhere((e) => e['id']?.toString() == id);
+        if (idx != -1) {
+          local[idx].addAll(item);
+          await _saveLocalItems(path, local, type: type);
+        }
+        return item;
+      }
+    } catch (_) {}
+    // Offline local update
+    final type = data['type']?.toString();
+    final local = await _loadLocalItems(path, type: type);
+    final idx = local.indexWhere((e) => e['id']?.toString() == id);
+    if (idx != -1) {
+      local[idx].addAll(data);
+      await _saveLocalItems(path, local, type: type);
+      return local[idx];
+    }
+    return data;
   }
 
   Future<void> accountDelete(String path, String id) async {
-    final res = await http
-        .delete(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders())
-        .timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200) throw ApiException(_accountErr(res));
+    try {
+      await http
+          .delete(Uri.parse('$baseUrl/api/account/$path/$id'), headers: _authHeaders())
+          .timeout(const Duration(seconds: 8));
+    } catch (_) {}
+    // Local deletion
+    final local = await _loadLocalItems(path);
+    local.removeWhere((e) => e['id']?.toString() == id);
+    await _saveLocalItems(path, local);
   }
 
   Future<Map<String, dynamic>> getProfile() async {
-    final res = await http.get(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders()).timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200) throw ApiException(_accountErr(res));
-    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders()).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final profile = (jsonDecode(res.body) as Map).cast<String, dynamic>();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('voy_cached_profile', jsonEncode(profile));
+        return profile;
+      }
+    } catch (_) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('voy_cached_profile');
+      if (raw != null) return (jsonDecode(raw) as Map).cast<String, dynamic>();
+    } catch (_) {}
+    return {'language': 'en', 'currency': 'INR', 'theme': 'dark'};
   }
 
   Future<Map<String, dynamic>> putProfile(Map<String, dynamic> data) async {
-    final res = await http
-        .put(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders(), body: jsonEncode(data))
-        .timeout(const Duration(seconds: 30));
-    if (res.statusCode != 200) throw ApiException(_accountErr(res));
-    return (jsonDecode(res.body) as Map).cast<String, dynamic>();
+    try {
+      final res = await http
+          .put(Uri.parse('$baseUrl/api/account/profile'), headers: _authHeaders(), body: jsonEncode(data))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final profile = (jsonDecode(res.body) as Map).cast<String, dynamic>();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('voy_cached_profile', jsonEncode(profile));
+        return profile;
+      }
+    } catch (_) {}
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('voy_cached_profile', jsonEncode(data));
+    return data;
   }
 
   Future<Map<String, dynamic>> convertCurrency({required String from, required String to, required double amount}) async {

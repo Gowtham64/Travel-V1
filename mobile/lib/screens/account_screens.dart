@@ -722,3 +722,366 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 }
+
+// ============================================================================
+// Travel Wallet Screen
+// ============================================================================
+class TravelWalletScreen extends StatefulWidget {
+  const TravelWalletScreen({super.key});
+
+  @override
+  State<TravelWalletScreen> createState() => _TravelWalletScreenState();
+}
+
+class _TravelWalletScreenState extends State<TravelWalletScreen> {
+  final _api = ApiService();
+  List<Map<String, dynamic>> _expenses = [];
+  bool _loading = true;
+  double _budget = 25000.0;
+  double _fastagBalance = 1450.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final items = await _api.accountList('expenses');
+      final budgets = await _api.accountList('budgets');
+      if (budgets.isNotEmpty) {
+        _budget = double.tryParse('${budgets.first['total'] ?? ''}') ?? 25000.0;
+      }
+      if (mounted) setState(() => _expenses = items);
+    } catch (_) {}
+    if (mounted) setState(() => _loading = false);
+  }
+
+  double get _totalSpent {
+    double sum = 0;
+    for (final e in _expenses) {
+      sum += double.tryParse('${e['amount'] ?? 0}') ?? 0;
+    }
+    return sum;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final spent = _totalSpent;
+    final remaining = (_budget - spent).clamp(0.0, double.infinity);
+    final progress = _budget > 0 ? (spent / _budget).clamp(0.0, 1.0) : 0.0;
+
+    return Scaffold(
+      backgroundColor: Voy.bg,
+      appBar: AppBar(
+        backgroundColor: Voy.bg,
+        title: const Text('Travel Wallet', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Voy.brand))
+          : RefreshIndicator(
+              onRefresh: _load,
+              color: Voy.brand,
+              child: ListView(
+                padding: const EdgeInsets.all(18),
+                children: [
+                  // Wallet Balance Card
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF06B6D4)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('VOYPLAN TRAVEL PASS', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+                              child: const Text('ACTIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 18),
+                        const Text('Available Budget', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text('₹${remaining.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 18),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Spent: ₹${spent.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('Total: ₹${_budget.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progress,
+                            backgroundColor: Colors.white.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(progress > 0.85 ? Colors.orangeAccent : Colors.white),
+                            minHeight: 6,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // FASTag & Tolls Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Voy.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: Voy.hairline),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(color: Voy.brand.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
+                          child: const Icon(Icons.toll_rounded, color: Voy.brand, size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('FASTag Toll Balance', style: TextStyle(color: Voy.ink, fontSize: 15, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 2),
+                              Text('₹${_fastagBalance.toStringAsFixed(0)} available', style: const TextStyle(color: Voy.success, fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Voy.brand,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangle(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('FASTag Recharge simulator: +₹500 added!'), behavior: SnackBarBehavior.floating),
+                            );
+                            setState(() => _fastagBalance += 500);
+                          },
+                          child: const Text('Recharge', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Recent Travel Expenses
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('RECENT EXPENSES', style: TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                      TextButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Expense'),
+                        onPressed: () async {
+                          final cfg = configForMenu('expenses');
+                          if (cfg != null) {
+                            await Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                            _load();
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_expenses.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(28),
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Voy.hairline)),
+                      child: const Text('No expenses recorded yet. Tap "+ Add Expense" to track your trip spending.', textAlign: TextAlign.center, style: TextStyle(color: Voy.sub, fontSize: 13)),
+                    )
+                  else
+                    ..._expenses.take(5).map((e) => Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Voy.hairline)),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(color: Voy.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                                child: const Icon(Icons.receipt_long_rounded, color: Voy.amber, size: 20),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('${e['category'] ?? 'Expense'}', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 14)),
+                                    if (e['note'] != null && e['note'].toString().isNotEmpty)
+                                      Text('${e['note']}', style: const TextStyle(color: Voy.sub, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              Text('₹${e['amount'] ?? '0'}', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15)),
+                            ],
+                          ),
+                        )),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+// ============================================================================
+// Help & Support Screen
+// ============================================================================
+class HelpSupportScreen extends StatelessWidget {
+  const HelpSupportScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Voy.bg,
+      appBar: AppBar(
+        backgroundColor: Voy.bg,
+        title: const Text('Help & Support', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(18),
+        children: [
+          // Emergency Helpline Banner
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF991B1B), Color(0xFFDC2626)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.emergency_rounded, color: Colors.white, size: 22),
+                    SizedBox(width: 8),
+                    Text('24x7 Roadside & Emergency Helplines', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _helplineRow('National Highway Helpline (NHAI)', '1033'),
+                _helplineRow('National Emergency Number', '112'),
+                _helplineRow('Ambulance / Medical', '108'),
+                _helplineRow('Police Assistance', '100'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // FAQs
+          const Text('FREQUENTLY ASKED QUESTIONS', style: TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+          const SizedBox(height: 12),
+          _faqTile(
+            'How does Voyplan calculate FASTag toll costs?',
+            'Voyplan queries live NHAI plaza fee schedules along your specific route and vehicle class (Car, SUV, Bus, Truck, Motorcycle).',
+          ),
+          _faqTile(
+            'How do Live Activities & Dynamic Island work?',
+            'When you start a trip, Voyplan streams real-time vehicle movement, intermediate stops, distance remaining, and turn guidance directly to your iPhone Lock Screen and Dynamic Island.',
+          ),
+          _faqTile(
+            'How do I add stop points along my route?',
+            'In the Trip Planner, tap "+ Add Stop" to insert waypoints, fuel stations, dining, or scenic viewpoints. They are tracked live throughout your journey.',
+          ),
+          _faqTile(
+            'Does Voyplan work offline?',
+            'Yes! Your planned routes, downloaded itineraries, and trip history are automatically cached locally on your device.',
+          ),
+          const SizedBox(height: 24),
+
+          // Contact Support Button
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Voy.surface,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: Voy.hairline),
+            ),
+            child: Column(
+              children: [
+                const Icon(Icons.support_agent_rounded, size: 36, color: Voy.brand),
+                const SizedBox(height: 10),
+                const Text('Need further assistance?', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                const Text('Our travel operations team is ready to assist you.', style: TextStyle(color: Voy.sub, fontSize: 13)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Support request submitted! We will email you shortly.'), behavior: SnackBarBehavior.floating),
+                      );
+                    },
+                    icon: const Icon(Icons.mail_outline_rounded),
+                    label: const Text('Contact Support'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static Widget _helplineRow(String title, String number) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+          ],
+        ),
+      );
+
+  static Widget _faqTile(String question, String answer) => Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Voy.hairline)),
+        child: ExpansionTile(
+          shape: const Border(),
+          iconColor: Voy.brand,
+          collapsedIconColor: Voy.sub,
+          title: Text(question, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600, fontSize: 14)),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Text(answer, style: const TextStyle(color: Voy.sub, fontSize: 13, height: 1.4)),
+            ),
+          ],
+        ),
+      );
+}

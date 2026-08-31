@@ -29,11 +29,17 @@ struct VoyplanTripActivityLiveActivity: Widget {
         }
     }
 
+    private func shortName(_ raw: String) -> String {
+        let clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty { return "Stop" }
+        return clean.components(separatedBy: ",").first ?? clean
+    }
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: TripActivityAttributes.self) { context in
             // MARK: Lock screen / banner
             LockScreenView(context: context)
-                .padding(16)
+                .padding(14)
                 .activityBackgroundTint(Color.black.opacity(0.88))
                 .activitySystemActionForegroundColor(Color.white)
 
@@ -54,8 +60,8 @@ struct VoyplanTripActivityLiveActivity: Widget {
                         Text("\(String(format: "%.1f", context.state.distanceLeftKm)) km")
                             .font(.subheadline.weight(.semibold)).foregroundColor(.white.opacity(0.9))
                         if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                            Text("Next: \(nextStop)")
-                                .font(.system(size: 9)).foregroundColor(Self.amber)
+                            Text("📍 \(shortName(nextStop))")
+                                .font(.system(size: 9, weight: .bold)).foregroundColor(Self.amber)
                                 .lineLimit(1)
                         }
                     }
@@ -64,18 +70,27 @@ struct VoyplanTripActivityLiveActivity: Widget {
                     VStack(alignment: .leading, spacing: 5) {
                         ProgressView(value: context.state.progress)
                             .tint(Self.teal)
-                        HStack {
-                            Text(context.attributes.startPoint)
+                        HStack(spacing: 3) {
+                            Text(shortName(context.attributes.startPoint))
                                 .font(.caption2).foregroundColor(.white.opacity(0.6))
                                 .lineLimit(1)
-                            if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                                Image(systemName: "arrow.right").font(.system(size: 8)).foregroundColor(.white.opacity(0.4))
-                                Text(nextStop)
-                                    .font(.caption2.weight(.semibold)).foregroundColor(Self.amber)
+                            
+                            if !context.attributes.stops.isEmpty {
+                                ForEach(context.attributes.stops, id: \.self) { stop in
+                                    Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
+                                    Text(shortName(stop))
+                                        .font(.caption2.weight(.bold)).foregroundColor(Self.amber)
+                                        .lineLimit(1)
+                                }
+                            } else if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
+                                Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
+                                Text(shortName(nextStop))
+                                    .font(.caption2.weight(.bold)).foregroundColor(Self.amber)
                                     .lineLimit(1)
                             }
-                            Image(systemName: "arrow.right").font(.system(size: 8)).foregroundColor(.white.opacity(0.4))
-                            Text(context.attributes.destination)
+                            
+                            Image(systemName: "arrow.right").font(.system(size: 7)).foregroundColor(.white.opacity(0.35))
+                            Text(shortName(context.attributes.destination))
                                 .font(.caption2.weight(.medium)).foregroundColor(.white.opacity(0.85))
                                 .lineLimit(1)
                         }
@@ -119,26 +134,53 @@ private struct LockScreenView: View {
         }
     }
 
+    private func shortName(_ raw: String) -> String {
+        let clean = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if clean.isEmpty { return "Stop" }
+        return clean.components(separatedBy: ",").first ?? clean
+    }
+
     var body: some View {
         let activeVehicle = context.state.currentVehicleType ?? context.attributes.vehicleType
         let iconName = vehicleIcon(for: activeVehicle)
+        let allStops = context.attributes.stops.isEmpty && context.state.nextStopName != nil
+            ? [context.state.nextStopName!]
+            : context.attributes.stops
         
         VStack(alignment: .leading, spacing: 10) {
-            // Header Row: Vehicle Icon + Origin ➔ Destination + Badges
+            // Header Row: Vehicle Icon + Full Route Trail + Badges
             HStack(spacing: 8) {
                 Image(systemName: iconName)
                     .foregroundColor(teal)
                     .font(.system(size: 15, weight: .bold))
                 
-                HStack(spacing: 4) {
-                    Text(context.attributes.startPoint)
+                HStack(spacing: 3) {
+                    Text(shortName(context.attributes.startPoint))
                         .font(.caption.weight(.medium))
                         .foregroundColor(.white.opacity(0.7))
                         .lineLimit(1)
+                    
+                    if !allStops.isEmpty {
+                        ForEach(allStops.prefix(2), id: \.self) { st in
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 8))
+                                .foregroundColor(.white.opacity(0.35))
+                            Text(shortName(st))
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(amber)
+                                .lineLimit(1)
+                        }
+                        if allStops.count > 2 {
+                            Text("+\(allStops.count - 2)")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundColor(amber)
+                        }
+                    }
+                    
                     Image(systemName: "arrow.right")
-                        .font(.system(size: 9))
-                        .foregroundColor(.white.opacity(0.4))
-                    Text(context.attributes.destination)
+                        .font(.system(size: 8))
+                        .foregroundColor(.white.opacity(0.35))
+                    Text(shortName(context.attributes.destination))
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(.white)
                         .lineLimit(1)
@@ -179,49 +221,83 @@ private struct LockScreenView: View {
                     .foregroundColor(.white.opacity(0.75))
             }
 
-            // Intermediate Stop Points (Waypoints) Highlight
-            if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
-                HStack(spacing: 6) {
-                    Image(systemName: "mappin.and.ellipse")
-                        .foregroundColor(amber)
-                        .font(.system(size: 12))
-                    
-                    Text("Next stop: \(nextStop)")
-                        .font(.caption.weight(.semibold))
-                        .foregroundColor(amber)
-                        .lineLimit(1)
-                    
-                    if let d = context.state.nextStopDistanceKm, d > 0 {
-                        Text("· \(String(format: "%.1f", d)) km")
-                            .font(.caption)
-                            .foregroundColor(.white.opacity(0.6))
+            // Visual Stop Points Timeline Bar (Nodes)
+            if !allStops.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    // Visual Node Line
+                    HStack(spacing: 0) {
+                        // Start Node
+                        Circle()
+                            .fill(teal)
+                            .frame(width: 8, height: 8)
+                        
+                        Rectangle()
+                            .fill(teal.opacity(0.5))
+                            .frame(height: 2)
+                        
+                        // Intermediate Stop Nodes
+                        ForEach(0..<allStops.count, id: \.self) { idx in
+                            let isNext = (context.state.nextStopName != nil && allStops[idx].contains(context.state.nextStopName!)) || idx == 0
+                            HStack(spacing: 0) {
+                                ZStack {
+                                    Circle()
+                                        .fill(isNext ? amber : Color.white.opacity(0.3))
+                                        .frame(width: isNext ? 12 : 8, height: isNext ? 12 : 8)
+                                    if isNext {
+                                        Circle()
+                                            .fill(Color.black)
+                                            .frame(width: 4, height: 4)
+                                    }
+                                }
+                                Rectangle()
+                                    .fill(Color.white.opacity(0.25))
+                                    .frame(height: 2)
+                            }
+                        }
+                        
+                        // Destination Node
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.system(size: 11))
+                            .foregroundColor(.red)
                     }
                     
-                    if let remaining = context.state.remainingStopsCount, remaining > 1 {
-                        Spacer()
-                        Text("\(remaining) stops left")
-                            .font(.system(size: 10, weight: .medium))
-                            .foregroundColor(.white.opacity(0.5))
+                    // Stop Point Pill Card
+                    if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "mappin.and.ellipse")
+                                .foregroundColor(amber)
+                                .font(.system(size: 12, weight: .bold))
+                            
+                            Text("Next Stop: \(nextStop)")
+                                .font(.caption.weight(.bold))
+                                .foregroundColor(amber)
+                                .lineLimit(1)
+                            
+                            if let d = context.state.nextStopDistanceKm, d > 0 {
+                                Text("· \(String(format: "%.1f", d)) km")
+                                    .font(.caption.weight(.medium))
+                                    .foregroundColor(.white.opacity(0.7))
+                            }
+                            
+                            Spacer()
+                            
+                            if let remaining = context.state.remainingStopsCount, remaining > 1 {
+                                Text("(\(remaining) stops total)")
+                                    .font(.system(size: 10, weight: .medium))
+                                    .foregroundColor(.white.opacity(0.5))
+                            }
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(amber.opacity(0.12))
+                        .overlay(RoundedRectangle(cornerRadius: 8).stroke(amber.opacity(0.35), lineWidth: 1))
+                        .cornerRadius(8)
                     }
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.06))
-                .cornerRadius(8)
-            } else if !context.attributes.stops.isEmpty {
-                // Show list of waypoints when not navigating towards a specific one
-                HStack(spacing: 4) {
-                    Image(systemName: "list.bullet")
-                        .foregroundColor(teal)
-                        .font(.system(size: 10))
-                    Text("\(context.attributes.stops.count) stop(s): \(context.attributes.stops.joined(separator: " · "))")
-                        .font(.caption2)
-                        .foregroundColor(.white.opacity(0.65))
-                        .lineLimit(1)
-                }
+                .padding(.vertical, 2)
             }
             
-            // Progress Bar
+            // Route Travel Progress Bar
             ProgressView(value: context.state.progress)
                 .tint(teal)
         }

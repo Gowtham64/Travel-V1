@@ -18,6 +18,8 @@ import 'trip_workspace_screen.dart';
 import 'itinerary_screen.dart';
 import 'saved_trips_screen.dart';
 import 'trip_history_screen.dart';
+import 'account_screens.dart';
+import '../widgets/profile_menu.dart';
 import '../services/trip_history_service.dart';
 import '../widgets/app_design.dart';
 import '../widgets/globe_preview.dart';
@@ -1749,59 +1751,62 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               ),
             ),
             const SizedBox(height: 24),
-            // Drawer Options
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
+            // Drawer Options List (Scrollable)
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: Colors.white.withOpacity(0.03),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      leading: const Icon(Icons.map_outlined, color: Color(0xFF60A5FA), size: 24),
-                      title: const Text(
-                        'Saved Trips',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: Colors.white.withOpacity(0.03),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                      leading: const Icon(Icons.history_rounded, color: Color(0xFF10B981), size: 24),
-                      title: const Text(
-                        'Trip History',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 20),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(context, MaterialPageRoute(builder: (_) => const TripHistoryScreen()));
-                      },
-                    ),
-                  ),
+                  _drawerTile(Icons.map_outlined, 'Saved Trips', const Color(0xFF60A5FA), () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+                  }),
+                  _drawerTile(Icons.history_rounded, 'Trip History', const Color(0xFF10B981), () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TripHistoryScreen()));
+                  }),
+                  _drawerTile(Icons.directions_car_rounded, 'My Vehicles', const Color(0xFFF59E0B), () {
+                    Navigator.pop(context);
+                    final cfg = configForMenu('my_vehicles');
+                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                  }),
+                  _drawerTile(Icons.account_balance_wallet_outlined, 'Travel Wallet & Budget', const Color(0xFF38BDF8), () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TravelWalletScreen()));
+                  }),
+                  _drawerTile(Icons.favorite_border_rounded, 'Wishlist & Saved Places', const Color(0xFFF43F5E), () {
+                    Navigator.pop(context);
+                    final cfg = configForMenu('wishlist');
+                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                  }),
+                  _drawerTile(Icons.flight_rounded, 'Bookings & Tickets', const Color(0xFFA855F7), () {
+                    Navigator.pop(context);
+                    final cfg = configForMenu('flights');
+                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                  }),
+                  _drawerTile(Icons.checklist_rtl_rounded, 'Packing Checklist', const Color(0xFF14B8A6), () {
+                    Navigator.pop(context);
+                    final cfg = configForMenu('packing');
+                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                  }),
+                  _drawerTile(Icons.emergency_outlined, 'Emergency SOS & Helplines', const Color(0xFFEF4444), () {
+                    Navigator.pop(context);
+                    final cfg = configForMenu('emergency');
+                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                  }),
+                  _drawerTile(Icons.settings_outlined, 'Profile & Settings', const Color(0xFF94A3B8), () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                  }),
+                  _drawerTile(Icons.help_outline_rounded, 'Help & Support', const Color(0xFF06B6D4), () {
+                    Navigator.pop(context);
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
+                  }),
                 ],
               ),
             ),
-            const Spacer(),
             // Log Out Button at Bottom
             Padding(
-              padding: const EdgeInsets.all(24),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Container(
                 width: double.infinity,
                 decoration: BoxDecoration(
@@ -1826,6 +1831,31 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _drawerTile(IconData icon, String title, Color color, VoidCallback onTap) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withOpacity(0.03),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w600),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 18),
+        onTap: onTap,
       ),
     );
   }

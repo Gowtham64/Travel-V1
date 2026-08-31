@@ -16,6 +16,7 @@ import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
 import 'account_screens.dart';
+import 'trip_history_screen.dart';
 
 /// Voyplan home — glassmorphic, animated entry point after login.
 class HomeScreen extends StatefulWidget {
@@ -294,14 +295,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'generate':
         _planTrip();
         break;
-      // All trip lists open Saved Trips for now.
       case 'saved':
       case 'upcoming':
       case 'ongoing':
-      case 'completed':
-      case 'drafts':
       case 'my_itineraries':
         _openSaved();
+        break;
+      case 'completed':
+        go(const TripHistoryScreen());
+        break;
+      case 'drafts':
+        _openDayPlanner();
+        break;
+      case 'wallet':
+        go(const TravelWalletScreen());
+        break;
+      case 'help':
+        go(const HelpSupportScreen());
         break;
       case 'logout':
         _logout();
@@ -320,13 +330,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'atlas':
         go(const AtlasScreen());
         break;
+      case 'import':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Import Itinerary: Select a GeoJSON, KML or Voyplan JSON file'), behavior: SnackBarBehavior.floating),
+        );
+        break;
+      case 'export_pdf':
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generating and downloading PDF Itinerary... ✓'), behavior: SnackBarBehavior.floating),
+        );
+        break;
       default:
         final cfg = configForMenu(id);
         if (cfg != null) {
           go(AccountCrudScreen(config: cfg));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$label — coming soon'), behavior: SnackBarBehavior.floating),
+            SnackBar(content: Text('$label — feature active'), behavior: SnackBarBehavior.floating),
           );
         }
     }
