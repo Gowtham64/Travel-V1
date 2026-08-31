@@ -877,7 +877,7 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                             backgroundColor: Voy.brand,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            shape: RoundedRectangle(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
