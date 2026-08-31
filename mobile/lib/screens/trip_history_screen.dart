@@ -91,7 +91,8 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
             MaterialPageRoute(
               builder: (_) => TripPlannerScreen(
                 initialStart: trip.startAddress,
-                initialDestination: trip.endAddress,
+                initialEnd: trip.endAddress,
+                initialTripType: trip.isRoundTrip ? 'roundtrip' : 'oneway',
               ),
             ),
           );
@@ -155,7 +156,6 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
@@ -384,7 +384,8 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
                                 MaterialPageRoute(
                                   builder: (_) => TripPlannerScreen(
                                     initialStart: trip.startAddress,
-                                    initialDestination: trip.endAddress,
+                                    initialEnd: trip.endAddress,
+                                    initialTripType: trip.isRoundTrip ? 'roundtrip' : 'oneway',
                                   ),
                                 ),
                               );

@@ -21,6 +21,7 @@ import '../utils/calendar_helper.dart';
 import '../services/car_platform_channel.dart';
 import '../services/trip_notification_service.dart';
 import '../widgets/three_d_map.dart';
+import '../widgets/car_mode_overlay.dart';
 import 'itinerary_screen.dart';
 import 'trip_workspace_screen.dart';
 import 'trip_history_screen.dart';
@@ -2583,8 +2584,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
     final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
     final toll = _currentPlan.toll?.fastagTollCost ?? 0.0;
-    final fuel = _currentPlan.fuelCost ?? 0.0;
-    final total = (toll + fuel) > 0 ? (toll + fuel) : (_currentPlan.estimatedCost ?? 0.0);
+    final v = widget.vehicle;
+    final double litres = v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0.0;
+    final double fuel = _currentPlan.toll?.fuelCost ?? (litres * 102.0);
+    final double total = toll + fuel;
 
     TripHistoryService.instance.saveTrip(
       TripHistoryItem(

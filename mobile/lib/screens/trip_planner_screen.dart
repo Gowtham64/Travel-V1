@@ -33,6 +33,8 @@ class TripPlannerScreen extends StatefulWidget {
   /// user only needs to enter a starting point.
   final GeoPoint? initialDestination;
   final String? initialDestinationLabel;
+  final String? initialStart;
+  final String? initialEnd;
 
   /// Optional pre-selected trip options handed in from another flow (e.g. the
   /// trek planner), so "plan trip to trailhead" arrives fully configured.
@@ -46,6 +48,8 @@ class TripPlannerScreen extends StatefulWidget {
     this.initialTripType = 'oneway',
     this.initialDestination,
     this.initialDestinationLabel,
+    this.initialStart,
+    this.initialEnd,
     this.initialVehicleId,
     this.initialTravellers,
     this.initialCurrentFuelLiters,
@@ -150,6 +154,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _appliedPOIs = List.from(widget.initialPOIs!);
     }
     _recordUserSession();
+
+    // Seed start and destination if passed in (e.g. from Trip History re-plan)
+    if (widget.initialStart != null && widget.initialStart!.isNotEmpty) {
+      _stopControllers.first.text = widget.initialStart!;
+    }
+    if (widget.initialEnd != null && widget.initialEnd!.isNotEmpty) {
+      _stopControllers.last.text = widget.initialEnd!;
+    }
 
     // Seed a destination handed in from trek discovery ("plan around this trail").
     if (widget.initialDestination != null) {
