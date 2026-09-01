@@ -37,24 +37,10 @@ class TempleDatabase {
   TempleDatabase._();
 
   static const List<TempleInfo> allTemples = [
-    // --- TIRUPATI & TIRUMALA CIRCUIT ---
-    TempleInfo(
-      canonicalName: 'Sri Venkateswara Swamy Temple',
-      aliases: ['tirumala', 'tirupati balaji', 'venkateswara', 'ttd temple', 'seven hills', 'balaji'],
-      rating: 4.8,
-      reviewsCount: 142000,
-      deity: 'Lord Venkateswara (Balaji / Govinda)',
-      timing: 'Opens 5:00 AM · Closes 11:30 PM',
-      description: 'World-renowned hilltop shrine located on the Seventh Peak (Venkatadri) of Seshachalam Hills. One of the most sacred pilgrimage centers on Earth.',
-      highlights: 'Golden Ananda Nilayam vimana, Tirupati Laddu prasadam, Swami Pushkarini holy tank',
-      city: 'Tirumala, Tirupati',
-      state: 'Andhra Pradesh',
-      lat: 13.6833,
-      lng: 79.3472,
-    ),
+    // --- TIRUPATI & TIRUMALA CIRCUIT (Canonical Pilgrimage Order) ---
     TempleInfo(
       canonicalName: 'Shri Varaha Swamy Temple',
-      aliases: ['varaha swamy', 'adi varaha temple', 'varahaswamy'],
+      aliases: ['varaha swamy', 'adi varaha temple', 'varahaswamy', 'varaha'],
       rating: 4.8,
       reviewsCount: 18500,
       deity: 'Lord Adi Varaha Swamy',
@@ -65,6 +51,20 @@ class TempleDatabase {
       state: 'Andhra Pradesh',
       lat: 13.6841,
       lng: 79.3488,
+    ),
+    TempleInfo(
+      canonicalName: 'Sri Venkateswara Swamy Temple',
+      aliases: ['tirumala balaji', 'venkateswara temple', 'ttd temple', 'seven hills', 'tirupati balaji', 'venkateswara swamy'],
+      rating: 4.8,
+      reviewsCount: 142000,
+      deity: 'Lord Venkateswara (Balaji / Govinda)',
+      timing: 'Opens 5:00 AM · Closes 11:30 PM',
+      description: 'World-renowned hilltop shrine located on the Seventh Peak (Venkatadri) of Seshachalam Hills. One of the most sacred pilgrimage centers on Earth.',
+      highlights: 'Golden Ananda Nilayam vimana, Tirupati Laddu prasadam, Swami Pushkarini holy tank',
+      city: 'Tirumala, Tirupati',
+      state: 'Andhra Pradesh',
+      lat: 13.6833,
+      lng: 79.3472,
     ),
     TempleInfo(
       canonicalName: 'Sri Bedi Anjaneya Swamy Temple',
@@ -82,7 +82,7 @@ class TempleDatabase {
     ),
     TempleInfo(
       canonicalName: 'Sri Padmavathi Ammavari Temple',
-      aliases: ['padmavathi', 'tiruchanur', 'alamelu manga', 'padmavathi ammavaru'],
+      aliases: ['padmavathi ammavari', 'padmavathi temple', 'tiruchanur temple', 'alamelu manga'],
       rating: 4.7,
       reviewsCount: 45000,
       deity: 'Goddess Padmavathi (Alamelu Manga)',
@@ -95,22 +95,22 @@ class TempleDatabase {
       lng: 79.4489,
     ),
     TempleInfo(
-      canonicalName: 'Sri Govindaraja Swamy Temple',
-      aliases: ['govindaraja', 'govindarajaswamy', 'tirupati central temple'],
+      canonicalName: 'Sri Kalyana Venkateswara Swamy Temple',
+      aliases: ['srinivasa mangapuram temple', 'kalyana venkateswara'],
       rating: 4.7,
-      reviewsCount: 38000,
-      deity: 'Lord Govindaraja Swamy (Resting Vishnu Posture)',
-      timing: 'Opens 5:00 AM · Closes 9:30 PM',
-      description: 'Monumental 12th-century Vaishnavite temple consecrated by Saint Ramanujacharya in the heart of Tirupati with towering Raja Gopuram.',
-      highlights: 'Sprawling ancient courtyards, Vijayanagara stone pillars, monumental gopuram',
-      city: 'Tirupati',
+      reviewsCount: 22000,
+      deity: 'Lord Kalyana Venkateswara',
+      timing: 'Opens 5:30 AM · Closes 8:30 PM',
+      description: 'Located at Srinivasa Mangapuram (12 km west). Lord Venkateswara and Goddess Padmavathi stayed here for 6 months after their divine wedding.',
+      highlights: 'Special prayers for newlyweds and marriage obstacles, peaceful heritage atmosphere',
+      city: 'Srinivasa Mangapuram, Tirupati',
       state: 'Andhra Pradesh',
-      lat: 13.6291,
-      lng: 79.4182,
+      lat: 13.6169,
+      lng: 79.3142,
     ),
     TempleInfo(
       canonicalName: 'Sri Kapileswara Swamy Temple & Kapila Theertham',
-      aliases: ['kapileswara', 'kapila theertham', 'kapila theertham falls'],
+      aliases: ['kapileswara swamy', 'kapila theertham temple', 'kapileswara'],
       rating: 4.7,
       reviewsCount: 29000,
       deity: 'Lord Shiva (Kapileswara)',
@@ -123,18 +123,18 @@ class TempleDatabase {
       lng: 79.4278,
     ),
     TempleInfo(
-      canonicalName: 'Sri Kalyana Venkateswara Swamy Temple',
-      aliases: ['srinivasa mangapuram', 'kalyana venkateswara'],
+      canonicalName: 'Sri Govindaraja Swamy Temple',
+      aliases: ['govindaraja swamy', 'govindarajaswamy temple', 'govindaraja'],
       rating: 4.7,
-      reviewsCount: 22000,
-      deity: 'Lord Kalyana Venkateswara',
-      timing: 'Opens 5:30 AM · Closes 8:30 PM',
-      description: 'Located at Srinivasa Mangapuram (12 km west). Lord Venkateswara and Goddess Padmavathi stayed here for 6 months after their divine wedding.',
-      highlights: 'Special prayers for newlyweds and marriage obstacles, peaceful heritage atmosphere',
-      city: 'Srinivasa Mangapuram, Tirupati',
+      reviewsCount: 38000,
+      deity: 'Lord Govindaraja Swamy (Resting Vishnu Posture)',
+      timing: 'Opens 5:00 AM · Closes 9:30 PM',
+      description: 'Monumental 12th-century Vaishnavite temple consecrated by Saint Ramanujacharya in the heart of Tirupati with towering Raja Gopuram.',
+      highlights: 'Sprawling ancient courtyards, Vijayanagara stone pillars, monumental gopuram',
+      city: 'Tirupati',
       state: 'Andhra Pradesh',
-      lat: 13.6169,
-      lng: 79.3142,
+      lat: 13.6291,
+      lng: 79.4182,
     ),
     TempleInfo(
       canonicalName: 'Sri Kodanda Rama Swami Temple',
@@ -325,10 +325,17 @@ class TempleDatabase {
   /// Find rich temple info for any search query or place name
   static TempleInfo? findTemple(String name) {
     final lower = name.toLowerCase().trim();
+    if (lower.isEmpty) return null;
+    // Exclude non-temple events
+    if (lower.contains('drive') || lower.contains('hotel') || lower.contains('rest') || lower.contains('breakfast') || lower.contains('lunch') || lower.contains('dinner') || lower.contains('coffee') || lower.contains('tea break')) {
+      return null;
+    }
+
     for (final t in allTemples) {
       if (t.canonicalName.toLowerCase() == lower) return t;
+      if (lower.contains(t.canonicalName.toLowerCase())) return t;
       for (final a in t.aliases) {
-        if (lower.contains(a) || a.contains(lower)) return t;
+        if (lower.contains(a)) return t;
       }
     }
     return null;

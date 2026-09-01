@@ -910,8 +910,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     if (b.durationMin > 0) meta.add('${b.durationMin} min');
     if (b.travelMin > 0) meta.add('${isLeg ? _travelEmoji(b.travelMode) : "🚗"} ${b.travelMin} min');
     if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
-    final temple = TempleDatabase.findTemple(b.place.isNotEmpty ? b.place : b.title);
-    final isTemple = temple != null || b.title.toLowerCase().contains('darshan') || b.title.toLowerCase().contains('temple') || b.place.toLowerCase().contains('temple');
+    final isActivity = b.type == 'activity';
+    final temple = isActivity ? TempleDatabase.findTemple(b.title.isNotEmpty ? b.title : b.place) : null;
+    final isTemple = isActivity && (temple != null || b.title.toLowerCase().contains('darshan') || b.title.toLowerCase().contains('temple'));
 
     return IntrinsicHeight(
       child: Row(
