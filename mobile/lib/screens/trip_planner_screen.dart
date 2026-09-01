@@ -390,8 +390,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           _tempEnd != null &&
           _tempWaypoints != null &&
           _tempWaypoints!.length == waypoints.length &&
-          _dist(_tempStart!, start) < 0.01 &&
-          _dist(_tempEnd!, end) < 0.01;
+          (_tempStart!.lat - start.lat).abs() < 0.01 &&
+          (_tempStart!.lng - start.lng).abs() < 0.01 &&
+          (_tempEnd!.lat - end.lat).abs() < 0.01 &&
+          (_tempEnd!.lng - end.lng).abs() < 0.01;
 
       if (canReuseTemp) {
         plan = _tempPlan!;

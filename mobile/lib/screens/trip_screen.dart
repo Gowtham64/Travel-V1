@@ -1279,11 +1279,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                     final api = ApiService();
                                     final geo = await api.geocode(q);
                                     final poi = PlaceOfInterest(
+                                      id: DateTime.now().millisecondsSinceEpoch,
                                       name: geo.name ?? q,
-                                      category: 'place',
                                       lat: geo.lat,
                                       lng: geo.lng,
-                                      distanceKm: 0,
+                                      address: geo.name ?? q,
                                     );
                                     setSheetState(() {
                                       searchResults = [poi];
@@ -1305,11 +1305,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                           final api = ApiService();
                           final geo = await api.geocode(q);
                           final poi = PlaceOfInterest(
+                            id: DateTime.now().millisecondsSinceEpoch,
                             name: geo.name ?? q,
-                            category: 'place',
                             lat: geo.lat,
                             lng: geo.lng,
-                            distanceKm: 0,
+                            address: geo.name ?? q,
                           );
                           setSheetState(() {
                             searchResults = [poi];
@@ -1376,9 +1376,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                             poi.name,
                                             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                                           ),
-                                          if (poi.category.isNotEmpty)
+                                          if (poi.address != null && poi.address!.isNotEmpty)
                                             Text(
-                                              poi.category.toUpperCase(),
+                                              poi.address!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
                                             ),
                                         ],
