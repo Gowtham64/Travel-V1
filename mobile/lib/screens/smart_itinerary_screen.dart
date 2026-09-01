@@ -999,6 +999,33 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                           Text(temple.timing, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10.5)),
                         ],
                       ),
+                      if (temple.darshanWaitInfo != null) ...[
+                        const SizedBox(height: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.timer_outlined, size: 12, color: Color(0xFFF87171)),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  '⏳ Darshan Wait: ${temple.darshanWaitInfo}',
+                                  style: const TextStyle(
+                                    color: Color(0xFFFCA5A5),
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 2),
                       Text(
                         '✨ Highlights: ${temple.highlights}',

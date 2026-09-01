@@ -1045,19 +1045,21 @@ class ApiService {
       }
 
       final t1 = getNextTemple();
+      final t1Duration = t1.recommendedDarshanMinutes;
+      final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
       blocks.add(TimelineBlock(
         start: isFirst ? '12:30' : '09:30',
-        end: isFirst ? '14:00' : '12:30',
+        end: isFirst ? (t1Duration > 120 ? '15:30' : '14:00') : (t1Duration > 120 ? '13:00' : '12:30'),
         type: 'activity',
         title: 'Darshan at ${t1.canonicalName}',
         place: '${t1.canonicalName}, ${t1.city}',
-        durationMin: isFirst ? 90 : 180,
-        reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating} · ${t1.highlights}',
+        durationMin: isFirst ? (t1Duration > 120 ? 180 : t1Duration) : t1Duration,
+        reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
       ));
 
       blocks.add(TimelineBlock(
-        start: isFirst ? '14:00' : '12:45',
-        end: isFirst ? '15:00' : '14:00',
+        start: isFirst ? (t1Duration > 120 ? '15:30' : '14:00') : (t1Duration > 120 ? '13:00' : '12:45'),
+        end: isFirst ? (t1Duration > 120 ? '16:30' : '15:00') : (t1Duration > 120 ? '14:00' : '14:00'),
         type: 'meal',
         title: 'Traditional Lunch in $destName',
         place: 'Authentic Pure Vegetarian Restaurant',
@@ -1067,23 +1069,25 @@ class ApiService {
       ));
 
       final t2 = getNextTemple();
+      final t2Duration = t2.recommendedDarshanMinutes;
+      final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
       blocks.add(TimelineBlock(
-        start: '15:15',
-        end: '17:30',
+        start: isFirst ? (t1Duration > 120 ? '16:45' : '15:15') : (t1Duration > 120 ? '14:15' : '15:15'),
+        end: isFirst ? (t1Duration > 120 ? '20:00' : '18:30') : (t2Duration > 120 ? '18:30' : '17:30'),
         type: 'activity',
-        title: 'Visit ${t2.canonicalName}',
+        title: 'Visit & Darshan at ${t2.canonicalName}',
         place: '${t2.canonicalName}, ${t2.city}',
-        durationMin: 135,
-        reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating} · ${t2.highlights}',
+        durationMin: t2Duration,
+        reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
       ));
 
       blocks.add(TimelineBlock(
-        start: '17:45',
-        end: '18:45',
+        start: '18:45',
+        end: '19:30',
         type: 'coffee',
         title: 'Evening Sunset & Tea Break',
         place: 'Scenic Viewpoint / Temple Promenade',
-        durationMin: 60,
+        durationMin: 45,
         breakType: 'coffee',
         reason: 'Golden hour views and refreshing evening tea',
       ));

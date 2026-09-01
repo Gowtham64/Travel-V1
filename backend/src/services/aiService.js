@@ -501,18 +501,18 @@ async function smartItinerary({
 }
 
 const CURATED_TEMPLES = [
-  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam" },
-  { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Holy Swami Pushkarini bank traditional first darshan" },
-  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Directly opposite main Mahadwaram gopuram" },
-  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", highlight: "Sacred Padma Sarovaram tank blessings" },
-  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", highlight: "Divine wedding post-marriage stay site" },
-  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", highlight: "Sacred mountain waterfall & spring" },
-  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", highlight: "Towering 12th-century Raja Gopuram" },
-  { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja" },
-  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", highlight: "Swayambhu growing Ganesha in water well" },
-  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", highlight: "Hilltop Shakti Peetha & monolithic Nandi" },
-  { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", highlight: "Historic island shrine on Kaveri river" },
-  { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", highlight: "Ancient Kapila river confluence & healing waters" },
+  { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan" },
+  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs · VIP: ~1 hr", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam" },
+  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 45, wait: "20–45 mins", highlight: "Directly opposite main Mahadwaram gopuram" },
+  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", durationMin: 90, wait: "Special: 1–2 hrs · General: 2–3 hrs", highlight: "Sacred Padma Sarovaram tank blessings" },
+  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Divine wedding post-marriage stay site" },
+  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Sacred mountain waterfall & spring" },
+  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram" },
+  { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", durationMin: 150, wait: "Rahu-Ketu: 2–3 hrs · General: 1–2 hrs", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja" },
+  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in water well" },
+  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Hilltop Shakti Peetha & monolithic Nandi" },
+  { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Historic island shrine on Kaveri river" },
+  { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters" },
 ];
 
 function buildFallbackSmartItinerary({ destination, startLocation, places = [], durationDays = 1, startTime = "08:00", preferences = "" }) {
@@ -586,22 +586,24 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       });
     }
 
-    // Morning / Afternoon Activity
+    // Morning Activity
     const t1 = getNextTemple();
+    const t1Duration = t1.durationMin || 60;
+    const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
     blocks.push({
       start: isFirst ? "12:30" : "09:30",
-      end: isFirst ? "14:00" : "12:30",
+      end: isFirst ? (t1Duration > 120 ? "15:30" : "14:00") : (t1Duration > 120 ? "13:00" : "12:30"),
       type: "activity",
       title: `Darshan at ${t1.name}`,
       place: `${t1.name}, ${t1.city}`,
-      durationMin: isFirst ? 90 : 180,
-      reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating} · ${t1.highlight}`
+      durationMin: isFirst ? (t1Duration > 120 ? 180 : t1Duration) : t1Duration,
+      reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`
     });
 
     // Lunch
     blocks.push({
-      start: isFirst ? "14:00" : "12:45",
-      end: isFirst ? "15:00" : "14:00",
+      start: isFirst ? (t1Duration > 120 ? "15:30" : "14:00") : (t1Duration > 120 ? "13:00" : "12:45"),
+      end: isFirst ? (t1Duration > 120 ? "16:30" : "15:00") : (t1Duration > 120 ? "14:00" : "14:00"),
       type: "meal",
       title: `Traditional Lunch in ${destName}`,
       place: "Authentic Pure Vegetarian Restaurant",
@@ -612,14 +614,16 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
 
     // Afternoon Activity
     const t2 = getNextTemple();
+    const t2Duration = t2.durationMin || 90;
+    const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
     blocks.push({
-      start: "15:15",
-      end: "17:30",
+      start: isFirst ? (t1Duration > 120 ? "16:45" : "15:15") : (t1Duration > 120 ? "14:15" : "15:15"),
+      end: isFirst ? (t1Duration > 120 ? "20:00" : "18:30") : (t2Duration > 120 ? "18:30" : "17:30"),
       type: "activity",
-      title: `Visit ${t2.name}`,
+      title: `Visit & Darshan at ${t2.name}`,
       place: `${t2.name}, ${t2.city}`,
-      durationMin: 135,
-      reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating} · ${t2.highlight}`
+      durationMin: t2Duration,
+      reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`
     });
 
     // Evening Tea / Sunset
