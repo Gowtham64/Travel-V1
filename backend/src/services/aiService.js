@@ -118,12 +118,39 @@ async function recommendStops({ start, end, waypoints = [] }) {
 }
 
 async function searchPlaces({ query, near }) {
-  const anchor = near ? ` near ${near}` : "";
-  const prompt = `Find up to 8 real, specific places matching this request${anchor}: "${query}". ${PLACES_JSON_HINT}`;
-  return safeParsePlaces(await generate(prompt, {
-    system: "You are a concise, accurate travel search assistant. Only return real, specific places.",
-    json: true,
-  }));
+  const qClean = (query || "").trim().toLowerCase();
+  try {
+    const anchor = near ? ` near ${near}` : "";
+    const prompt = `Find up to 8 real, specific places matching this request${anchor}: "${query}". ${PLACES_JSON_HINT}`;
+    const res = safeParsePlaces(await generate(prompt, {
+      system: "You are a concise, accurate travel search assistant. Only return real, specific places.",
+      json: true,
+    }));
+    if (res && res.length > 0) return res;
+  } catch (err) {
+    console.warn("AI searchPlaces provider error, using fallback matching:", err.message);
+  }
+
+  // Fallback to Curated Knowledge & Temples
+  const fallback = [];
+  for (const t of CURATED_TEMPLES) {
+    if (t.name.toLowerCase().includes(qClean) || t.deity.toLowerCase().includes(qClean) || t.city.toLowerCase().includes(qClean) || qClean.includes(t.name.toLowerCase())) {
+      fallback.push({
+        name: t.name,
+        area: t.city,
+        why: `🛕 ${t.deity} · ⭐ ${t.rating} · ${t.highlight}`
+      });
+    }
+  }
+  if (fallback.length > 0) return fallback;
+
+  return [
+    {
+      name: query.trim(),
+      area: near || "Destination Area",
+      why: "Selected place & attraction"
+    }
+  ];
 }
 
 // Parse the AI's travel-options JSON into clean flight / train / hotel arrays.
