@@ -1,24 +1,32 @@
 const axios = require("axios");
 
 const PHOTON_TERMS = {
-  fuel:        ["petrol", "fuel", "gas station"],
-  charging:    ["ev charging", "charging station"],
-  hotel:       ["hotel", "resort", "lodge"],
-  restaurant:  ["restaurant", "dhaba", "food", "cafe"],
-  dining:      ["restaurant", "dhaba", "food", "cafe"],
-  attraction:  ["tourist attraction", "palace", "monument", "fort", "museum"],
+  temple:      ["sri temple", "swamy temple", "temple", "mandir", "kovil"],
+  fuel:        ["petrol pump", "indian oil", "bharat petroleum", "hindustan petroleum", "shell petrol", "fuel"],
+  charging:    ["ev charging", "tata power ev", "charging station"],
+  hotel:       ["resort", "hotel stay", "lodge", "inn"],
+  restaurant:  ["restaurant", "veg restaurant", "dhaba", "hotel dining", "bhavan"],
+  dining:      ["restaurant", "veg restaurant", "dhaba", "cafe"],
+  attraction:  ["palace", "fort", "waterfall", "viewpoint", "sanctuary", "monument"],
   hills:       ["hills", "peak", "viewpoint"],
-  temple:      ["temple", "shrine", "place of worship"],
   lake:        ["lake", "dam", "reservoir"],
   river:       ["river", "waterfall", "falls"],
-  viewpoint:   ["viewpoint", "scenic view", "waterfall"],
-  tea:         ["tea", "cafe", "coffee"],
+  viewpoint:   ["viewpoint", "hill viewpoint", "waterfall"],
+  tea:         ["tea stall", "cafe coffee day", "chai point", "bakery"],
 };
+
+function distKm(lat1, lon1, lat2, lon2) {
+  const p = Math.PI / 180;
+  const a = 0.5 - Math.cos((lat2 - lat1) * p) / 2 +
+            Math.cos(lat1 * p) * Math.cos(lat2 * p) *
+            (1 - Math.cos((lon2 - lon1) * p)) / 2;
+  return 12742 * Math.asin(Math.sqrt(a));
+}
 
 /**
  * Downsample coordinates to at most maxPoints evenly spaced points.
  */
-function sampleCoordinates(coords, maxPoints = 5) {
+function sampleCoordinates(coords, maxPoints = 7) {
   if (!coords || coords.length <= maxPoints) return coords || [];
   const step = Math.floor(coords.length / maxPoints);
   const sampled = [];
@@ -33,10 +41,10 @@ function sampleCoordinates(coords, maxPoints = 5) {
 
 /**
  * High-speed POI search along route using Photon (OpenStreetMap global API).
- * Fast, reliable (sub-second), and does not timeout.
+ * Fast, reliable (sub-second), and strictly filtered within 12km of route.
  */
 async function findPOIsAlongRoute(routeCoordinates, categories) {
-  const samples = sampleCoordinates(routeCoordinates, 4);
+  const samples = sampleCoordinates(routeCoordinates, 7);
   const places = {};
 
   for (const category of categories) {
@@ -49,21 +57,41 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
       for (const term of terms) {
         fetchPromises.push(
           axios.get("https://photon.komoot.io/api/", {
-            params: { q: term, lat: pt.lat, lon: pt.lng, limit: 5 },
+            params: { q: term, lat: pt.lat, lon: pt.lng, limit: 8 },
             timeout: 4000,
           }).then(resp => {
             const feats = resp.data?.features || [];
             for (const f of feats) {
               const geom = f.geometry?.coordinates || [];
               const p = f.properties || {};
-              const name = p.name || (p.osm_value ? `${p.osm_value}`.toUpperCase() : term);
+              let name = (p.name || "").trim();
               if (geom.length >= 2) {
                 const lng = geom[0];
                 const lat = geom[1];
+
+                // Filter out far-away detours (> 12 km from route)
+                let minDetour = Infinity;
+                for (const sp of samples) {
+                  const d = distKm(lat, lng, sp.lat, sp.lng);
+                  if (d < minDetour) minDetour = d;
+                }
+                if (minDetour > 12.0) continue;
+
+                const city = p.city || p.district || p.county || p.locality;
+                if (!name || name.toLowerCase() === "temple" || name.toLowerCase() === "place_of_worship") {
+                  if (category === "temple") {
+                    name = city ? `Sri Temple (${city})` : "Sri Temple";
+                  } else if (category === "fuel") {
+                    name = city ? `Fuel Station (${city})` : "Fuel Station";
+                  } else {
+                    name = city ? `${term.toUpperCase()} (${city})` : term.toUpperCase();
+                  }
+                }
+
                 const key = `${name}-${lat.toFixed(3)}-${lng.toFixed(3)}`;
                 if (!seenKeys.has(key)) {
                   seenKeys.add(key);
-                  const addrParts = [p.street, p.city, p.state].filter(Boolean);
+                  const addrParts = [p.street, city, p.state].filter(Boolean);
                   const addr = addrParts.length > 0 ? addrParts.join(", ") : `${name}`;
                   results.push({
                     id: p.osm_id || Math.floor(Math.random() * 1000000),
@@ -82,7 +110,7 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
 
     await Promise.all(fetchPromises);
     places[category] = results;
-    console.log(`POI [${category}]: found ${results.length} places along route`);
+    console.log(`POI [${category}]: found ${results.length} verified places along route`);
   }
 
   return places;

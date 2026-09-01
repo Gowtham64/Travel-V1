@@ -427,30 +427,39 @@ class ApiService {
 
     if (coordinates.isEmpty) return result;
 
-    // Sample 3-4 key points along the route
+    // Sample 6-8 evenly distributed coordinates along the route
     final samplePoints = <GeoPoint>[];
-    if (coordinates.length <= 3) {
+    const numSamples = 7;
+    if (coordinates.length <= numSamples) {
       samplePoints.addAll(coordinates);
     } else {
-      samplePoints.add(coordinates.first);
-      samplePoints.add(coordinates[(coordinates.length * 0.50).toInt()]);
-      samplePoints.add(coordinates.last);
+      for (int i = 0; i < numSamples; i++) {
+        final idx = ((coordinates.length - 1) * (i / (numSamples - 1))).round();
+        samplePoints.add(coordinates[idx]);
+      }
     }
 
     final categoryQueryMap = {
-      'fuel': ['petrol', 'fuel'],
-      'restaurant': ['restaurant', 'dhaba'],
-      'dining': ['restaurant', 'cafe'],
-      'hotel': ['hotel', 'resort'],
-      'attraction': ['tourist attraction', 'palace', 'monument'],
-      'viewpoint': ['viewpoint', 'waterfall'],
-      'temple': ['temple', 'shrine'],
-      'hills': ['hills', 'peak'],
-      'lake': ['lake', 'dam'],
+      'temple': ['sri temple', 'swamy temple', 'temple', 'mandir', 'kovil'],
+      'fuel': ['petrol pump', 'indian oil', 'bharat petroleum', 'hindustan petroleum', 'shell petrol', 'fuel'],
+      'restaurant': ['restaurant', 'veg restaurant', 'dhaba', 'hotel dining', 'bhavan'],
+      'dining': ['restaurant', 'veg restaurant', 'dhaba', 'cafe'],
+      'hotel': ['resort', 'hotel stay', 'lodge', 'inn'],
+      'attraction': ['palace', 'fort', 'waterfall', 'viewpoint', 'sanctuary', 'monument'],
+      'viewpoint': ['viewpoint', 'hill viewpoint', 'waterfall'],
+      'hills': ['hills', 'peak', 'viewpoint'],
+      'lake': ['lake', 'dam', 'reservoir'],
       'river': ['river', 'falls'],
-      'charging': ['ev charging', 'charging station'],
-      'tea': ['tea', 'cafe'],
+      'charging': ['ev charging', 'tata power ev', 'charging station'],
+      'tea': ['tea stall', 'cafe coffee day', 'chai point', 'bakery'],
     };
+
+    double distKm(double lat1, double lon1, double lat2, double lon2) {
+      const p = 0.017453292519943295;
+      final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+          cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+      return 12742 * asin(sqrt(a));
+    }
 
     final seenKeys = <String>{};
 
@@ -460,7 +469,7 @@ class ApiService {
         for (final term in terms) {
           try {
             final uri = Uri.parse(
-              'https://photon.komoot.io/api/?q=${Uri.encodeComponent(term)}&lat=${pt.lat}&lon=${pt.lng}&limit=5',
+              'https://photon.komoot.io/api/?q=${Uri.encodeComponent(term)}&lat=${pt.lat}&lon=${pt.lng}&limit=8',
             );
             final resp = await http.get(uri).timeout(const Duration(seconds: 4));
             if (resp.statusCode == 200) {
@@ -470,28 +479,50 @@ class ApiService {
                 final geom = f['geometry'] as Map<String, dynamic>?;
                 final coords = geom?['coordinates'] as List<dynamic>?;
                 final props = f['properties'] as Map<String, dynamic>? ?? {};
-                final name = (props['name'] as String?)?.trim();
+                var rawName = (props['name'] as String?)?.trim() ?? '';
                 
                 if (coords != null && coords.length >= 2) {
                   final lng = (coords[0] as num).toDouble();
                   final lat = (coords[1] as num).toDouble();
-                  final cleanName = (name != null && name.isNotEmpty) 
-                      ? name 
-                      : (props['osm_value'] != null ? '${props['osm_value']}'.toUpperCase() : term);
-                  
+
+                  // Calculate minimum distance to the route
+                  double minDistanceKm = double.infinity;
+                  for (final sp in samplePoints) {
+                    final d = distKm(lat, lng, sp.lat, sp.lng);
+                    if (d < minDistanceKm) minDistanceKm = d;
+                  }
+
+                  // Strictly filter out POIs that are too far from the highway route (> 12 km)
+                  if (minDistanceKm > 12.0) continue;
+
+                  final city = props['city'] ?? props['district'] ?? props['county'] ?? props['locality'];
+                  final state = props['state'] ?? '';
+
+                  // Clean up name
+                  if (rawName.isEmpty || rawName.toLowerCase() == 'temple' || rawName.toLowerCase() == 'place_of_worship') {
+                    if (cat == 'temple') {
+                      rawName = city != null ? 'Sri Temple ($city)' : 'Sri Temple';
+                    } else if (cat == 'fuel') {
+                      rawName = city != null ? 'Fuel Station ($city)' : 'Fuel Station';
+                    } else {
+                      rawName = city != null ? '${term.toUpperCase()} ($city)' : term.toUpperCase();
+                    }
+                  }
+
+                  // Build complete address
                   final addressParts = <String>[];
                   if (props['street'] != null) addressParts.add(props['street'].toString());
-                  if (props['city'] != null) addressParts.add(props['city'].toString());
-                  if (props['state'] != null) addressParts.add(props['state'].toString());
-                  final address = addressParts.isNotEmpty ? addressParts.join(', ') : '$cleanName, ${pt.name ?? "Route"}';
+                  if (city != null) addressParts.add(city.toString());
+                  if (state.isNotEmpty) addressParts.add(state.toString());
+                  final address = addressParts.isNotEmpty ? addressParts.join(', ') : '$rawName, ${city ?? "Route"}';
 
-                  final key = '$cleanName-${lat.toStringAsFixed(3)}-${lng.toStringAsFixed(3)}';
+                  final key = '$rawName-${lat.toStringAsFixed(3)}-${lng.toStringAsFixed(3)}';
                   if (!seenKeys.contains(key)) {
                     seenKeys.add(key);
                     result[cat]?.add(
                       PlaceOfInterest(
                         id: key.hashCode,
-                        name: cleanName,
+                        name: rawName,
                         lat: lat,
                         lng: lng,
                         address: address,
