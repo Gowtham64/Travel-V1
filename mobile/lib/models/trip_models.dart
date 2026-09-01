@@ -260,8 +260,26 @@ class PlaceOfInterest {
   final double lat;
   final double lng;
   final String? address;
+  final double? rating;
+  final int? reviewsCount;
+  final String? deity;
+  final String? timing;
+  final String? highlights;
+  final String? categoryType;
 
-  const PlaceOfInterest({required this.id, required this.name, required this.lat, required this.lng, this.address});
+  const PlaceOfInterest({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.lng,
+    this.address,
+    this.rating,
+    this.reviewsCount,
+    this.deity,
+    this.timing,
+    this.highlights,
+    this.categoryType,
+  });
 
   factory PlaceOfInterest.fromJson(Map<String, dynamic> json) => PlaceOfInterest(
         id: json['id'] as int,
@@ -269,6 +287,12 @@ class PlaceOfInterest {
         lat: (json['lat'] as num).toDouble(),
         lng: (json['lng'] as num).toDouble(),
         address: json['address'] as String?,
+        rating: (json['rating'] as num?)?.toDouble(),
+        reviewsCount: json['reviewsCount'] as int?,
+        deity: json['deity'] as String?,
+        timing: json['timing'] as String?,
+        highlights: json['highlights'] as String?,
+        categoryType: json['categoryType'] as String?,
       );
 
   LatLng toLatLng() => LatLng(lat, lng);

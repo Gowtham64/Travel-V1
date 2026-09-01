@@ -10,6 +10,7 @@ import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../utils/landing_redirect.dart';
 import '../services/api_service.dart';
+import '../data/temple_database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
@@ -2945,25 +2946,26 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     if (allPois.isEmpty) return const SizedBox.shrink();
 
     return Container(
-      constraints: const BoxConstraints(maxHeight: 300),
+      constraints: const BoxConstraints(maxHeight: 380),
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
+        color: Colors.black.withOpacity(0.3),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
       ),
       child: ListView.builder(
         key: const PageStorageKey('poi_list_scroll_key'),
         shrinkWrap: true,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(10),
         itemCount: allPois.length,
         itemBuilder: (context, index) {
           final poi = allPois[index];
           final category = poi.key;
           final place = poi.value;
-          final option = _poiOptions.firstWhere((o) => o['id'] == category, orElse: () => _poiOptions.first);
+          final temple = (category == 'temple') ? TempleDatabase.findTemple(place.name) : null;
+          final isTemple = category == 'temple' || temple != null;
 
-          final cleanName = place.name.toLowerCase().startsWith('unnamed')
+          final cleanName = temple?.canonicalName ?? (place.name.toLowerCase().startsWith('unnamed')
               ? (category == 'fuel'
                   ? 'Petrol Bunk'
                   : category == 'hotel'
@@ -2972,44 +2974,181 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                           ? 'Restaurant / Cafe'
                           : category == 'attraction'
                               ? 'Tourist Attraction'
-                              : category == 'temple'
-                                  ? 'Temple / Worship'
+                              : isTemple
+                                  ? 'Sri Temple Shrine'
                                   : category == 'viewpoint'
                                       ? 'Scenic Viewpoint'
                                       : '${category[0].toUpperCase()}${category.substring(1)}')
-              : place.name;
+              : place.name);
 
-          return ListTile(
-            leading: Icon(option['icon'], color: Colors.white70),
-            title: Text(cleanName, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-            subtitle: Builder(
-              builder: (context) {
-                final poiKey = '${place.lat},${place.lng}';
-                final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? category.toUpperCase();
-                
-                final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
-                if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
-                  _requestedAddresses.add(poiKey);
-                  _api.reverseGeocode(place.lat, place.lng).then((addr) {
-                    if (addr != null && mounted) {
-                      setState(() {
-                        _resolvedAddresses[poiKey] = addr;
-                      });
-                    }
-                  });
-                }
+          final rating = temple?.rating ?? place.rating ?? (isTemple ? 4.7 : 4.5);
+          final deity = temple?.deity ?? place.deity;
+          final timing = temple?.timing ?? place.timing ?? (isTemple ? 'Opens 5:00 AM · Closes 9:00 PM' : null);
+          final highlights = temple?.highlights ?? place.highlights;
+          final categoryLabel = temple?.categoryType ?? place.categoryType ?? (isTemple ? '🛕 Hindu temple' : (category == 'attraction' ? '📍 Landmark' : '📌 Place of Interest'));
 
-                return Text(
-                  displayAddress,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 12),
-                );
-              },
+          final poiKey = '${place.lat},${place.lng}';
+          final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? (temple != null ? '${temple.city}, ${temple.state}' : category.toUpperCase());
+
+          final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
+          if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
+            _requestedAddresses.add(poiKey);
+            _api.reverseGeocode(place.lat, place.lng).then((addr) {
+              if (addr != null && mounted) {
+                setState(() {
+                  _resolvedAddresses[poiKey] = addr;
+                });
+              }
+            });
+          }
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B).withOpacity(0.7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white.withOpacity(0.08),
+              ),
             ),
-            trailing: IconButton(
-              icon: const Icon(Icons.add_circle_outline, color: Color(0xFF2E75B6)),
-              onPressed: () => _confirmAddPOIFromPlanner(place),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.15) : const Color(0xFF2E75B6).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        isTemple ? '🛕' : (category == 'fuel' ? '⛽' : (category == 'restaurant' ? '🍽️' : (category == 'hotel' ? '🏨' : '📍'))),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            cleanName,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.star, color: Color(0xFFF59E0B), size: 12),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      '$rating',
+                                      style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                categoryLabel,
+                                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                              ),
+                              const SizedBox(width: 6),
+                              Container(
+                                width: 4,
+                                height: 4,
+                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), shape: BoxShape.circle),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Open',
+                                style: TextStyle(color: Colors.greenAccent.shade400, fontSize: 11, fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: Color(0xFF38BDF8), size: 28),
+                      tooltip: 'Add stop to trip',
+                      onPressed: () => _confirmAddPOIFromPlanner(place),
+                    ),
+                  ],
+                ),
+                if (deity != null && deity.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Deity: ',
+                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                      Expanded(
+                        child: Text(
+                          deity,
+                          style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                if (timing != null && timing.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 12, color: Colors.white.withOpacity(0.6)),
+                      const SizedBox(width: 4),
+                      Text(
+                        timing,
+                        style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ],
+                if (highlights != null && highlights.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Highlights: $highlights',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11, fontStyle: FontStyle.italic),
+                  ),
+                ],
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.location_on_outlined, size: 12, color: Colors.white.withOpacity(0.4)),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        displayAddress,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           );
         },

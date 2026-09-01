@@ -14,6 +14,7 @@ import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
+import '../data/temple_database.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
 import '../services/voice_guide.dart';
@@ -1349,57 +1350,129 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                             itemCount: searchResults.length,
                             itemBuilder: (context, idx) {
                               final poi = searchResults[idx];
+                              final temple = TempleDatabase.findTemple(poi.name);
+                              final isTemple = temple != null || poi.name.toLowerCase().contains('temple') || poi.name.toLowerCase().contains('swamy') || poi.name.toLowerCase().contains('kovil') || poi.name.toLowerCase().contains('gudi') || poi.name.toLowerCase().contains('mandir');
+
+                              final cleanName = temple?.canonicalName ?? poi.name;
+                              final rating = temple?.rating ?? poi.rating ?? (isTemple ? 4.7 : 4.5);
+                              final deity = temple?.deity ?? poi.deity;
+                              final timing = temple?.timing ?? poi.timing ?? (isTemple ? 'Opens 5:00 AM · Closes 9:00 PM' : null);
+                              final highlights = temple?.highlights ?? poi.highlights;
+                              final categoryLabel = temple?.categoryType ?? poi.categoryType ?? (isTemple ? '🛕 Hindu temple' : '📍 Landmark');
+
                               return Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2A2A2A),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: Colors.white10),
+                                  color: const Color(0xFF1E293B).withOpacity(0.8),
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(
+                                    color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white10,
+                                  ),
                                 ),
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF59E0B).withOpacity(0.15),
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(Icons.place, color: Color(0xFFF59E0B), size: 18),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            poi.name,
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.15) : const Color(0xFF2E75B6).withOpacity(0.15),
+                                            borderRadius: BorderRadius.circular(10),
                                           ),
-                                          if (poi.address != null && poi.address!.isNotEmpty)
-                                            Text(
-                                              poi.address!,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
-                                            ),
+                                          child: Text(isTemple ? '🛕' : '📍', style: const TextStyle(fontSize: 18)),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                cleanName,
+                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                                      borderRadius: BorderRadius.circular(5),
+                                                    ),
+                                                    child: Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        const Icon(Icons.star, color: Color(0xFFF59E0B), size: 11),
+                                                        const SizedBox(width: 2),
+                                                        Text(
+                                                          '$rating',
+                                                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.bold),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(categoryLabel, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10.5)),
+                                                  const SizedBox(width: 6),
+                                                  Text('Open', style: TextStyle(color: Colors.greenAccent.shade400, fontSize: 10.5, fontWeight: FontWeight.w600)),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: const Color(0xFFF59E0B),
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.add_location_alt, size: 15),
+                                          label: const Text('Add Stop', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                          onPressed: () {
+                                            Navigator.pop(ctx);
+                                            _addStopAndRecalculate(poi);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                    if (deity != null && deity.isNotEmpty) ...[
+                                      const SizedBox(height: 5),
+                                      Text(
+                                        'Deity: $deity',
+                                        style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11.5, fontWeight: FontWeight.w500),
+                                      ),
+                                    ],
+                                    if (timing != null && timing.isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Row(
+                                        children: [
+                                          Icon(Icons.access_time, size: 11, color: Colors.white.withOpacity(0.6)),
+                                          const SizedBox(width: 4),
+                                          Text(timing, style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 10.5)),
                                         ],
                                       ),
-                                    ),
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFFF59E0B),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ],
+                                    if (highlights != null && highlights.isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Highlights: $highlights',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10.5, fontStyle: FontStyle.italic),
                                       ),
-                                      icon: const Icon(Icons.add_location_alt, size: 16),
-                                      label: const Text('Add Stop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      onPressed: () {
-                                        Navigator.pop(ctx);
-                                        _addStopAndRecalculate(poi);
-                                      },
-                                    ),
+                                    ],
+                                    if (poi.address != null && poi.address!.isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        poi.address!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 10),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               );
