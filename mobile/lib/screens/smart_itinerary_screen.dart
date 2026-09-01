@@ -905,11 +905,35 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     // train, bus…) so an international flight isn't shown as a car drive.
     final isLeg = b.type == 'travel' || b.type == 'return';
     final legIcon = isLeg ? _travelIcon(b.travelMode) : icon;
-    final timeLabel = b.end.isNotEmpty && b.end != b.start ? '${b.start}–${b.end}' : b.start;
+    
+    // Normalize time display (e.g. 08:00 AM – 10:30 AM or 08:00 – 10:30)
+    String formatTimeStr(String t) {
+      final clean = t.trim();
+      if (clean.isEmpty) return '';
+      // If 24h format like 08:00 or 14:30
+      final parts = clean.split(':');
+      if (parts.length == 2 && int.tryParse(parts[0]) != null) {
+        int h = int.parse(parts[0]);
+        final mStr = parts[1].replaceAll(RegExp(r'[^0-9]'), '');
+        final m = int.tryParse(mStr) ?? 0;
+        final ampm = h >= 12 ? 'PM' : 'AM';
+        final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+        return '$h12:${m.toString().padLeft(2, '0')} $ampm';
+      }
+      return clean;
+    }
+
+    final startLabel = formatTimeStr(b.start);
+    final endLabel = formatTimeStr(b.end);
+    final timeLabel = endLabel.isNotEmpty && endLabel != startLabel ? '$startLabel–\n$endLabel' : startLabel;
+    
     final meta = <String>[];
-    if (b.durationMin > 0) meta.add('${b.durationMin} min');
-    if (b.travelMin > 0) meta.add('${isLeg ? _travelEmoji(b.travelMode) : "🚗"} ${b.travelMin} min');
-    if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
+    if (isLeg) {
+      if (b.travelMin > 0) meta.add('${_travelEmoji(b.travelMode)} ${b.travelMin} min');
+      if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
+    } else {
+      if (b.durationMin > 0) meta.add('${b.durationMin} min');
+    }
     final isActivity = b.type == 'activity';
     final temple = isActivity ? TempleDatabase.findTemple(b.title.isNotEmpty ? b.title : b.place) : null;
     final isTemple = isActivity && (temple != null || b.title.toLowerCase().contains('darshan') || b.title.toLowerCase().contains('temple'));

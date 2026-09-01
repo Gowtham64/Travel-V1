@@ -536,27 +536,80 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
     return t;
   }
 
+  // Realistic highway distance estimation
+  let estimatedKm = 145.0;
+  const pair = `${startName} ${destName}`.toLowerCase();
+  if (pair.includes("mandya") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
+    estimatedKm = 345.0;
+  } else if (pair.includes("bengaluru") || pair.includes("bangalore")) {
+    if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
+    else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 145.0;
+    else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 265.0;
+    else if (pair.includes("ooty")) estimatedKm = 280.0;
+    else if (pair.includes("chennai")) estimatedKm = 350.0;
+    else if (pair.includes("goa")) estimatedKm = 560.0;
+    else if (pair.includes("hampi")) estimatedKm = 340.0;
+  } else if (pair.includes("mysore") || pair.includes("mysuru")) {
+    if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 385.0;
+    else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 120.0;
+    else if (pair.includes("ooty")) estimatedKm = 125.0;
+  } else if (pair.includes("chennai") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
+    estimatedKm = 135.0;
+  }
+
+  const totalDriveMin = Math.round((estimatedKm / 55.0) * 60);
+
+  function parseMinutes(t) {
+    const clean = String(t || "").trim().toLowerCase();
+    if (!clean) return 480; // 08:00 AM
+    const isPm = clean.includes("pm");
+    const isAm = clean.includes("am");
+    const numStr = clean.replace(/[^0-9:]/g, "");
+    const parts = numStr.split(":");
+    if (parts.length > 0) {
+      let h = parseInt(parts[0], 10) || 8;
+      const m = parts.length > 1 ? parseInt(parts[1], 10) || 0 : 0;
+      if (isPm && h < 12) h += 12;
+      if (isAm && h === 12) h = 0;
+      return h * 60 + m;
+    }
+    return 480;
+  }
+
+  function formatMin(totalMin) {
+    const norm = totalMin % (24 * 60);
+    const h24 = Math.floor(norm / 60);
+    const m = norm % 60;
+    const ampm = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
+
   for (let d = 1; d <= total; d++) {
     const isFirst = d === 1;
     const isLast = d === total;
     const blocks = [];
+    let currentMin = isFirst ? parseMinutes(startTime) : 480;
 
     if (isFirst) {
+      const driveEndMin = currentMin + totalDriveMin;
       blocks.push({
-        start: startTime || "08:00",
-        end: "10:30",
+        start: formatMin(currentMin),
+        end: formatMin(driveEndMin),
         type: "travel",
         title: `Drive from ${startName} to ${destName}`,
         place: destName,
-        durationMin: 150,
-        travelMin: 150,
-        distanceKm: 145,
+        durationMin: totalDriveMin,
+        travelMin: totalDriveMin,
+        distanceKm: estimatedKm,
         travelMode: "drive",
-        reason: "Scenic morning highway drive with traffic clearance"
+        reason: "Scenic morning highway drive with toll clearances and scenic views"
       });
+      currentMin = driveEndMin;
+
       blocks.push({
-        start: "10:30",
-        end: "11:15",
+        start: formatMin(currentMin),
+        end: formatMin(currentMin + 45),
         type: "coffee",
         title: "Highway Coffee & Breakfast Refreshment",
         place: "Highway Cafe / Diner",
@@ -564,19 +617,22 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         breakType: "breakfast",
         reason: "Traditional South Indian filter coffee & hot tiffin"
       });
+      currentMin += 45;
+
       blocks.push({
-        start: "11:45",
-        end: "12:30",
+        start: formatMin(currentMin),
+        end: formatMin(currentMin + 45),
         type: "checkin",
         title: `Hotel Check-in & Freshen Up in ${destName}`,
         place: `${destName} Pilgrimage Stay / Hotel`,
         durationMin: 45,
         reason: "Check in, deposit luggage, and prepare for auspicious darshan"
       });
+      currentMin += 45;
     } else {
       blocks.push({
-        start: "08:00",
-        end: "09:00",
+        start: formatMin(currentMin),
+        end: formatMin(currentMin + 60),
         type: "meal",
         title: `Morning Breakfast in ${destName}`,
         place: `${destName} Tiffin Center`,
@@ -584,26 +640,30 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         breakType: "breakfast",
         reason: "Traditional morning breakfast to energise for the pilgrimage"
       });
+      currentMin += 60;
     }
 
     // Morning Activity
     const t1 = getNextTemple();
     const t1Duration = t1.durationMin || 60;
     const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
+    const t1End = currentMin + t1Duration;
     blocks.push({
-      start: isFirst ? "12:30" : "09:30",
-      end: isFirst ? (t1Duration > 120 ? "15:30" : "14:00") : (t1Duration > 120 ? "13:00" : "12:30"),
+      start: formatMin(currentMin),
+      end: formatMin(t1End),
       type: "activity",
       title: `Darshan at ${t1.name}`,
       place: `${t1.name}, ${t1.city}`,
-      durationMin: isFirst ? (t1Duration > 120 ? 180 : t1Duration) : t1Duration,
+      durationMin: t1Duration,
       reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`
     });
+    currentMin = t1End;
 
     // Lunch
+    const lunchEnd = currentMin + 60;
     blocks.push({
-      start: isFirst ? (t1Duration > 120 ? "15:30" : "14:00") : (t1Duration > 120 ? "13:00" : "12:45"),
-      end: isFirst ? (t1Duration > 120 ? "16:30" : "15:00") : (t1Duration > 120 ? "14:00" : "14:00"),
+      start: formatMin(currentMin),
+      end: formatMin(lunchEnd),
       type: "meal",
       title: `Traditional Lunch in ${destName}`,
       place: "Authentic Pure Vegetarian Restaurant",
@@ -611,86 +671,102 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       breakType: "lunch",
       reason: "Sacred thali meals & prasadam refreshments"
     });
+    currentMin = lunchEnd;
 
     // Afternoon Activity
     const t2 = getNextTemple();
     const t2Duration = t2.durationMin || 90;
     const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
+    const t2End = currentMin + t2Duration;
     blocks.push({
-      start: isFirst ? (t1Duration > 120 ? "16:45" : "15:15") : (t1Duration > 120 ? "14:15" : "15:15"),
-      end: isFirst ? (t1Duration > 120 ? "20:00" : "18:30") : (t2Duration > 120 ? "18:30" : "17:30"),
+      start: formatMin(currentMin),
+      end: formatMin(t2End),
       type: "activity",
       title: `Visit & Darshan at ${t2.name}`,
       place: `${t2.name}, ${t2.city}`,
       durationMin: t2Duration,
       reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`
     });
+    currentMin = t2End;
 
     // Evening Tea / Sunset
+    const teaEnd = currentMin + 45;
     blocks.push({
-      start: "17:45",
-      end: "18:45",
+      start: formatMin(currentMin),
+      end: formatMin(teaEnd),
       type: "coffee",
       title: "Evening Sunset & Tea Break",
       place: "Scenic Viewpoint / Temple Promenade",
-      durationMin: 60,
+      durationMin: 45,
       breakType: "coffee",
       reason: "Golden hour views and refreshing evening tea"
     });
+    currentMin = teaEnd;
 
+    // Departure / Final Leg or Night Rest
     if (isLast) {
       if (total > 1) {
+        const checkoutEnd = currentMin + 30;
         blocks.push({
-          start: "18:45",
-          end: "19:15",
+          start: formatMin(currentMin),
+          end: formatMin(checkoutEnd),
           type: "checkout",
           title: `Hotel Check-out from ${destName}`,
           place: `${destName} Hotel`,
           durationMin: 30,
           reason: "Settle bills, load luggage into vehicle"
         });
+        currentMin = checkoutEnd;
       }
+      const returnEnd = currentMin + totalDriveMin;
       blocks.push({
-        start: "19:15",
-        end: "21:45",
+        start: formatMin(currentMin),
+        end: formatMin(returnEnd),
         type: "return",
         title: `Return Drive back to ${startName}`,
         place: startName,
-        durationMin: 150,
-        travelMin: 150,
-        distanceKm: 145,
+        durationMin: totalDriveMin,
+        travelMin: totalDriveMin,
+        distanceKm: estimatedKm,
         travelMode: "drive",
         reason: "Smooth evening highway cruise returning home"
       });
+      currentMin = returnEnd;
+
+      const dinnerEnd = currentMin + 45;
       blocks.push({
-        start: "22:00",
-        end: "22:45",
+        start: formatMin(currentMin),
+        end: formatMin(dinnerEnd),
         type: "meal",
         title: `Dinner Arrival at ${startName}`,
-        place: "Home / Local Dining",
+        place: "Local Restaurant / Home Diner",
         durationMin: 45,
         breakType: "dinner",
-        reason: "Relaxing meal to conclude the road trip"
+        reason: "Relaxing dinner marking the auspicious conclusion of pilgrimage"
       });
     } else {
+      const dinnerEnd = currentMin + 60;
       blocks.push({
-        start: "19:30",
-        end: "21:00",
+        start: formatMin(currentMin),
+        end: formatMin(dinnerEnd),
         type: "meal",
-        title: `Dinner & Evening Leisure in ${destName}`,
-        place: "Celebrated Fine Dining / Dhaba",
-        durationMin: 90,
+        title: `Traditional Dinner in ${destName}`,
+        place: "Local Vegetarian Heritage Restaurant",
+        durationMin: 60,
         breakType: "dinner",
-        reason: "Enjoy authentic dinner and evening city ambiance"
+        reason: "Warm South Indian meals before restful night"
       });
+      currentMin = dinnerEnd;
+
+      const restEnd = currentMin + 60;
       blocks.push({
-        start: "21:15",
-        end: "22:00",
+        start: formatMin(currentMin),
+        end: formatMin(restEnd),
         type: "rest",
-        title: "Night Rest & Trip Reflection",
-        place: `${destName} Hotel / Resort`,
-        durationMin: 45,
-        reason: "Good night rest for the next day's adventures"
+        title: `Night Rest at Hotel in ${destName}`,
+        place: `${destName} Hotel / Pilgrimage Guest House`,
+        durationMin: 60,
+        reason: "Peaceful sleep after sacred day"
       });
     }
 
