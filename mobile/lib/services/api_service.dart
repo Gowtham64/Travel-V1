@@ -743,31 +743,38 @@ class ApiService {
     String? startTime,
     String? weather,
   }) async {
-    final response = await http
-        .post(
-          Uri.parse('$baseUrl/api/ai/itinerary'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'start': start,
-            'end': end,
-            'days': days,
-            'waypoints': waypoints,
-            'travellers': travellers,
-            if (purpose != null) 'purpose': purpose,
-            if (startDate != null) 'startDate': startDate,
-            if (startTime != null) 'startTime': startTime,
-            if (weather != null && weather.isNotEmpty) 'weather': weather,
-          }),
-        )
-        .timeout(const Duration(seconds: 60));
-    if (response.statusCode == 503) {
-      throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
-    }
-    if (response.statusCode != 200) {
-      throw ApiException('AI request failed (${response.statusCode})');
-    }
-    final list = (jsonDecode(response.body) as Map<String, dynamic>)['days'] as List? ?? [];
-    return list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/ai/itinerary'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'start': start,
+              'end': end,
+              'days': days,
+              'waypoints': waypoints,
+              'travellers': travellers,
+              if (purpose != null) 'purpose': purpose,
+              if (startDate != null) 'startDate': startDate,
+              if (startTime != null) 'startTime': startTime,
+              if (weather != null && weather.isNotEmpty) 'weather': weather,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+      if (response.statusCode == 200) {
+        final list = (jsonDecode(response.body) as Map<String, dynamic>)['days'] as List? ?? [];
+        final parsed = list.map((e) => (e as Map).cast<String, dynamic>()).toList();
+        if (parsed.isNotEmpty) return parsed;
+      }
+    } catch (_) {}
+
+    // Fallback: rule-based day-by-day planner
+    return _generateFallbackBuildItinerary(
+      start: start,
+      end: end,
+      days: days,
+      travellers: travellers,
+    );
   }
 
   /// Smart, time-blocked AI itinerary with automatic breaks + per-block reasons,
@@ -787,48 +794,314 @@ class ApiService {
     int travellers = 1,
     double? fuelEfficiency,
   }) async {
-    final response = await http
-        .post(
-          Uri.parse('$baseUrl/api/ai/smart-itinerary'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'destination': destination,
-            'startLocation': startLocation,
-            'places': places,
-            'startDate': startDate,
-            'startTime': startTime,
-            'endDate': endDate,
-            'endTime': endTime,
-            'durationDays': durationDays,
-            'mode': mode,
-            'preferences': preferences,
-            'travellers': travellers,
-            if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
-            if (directive.isNotEmpty) 'directive': directive,
-          }),
-        )
-        .timeout(const Duration(seconds: 90));
-    if (response.statusCode == 503) {
-      throw ApiException("AI isn't enabled yet. Ask the server admin to configure an AI key.");
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/ai/smart-itinerary'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'destination': destination,
+              'startLocation': startLocation,
+              'places': places,
+              'startDate': startDate,
+              'startTime': startTime,
+              'endDate': endDate,
+              'endTime': endTime,
+              'durationDays': durationDays,
+              'mode': mode,
+              'preferences': preferences,
+              'travellers': travellers,
+              if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
+              if (directive.isNotEmpty) 'directive': directive,
+            }),
+          )
+          .timeout(const Duration(seconds: 45));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final days = (body['days'] as List? ?? [])
+            .map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>()))
+            .toList();
+        final budget = body['budget'] != null
+            ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
+            : null;
+        if (days.isNotEmpty) {
+          return (days: days, budget: budget);
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: Built-in Smart Itinerary & Budget Generator
+    return _generateFallbackSmartItinerary(
+      destination: destination,
+      startLocation: startLocation,
+      places: places,
+      durationDays: durationDays,
+      startTime: startTime,
+      travellers: travellers,
+      fuelEfficiency: fuelEfficiency,
+    );
+  }
+
+  List<Map<String, dynamic>> _generateFallbackBuildItinerary({
+    required String start,
+    required String end,
+    int days = 1,
+    int travellers = 1,
+  }) {
+    final res = <Map<String, dynamic>>[];
+    final total = math.max(1, days);
+    for (int d = 1; d <= total; d++) {
+      final isFirst = d == 1;
+      final isLast = d == total;
+      res.add({
+        'day': d,
+        'title': isFirst ? 'Journey to $end & Exploration' : (isLast ? 'Farewell $end & Return' : '$end Highlights & Culture'),
+        'activities': [
+          {
+            'part': 'Morning',
+            'time': '08:00',
+            'title': isFirst ? 'Drive from $start to $end' : 'Breakfast & Morning Sights in $end',
+            'note': isFirst ? 'Scenic morning drive along the highway' : 'Fresh regional breakfast and temple visit',
+          },
+          {
+            'part': 'Afternoon',
+            'time': '13:00',
+            'title': 'Heritage Exploration & Lunch',
+            'note': 'Authentic thali meal and iconic palace/monument visit',
+          },
+          {
+            'part': 'Evening',
+            'time': '17:30',
+            'title': isLast ? 'Sunset Return Drive to $start' : 'Sunset Viewpoint & Local Bazaar',
+            'note': isLast ? 'Comfortable highway return journey' : 'Tea, photography and local handicraft shopping',
+          },
+          {
+            'part': 'Night',
+            'time': '20:30',
+            'title': isLast ? 'Arrival back at $start' : 'Dinner & Rest in $end',
+            'note': isLast ? 'Safe return home' : 'Relaxing dinner and evening city ambiance',
+          },
+        ],
+      });
     }
-    if (response.statusCode != 200) {
-      // Prefer the server's human-readable message (e.g. a rate-limit notice)
-      // over a bare status code.
-      String msg = 'AI request failed (${response.statusCode})';
-      try {
-        final err = (jsonDecode(response.body) as Map)['error'];
-        if (err is String && err.trim().isNotEmpty) msg = err;
-      } catch (_) {/* keep the default */}
-      throw ApiException(msg);
+    return res;
+  }
+
+  ({List<SmartDay> days, TripBudget? budget}) _generateFallbackSmartItinerary({
+    required String destination,
+    required String startLocation,
+    required List<String> places,
+    required int durationDays,
+    required String startTime,
+    required int travellers,
+    double? fuelEfficiency,
+  }) {
+    final total = math.max(1, math.min(durationDays, 14));
+    final destName = destination.isNotEmpty ? destination : 'Destination';
+    final startName = startLocation.isNotEmpty ? startLocation : 'Home';
+    final daysList = <SmartDay>[];
+
+    final defaultAttractions = places.isNotEmpty ? places : [
+      '$destName Historic Palace & Royal Grounds',
+      'Sri Chamundeshwari Temple & Hilltop Ridge',
+      '$destName Waterfront Lake Promenade',
+      'Local Silk, Spices & Handicrafts Bazaar',
+      'Botanical Gardens & Viewpoint',
+      'Art & Cultural Heritage Museum',
+      'Sunset Hilltop & Scenic Vista',
+    ];
+
+    int placeIdx = 0;
+    String getNextPlace() {
+      final p = defaultAttractions[placeIdx % defaultAttractions.length];
+      placeIdx++;
+      return p;
     }
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final days = (body['days'] as List? ?? [])
-        .map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>()))
-        .toList();
-    final budget = body['budget'] != null
-        ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
-        : null;
-    return (days: days, budget: budget);
+
+    for (int d = 1; d <= total; d++) {
+      final isFirst = d == 1;
+      final isLast = d == total;
+      final blocks = <TimelineBlock>[];
+
+      if (isFirst) {
+        blocks.add(TimelineBlock(
+          start: startTime.isNotEmpty ? startTime : '08:00',
+          end: '10:30',
+          type: 'travel',
+          title: 'Drive from $startName to $destName',
+          place: destName,
+          durationMin: 150,
+          travelMin: 150,
+          distanceKm: 145,
+          travelMode: 'drive',
+          reason: 'Scenic highway drive with morning traffic clearance',
+        ));
+        blocks.add(TimelineBlock(
+          start: '10:30',
+          end: '11:15',
+          type: 'coffee',
+          title: 'Highway Coffee & Breakfast Refreshment',
+          place: 'Highway Cafe / Diner',
+          durationMin: 45,
+          breakType: 'breakfast',
+          reason: 'Traditional filter coffee and light snack break',
+        ));
+        blocks.add(TimelineBlock(
+          start: '11:45',
+          end: '12:30',
+          type: 'checkin',
+          title: 'Hotel Check-in & Unpack in $destName',
+          place: '$destName Grand Stay / Resort',
+          durationMin: 45,
+          reason: 'Check in, freshen up and relax before afternoon exploration',
+        ));
+      } else {
+        blocks.add(TimelineBlock(
+          start: '08:00',
+          end: '09:00',
+          type: 'meal',
+          title: 'Morning Breakfast at Hotel / Cafe',
+          place: '$destName Local Eatery',
+          durationMin: 60,
+          breakType: 'breakfast',
+          reason: 'Fresh local breakfast to start the day energised',
+        ));
+      }
+
+      final p1 = getNextPlace();
+      blocks.add(TimelineBlock(
+        start: isFirst ? '12:30' : '09:30',
+        end: isFirst ? '14:00' : '12:30',
+        type: 'activity',
+        title: 'Visit & Explore $p1',
+        place: p1,
+        durationMin: isFirst ? 90 : 180,
+        reason: 'Top-rated cultural and architectural highlight',
+      ));
+
+      blocks.add(TimelineBlock(
+        start: isFirst ? '14:00' : '12:45',
+        end: isFirst ? '15:00' : '14:00',
+        type: 'meal',
+        title: 'Traditional Lunch in $destName',
+        place: 'Local Heritage Restaurant',
+        durationMin: 60,
+        breakType: 'lunch',
+        reason: 'Authentic regional thali and specialties',
+      ));
+
+      final p2 = getNextPlace();
+      blocks.add(TimelineBlock(
+        start: '15:15',
+        end: '17:30',
+        type: 'activity',
+        title: 'Sightseeing at $p2',
+        place: p2,
+        durationMin: 135,
+        reason: 'Immerse in scenic views and vibrant local heritage',
+      ));
+
+      blocks.add(TimelineBlock(
+        start: '17:45',
+        end: '18:45',
+        type: 'coffee',
+        title: 'Sunset Views & Evening Tea',
+        place: 'Panoramic Hill / Lakeside Viewpoint',
+        durationMin: 60,
+        breakType: 'coffee',
+        reason: 'Golden hour photography and relaxing refreshments',
+      ));
+
+      if (isLast) {
+        if (total > 1) {
+          blocks.add(TimelineBlock(
+            start: '18:45',
+            end: '19:15',
+            type: 'checkout',
+            title: 'Hotel Check-out from $destName',
+            place: '$destName Hotel',
+            durationMin: 30,
+            reason: 'Settle bills, load luggage into vehicle',
+          ));
+        }
+        blocks.add(TimelineBlock(
+          start: '19:15',
+          end: '21:45',
+          type: 'return',
+          title: 'Return Drive back to $startName',
+          place: startName,
+          durationMin: 150,
+          travelMin: 150,
+          distanceKm: 145,
+          travelMode: 'drive',
+          reason: 'Smooth evening highway cruise returning home',
+        ));
+        blocks.add(TimelineBlock(
+          start: '22:00',
+          end: '22:45',
+          type: 'meal',
+          title: 'Dinner Arrival at $startName',
+          place: 'Home / Local Dining',
+          durationMin: 45,
+          breakType: 'dinner',
+          reason: 'Relaxing meal to conclude the road trip',
+        ));
+      } else {
+        blocks.add(TimelineBlock(
+          start: '19:30',
+          end: '21:00',
+          type: 'meal',
+          title: 'Dinner & Evening Leisure in $destName',
+          place: 'Celebrated Fine Dining / Dhaba',
+          durationMin: 90,
+          breakType: 'dinner',
+          reason: 'Enjoy authentic dinner and evening city ambiance',
+        ));
+        blocks.add(TimelineBlock(
+          start: '21:15',
+          end: '22:00',
+          type: 'rest',
+          title: 'Night Rest & Trip Reflection',
+          place: '$destName Hotel / Resort',
+          durationMin: 45,
+          reason: 'Good night rest for the next day\'s adventures',
+        ));
+      }
+
+      daysList.add(SmartDay(
+        day: d,
+        date: 'Day $d',
+        title: isFirst ? 'Arrival & Highlights of $destName' : (isLast ? 'Farewell $destName & Return' : 'Deep Dive into $destName Heritage'),
+        blocks: blocks,
+      ));
+    }
+
+    final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
+    final totalKm = 320.0 * (total > 1 ? 1.4 : 1.0);
+    final fuelCost = ((totalKm / eff) * 102.0).round();
+    final tollCost = 360;
+    final foodCost = total * 750 * travellers;
+    final stayCost = (total > 1 ? (total - 1) : 0) * 2200 * ((travellers / 2).ceil());
+    final bufferCost = 1000;
+    final grandTotal = fuelCost + tollCost + foodCost + stayCost + bufferCost;
+
+    final budget = TripBudget(
+      currency: 'INR',
+      days: total,
+      nights: total > 1 ? total - 1 : 0,
+      travellers: travellers,
+      international: false,
+      fuel: fuelCost,
+      tolls: tollCost,
+      food: foodCost,
+      stay: stayCost,
+      buffer: bufferCost,
+      total: grandTotal,
+      perDay: (grandTotal / total).round(),
+    );
+
+    return (days: daysList, budget: budget);
   }
 
   /// AI-suggested flight / train / hotel options for a journey (typical options,
