@@ -478,6 +478,10 @@ async function smartItinerary({
       lastErr = err;
       const status = err.response ? err.response.status : 0;
       console.error(`Itinerary model ${m} failed:`, status, err.response ? JSON.stringify(err.response.data).slice(0, 200) : err.message);
+      if (status !== 429) break;
+    }
+  }
+
   // If AI generation didn't return any days, generate an intelligent fallback plan
   if (!days.length) {
     console.log("Generating smart fallback itinerary for", destination);
