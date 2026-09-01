@@ -1047,179 +1047,355 @@ class ApiService {
       final isFirst = d == 1;
       final isLast = d == total;
       final blocks = <TimelineBlock>[];
-      int currentMin = isFirst ? parseMinutes(startTime) : 480;
 
       if (isFirst) {
-        final driveEndMin = currentMin + totalDriveMin;
-        blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(driveEndMin),
-          type: 'travel',
-          title: 'Drive from $startName to $destName',
-          place: destName,
-          durationMin: totalDriveMin,
-          travelMin: totalDriveMin,
-          distanceKm: estimatedKm,
-          travelMode: 'drive',
-          reason: 'Scenic morning highway drive with toll clearances and scenic views',
-        ));
-        currentMin = driveEndMin;
+        // --- DAY 1: OUTWARD TRAVEL & EVENING DARSHAN ---
+        final startMin = parseMinutes(startTime);
+        int cur = startMin;
 
-        blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(currentMin + 45),
-          type: 'coffee',
-          title: 'Highway Coffee & Breakfast Refreshment',
-          place: 'Highway Cafe / Diner',
-          durationMin: 45,
-          breakType: 'breakfast',
-          reason: 'Traditional South Indian filter coffee & hot tiffin',
-        ));
-        currentMin += 45;
+        if (totalDriveMin > 180) {
+          // Long drive (>3 hours): Split with midway breakfast/coffee
+          final leg1 = (totalDriveMin * 0.45).round();
+          final leg2 = totalDriveMin - leg1;
+          final dist1 = (estimatedKm * 0.45);
+          final dist2 = estimatedKm - dist1;
 
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + leg1),
+            type: 'travel',
+            title: 'Drive from $startName (Highway Leg 1)',
+            place: 'National Highway',
+            durationMin: leg1,
+            travelMin: leg1,
+            distanceKm: dist1,
+            travelMode: 'drive',
+            reason: 'Morning highway drive with smooth cruising',
+          ));
+          cur += leg1;
+
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + 45),
+            type: 'coffee',
+            title: 'Highway Refreshment & Filter Coffee',
+            place: 'Highway Food Court / Diner',
+            durationMin: 45,
+            breakType: 'breakfast',
+            reason: 'Hot tiffin, authentic South Indian filter coffee & rest stop',
+          ));
+          cur += 45;
+
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + leg2),
+            type: 'travel',
+            title: 'Drive to $destName (Highway Leg 2)',
+            place: destName,
+            durationMin: leg2,
+            travelMin: leg2,
+            distanceKm: dist2,
+            travelMode: 'drive',
+            reason: 'Scenic approach drive arriving in $destName',
+          ));
+          cur += leg2;
+        } else {
+          // Short drive (<= 3 hours)
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + totalDriveMin),
+            type: 'travel',
+            title: 'Drive from $startName to $destName',
+            place: destName,
+            durationMin: totalDriveMin,
+            travelMin: totalDriveMin,
+            distanceKm: estimatedKm,
+            travelMode: 'drive',
+            reason: 'Smooth morning drive along highway with traffic clearance',
+          ));
+          cur += totalDriveMin;
+        }
+
+        // Arrival Lunch if reaching around 12:30 - 3:00 PM
         blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(currentMin + 45),
+          start: formatMin(cur),
+          end: formatMin(cur + 60),
+          type: 'meal',
+          title: 'Traditional Arrival Lunch in $destName',
+          place: 'Authentic Pure Vegetarian Restaurant',
+          durationMin: 60,
+          breakType: 'lunch',
+          reason: 'Traditional thali meals and refreshing beverages upon arrival',
+        ));
+        cur += 60;
+
+        // Hotel Check-in
+        blocks.add(TimelineBlock(
+          start: formatMin(cur),
+          end: formatMin(cur + 45),
           type: 'checkin',
           title: 'Hotel Check-in & Freshen Up in $destName',
           place: '$destName Pilgrimage Stay / Hotel',
           durationMin: 45,
-          reason: 'Check in, deposit luggage, and prepare for auspicious darshan',
+          reason: 'Check in, deposit luggage, and dress for evening darshan',
         ));
-        currentMin += 45;
-      } else {
+        cur += 45;
+
+        // Grand Evening Temple / Main Attraction (e.g. Balaji / Main Shrine)
+        final tMain = getNextTemple();
+        final tDuration = tMain.recommendedDarshanMinutes;
+        final tWait = tMain.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${tMain.darshanWaitInfo}' : '';
         blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(currentMin + 60),
+          start: formatMin(cur),
+          end: formatMin(cur + tDuration),
+          type: 'activity',
+          title: 'Grand Darshan at ${tMain.canonicalName}',
+          place: '${tMain.canonicalName}, ${tMain.city}',
+          durationMin: tDuration,
+          reason: '🛕 Deity: ${tMain.deity} · ⭐ ${tMain.rating}$tWait · ${tMain.highlights}',
+        ));
+        cur += tDuration;
+
+        // Traditional Dinner
+        blocks.add(TimelineBlock(
+          start: formatMin(cur),
+          end: formatMin(cur + 60),
+          type: 'meal',
+          title: 'Traditional Dinner in $destName',
+          place: 'Local Vegetarian Heritage Restaurant',
+          durationMin: 60,
+          breakType: 'dinner',
+          reason: 'Warm South Indian meals and prasadam sweets',
+        ));
+        cur += 60;
+
+        // Night Rest
+        blocks.add(TimelineBlock(
+          start: formatMin(cur),
+          end: '06:30 AM',
+          type: 'rest',
+          title: 'Night Rest at Hotel in $destName',
+          place: '$destName Hotel / Pilgrimage Guest House',
+          durationMin: 480,
+          reason: 'Peaceful sleep after sacred darshan and travel',
+        ));
+      } else if (!isLast) {
+        // --- MIDDLE DAY: FULL SIGHTSEEING & PILGRIMAGE CIRCUIT ---
+        blocks.add(TimelineBlock(
+          start: '08:00 AM',
+          end: '09:00 AM',
           type: 'meal',
           title: 'Morning Breakfast in $destName',
-          place: '$destName Tiffin Center',
+          place: '$destName Traditional Tiffin Center',
           durationMin: 60,
           breakType: 'breakfast',
-          reason: 'Traditional morning breakfast to energise for the pilgrimage',
+          reason: 'Idli, vada, dosa & hot filter coffee to start the day',
         ));
-        currentMin += 60;
-      }
 
-      final t1 = getNextTemple();
-      final t1Duration = t1.recommendedDarshanMinutes;
-      final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
-      final t1End = currentMin + t1Duration;
-      blocks.add(TimelineBlock(
-        start: formatMin(currentMin),
-        end: formatMin(t1End),
-        type: 'activity',
-        title: 'Darshan at ${t1.canonicalName}',
-        place: '${t1.canonicalName}, ${t1.city}',
-        durationMin: t1Duration,
-        reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
-      ));
-      currentMin = t1End;
+        final t1 = getNextTemple();
+        final t1Duration = t1.recommendedDarshanMinutes;
+        final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
+        blocks.add(TimelineBlock(
+          start: '09:15 AM',
+          end: formatMin(555 + t1Duration),
+          type: 'activity',
+          title: 'Darshan at ${t1.canonicalName}',
+          place: '${t1.canonicalName}, ${t1.city}',
+          durationMin: t1Duration,
+          reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
+        ));
 
-      final lunchEnd = currentMin + 60;
-      blocks.add(TimelineBlock(
-        start: formatMin(currentMin),
-        end: formatMin(lunchEnd),
-        type: 'meal',
-        title: 'Traditional Lunch in $destName',
-        place: 'Authentic Pure Vegetarian Restaurant',
-        durationMin: 60,
-        breakType: 'lunch',
-        reason: 'Sacred thali meals & prasadam refreshments',
-      ));
-      currentMin = lunchEnd;
+        // Lunch strictly at 12:45 PM
+        blocks.add(TimelineBlock(
+          start: '12:45 PM',
+          end: '01:45 PM',
+          type: 'meal',
+          title: 'Traditional Lunch in $destName',
+          place: 'Celebrated Pure Veg Restaurant',
+          durationMin: 60,
+          breakType: 'lunch',
+          reason: 'Traditional plantain leaf meals & prasadam refreshments',
+        ));
 
-      final t2 = getNextTemple();
-      final t2Duration = t2.recommendedDarshanMinutes;
-      final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
-      final t2End = currentMin + t2Duration;
-      blocks.add(TimelineBlock(
-        start: formatMin(currentMin),
-        end: formatMin(t2End),
-        type: 'activity',
-        title: 'Visit & Darshan at ${t2.canonicalName}',
-        place: '${t2.canonicalName}, ${t2.city}',
-        durationMin: t2Duration,
-        reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
-      ));
-      currentMin = t2End;
+        final t2 = getNextTemple();
+        final t2Duration = t2.recommendedDarshanMinutes;
+        final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
+        blocks.add(TimelineBlock(
+          start: '02:00 PM',
+          end: formatMin(840 + t2Duration),
+          type: 'activity',
+          title: 'Visit & Darshan at ${t2.canonicalName}',
+          place: '${t2.canonicalName}, ${t2.city}',
+          durationMin: t2Duration,
+          reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
+        ));
 
-      final teaEnd = currentMin + 45;
-      blocks.add(TimelineBlock(
-        start: formatMin(currentMin),
-        end: formatMin(teaEnd),
-        type: 'coffee',
-        title: 'Evening Sunset & Tea Break',
-        place: 'Scenic Viewpoint / Temple Promenade',
-        durationMin: 45,
-        breakType: 'coffee',
-        reason: 'Golden hour views and refreshing evening tea',
-      ));
-      currentMin = teaEnd;
+        // Evening Sunset & Tea strictly around 05:45 PM
+        blocks.add(TimelineBlock(
+          start: '05:45 PM',
+          end: '06:45 PM',
+          type: 'coffee',
+          title: 'Evening Sunset & Tea Break',
+          place: 'Scenic Viewpoint / Temple Promenade',
+          durationMin: 60,
+          breakType: 'coffee',
+          reason: 'Golden hour views, cool evening breeze & hot tea',
+        ));
 
-      if (isLast) {
-        if (total > 1) {
-          final checkoutEnd = currentMin + 30;
+        blocks.add(TimelineBlock(
+          start: '07:30 PM',
+          end: '08:30 PM',
+          type: 'meal',
+          title: 'Traditional Dinner in $destName',
+          place: 'Local Heritage Restaurant',
+          durationMin: 60,
+          breakType: 'dinner',
+          reason: 'Relaxing dinner before overnight rest',
+        ));
+
+        blocks.add(TimelineBlock(
+          start: '09:30 PM',
+          end: '06:30 AM',
+          type: 'rest',
+          title: 'Night Rest at Hotel in $destName',
+          place: '$destName Hotel',
+          durationMin: 480,
+          reason: 'Restful sleep preparing for morning visits',
+        ));
+      } else {
+        // --- FINAL DAY: MORNING SHRINES, LUNCH, CHECK-OUT & RETURN DRIVE ---
+        blocks.add(TimelineBlock(
+          start: '08:00 AM',
+          end: '09:00 AM',
+          type: 'meal',
+          title: 'Morning Breakfast in $destName',
+          place: '$destName Traditional Tiffin Center',
+          durationMin: 60,
+          breakType: 'breakfast',
+          reason: 'Energising morning breakfast & filter coffee',
+        ));
+
+        final t1 = getNextTemple();
+        final t1Duration = t1.recommendedDarshanMinutes;
+        final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
+        blocks.add(TimelineBlock(
+          start: '09:15 AM',
+          end: '10:45 AM',
+          type: 'activity',
+          title: 'Darshan at ${t1.canonicalName}',
+          place: '${t1.canonicalName}, ${t1.city}',
+          durationMin: t1Duration > 90 ? 90 : t1Duration,
+          reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
+        ));
+
+        final t2 = getNextTemple();
+        final t2Duration = t2.recommendedDarshanMinutes;
+        final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
+        blocks.add(TimelineBlock(
+          start: '11:00 AM',
+          end: '12:30 PM',
+          type: 'activity',
+          title: 'Visit & Darshan at ${t2.canonicalName}',
+          place: '${t2.canonicalName}, ${t2.city}',
+          durationMin: t2Duration > 90 ? 90 : t2Duration,
+          reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
+        ));
+
+        // Lunch strictly at 12:30 PM
+        blocks.add(TimelineBlock(
+          start: '12:30 PM',
+          end: '01:30 PM',
+          type: 'meal',
+          title: 'Traditional Farewell Lunch in $destName',
+          place: 'Authentic Pure Vegetarian Restaurant',
+          durationMin: 60,
+          breakType: 'lunch',
+          reason: 'Sacred thali meals and prasadam laddu purchases',
+        ));
+
+        // Hotel Check-out at 01:30 PM
+        blocks.add(TimelineBlock(
+          start: '01:30 PM',
+          end: '02:00 PM',
+          type: 'checkout',
+          title: 'Hotel Check-out from $destName',
+          place: '$destName Hotel',
+          durationMin: 30,
+          reason: 'Settle bills, load prasadam & luggage into vehicle',
+        ));
+
+        // Return Drive
+        int cur = 840; // 02:00 PM
+        if (totalDriveMin > 180) {
+          final ret1 = (totalDriveMin * 0.5).round();
+          final ret2 = totalDriveMin - ret1;
+          final dist1 = (estimatedKm * 0.5);
+          final dist2 = estimatedKm - dist1;
+
           blocks.add(TimelineBlock(
-            start: formatMin(currentMin),
-            end: formatMin(checkoutEnd),
-            type: 'checkout',
-            title: 'Hotel Check-out from $destName',
-            place: '$destName Hotel',
-            durationMin: 30,
-            reason: 'Settle bills, load luggage into vehicle',
+            start: formatMin(cur),
+            end: formatMin(cur + ret1),
+            type: 'travel',
+            title: 'Return Drive (Highway Leg 1)',
+            place: 'National Highway',
+            durationMin: ret1,
+            travelMin: ret1,
+            distanceKm: dist1,
+            travelMode: 'drive',
+            reason: 'Smooth afternoon highway cruising returning home',
           ));
-          currentMin = checkoutEnd;
-        }
-        final returnEnd = currentMin + totalDriveMin;
-        blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(returnEnd),
-          type: 'return',
-          title: 'Return Drive back to $startName',
-          place: startName,
-          durationMin: totalDriveMin,
-          travelMin: totalDriveMin,
-          distanceKm: estimatedKm,
-          travelMode: 'drive',
-          reason: 'Smooth evening highway cruise returning home',
-        ));
-        currentMin = returnEnd;
+          cur += ret1;
 
-        final dinnerEnd = currentMin + 45;
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + 45),
+            type: 'coffee',
+            title: 'Sunset Highway Tea & Snack Break',
+            place: 'Highway Cafe / Rest Stop',
+            durationMin: 45,
+            breakType: 'coffee',
+            reason: 'Refreshing evening tea, snacks and driver stretch break',
+          ));
+          cur += 45;
+
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + ret2),
+            type: 'return',
+            title: 'Return Drive back to $startName',
+            place: startName,
+            durationMin: ret2,
+            travelMin: ret2,
+            distanceKm: dist2,
+            travelMode: 'drive',
+            reason: 'Final evening highway cruise arriving safely back at $startName',
+          ));
+          cur += ret2;
+        } else {
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + totalDriveMin),
+            type: 'return',
+            title: 'Return Drive back to $startName',
+            place: startName,
+            durationMin: totalDriveMin,
+            travelMin: totalDriveMin,
+            distanceKm: estimatedKm,
+            travelMode: 'drive',
+            reason: 'Smooth evening highway cruise returning home',
+          ));
+          cur += totalDriveMin;
+        }
+
         blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(dinnerEnd),
+          start: formatMin(cur),
+          end: formatMin(cur + 45),
           type: 'meal',
           title: 'Dinner Arrival at $startName',
           place: 'Local Restaurant / Home Diner',
           durationMin: 45,
           breakType: 'dinner',
           reason: 'Relaxing dinner marking the auspicious conclusion of pilgrimage',
-        ));
-      } else {
-        final dinnerEnd = currentMin + 60;
-        blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(dinnerEnd),
-          type: 'meal',
-          title: 'Traditional Dinner in $destName',
-          place: 'Local Vegetarian Heritage Restaurant',
-          durationMin: 60,
-          breakType: 'dinner',
-          reason: 'Warm South Indian meals before restful night',
-        ));
-        currentMin = dinnerEnd;
-
-        final restEnd = currentMin + 60;
-        blocks.add(TimelineBlock(
-          start: formatMin(currentMin),
-          end: formatMin(restEnd),
-          type: 'rest',
-          title: 'Night Rest at Hotel in $destName',
-          place: '$destName Hotel / Pilgrimage Guest House',
-          durationMin: 60,
-          reason: 'Peaceful sleep after sacred day',
         ));
       }
 
