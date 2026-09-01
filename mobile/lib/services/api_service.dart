@@ -412,11 +412,16 @@ class ApiService {
       // Backend failed or timed out; fall through to direct Mapbox category search
     }
 
-    // Direct Client-Side Mapbox Fallback for high-speed, 100% reliable POI search
+    // High-speed Photon OSM Proximity Search (global, free, zero restriction)
+    final photonResults = await _fetchPOIsWithPhoton(sampledCoords, activeCategories);
+    if (photonResults.values.any((l) => l.isNotEmpty)) {
+      return photonResults;
+    }
+
     return await _fetchPOIsWithMapboxFallback(sampledCoords, activeCategories);
   }
 
-  Future<Map<String, List<PlaceOfInterest>>> _fetchPOIsWithMapboxFallback(
+  Future<Map<String, List<PlaceOfInterest>>> _fetchPOIsWithPhoton(
     List<GeoPoint> coordinates,
     List<String> categories,
   ) async {
@@ -425,74 +430,84 @@ class ApiService {
       result[cat] = [];
     }
 
-    if (coordinates.isEmpty || !AppConfig.hasMapboxToken) {
-      return result;
-    }
+    if (coordinates.isEmpty) return result;
 
-    // Sample 3-5 key points along the route
+    // Sample 3-4 key points along the route
     final samplePoints = <GeoPoint>[];
-    if (coordinates.length <= 4) {
+    if (coordinates.length <= 3) {
       samplePoints.addAll(coordinates);
     } else {
       samplePoints.add(coordinates.first);
-      samplePoints.add(coordinates[(coordinates.length * 0.33).toInt()]);
-      samplePoints.add(coordinates[(coordinates.length * 0.66).toInt()]);
+      samplePoints.add(coordinates[(coordinates.length * 0.50).toInt()]);
       samplePoints.add(coordinates.last);
     }
 
     final categoryQueryMap = {
-      'attraction': 'tourist attraction',
-      'viewpoint': 'viewpoint',
-      'restaurant': 'restaurant',
-      'dining': 'restaurant',
-      'hotel': 'hotel',
-      'tea': 'cafe tea',
-      'fuel': 'petrol station',
-      'temple': 'temple',
-      'hills': 'hill station',
-      'lake': 'lake',
-      'river': 'river',
-      'charging': 'ev charging',
+      'fuel': ['petrol', 'fuel'],
+      'restaurant': ['restaurant', 'dhaba'],
+      'dining': ['restaurant', 'cafe'],
+      'hotel': ['hotel', 'resort'],
+      'attraction': ['tourist attraction', 'palace', 'monument'],
+      'viewpoint': ['viewpoint', 'waterfall'],
+      'temple': ['temple', 'shrine'],
+      'hills': ['hills', 'peak'],
+      'lake': ['lake', 'dam'],
+      'river': ['river', 'falls'],
+      'charging': ['ev charging', 'charging station'],
+      'tea': ['tea', 'cafe'],
     };
 
-    final seenIds = <String>{};
+    final seenKeys = <String>{};
 
     for (final cat in categories) {
-      final queryTerm = categoryQueryMap[cat] ?? cat;
+      final terms = categoryQueryMap[cat] ?? [cat];
       for (final pt in samplePoints) {
-        try {
-          final uri = Uri.parse(
-            'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(queryTerm)}.json'
-            '?proximity=${pt.lng},${pt.lat}&types=poi,landmark&limit=5&access_token=${AppConfig.mapboxToken}',
-          );
-          final resp = await http.get(uri).timeout(const Duration(seconds: 4));
-          if (resp.statusCode == 200) {
-            final data = jsonDecode(resp.body) as Map<String, dynamic>;
-            final features = data['features'] as List<dynamic>? ?? [];
-            for (final f in features) {
-              final center = f['center'] as List<dynamic>?;
-              final placeName = f['text'] as String? ?? f['place_name'] as String? ?? 'Place';
-              final fullAddress = f['place_name'] as String?;
-              if (center != null && center.length >= 2) {
-                final lng = (center[0] as num).toDouble();
-                final lat = (center[1] as num).toDouble();
-                final key = '$placeName-$lat-$lng';
-                if (!seenIds.contains(key)) {
-                  seenIds.add(key);
-                  result[cat]?.add(
-                    PlaceOfInterest(
-                      id: key.hashCode,
-                      name: placeName,
-                      lat: lat,
-                      lng: lng,
-                      address: fullAddress ?? placeName,
-                    ),
-                  );
+        for (final term in terms) {
+          try {
+            final uri = Uri.parse(
+              'https://photon.komoot.io/api/?q=${Uri.encodeComponent(term)}&lat=${pt.lat}&lon=${pt.lng}&limit=5',
+            );
+            final resp = await http.get(uri).timeout(const Duration(seconds: 4));
+            if (resp.statusCode == 200) {
+              final data = jsonDecode(resp.body) as Map<String, dynamic>;
+              final features = data['features'] as List<dynamic>? ?? [];
+              for (final f in features) {
+                final geom = f['geometry'] as Map<String, dynamic>?;
+                final coords = geom?['coordinates'] as List<dynamic>?;
+                final props = f['properties'] as Map<String, dynamic>? ?? {};
+                final name = (props['name'] as String?)?.trim();
+                
+                if (coords != null && coords.length >= 2) {
+                  final lng = (coords[0] as num).toDouble();
+                  final lat = (coords[1] as num).toDouble();
+                  final cleanName = (name != null && name.isNotEmpty) 
+                      ? name 
+                      : (props['osm_value'] != null ? '${props['osm_value']}'.toUpperCase() : term);
+                  
+                  final addressParts = <String>[];
+                  if (props['street'] != null) addressParts.add(props['street'].toString());
+                  if (props['city'] != null) addressParts.add(props['city'].toString());
+                  if (props['state'] != null) addressParts.add(props['state'].toString());
+                  final address = addressParts.isNotEmpty ? addressParts.join(', ') : '$cleanName, ${pt.name ?? "Route"}';
+
+                  final key = '$cleanName-${lat.toStringAsFixed(3)}-${lng.toStringAsFixed(3)}';
+                  if (!seenKeys.contains(key)) {
+                    seenKeys.add(key);
+                    result[cat]?.add(
+                      PlaceOfInterest(
+                        id: key.hashCode,
+                        name: cleanName,
+                        lat: lat,
+                        lng: lng,
+                        address: address,
+                      ),
+                    );
+                  }
                 }
               }
             }
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
     }
 

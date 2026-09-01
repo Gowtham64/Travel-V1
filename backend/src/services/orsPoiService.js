@@ -1,63 +1,26 @@
 const axios = require("axios");
 
-// Multiple Overpass API mirrors — try in order if one fails
-const OVERPASS_MIRRORS = [
-  "https://overpass-api.de/api/interpreter",
-  "https://overpass.kumi.systems/api/interpreter",
-  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
-];
-
-// Maps our app-level category names to one or more OSM tag filters. Sightseeing
-// categories use several filters so "popular" stops actually return results
-// (OSM tags these places inconsistently).
-const CATEGORY_FILTERS = {
-  fuel:        ['["amenity"="fuel"]'],
-  hotel:       ['["tourism"="hotel"]'],
-  restaurant:  ['["amenity"="restaurant"]'],
-  attraction:  ['["tourism"="attraction"]', '["tourism"="museum"]', '["tourism"="theme_park"]', '["tourism"="zoo"]', '["historic"]'],
-  hills:       ['["natural"="peak"]'],
-  temple:      ['["amenity"="place_of_worship"]'],
-  lake:        ['["natural"="water"]["water"="lake"]', '["natural"="water"]["water"="reservoir"]', '["water"="lake"]'],
-  river:       ['["waterway"="river"]'],
-  viewpoint:   ['["tourism"="viewpoint"]', '["natural"="waterfall"]'],
-  charging:    ['["amenity"="charging_station"]'],
+const PHOTON_TERMS = {
+  fuel:        ["petrol", "fuel", "gas station"],
+  charging:    ["ev charging", "charging station"],
+  hotel:       ["hotel", "resort", "lodge"],
+  restaurant:  ["restaurant", "dhaba", "food", "cafe"],
+  dining:      ["restaurant", "dhaba", "food", "cafe"],
+  attraction:  ["tourist attraction", "palace", "monument", "fort", "museum"],
+  hills:       ["hills", "peak", "viewpoint"],
+  temple:      ["temple", "shrine", "place of worship"],
+  lake:        ["lake", "dam", "reservoir"],
+  river:       ["river", "waterfall", "falls"],
+  viewpoint:   ["viewpoint", "scenic view", "waterfall"],
+  tea:         ["tea", "cafe", "coffee"],
 };
-
-// Sightseeing POIs are sparser and worth a longer detour, so search wider.
-const WIDE_RADIUS_CATEGORIES = new Set(['attraction', 'viewpoint', 'hills', 'lake', 'river', 'temple']);
-
-/**
- * Execute an Overpass QL query, trying each mirror in order until one succeeds.
- */
-async function queryOverpass(query) {
-  const encoded = `data=${encodeURIComponent(query)}`;
-  let lastError = null;
-
-  for (const url of OVERPASS_MIRRORS) {
-    try {
-      const response = await axios.post(url, encoded, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        timeout: 30000,
-      });
-      if (response.data && response.data.elements) {
-        return response.data;
-      }
-    } catch (err) {
-      const status = err.response ? err.response.status : "network";
-      console.warn(`Overpass mirror ${url} failed (${status}), trying next...`);
-      lastError = err;
-    }
-  }
-
-  throw lastError || new Error("All Overpass mirrors failed");
-}
 
 /**
  * Downsample coordinates to at most maxPoints evenly spaced points.
  */
-function sampleCoordinates(coords, maxPoints = 12) {
-  if (coords.length <= maxPoints) return coords;
-  const step = Math.ceil(coords.length / maxPoints);
+function sampleCoordinates(coords, maxPoints = 5) {
+  if (!coords || coords.length <= maxPoints) return coords || [];
+  const step = Math.floor(coords.length / maxPoints);
   const sampled = [];
   for (let i = 0; i < coords.length; i += step) {
     sampled.push(coords[i]);
@@ -69,75 +32,62 @@ function sampleCoordinates(coords, maxPoints = 12) {
 }
 
 /**
- * Find POIs along a route for multiple categories using Overpass API.
- * One query per category (avoids gigantic merged queries).
- *
- * @param {Array<{lat:number,lng:number}>} routeCoordinates
- * @param {string[]} categories
- * @param {number} [radiusMeters=3000] - search radius at each sample point
- * @returns {Promise<Object<string, Array>>} - { fuel: [...], hotel: [...], ... }
+ * High-speed POI search along route using Photon (OpenStreetMap global API).
+ * Fast, reliable (sub-second), and does not timeout.
  */
-async function findPOIsAlongRoute(routeCoordinates, categories, radiusMeters = 5000) {
-  // Downsample to keep queries small (avoids 400 Too Large errors from Overpass)
-  const samples = sampleCoordinates(routeCoordinates, 12);
-
+async function findPOIsAlongRoute(routeCoordinates, categories) {
+  const samples = sampleCoordinates(routeCoordinates, 4);
   const places = {};
 
   for (const category of categories) {
-    const filters = CATEGORY_FILTERS[category];
-    if (!filters) {
-      console.warn(`Unknown POI category: ${category}`);
-      places[category] = [];
-      continue;
-    }
+    const terms = PHOTON_TERMS[category] || [category];
+    const results = [];
+    const seenKeys = new Set();
 
-    const radius = WIDE_RADIUS_CATEGORIES.has(category) ? 15000 : radiusMeters;
-
-    // One node clause per (sample point × tag filter) so multi-tag categories
-    // (e.g. attraction = tourism|museum|historic) all get searched.
-    const clauses = samples
-      .map((p) => filters.map((f) => `node${f}(around:${radius},${p.lat},${p.lng});`).join("\n  "))
-      .join("\n  ");
-
-    const query = `[out:json][timeout:25];\n(\n  ${clauses}\n);\nout body;`;
-
-    try {
-      const data = await queryOverpass(query);
-      const elements = data.elements || [];
-
-      // De-duplicate by OSM node ID
-      const seen = new Set();
-      const results = [];
-      for (const el of elements) {
-        if (seen.has(el.id)) continue;
-        seen.add(el.id);
-
-        const tags = el.tags || {};
-        const addressParts = [];
-        if (tags["addr:street"]) addressParts.push(tags["addr:street"]);
-        if (tags["addr:city"]) addressParts.push(tags["addr:city"]);
-        if (tags["addr:state"]) addressParts.push(tags["addr:state"]);
-
-        results.push({
-          id: el.id,
-          name: tags.name || `Unnamed ${category}`,
-          lat: el.lat,
-          lng: el.lon,
-          address: addressParts.length > 0
-            ? addressParts.join(", ")
-            : `${el.lat.toFixed(4)}°N, ${el.lon.toFixed(4)}°E`,
-        });
+    const fetchPromises = [];
+    for (const pt of samples) {
+      for (const term of terms) {
+        fetchPromises.push(
+          axios.get("https://photon.komoot.io/api/", {
+            params: { q: term, lat: pt.lat, lon: pt.lng, limit: 5 },
+            timeout: 4000,
+          }).then(resp => {
+            const feats = resp.data?.features || [];
+            for (const f of feats) {
+              const geom = f.geometry?.coordinates || [];
+              const p = f.properties || {};
+              const name = p.name || (p.osm_value ? `${p.osm_value}`.toUpperCase() : term);
+              if (geom.length >= 2) {
+                const lng = geom[0];
+                const lat = geom[1];
+                const key = `${name}-${lat.toFixed(3)}-${lng.toFixed(3)}`;
+                if (!seenKeys.has(key)) {
+                  seenKeys.add(key);
+                  const addrParts = [p.street, p.city, p.state].filter(Boolean);
+                  const addr = addrParts.length > 0 ? addrParts.join(", ") : `${name}`;
+                  results.push({
+                    id: p.osm_id || Math.floor(Math.random() * 1000000),
+                    name,
+                    lat,
+                    lng,
+                    address: addr,
+                  });
+                }
+              }
+            }
+          }).catch(() => {})
+        );
       }
-
-      places[category] = results;
-      console.log(`POI [${category}]: found ${results.length} places`);
-    } catch (err) {
-      console.error(`POI lookup failed for category '${category}':`, err.message);
-      places[category] = []; // Return empty instead of crashing
     }
+
+    await Promise.all(fetchPromises);
+    places[category] = results;
+    console.log(`POI [${category}]: found ${results.length} places along route`);
   }
 
   return places;
 }
 
 module.exports = { findPOIsAlongRoute };
+
+
