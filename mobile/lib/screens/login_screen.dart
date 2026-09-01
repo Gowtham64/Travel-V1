@@ -183,7 +183,12 @@ class _LoginScreenState extends State<LoginScreen> {
         OAuthProvider.google,
         // Native: returns to the app via the registered deep link; web: the page URL.
         redirectTo: _authRedirectUrl(),
-      ).timeout(const Duration(seconds: 10));
+        // On iOS the default in-app browser view can fail to launch the OAuth
+        // URL ("Error while launching …"); force the external browser (Safari)
+        // on native so the Google flow opens reliably. Ignored on web.
+        authScreenLaunchMode:
+            kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
+      ).timeout(const Duration(seconds: 30));
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

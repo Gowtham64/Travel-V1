@@ -160,42 +160,68 @@ class TripHistoryService {
       debugPrint('Error loading local trip history: $e');
     }
 
-    // Two-way cloud sync with Supabase
+    // Two-way cloud sync with Supabase: PULL cloud trips AND PUSH local-only
+    // trips up, so a trip saved on any device appears on every device.
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        // No user_id filter: RLS returns every trip owned by this account,
-        // matched by user_id OR the account's verified email, so trips saved
+        final localItems = List<TripHistoryItem>.from(items);
+
+        // PULL: no user_id filter — RLS returns every trip owned by this account
+        // (matched by user_id OR the account's verified email), so trips saved
         // from another device/sign-in method (Google / email / phone) sync in.
         final cloudRows = await Supabase.instance.client
             .from('trips')
             .select('*, trip_stops(*)')
             .order('created_at', ascending: false);
 
-        if (cloudRows is List && cloudRows.isNotEmpty) {
-          final cloudItems = cloudRows
-              .map((r) => TripHistoryItem.fromSupabaseTrip((r as Map).cast<String, dynamic>()))
-              .toList();
+        final cloudItems = (cloudRows is List)
+            ? cloudRows
+                .map((r) => TripHistoryItem.fromSupabaseTrip((r as Map).cast<String, dynamic>()))
+                .toList()
+            : <TripHistoryItem>[];
 
-          // Merge cloud items into items
-          final seenKeys = <String>{};
-          for (final it in items) {
-            seenKeys.add('${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
-          }
+        // Normalised trip name, used to detect which local trips are missing
+        // from the cloud (cloud rows are keyed by their `name`).
+        String nameKey(TripHistoryItem t) =>
+            (t.title.isNotEmpty ? t.title : '${t.startAddress} to ${t.endAddress}')
+                .trim()
+                .toLowerCase();
+        final cloudNames = cloudItems.map(nameKey).toSet();
 
-          for (final cit in cloudItems) {
-            final key = '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
-            if (!seenKeys.contains(key)) {
-              items.add(cit);
-              seenKeys.add(key);
+        // PUSH: upload any local-only trip so it propagates to other devices.
+        // Previously sync was pull-only, so a trip whose original cloud write
+        // silently failed (or was made before sign-in) stayed on one device.
+        for (final li in localItems) {
+          final key = nameKey(li);
+          if (key.isEmpty || key == 'to') continue;
+          if (!cloudNames.contains(key)) {
+            try {
+              await _pushTripToCloud(li, user);
+              cloudNames.add(key);
+            } catch (e) {
+              debugPrint('Trip push-sync note: $e');
             }
           }
-
-          // Persist merged cache locally
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(
-              _storageKey, jsonEncode(items.map((e) => e.toJson()).toList()));
         }
+
+        // MERGE cloud items into the display list.
+        final seenKeys = <String>{};
+        for (final it in items) {
+          seenKeys.add('${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
+        }
+        for (final cit in cloudItems) {
+          final key = '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
+          if (!seenKeys.contains(key)) {
+            items.add(cit);
+            seenKeys.add(key);
+          }
+        }
+
+        // Persist merged cache locally.
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+            _storageKey, jsonEncode(items.map((e) => e.toJson()).toList()));
       }
     } catch (e) {
       debugPrint('Supabase cloud history sync note: $e');
@@ -228,31 +254,47 @@ class TripHistoryService {
       // Cloud persistence if signed in
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final startCoord = item.routeCoordinates.isNotEmpty ? item.routeCoordinates.first : {'lat': 12.9716, 'lng': 77.5946};
-        final endCoord = item.routeCoordinates.isNotEmpty ? item.routeCoordinates.last : {'lat': 13.6288, 'lng': 79.4192};
-        
-        final inserted = await Supabase.instance.client.from('trips').insert({
-          'user_id': user.id,
-          // Email-stamp so the trip syncs across the user's other identities.
-          if (user.email != null) 'owner_email': user.email!.toLowerCase(),
-          'name': item.title.isNotEmpty ? item.title : '${item.startAddress} to ${item.endAddress}',
-          'start_point': {'lat': startCoord['lat'], 'lng': startCoord['lng'], 'name': item.startAddress},
-          'end_point': {
-            'lat': endCoord['lat'],
-            'lng': endCoord['lng'],
-            'name': item.endAddress,
-            'distanceKm': item.distanceKm,
-            'durationMinutes': item.durationMinutes,
-            'fuelCost': item.fuelCost,
-            'tollCost': item.tollCost,
-            'totalCost': item.totalCost,
-            'isRoundTrip': item.isRoundTrip,
-          },
-          'vehicle_type': item.vehicleType,
-        }).select().single();
+        await _pushTripToCloud(item, user);
+      }
+    } catch (e) {
+      debugPrint('Error saving trip history: $e');
+    }
+  }
 
-        if (item.waypoints.isNotEmpty && inserted['id'] != null) {
-          final stops = item.waypoints.asMap().entries.map((e) => {
+  /// Inserts one trip (and its waypoints) into Supabase. Shared by [saveTrip]
+  /// and the push-sync in [getHistory]. Stamps owner_email so the trip is
+  /// visible from the user's other sign-in identities that share the email.
+  Future<void> _pushTripToCloud(TripHistoryItem item, User user) async {
+    final startCoord = item.routeCoordinates.isNotEmpty
+        ? item.routeCoordinates.first
+        : {'lat': 12.9716, 'lng': 77.5946};
+    final endCoord = item.routeCoordinates.isNotEmpty
+        ? item.routeCoordinates.last
+        : {'lat': 13.6288, 'lng': 79.4192};
+
+    final inserted = await Supabase.instance.client.from('trips').insert({
+      'user_id': user.id,
+      if (user.email != null) 'owner_email': user.email!.toLowerCase(),
+      'name': item.title.isNotEmpty
+          ? item.title
+          : '${item.startAddress} to ${item.endAddress}',
+      'start_point': {'lat': startCoord['lat'], 'lng': startCoord['lng'], 'name': item.startAddress},
+      'end_point': {
+        'lat': endCoord['lat'],
+        'lng': endCoord['lng'],
+        'name': item.endAddress,
+        'distanceKm': item.distanceKm,
+        'durationMinutes': item.durationMinutes,
+        'fuelCost': item.fuelCost,
+        'tollCost': item.tollCost,
+        'totalCost': item.totalCost,
+        'isRoundTrip': item.isRoundTrip,
+      },
+      'vehicle_type': item.vehicleType,
+    }).select().single();
+
+    if (item.waypoints.isNotEmpty && inserted['id'] != null) {
+      final stops = item.waypoints.asMap().entries.map((e) => {
             'trip_id': inserted['id'],
             'type': 'waypoint',
             'lat': 0.0,
@@ -260,11 +302,7 @@ class TripHistoryService {
             'name': e.value,
             'order_index': e.key,
           }).toList();
-          await Supabase.instance.client.from('trip_stops').insert(stops);
-        }
-      }
-    } catch (e) {
-      debugPrint('Error saving trip history: $e');
+      await Supabase.instance.client.from('trip_stops').insert(stops);
     }
   }
 
