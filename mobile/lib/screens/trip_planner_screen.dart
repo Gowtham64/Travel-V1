@@ -337,63 +337,59 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     });
 
     try {
-      // Reuse already-computed plan from "Find Places" if available
-      final TripPlan plan;
-      final GeoPoint start;
-      final GeoPoint end;
-      final List<GeoPoint> waypoints;
-      final Vehicle vehicle;
-
-      if (_tempPlan != null && _tempStart != null && _tempEnd != null &&
-          _tempWaypoints != null && _tempVehicle != null) {
-        plan = _tempPlan!;
-        start = _tempStart!;
-        end = _tempEnd!;
-        waypoints = _tempWaypoints!;
-        vehicle = _tempVehicle!;
-      } else {
-        final List<GeoPoint> geocodedStops = [];
-        for (final controller in _stopControllers) {
-          final address = controller.text.trim();
-          if (address.isNotEmpty) {
-            final resolved = _resolvedStopCoords[controller.hashCode];
-            final isMatch = resolved != null &&
-                resolved.name != null &&
-                (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
-                 address.toLowerCase().contains(resolved.name!.toLowerCase()));
-            if (resolved != null && isMatch) {
-              geocodedStops.add(resolved);
-            } else {
-              final point = await _api.geocode(address);
-              geocodedStops.add(point);
-              _resolvedStopCoords[controller.hashCode] = point;
-            }
+      final List<GeoPoint> geocodedStops = [];
+      for (final controller in _stopControllers) {
+        final address = controller.text.trim();
+        if (address.isNotEmpty) {
+          final resolved = _resolvedStopCoords[controller.hashCode];
+          final isMatch = resolved != null &&
+              resolved.name != null &&
+              (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
+               address.toLowerCase().contains(resolved.name!.toLowerCase()));
+          if (resolved != null && isMatch) {
+            geocodedStops.add(resolved);
+          } else {
+            final point = await _api.geocode(address);
+            geocodedStops.add(point);
+            _resolvedStopCoords[controller.hashCode] = point;
           }
         }
+      }
 
-        if (geocodedStops.length < 2) {
-          throw Exception("Need at least a starting point and destination");
-        }
+      if (geocodedStops.length < 2) {
+        throw Exception("Need at least a starting point and destination");
+      }
 
-        if (_tripType == 'roundtrip') {
-          // Vacation / round trip: go to the destination (and any stops) then
-          // return to the starting point, so distance/fuel/budget cover both legs.
-          start = geocodedStops.first;
-          end = geocodedStops.first;
-          waypoints = geocodedStops.sublist(1);
-        } else {
-          start = geocodedStops.first;
-          end = geocodedStops.last;
-          waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
-        }
+      if (_tripType == 'roundtrip') {
+        // Vacation / round trip: go to the destination (and any stops) then
+        // return to the starting point, so distance/fuel/budget cover both legs.
+        start = geocodedStops.first;
+        end = geocodedStops.first;
+        waypoints = geocodedStops.sublist(1);
+      } else {
+        start = geocodedStops.first;
+        end = geocodedStops.last;
+        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
+      }
 
-        vehicle = Vehicle(
-          type: _selectedVehicle!.type,
-          efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-          tankCapacityLiters: double.parse(_tankController.text),
-          currentFuelLiters: double.parse(_currentFuelController.text),
-        );
+      vehicle = Vehicle(
+        type: _selectedVehicle!.type,
+        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
+        tankCapacityLiters: double.parse(_tankController.text),
+        currentFuelLiters: double.parse(_currentFuelController.text),
+      );
 
+      final canReuseTemp = _tempPlan != null &&
+          _tempStart != null &&
+          _tempEnd != null &&
+          _tempWaypoints != null &&
+          _tempWaypoints!.length == waypoints.length &&
+          _dist(_tempStart!, start) < 0.01 &&
+          _dist(_tempEnd!, end) < 0.01;
+
+      if (canReuseTemp) {
+        plan = _tempPlan!;
+      } else {
         plan = await _api.planTrip(
           start: start,
           end: end,
@@ -892,6 +888,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       final insertIndex = _stopControllers.indexOf(targetController) + 1;
 
       setState(() {
+        _tempPlan = null;
+        _tempStart = null;
+        _tempEnd = null;
+        _tempWaypoints = null;
         final newController = TextEditingController(text: place.name);
         _resolvedStopCoords[newController.hashCode] = newWaypoint;
         _stopControllers.insert(insertIndex, newController);
@@ -909,6 +909,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       });
     } else {
       setState(() {
+        _tempPlan = null;
+        _tempStart = null;
+        _tempEnd = null;
+        _tempWaypoints = null;
         final newController = TextEditingController(text: place.name);
         _resolvedStopCoords[newController.hashCode] = newWaypoint;
         _stopControllers.insert(_stopControllers.length - 1, newController);
@@ -929,6 +933,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   void _addStop() {
     setState(() {
+      _tempPlan = null;
+      _tempStart = null;
+      _tempEnd = null;
+      _tempWaypoints = null;
       _stopControllers.insert(_stopControllers.length - 1, TextEditingController());
     });
   }
@@ -936,6 +944,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _removeStop(int index) {
     if (_stopControllers.length <= 2) return;
     setState(() {
+      _tempPlan = null;
+      _tempStart = null;
+      _tempEnd = null;
+      _tempWaypoints = null;
       final controller = _stopControllers.removeAt(index);
       _resolvedStopCoords.remove(controller.hashCode);
       controller.dispose();

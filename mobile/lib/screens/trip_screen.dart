@@ -1135,6 +1135,460 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
+  Widget _buildStopsButton() {
+    final count = _currentWaypoints.length;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B),
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFF59E0B).withOpacity(0.4),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _showStopsManagerSheet,
+              child: const Icon(
+                Icons.alt_route_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
+            ),
+          ),
+        ),
+        if (count > 0)
+          Positioned(
+            top: -3,
+            right: -3,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Color(0xFF10B981),
+                shape: BoxShape.circle,
+                boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 4)],
+              ),
+              child: Text(
+                '$count',
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _showStopsManagerSheet() {
+    final searchCtrl = TextEditingController();
+    bool searching = false;
+    List<PlaceOfInterest> searchResults = [];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: EdgeInsets.only(
+                top: 16,
+                left: 16,
+                right: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.alt_route_rounded, color: Color(0xFFF59E0B), size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            'Trip Stops & Places',
+                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Search input for adding a stop
+                  Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2A2A2A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: TextField(
+                      controller: searchCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search city, fuel pump, or restaurant to add...',
+                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, color: Color(0xFFF59E0B)),
+                        suffixIcon: searching
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B))),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.arrow_forward, color: Color(0xFFF59E0B)),
+                                onPressed: () async {
+                                  final q = searchCtrl.text.trim();
+                                  if (q.isEmpty) return;
+                                  setSheetState(() => searching = true);
+                                  try {
+                                    final api = ApiService();
+                                    final center = widget.start;
+                                    final pois = await api.fetchPOIs(
+                                      center.lat,
+                                      center.lng,
+                                      categories: const ['fuel', 'restaurant', 'attraction', 'hotel'],
+                                      keyword: q,
+                                    );
+                                    setSheetState(() {
+                                      searchResults = pois;
+                                      searching = false;
+                                    });
+                                  } catch (_) {
+                                    setSheetState(() => searching = false);
+                                  }
+                                },
+                              ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onSubmitted: (val) async {
+                        final q = val.trim();
+                        if (q.isEmpty) return;
+                        setSheetState(() => searching = true);
+                        try {
+                          final api = ApiService();
+                          final pois = await api.fetchPOIs(
+                            widget.start.lat,
+                            widget.start.lng,
+                            categories: const ['fuel', 'restaurant', 'attraction', 'hotel'],
+                            keyword: q,
+                          );
+                          setSheetState(() {
+                            searchResults = pois;
+                            searching = false;
+                          });
+                        } catch (_) {
+                          setSheetState(() => searching = false);
+                        }
+                      },
+                    ),
+                  ),
+
+                  // Quick Category chips
+                  const SizedBox(height: 10),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _categoryChip('⛽ Fuel', 'fuel', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        const SizedBox(width: 8),
+                        _categoryChip('🍽️ Food', 'restaurant', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        const SizedBox(width: 8),
+                        _categoryChip('📸 Sights', 'attraction', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        const SizedBox(width: 8),
+                        _categoryChip('🏨 Hotels', 'hotel', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        const SizedBox(width: 8),
+                        _categoryChip('🛕 Temples', 'temple', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Content Area: Search results or Current Stops
+                  Expanded(
+                    child: searchResults.isNotEmpty
+                        ? ListView.builder(
+                            itemCount: searchResults.length,
+                            itemBuilder: (context, idx) {
+                              final poi = searchResults[idx];
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF2A2A2A),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.white10),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF59E0B).withOpacity(0.15),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.place, color: Color(0xFFF59E0B), size: 18),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            poi.name,
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                          ),
+                                          if (poi.category.isNotEmpty)
+                                            Text(
+                                              poi.category.toUpperCase(),
+                                              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 10),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xFFF59E0B),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      ),
+                                      icon: const Icon(Icons.add_location_alt, size: 16),
+                                      label: const Text('Add Stop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      onPressed: () {
+                                        Navigator.pop(ctx);
+                                        _addPOIToRoute(POI(
+                                          name: poi.name,
+                                          category: poi.category,
+                                          lat: poi.lat,
+                                          lng: poi.lng,
+                                          distanceKm: 0,
+                                        ));
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          )
+                        : ListView(
+                            children: [
+                              // Start Node
+                              _stopRowItem('Start', widget.startAddress, isStart: true),
+                              const SizedBox(height: 8),
+
+                              // Waypoints
+                              if (_currentWaypoints.isEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.04),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                  ),
+                                  child: const Center(
+                                    child: Text(
+                                      'No intermediate stops added yet.\nSearch above or pick a category to add stops!',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+                                    ),
+                                  ),
+                                )
+                              else
+                                ...List.generate(_currentWaypoints.length, (i) {
+                                  final wp = _currentWaypoints[i];
+                                  final name = wp.name ?? 'Stop ${i + 1}';
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF2A2A2A),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: const BoxDecoration(
+                                            color: Color(0xFFF59E0B),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${i + 1}',
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            name,
+                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                          onPressed: () async {
+                                            Navigator.pop(ctx);
+                                            _removeWaypointAt(i);
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }),
+
+                              const SizedBox(height: 8),
+                              // Destination Node
+                              _stopRowItem('End', widget.endAddress, isEnd: true),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _categoryChip(
+    String label,
+    String category,
+    StateSetter setSheetState,
+    bool Function() isSearching,
+    Function(bool) setSearching,
+    Function(List<PlaceOfInterest>) setResults,
+  ) {
+    return ActionChip(
+      backgroundColor: const Color(0xFF2A2A2A),
+      side: BorderSide(color: Colors.white.withOpacity(0.15)),
+      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+      onPressed: () async {
+        if (isSearching()) return;
+        setSearching(true);
+        try {
+          final api = ApiService();
+          final pois = await api.fetchPOIs(
+            widget.start.lat,
+            widget.start.lng,
+            categories: [category],
+          );
+          setResults(pois);
+          setSearching(false);
+        } catch (_) {
+          setSearching(false);
+        }
+      },
+    );
+  }
+
+  Widget _stopRowItem(String tag, String address, {bool isStart = false, bool isEnd = false}) {
+    final color = isStart ? const Color(0xFF10B981) : const Color(0xFFEF4444);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF242424),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              tag,
+              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              address,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _removeWaypointAt(int index) async {
+    if (index < 0 || index >= _currentWaypoints.length) return;
+    final updated = List<GeoPoint>.from(_currentWaypoints);
+    updated.removeAt(index);
+
+    setState(() => _recalculating = true);
+    try {
+      final api = ApiService();
+      final newPlan = await api.planTrip(
+        start: widget.start,
+        end: widget.end,
+        waypoints: updated,
+        vehicle: widget.vehicle,
+      );
+      if (mounted) {
+        setState(() {
+          _currentPlan = newPlan;
+          _currentWaypoints = updated;
+          _recalculating = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Stop removed & route updated!'), duration: Duration(seconds: 2)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _recalculating = false);
+      }
+    }
+  }
+
 
 
   Widget _buildPOIList(ScrollController? sc, {bool shrinkWrap = false}) {
@@ -2802,6 +3256,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: Row(
               children: [
                 _buildLayersButton(),
+                const SizedBox(width: 8),
+                _buildStopsButton(),
                 const SizedBox(width: 10),
                 _buildMapDriveCluster(true),
               ],
@@ -2867,6 +3323,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _buildMapDriveCluster(false),
       _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
       _buildLayersButton(),
+      _buildStopsButton(),
       _navCircle(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
       _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
           _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
