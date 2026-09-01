@@ -361,7 +361,70 @@ class ApiService {
       throw ApiException('Trip planning failed (${response.statusCode}): ${response.body}');
     }
 
-    return TripPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    final plan = TripPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    
+    // If the plan returned straight-line or sparse points (< 25 points for > 3 km),
+    // enhance immediately with high-resolution Mapbox or OSRM road geometry!
+    if (plan.coordinates.length < 25 && plan.distanceKm > 3.0) {
+      final roadCoords = await _fetchRoadCoordinates(start: start, end: end, waypoints: waypoints);
+      if (roadCoords.length > 25) {
+        return plan.copyWith(coordinates: roadCoords);
+      }
+    }
+
+    return plan;
+  }
+
+  Future<List<GeoPoint>> _fetchRoadCoordinates({
+    required GeoPoint start,
+    required GeoPoint end,
+    List<GeoPoint> waypoints = const [],
+  }) async {
+    final allPoints = [start, ...waypoints, end];
+    
+    // 1. Try Mapbox Directions directly with client token
+    if (AppConfig.hasMapboxToken) {
+      try {
+        final coordsStr = allPoints.map((p) => '${p.lng},${p.lat}').join(';');
+        final uri = Uri.parse(
+          'https://api.mapbox.com/directions/v5/mapbox/driving-traffic/$coordsStr?geometries=geojson&overview=full&access_token=${AppConfig.mapboxToken}',
+        );
+        final resp = await http.get(uri).timeout(const Duration(seconds: 12));
+        if (resp.statusCode == 200) {
+          final body = jsonDecode(resp.body) as Map<String, dynamic>;
+          final routes = body['routes'] as List? ?? [];
+          if (routes.isNotEmpty) {
+            final geom = routes[0]['geometry'] as Map<String, dynamic>?;
+            final coords = geom?['coordinates'] as List? ?? [];
+            if (coords.length > 10) {
+              return coords.map((c) => GeoPoint(lat: (c[1] as num).toDouble(), lng: (c[0] as num).toDouble())).toList();
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. High-speed OSRM road geometry router
+    try {
+      final coordsStr = allPoints.map((p) => '${p.lng},${p.lat}').join(';');
+      final uri = Uri.parse(
+        'https://router.project-osrm.org/route/v1/driving/$coordsStr?overview=full&geometries=geojson',
+      );
+      final resp = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (resp.statusCode == 200) {
+        final body = jsonDecode(resp.body) as Map<String, dynamic>;
+        final routes = body['routes'] as List? ?? [];
+        if (routes.isNotEmpty) {
+          final geom = routes[0]['geometry'] as Map<String, dynamic>?;
+          final coords = geom?['coordinates'] as List? ?? [];
+          if (coords.length > 10) {
+            return coords.map((c) => GeoPoint(lat: (c[1] as num).toDouble(), lng: (c[0] as num).toDouble())).toList();
+          }
+        }
+      }
+    } catch (_) {}
+
+    return [];
   }
 
   Future<Map<String, List<PlaceOfInterest>>> fetchPOIs({

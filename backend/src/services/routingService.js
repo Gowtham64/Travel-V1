@@ -61,37 +61,35 @@ async function getRoute(start, end, waypoints = [], options = {}) {
   // falls through to OpenRouteService below.
   const mapboxKey = process.env.MAPBOX_TOKEN;
 
-  try {
-    if (!mapboxKey) throw new Error("MAPBOX_TOKEN not configured");
-    console.log("Fetching traffic-aware route from Mapbox Directions...");
-    const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
-    // 2-/3-wheelers are banned on access-controlled expressways — exclude motorways for them.
-    const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full${excludeParam}&access_token=${mapboxKey}`;
-    
-    const response = await axios.get(url, { timeout: 15000 });
-    const route = response.data.routes[0];
-    
-    if (route) {
-      const routeData = {
-        distanceKm: Math.round((route.distance / 1000) * 10) / 10,
-        durationMin: Math.round(route.duration / 60),
-        // GeoJSON coordinates are [lng, lat] - convert to {lat, lng} for the rest of the app
-        coordinates: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
-      };
+  if (mapboxKey) {
+    try {
+      console.log("Fetching traffic-aware route from Mapbox Directions...");
+      const coordsString = [start, ...waypoints, end].map(p => `${p.lng},${p.lat}`).join(';');
+      const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full${excludeParam}&access_token=${mapboxKey}`;
       
-      // Save to cache asynchronously
-      cacheRoute(hash, routeData);
-      return routeData;
+      const response = await axios.get(url, { timeout: 15000 });
+      const route = response.data.routes[0];
+      
+      if (route && route.geometry && Array.isArray(route.geometry.coordinates) && route.geometry.coordinates.length > 5) {
+        const routeData = {
+          distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+          durationMin: Math.round(route.duration / 60),
+          coordinates: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+        };
+        cacheRoute(hash, routeData);
+        return routeData;
+      }
+    } catch (e) {
+      console.error("Mapbox Directions API failed, falling back to ORS/OSRM:", e.message);
     }
-  } catch (e) {
-    console.error("Mapbox Directions API failed, falling back to OpenRouteService:", e.message);
   }
 
-  // Fallback to OpenRouteService (key loaded from env only — no hardcoded secret).
+  // Fallback 1: Try OpenRouteService if API key is provided
   const apiKey = process.env.ORS_API_KEY;
   if (!apiKey) {
-    throw new Error("Both Mapbox Directions and OpenRouteService APIs failed/unconfigured.");
+    console.log("No ORS_API_KEY provided, falling back directly to OSRM high-resolution router...");
+    return await getOsrmRoute(start, end, waypoints, hash);
   }
 
   // ── Long-route segmentation ──────────────────────────────────────────
@@ -237,6 +235,47 @@ async function getRouteSegmented(start, end, waypoints, avoidMotorways, apiKey, 
   return routeData;
 }
 
+async function getOsrmRoute(start, end, waypoints = [], hash = null) {
+  try {
+    const allPts = [start, ...waypoints, end];
+    const coordsStr = allPts.map((p) => `${p.lng},${p.lat}`).join(";");
+    const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson`;
+    console.log("Fetching real highway route from public OSRM router...");
+    const resp = await axios.get(url, { timeout: 15000 });
+    const route = resp.data?.routes?.[0];
+    if (route && route.geometry && Array.isArray(route.geometry.coordinates)) {
+      const routeData = {
+        distanceKm: Math.round((route.distance / 1000) * 10) / 10,
+        durationMin: Math.round(route.duration / 60),
+        coordinates: route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng })),
+      };
+      if (hash) cacheRoute(hash, routeData);
+      return routeData;
+    }
+  } catch (err) {
+    console.error("OSRM route fetch failed:", err.message);
+  }
+
+  // Last-resort fallback: interpolate along straight line
+  const allPts = [start, ...waypoints, end];
+  const interpolated = [];
+  let totalDist = 0;
+  for (let i = 0; i < allPts.length - 1; i++) {
+    const p0 = allPts[i];
+    const p1 = allPts[i + 1];
+    const d = haversineKm(p0, p1);
+    totalDist += d;
+    for (let step = 0; step <= 25; step++) {
+      interpolated.push(interpolatePoint(p0, p1, step / 25));
+    }
+  }
+  return {
+    distanceKm: Math.round(totalDist * 1.3 * 10) / 10,
+    durationMin: Math.round((totalDist * 1.3 / 60) * 60),
+    coordinates: interpolated,
+  };
+}
+
 /** Total crow-flies distance across a list of points (km) */
 function segmentCrowKm(points) {
   let total = 0;
@@ -246,5 +285,5 @@ function segmentCrowKm(points) {
   return total;
 }
 
-module.exports = { getRoute };
+module.exports = { getRoute, getOsrmRoute };
 

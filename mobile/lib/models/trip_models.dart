@@ -630,4 +630,40 @@ class TripPlan {
           .toList(),
     );
   }
+
+  TripPlan copyWith({
+    double? distanceKm,
+    int? durationMin,
+    List<GeoPoint>? coordinates,
+    bool? avoidedMotorways,
+    int? estimatedDays,
+    FuelPlan? fuel,
+    TollEstimate? toll,
+    RouteWeather? weather,
+    DepartureAdvice? departureAdvice,
+    List<RestBreak>? restStops,
+    List<DayPlan>? itinerary,
+    TripBudget? budget,
+    Map<String, List<PlaceOfInterest>>? places,
+    List<WikiAttraction>? wikiAttractions,
+    List<DestinationEvent>? events,
+  }) {
+    return TripPlan(
+      distanceKm: distanceKm ?? this.distanceKm,
+      durationMin: durationMin ?? this.durationMin,
+      coordinates: coordinates ?? this.coordinates,
+      avoidedMotorways: avoidedMotorways ?? this.avoidedMotorways,
+      estimatedDays: estimatedDays ?? this.estimatedDays,
+      fuel: fuel ?? this.fuel,
+      toll: toll ?? this.toll,
+      weather: weather ?? this.weather,
+      departureAdvice: departureAdvice ?? this.departureAdvice,
+      restStops: restStops ?? this.restStops,
+      itinerary: itinerary ?? this.itinerary,
+      budget: budget ?? this.budget,
+      places: places ?? this.places,
+      wikiAttractions: wikiAttractions ?? this.wikiAttractions,
+      events: events ?? this.events,
+    );
+  }
 }
