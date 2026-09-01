@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
+import '../services/trip_history_service.dart';
 import '../models/trip_models.dart';
 import '../widgets/app_design.dart';
 import 'trip_screen.dart';
@@ -44,6 +45,37 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
         err = e.toString();
       }
     }
+
+    // Also load from synced TripHistoryService
+    try {
+      final historyItems = await TripHistoryService.instance.getHistory();
+      final seenNames = <String>{};
+      for (final ct in cloudTrips) {
+        seenNames.add((ct['name'] ?? '').toString().toLowerCase());
+      }
+      for (final h in historyItems) {
+        final title = h.title.isNotEmpty ? h.title : '${h.startAddress} to ${h.endAddress}';
+        if (!seenNames.contains(title.toLowerCase())) {
+          cloudTrips.add({
+            'id': h.id,
+            'name': title,
+            'vehicle_type': h.vehicleType,
+            'start_point': {'name': h.startAddress, 'lat': 12.9716, 'lng': 77.5946},
+            'end_point': {
+              'name': h.endAddress,
+              'lat': 13.6288,
+              'lng': 79.4192,
+              'distanceKm': h.distanceKm,
+              'durationMinutes': h.durationMinutes,
+              'isRoundTrip': h.isRoundTrip,
+            },
+            'trip_stops': h.waypoints.map((w) => {'name': w}).toList(),
+            'created_at': h.completedAt.toIso8601String(),
+          });
+          seenNames.add(title.toLowerCase());
+        }
+      }
+    } catch (_) {}
 
     if (!mounted) return;
     setState(() {

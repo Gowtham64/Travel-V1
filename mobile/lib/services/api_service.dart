@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:math' show cos, sin, asin, sqrt;
-import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode, debugPrint;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -628,6 +628,44 @@ class ApiService {
     List<Map<String, dynamic>>? itinerary,
     Vehicle? vehicle,
   }) async {
+    // 1. Direct Supabase Insert (zero backend cold-start latency, guaranteed persistence)
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final enrichedEnd = {
+          'lat': end.lat,
+          'lng': end.lng,
+          if (end.name != null) 'name': end.name,
+          if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
+          if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
+          if (vehicle != null) 'vehicle': vehicle.toJson(),
+        };
+        final inserted = await Supabase.instance.client.from('trips').insert({
+          'user_id': user.id,
+          'name': name,
+          'start_point': {'lat': start.lat, 'lng': start.lng, if (start.name != null) 'name': start.name},
+          'end_point': enrichedEnd,
+          'vehicle_type': vehicleType,
+        }).select().single();
+
+        if (waypoints.isNotEmpty && inserted['id'] != null) {
+          final stops = waypoints.asMap().entries.map((e) => {
+            'trip_id': inserted['id'],
+            'type': 'waypoint',
+            'lat': e.value.lat,
+            'lng': e.value.lng,
+            'name': e.value.name,
+            'order_index': e.key,
+          }).toList();
+          await Supabase.instance.client.from('trip_stops').insert(stops);
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Direct Supabase saveTrip note: $e');
+    }
+
+    // 2. Backend /api/trip/save fallback
     final uri = Uri.parse('$baseUrl/api/trip/save');
     final response = await http
         .post(
@@ -638,20 +676,17 @@ class ApiService {
           },
           body: jsonEncode({
             'name': name,
-            'startPoint': {'lat': start.lat, 'lng': start.lng},
-            'endPoint': {'lat': end.lat, 'lng': end.lng},
+            'startPoint': {'lat': start.lat, 'lng': start.lng, if (start.name != null) 'name': start.name},
+            'endPoint': {'lat': end.lat, 'lng': end.lng, if (end.name != null) 'name': end.name},
             'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
             'vehicleType': vehicleType,
-            // Persist the full vehicle spec so reloaded trips recompute fuel and
-            // budget with the exact numbers the user planned with, instead of a
-            // type-based guess.
             if (vehicle != null) 'vehicle': vehicle.toJson(),
             if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
             if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
           }),
         )
         .timeout(const Duration(seconds: 45), onTimeout: () {
-      throw ApiException('Saving is taking too long (server may be waking up). Please try again.');
+      throw ApiException('Saving is taking too long. Please try again.');
     });
 
     if (response.statusCode != 200) {
@@ -660,14 +695,32 @@ class ApiService {
   }
 
   Future<List<dynamic>> getSavedTrips(String token) async {
+    // 1. Direct Supabase Query (instant cross-device sync)
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final data = await Supabase.instance.client
+            .from('trips')
+            .select('*, trip_stops(*)')
+            .eq('user_id', user.id)
+            .order('created_at', ascending: false);
+        if (data is List && data.isNotEmpty) {
+          return data;
+        }
+      }
+    } catch (e) {
+      debugPrint('Direct Supabase getSavedTrips note: $e');
+    }
+
+    // 2. Backend /api/trip/saved fallback
     final uri = Uri.parse('$baseUrl/api/trip/saved');
     final response = await http.get(
       uri,
       headers: {
         'Authorization': 'Bearer $token',
       },
-    ).timeout(const Duration(seconds: 45), onTimeout: () {
-      throw ApiException('Loading your trips is taking too long (server may be waking up). Please try again.');
+    ).timeout(const Duration(seconds: 20), onTimeout: () {
+      throw ApiException('Loading your trips is taking too long. Please try again.');
     });
 
     if (response.statusCode != 200) {

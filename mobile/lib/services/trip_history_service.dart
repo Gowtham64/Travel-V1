@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class TripHistoryItem {
   final String id;
@@ -27,7 +28,7 @@ class TripHistoryItem {
     required this.title,
     required this.startAddress,
     required this.endAddress,
-    required this.waypoints,
+    this.waypoints = const [],
     required this.distanceKm,
     required this.durationMinutes,
     required this.vehicleType,
@@ -66,12 +67,10 @@ class TripHistoryItem {
 
   factory TripHistoryItem.fromJson(Map<String, dynamic> json) {
     return TripHistoryItem(
-      id: json['id'] as String? ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      title: json['title'] as String? ??
-          '${json['startAddress']} → ${json['endAddress']}',
-      startAddress: json['startAddress'] as String? ?? 'Origin',
-      endAddress: json['endAddress'] as String? ?? 'Destination',
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? 'Trip',
+      startAddress: json['startAddress'] as String? ?? '',
+      endAddress: json['endAddress'] as String? ?? '',
       waypoints: (json['waypoints'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -82,23 +81,52 @@ class TripHistoryItem {
       fuelCost: (json['fuelCost'] as num?)?.toDouble() ?? 0.0,
       tollCost: (json['tollCost'] as num?)?.toDouble() ?? 0.0,
       totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
-      completedAt:
-          DateTime.tryParse(json['completedAt'] as String? ?? '') ?? DateTime.now(),
+      completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??
+          DateTime.now(),
       isRoundTrip: json['isRoundTrip'] as bool? ?? false,
       routeCoordinates: (json['routeCoordinates'] as List<dynamic>?)
-              ?.map((e) => {
-                    'lat': (e['lat'] as num).toDouble(),
-                    'lng': (e['lng'] as num).toDouble(),
-                  })
+              ?.map((e) => (e as Map<String, dynamic>)
+                  .map((k, v) => MapEntry(k, (v as num).toDouble())))
               .toList() ??
           [],
       totalStopsCount: (json['totalStopsCount'] as num?)?.toInt() ?? 0,
-      tollPlazas: (json['tollPlazas'] as List<dynamic>?)
-              ?.cast<Map<String, dynamic>>() ??
-          [],
+      tollPlazas:
+          (json['tollPlazas'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
+              [],
       places:
           (json['places'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
       avgSpeedKmh: (json['avgSpeedKmh'] as num?)?.toDouble() ?? 60.0,
+    );
+  }
+
+  factory TripHistoryItem.fromSupabaseTrip(Map<String, dynamic> row) {
+    final startPt = (row['start_point'] as Map?) ?? {};
+    final endPt = (row['end_point'] as Map?) ?? {};
+    final stops = (row['trip_stops'] as List?) ?? [];
+    final name = (row['name'] as String?) ?? 'Saved Trip';
+    final createdAt = DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now();
+    
+    final startName = startPt['name']?.toString() ?? name.split(' to ').first.trim();
+    final endName = endPt['name']?.toString() ?? (name.contains(' to ') ? name.split(' to ').last.trim() : name);
+    final isRound = name.toLowerCase().contains('round') || startName.toLowerCase() == endName.toLowerCase();
+
+    final wpNames = stops.map((s) => (s['name'] ?? 'Waypoint').toString()).toList();
+
+    return TripHistoryItem(
+      id: row['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      title: name,
+      startAddress: startName,
+      endAddress: endName,
+      waypoints: wpNames,
+      distanceKm: (endPt['distanceKm'] as num?)?.toDouble() ?? 145.0,
+      durationMinutes: (endPt['durationMinutes'] as num?)?.toInt() ?? 150,
+      vehicleType: row['vehicle_type']?.toString() ?? 'car',
+      fuelCost: (endPt['fuelCost'] as num?)?.toDouble() ?? 0.0,
+      tollCost: (endPt['tollCost'] as num?)?.toDouble() ?? 0.0,
+      totalCost: (endPt['totalCost'] as num?)?.toDouble() ?? 0.0,
+      completedAt: createdAt,
+      isRoundTrip: isRound,
+      totalStopsCount: stops.length,
     );
   }
 }
@@ -117,25 +145,63 @@ class TripHistoryService {
   }
 
   Future<List<TripHistoryItem>> getHistory() async {
+    List<TripHistoryItem> items = [];
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_storageKey);
-      if (raw == null || raw.isEmpty) {
-        historyNotifier.value = [];
-        return [];
+      if (raw != null && raw.isNotEmpty) {
+        final list = jsonDecode(raw) as List;
+        items = list
+            .map((e) =>
+                TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
+            .toList();
       }
-      final list = jsonDecode(raw) as List;
-      final items = list
-          .map((e) =>
-              TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
-          .toList();
-      items.sort((a, b) => b.completedAt.compareTo(a.completedAt));
-      historyNotifier.value = items;
-      return items;
     } catch (e) {
-      debugPrint('Error loading trip history: $e');
-      return [];
+      debugPrint('Error loading local trip history: $e');
     }
+
+    // Two-way cloud sync with Supabase
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final cloudRows = await Supabase.instance.client
+            .from('trips')
+            .select('*, trip_stops(*)')
+            .eq('user_id', user.id)
+            .order('created_at', ascending: false);
+
+        if (cloudRows is List && cloudRows.isNotEmpty) {
+          final cloudItems = cloudRows
+              .map((r) => TripHistoryItem.fromSupabaseTrip((r as Map).cast<String, dynamic>()))
+              .toList();
+
+          // Merge cloud items into items
+          final seenKeys = <String>{};
+          for (final it in items) {
+            seenKeys.add('${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
+          }
+
+          for (final cit in cloudItems) {
+            final key = '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
+            if (!seenKeys.contains(key)) {
+              items.add(cit);
+              seenKeys.add(key);
+            }
+          }
+
+          // Persist merged cache locally
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(
+              _storageKey, jsonEncode(items.map((e) => e.toJson()).toList()));
+        }
+      }
+    } catch (e) {
+      debugPrint('Supabase cloud history sync note: $e');
+    }
+
+    items.sort((a, b) => b.completedAt.compareTo(a.completedAt));
+    historyNotifier.value = items;
+    return items;
   }
 
   Future<void> saveTrip(TripHistoryItem item) async {
@@ -156,6 +222,43 @@ class TripHistoryService {
       await prefs.setString(
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
+
+      // Cloud persistence if signed in
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        final startCoord = item.routeCoordinates.isNotEmpty ? item.routeCoordinates.first : {'lat': 12.9716, 'lng': 77.5946};
+        final endCoord = item.routeCoordinates.isNotEmpty ? item.routeCoordinates.last : {'lat': 13.6288, 'lng': 79.4192};
+        
+        final inserted = await Supabase.instance.client.from('trips').insert({
+          'user_id': user.id,
+          'name': item.title.isNotEmpty ? item.title : '${item.startAddress} to ${item.endAddress}',
+          'start_point': {'lat': startCoord['lat'], 'lng': startCoord['lng'], 'name': item.startAddress},
+          'end_point': {
+            'lat': endCoord['lat'],
+            'lng': endCoord['lng'],
+            'name': item.endAddress,
+            'distanceKm': item.distanceKm,
+            'durationMinutes': item.durationMinutes,
+            'fuelCost': item.fuelCost,
+            'tollCost': item.tollCost,
+            'totalCost': item.totalCost,
+            'isRoundTrip': item.isRoundTrip,
+          },
+          'vehicle_type': item.vehicleType,
+        }).select().single();
+
+        if (item.waypoints.isNotEmpty && inserted['id'] != null) {
+          final stops = item.waypoints.asMap().entries.map((e) => {
+            'trip_id': inserted['id'],
+            'type': 'waypoint',
+            'lat': 0.0,
+            'lng': 0.0,
+            'name': e.value,
+            'order_index': e.key,
+          }).toList();
+          await Supabase.instance.client.from('trip_stops').insert(stops);
+        }
+      }
     } catch (e) {
       debugPrint('Error saving trip history: $e');
     }
@@ -169,6 +272,11 @@ class TripHistoryService {
       await prefs.setString(
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        await Supabase.instance.client.from('trips').delete().eq('id', id);
+      }
     } catch (e) {
       debugPrint('Error deleting trip: $e');
     }

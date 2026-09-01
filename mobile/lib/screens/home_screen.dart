@@ -17,6 +17,7 @@ import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
 import 'account_screens.dart';
 import 'trip_history_screen.dart';
+import '../services/trip_history_service.dart';
 
 /// Voyplan home — glassmorphic, animated entry point after login.
 class HomeScreen extends StatefulWidget {
@@ -53,10 +54,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Future<void> _loadTrips() async {
     try {
       final session = Supabase.instance.client.auth.currentSession;
+      List<dynamic> trips = [];
       if (session != null) {
-        final trips = await _api.getSavedTrips(session.accessToken);
-        if (mounted) setState(() => _trips = trips);
+        trips = await _api.getSavedTrips(session.accessToken);
       }
+      // Merge with synced TripHistoryService
+      final history = await TripHistoryService.instance.getHistory();
+      final seen = <String>{};
+      for (final t in trips) {
+        seen.add((t['name'] ?? '').toString().toLowerCase());
+      }
+      for (final h in history) {
+        final title = h.title.isNotEmpty ? h.title : '${h.startAddress} to ${h.endAddress}';
+        if (!seen.contains(title.toLowerCase())) {
+          trips.add({
+            'id': h.id,
+            'name': title,
+            'vehicle_type': h.vehicleType,
+            'start_point': {'name': h.startAddress, 'lat': 12.9716, 'lng': 77.5946},
+            'end_point': {'name': h.endAddress, 'lat': 13.6288, 'lng': 79.4192, 'distanceKm': h.distanceKm, 'durationMinutes': h.durationMinutes},
+            'created_at': h.completedAt.toIso8601String(),
+          });
+          seen.add(title.toLowerCase());
+        }
+      }
+      if (mounted) setState(() => _trips = trips);
     } catch (_) {
       // best-effort; home still works without recent trips
     } finally {
