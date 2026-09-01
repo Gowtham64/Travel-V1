@@ -336,6 +336,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _error = null;
     });
 
+    TripPlan plan;
+    GeoPoint start;
+    GeoPoint end;
+    List<GeoPoint> waypoints;
+    Vehicle vehicle;
+
     try {
       final List<GeoPoint> geocodedStops = [];
       for (final controller in _stopControllers) {

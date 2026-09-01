@@ -1277,15 +1277,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                   setSheetState(() => searching = true);
                                   try {
                                     final api = ApiService();
-                                    final center = widget.start;
-                                    final pois = await api.fetchPOIs(
-                                      center.lat,
-                                      center.lng,
-                                      categories: const ['fuel', 'restaurant', 'attraction', 'hotel'],
-                                      keyword: q,
+                                    final geo = await api.geocode(q);
+                                    final poi = PlaceOfInterest(
+                                      name: geo.name ?? q,
+                                      category: 'place',
+                                      lat: geo.lat,
+                                      lng: geo.lng,
+                                      distanceKm: 0,
                                     );
                                     setSheetState(() {
-                                      searchResults = pois;
+                                      searchResults = [poi];
                                       searching = false;
                                     });
                                   } catch (_) {
@@ -1302,14 +1303,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                         setSheetState(() => searching = true);
                         try {
                           final api = ApiService();
-                          final pois = await api.fetchPOIs(
-                            widget.start.lat,
-                            widget.start.lng,
-                            categories: const ['fuel', 'restaurant', 'attraction', 'hotel'],
-                            keyword: q,
+                          final geo = await api.geocode(q);
+                          final poi = PlaceOfInterest(
+                            name: geo.name ?? q,
+                            category: 'place',
+                            lat: geo.lat,
+                            lng: geo.lng,
+                            distanceKm: 0,
                           );
                           setSheetState(() {
-                            searchResults = pois;
+                            searchResults = [poi];
                             searching = false;
                           });
                         } catch (_) {
@@ -1392,13 +1395,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                       label: const Text('Add Stop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       onPressed: () {
                                         Navigator.pop(ctx);
-                                        _addPOIToRoute(POI(
-                                          name: poi.name,
-                                          category: poi.category,
-                                          lat: poi.lat,
-                                          lng: poi.lng,
-                                          distanceKm: 0,
-                                        ));
+                                        _addStopAndRecalculate(poi);
                                       },
                                     ),
                                   ],
@@ -1508,12 +1505,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         setSearching(true);
         try {
           final api = ApiService();
-          final pois = await api.fetchPOIs(
-            widget.start.lat,
-            widget.start.lng,
+          final poiMap = await api.fetchPOIs(
+            routeCoordinates: _currentPlan.coordinates,
             categories: [category],
           );
-          setResults(pois);
+          final places = poiMap[category] ?? [];
+          setResults(places);
           setSearching(false);
         } catch (_) {
           setSearching(false);
