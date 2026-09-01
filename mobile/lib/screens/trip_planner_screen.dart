@@ -1079,17 +1079,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _onStopQueryChanged(int index, String query) {
     _suggestDebounce?.cancel();
     final q = query.trim();
-    if (q.length < 3) {
+    if (q.isEmpty) {
       setState(() {
         _suggestions.remove(index);
         _activeSuggestIndex = null;
       });
       return;
     }
-    _suggestDebounce = Timer(const Duration(milliseconds: 320), () async {
+    _suggestDebounce = Timer(const Duration(milliseconds: 150), () async {
       try {
-        // Proxy through the backend: the client Mapbox token is URL-restricted
-        // to the website and is rejected (403) from the native app.
         final list = await _api.autocompletePlaces(q);
         if (!mounted) return;
         setState(() {
@@ -2420,13 +2418,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _onPlaceSearchChanged(String query) {
     _placeSearchDebounce?.cancel();
     final q = query.trim();
-    if (q.length < 3) {
+    if (q.isEmpty) {
       setState(() => _placeSuggestions = []);
       return;
     }
-    _placeSearchDebounce = Timer(const Duration(milliseconds: 320), () async {
+    _placeSearchDebounce = Timer(const Duration(milliseconds: 150), () async {
       try {
-        // Proxy through the backend (URL-restricted client token is 403'd on native).
         final list = await _api.autocompletePlaces(q);
         if (mounted) setState(() => _placeSuggestions = list);
       } catch (_) {/* ignore transient search errors */}

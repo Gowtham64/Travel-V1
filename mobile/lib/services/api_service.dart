@@ -677,30 +677,179 @@ class ApiService {
     return jsonDecode(response.body) as List<dynamic>;
   }
 
-  /// Destination autocomplete via the backend (the client's Mapbox token is
-  /// URL-restricted to the website, so native apps must proxy through here).
-  /// Returns up to 6 suggestions: [{name, lat, lng}].
+  static const List<Map<String, dynamic>> _curatedPlaces = [
+    {'name': 'Tirupati, Andhra Pradesh, India', 'lat': 13.6288, 'lng': 79.4192},
+    {'name': 'Tirumala, Tirupati, Andhra Pradesh, India', 'lat': 13.6833, 'lng': 79.3500},
+    {'name': 'Bengaluru, Karnataka, India', 'lat': 12.9716, 'lng': 77.5946},
+    {'name': 'Mandya, Karnataka, India', 'lat': 12.5244, 'lng': 76.8967},
+    {'name': 'Mysuru (Mysore), Karnataka, India', 'lat': 12.2958, 'lng': 76.6394},
+    {'name': 'Madurai, Tamil Nadu, India', 'lat': 9.9252, 'lng': 78.1198},
+    {'name': 'Rameshwaram, Tamil Nadu, India', 'lat': 9.2876, 'lng': 79.3129},
+    {'name': 'Srirangapatna, Karnataka, India', 'lat': 12.4237, 'lng': 76.6947},
+    {'name': 'Nanjangud, Karnataka, India', 'lat': 12.1195, 'lng': 76.6806},
+    {'name': 'Srikalahasti, Andhra Pradesh, India', 'lat': 13.7498, 'lng': 79.6984},
+    {'name': 'Kanipakam, Andhra Pradesh, India', 'lat': 13.2798, 'lng': 79.0347},
+    {'name': 'Udupi, Karnataka, India', 'lat': 13.3409, 'lng': 74.7421},
+    {'name': 'Murudeshwar, Karnataka, India', 'lat': 14.0940, 'lng': 74.4899},
+    {'name': 'Gokarna, Karnataka, India', 'lat': 14.5479, 'lng': 74.3188},
+    {'name': 'Mangaluru (Mangalore), Karnataka, India', 'lat': 12.9141, 'lng': 74.8560},
+    {'name': 'Dharmasthala, Karnataka, India', 'lat': 12.9482, 'lng': 75.3804},
+    {'name': 'Kukke Subramanya, Karnataka, India', 'lat': 12.6631, 'lng': 75.6148},
+    {'name': 'Varanasi (Kashi), Uttar Pradesh, India', 'lat': 25.3176, 'lng': 82.9739},
+    {'name': 'Ayodhya, Uttar Pradesh, India', 'lat': 26.7922, 'lng': 82.1998},
+    {'name': 'Haridwar, Uttarakhand, India', 'lat': 29.9457, 'lng': 78.1642},
+    {'name': 'Rishikesh, Uttarakhand, India', 'lat': 30.0869, 'lng': 78.2676},
+    {'name': 'Puri, Odisha, India', 'lat': 19.8135, 'lng': 85.8312},
+    {'name': 'Amritsar, Punjab, India', 'lat': 31.6340, 'lng': 74.8723},
+    {'name': 'Chennai, Tamil Nadu, India', 'lat': 13.0827, 'lng': 80.2707},
+    {'name': 'Hyderabad, Telangana, India', 'lat': 17.3850, 'lng': 78.4867},
+    {'name': 'Mumbai, Maharashtra, India', 'lat': 19.0760, 'lng': 72.8777},
+    {'name': 'Delhi / New Delhi, India', 'lat': 28.6139, 'lng': 77.2090},
+    {'name': 'Goa, India', 'lat': 15.2993, 'lng': 74.1240},
+    {'name': 'Ooty, Tamil Nadu, India', 'lat': 11.4102, 'lng': 76.6950},
+    {'name': 'Coorg (Madikeri), Karnataka, India', 'lat': 12.4244, 'lng': 75.7382},
+    {'name': 'Munnar, Kerala, India', 'lat': 10.0889, 'lng': 77.0595},
+    {'name': 'Kodaikanal, Tamil Nadu, India', 'lat': 10.2381, 'lng': 77.4892},
+    {'name': 'Wayanad, Kerala, India', 'lat': 11.6854, 'lng': 76.1320},
+    {'name': 'Jaipur, Rajasthan, India', 'lat': 26.9124, 'lng': 75.7873},
+    {'name': 'Udaipur, Rajasthan, India', 'lat': 24.5854, 'lng': 73.7125},
+    {'name': 'Agra, Uttar Pradesh, India', 'lat': 27.1767, 'lng': 78.0081},
+    {'name': 'Pondicherry (Puducherry), India', 'lat': 11.9416, 'lng': 79.8083},
+    {'name': 'Kochi (Cochin), Kerala, India', 'lat': 9.9312, 'lng': 76.2673},
+    {'name': 'Thiruvananthapuram, Kerala, India', 'lat': 8.5241, 'lng': 76.9366},
+    {'name': 'Kanyakumari, Tamil Nadu, India', 'lat': 8.0883, 'lng': 77.5385},
+    {'name': 'Thanjavur, Tamil Nadu, India', 'lat': 10.7870, 'lng': 79.1378},
+    {'name': 'Kanchipuram, Tamil Nadu, India', 'lat': 12.8342, 'lng': 79.7036},
+    {'name': 'Dubai, United Arab Emirates', 'lat': 25.2048, 'lng': 55.2708},
+    {'name': 'Singapore', 'lat': 1.3521, 'lng': 103.8198},
+    {'name': 'London, United Kingdom', 'lat': 51.5074, 'lng': -0.1278},
+    {'name': 'Paris, France', 'lat': 48.8566, 'lng': 2.3522},
+    {'name': 'Bangkok, Thailand', 'lat': 13.7563, 'lng': 100.5018},
+    {'name': 'Tokyo, Japan', 'lat': 35.6762, 'lng': 139.6503},
+    {'name': 'Bali, Indonesia', 'lat': -8.4095, 'lng': 115.1889},
+  ];
+
+  /// Destination & stop autocomplete with multi-tier fallback:
+  /// 1. Instant local curated knowledge base (<1ms)
+  /// 2. Photon OpenStreetMap live typeahead API (global, zero-auth, fast)
+  /// 3. Mapbox Places geocoding API
+  /// 4. Backend geocode suggest proxy
+  /// 5. Nominatim fallback
   Future<List<Map<String, dynamic>>> autocompletePlaces(String query) async {
-    final q = query.trim();
-    if (q.length < 2) return [];
-    final uri = Uri.parse('$baseUrl/api/geocode/suggest')
-        .replace(queryParameters: {'q': q});
-    try {
-      final response = await http.get(uri).timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200) return [];
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      final list = (data['suggestions'] as List?) ?? [];
-      return list.map((e) {
-        final m = e as Map<String, dynamic>;
-        return {
-          'name': (m['name'] ?? '').toString(),
-          'lat': (m['lat'] as num).toDouble(),
-          'lng': (m['lng'] as num).toDouble(),
-        };
-      }).where((m) => (m['name'] as String).isNotEmpty).toList();
-    } catch (_) {
-      return [];
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return [];
+
+    final results = <Map<String, dynamic>>[];
+    final seenNames = <String>{};
+
+    void addResult(String name, double lat, double lng) {
+      final clean = name.trim();
+      final key = clean.toLowerCase();
+      if (clean.isNotEmpty && !seenNames.contains(key)) {
+        seenNames.add(key);
+        results.add({'name': clean, 'lat': lat, 'lng': lng});
+      }
     }
+
+    // Tier 1: Instant Local Curated Knowledge Match
+    for (final p in _curatedPlaces) {
+      final name = p['name'] as String;
+      if (name.toLowerCase().contains(q)) {
+        addResult(name, (p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
+        if (results.length >= 6) return results;
+      }
+    }
+
+    // Tier 2: Photon (OpenStreetMap Komoot) - Fast global typeahead
+    try {
+      final photonUri = Uri.parse(
+        'https://photon.komoot.io/api/?q=${Uri.encodeComponent(q)}&limit=6&lat=20.5937&lon=78.9629',
+      );
+      final res = await http.get(photonUri).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        final features = (data['features'] as List?) ?? [];
+        for (final f in features) {
+          final props = f['properties'] as Map<String, dynamic>?;
+          final geom = f['geometry'] as Map<String, dynamic>?;
+          final coords = (geom?['coordinates'] as List?) ?? [];
+          if (props != null && coords.length >= 2) {
+            final name = props['name'] ?? '';
+            final city = props['city'] ?? props['county'] ?? '';
+            final state = props['state'] ?? '';
+            final country = props['country'] ?? '';
+            final labelParts = [name, city, state, country].where((s) => s.toString().trim().isNotEmpty).toList();
+            final fullLabel = labelParts.join(', ');
+            final lng = (coords[0] as num).toDouble();
+            final lat = (coords[1] as num).toDouble();
+            addResult(fullLabel, lat, lng);
+            if (results.length >= 6) return results;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Tier 3: Direct Mapbox Places API
+    try {
+      final mapboxUri = Uri.parse(
+        'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(q)}.json?access_token=${AppConfig.mapboxToken}&autocomplete=true&limit=6&language=en&proximity=78.9629,20.5937',
+      );
+      final res = await http.get(mapboxUri).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body) as Map<String, dynamic>;
+        final features = (body['features'] as List?) ?? [];
+        for (final f in features) {
+          final placeName = f['place_name'] as String?;
+          final center = (f['center'] as List?) ?? [];
+          if (placeName != null && center.length >= 2) {
+            final lng = (center[0] as num).toDouble();
+            final lat = (center[1] as num).toDouble();
+            addResult(placeName, lat, lng);
+            if (results.length >= 6) return results;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Tier 4: Backend Suggest Proxy
+    try {
+      final uri = Uri.parse('$baseUrl/api/geocode/suggest').replace(queryParameters: {'q': q});
+      final response = await http.get(uri).timeout(const Duration(seconds: 4));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final list = (data['suggestions'] as List?) ?? [];
+        for (final e in list) {
+          final m = e as Map<String, dynamic>;
+          final name = (m['name'] ?? '').toString();
+          final lat = (m['lat'] as num?)?.toDouble() ?? 0.0;
+          final lng = (m['lng'] as num?)?.toDouble() ?? 0.0;
+          addResult(name, lat, lng);
+          if (results.length >= 6) return results;
+        }
+      }
+    } catch (_) {}
+
+    // Tier 5: Nominatim Search
+    try {
+      final osmUri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=json&limit=6',
+      );
+      final res = await http.get(osmUri, headers: {
+        'User-Agent': 'TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/; contact: travel-app)',
+      }).timeout(const Duration(seconds: 3));
+      if (res.statusCode == 200) {
+        final list = jsonDecode(res.body) as List<dynamic>;
+        for (final item in list) {
+          final name = item['display_name'] as String?;
+          final lat = double.tryParse(item['lat'].toString()) ?? 0.0;
+          final lng = double.tryParse(item['lon'].toString()) ?? 0.0;
+          if (name != null) addResult(name, lat, lng);
+          if (results.length >= 6) return results;
+        }
+      }
+    } catch (_) {}
+
+    return results;
   }
 
   Future<String?> reverseGeocode(double lat, double lng) async {

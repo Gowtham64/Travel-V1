@@ -296,7 +296,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   void _onPlaceQuery(String query, bool isDest) {
     _acDebounce?.cancel();
     final q = query.trim();
-    if (q.length < 3) {
+    if (q.isEmpty) {
       setState(() {
         if (isDest) {
           _destSuggestions = [];
@@ -306,7 +306,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       });
       return;
     }
-    _acDebounce = Timer(const Duration(milliseconds: 320), () async {
+    _acDebounce = Timer(const Duration(milliseconds: 150), () async {
       final list = await _api.autocompletePlaces(q);
       if (!mounted) return;
       setState(() {
