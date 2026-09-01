@@ -997,6 +997,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         ),
                       if (temple != null)
                         Container(
+                          margin: const EdgeInsets.only(left: 6),
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
                           child: Row(
@@ -1005,6 +1006,23 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                               const Icon(Icons.star, color: Color(0xFFF59E0B), size: 11),
                               const SizedBox(width: 2),
                               Text('${temple.rating}', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        )
+                      else if (b.reason.contains('⭐'))
+                        Container(
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star, color: Color(0xFF10B981), size: 11),
+                              const SizedBox(width: 2),
+                              Text(
+                                RegExp(r'⭐\s*([0-9.]+)').firstMatch(b.reason)?.group(1) ?? '4.7',
+                                style: const TextStyle(color: Color(0xFF10B981), fontSize: 10.5, fontWeight: FontWeight.bold),
+                              ),
                             ],
                           ),
                         ),
@@ -1058,24 +1076,38 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                     ],
                     if (meta.isNotEmpty)
                       Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Text(meta.join(' · '), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11.5)),
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(meta.join(' · '),
+                            style: TextStyle(
+                              color: isTemple ? const Color(0xFFFBBF24) : Colors.white.withValues(alpha: 0.72),
+                              fontSize: 11.5,
+                              fontWeight: isTemple ? FontWeight.w700 : FontWeight.w500,
+                            )),
+                      ),
+                    if (b.place.isNotEmpty && b.place != b.title)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 11, color: Colors.white.withValues(alpha: 0.45)),
+                            const SizedBox(width: 3),
+                            Expanded(
+                              child: Text(
+                                b.place,
+                                style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     if (b.reason.isNotEmpty && (temple == null || !b.reason.contains('Deity:')))
                       Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(b.reason,
-                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11.5, fontStyle: FontStyle.italic)),
-                      ),
-                    if (temple != null && temple.city.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 3),
-                        child: Row(
-                          children: [
-                            Icon(Icons.location_on_outlined, size: 11, color: Colors.white.withValues(alpha: 0.4)),
-                            const SizedBox(width: 3),
-                            Text('${temple.city}, ${temple.state}', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10.5)),
-                          ],
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          b.reason,
+                          style: TextStyle(color: Colors.white.withValues(alpha: 0.58), fontSize: 11, fontStyle: FontStyle.italic),
                         ),
                       ),
                   ],

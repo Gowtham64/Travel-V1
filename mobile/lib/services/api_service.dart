@@ -10,6 +10,7 @@ import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../config/app_config.dart';
 import '../data/temple_database.dart';
+import '../data/venue_database.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -1043,6 +1044,13 @@ class ApiService {
       return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $ampm';
     }
 
+    // Curated Venues for highway, dining, and stay
+    final coffeeHighway = VenueDatabase.getBestVenue(destination: destName, type: 'coffee', highwayRoute: '$startName $destName');
+    final breakfastVenue = VenueDatabase.getBestVenue(destination: destName, type: 'breakfast');
+    final lunchVenue = VenueDatabase.getBestVenue(destination: destName, type: 'lunch');
+    final dinnerVenue = VenueDatabase.getBestVenue(destination: destName, type: 'dinner');
+    final hotelVenue = VenueDatabase.getBestVenue(destination: destName, type: 'hotel');
+
     for (int d = 1; d <= total; d++) {
       final isFirst = d == 1;
       final isLast = d == total;
@@ -1078,11 +1086,11 @@ class ApiService {
             start: formatMin(cur),
             end: formatMin(cur + 45),
             type: 'coffee',
-            title: 'Highway Refreshment & Filter Coffee',
-            place: 'Highway Food Court / Diner',
+            title: 'Highway Coffee & Breakfast at ${coffeeHighway.name}',
+            place: '${coffeeHighway.name}, ${coffeeHighway.city}',
             durationMin: 45,
             breakType: 'breakfast',
-            reason: 'Hot tiffin, authentic South Indian filter coffee & rest stop',
+            reason: '⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}',
           ));
           cur += 45;
 
@@ -1116,16 +1124,16 @@ class ApiService {
           cur += totalDriveMin;
         }
 
-        // Arrival Lunch if reaching around 12:30 - 3:00 PM
+        // Arrival Lunch
         blocks.add(TimelineBlock(
           start: formatMin(cur),
           end: formatMin(cur + 60),
           type: 'meal',
-          title: 'Traditional Arrival Lunch in $destName',
-          place: 'Authentic Pure Vegetarian Restaurant',
+          title: 'Traditional Arrival Lunch at ${lunchVenue.name}',
+          place: '${lunchVenue.name}, ${lunchVenue.city}',
           durationMin: 60,
           breakType: 'lunch',
-          reason: 'Traditional thali meals and refreshing beverages upon arrival',
+          reason: '⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}',
         ));
         cur += 60;
 
@@ -1134,12 +1142,28 @@ class ApiService {
           start: formatMin(cur),
           end: formatMin(cur + 45),
           type: 'checkin',
-          title: 'Hotel Check-in & Freshen Up in $destName',
-          place: '$destName Pilgrimage Stay / Hotel',
+          title: 'Hotel Check-in at ${hotelVenue.name}',
+          place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 45,
-          reason: 'Check in, deposit luggage, and dress for evening darshan',
+          reason: '⭐ ${hotelVenue.rating} · ${hotelVenue.specialty}',
         ));
         cur += 45;
+
+        // If arrived before 03:00 PM, allow a preliminary shrine visit
+        if (cur < 900) {
+          final tPrelim = getNextTemple();
+          final tPrelimDur = tPrelim.recommendedDarshanMinutes > 90 ? 75 : tPrelim.recommendedDarshanMinutes;
+          blocks.add(TimelineBlock(
+            start: formatMin(cur),
+            end: formatMin(cur + tPrelimDur),
+            type: 'activity',
+            title: 'Darshan at ${tPrelim.canonicalName}',
+            place: '${tPrelim.canonicalName}, ${tPrelim.city}',
+            durationMin: tPrelimDur,
+            reason: '🛕 Deity: ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlights}',
+          ));
+          cur += tPrelimDur;
+        }
 
         // Grand Evening Temple / Main Attraction (e.g. Balaji / Main Shrine)
         final tMain = getNextTemple();
@@ -1156,16 +1180,17 @@ class ApiService {
         ));
         cur += tDuration;
 
-        // Traditional Dinner
+        // Traditional Dinner (at or after 07:30 PM)
+        if (cur < 1170) cur = 1170; // 07:30 PM minimum
         blocks.add(TimelineBlock(
           start: formatMin(cur),
           end: formatMin(cur + 60),
           type: 'meal',
-          title: 'Traditional Dinner in $destName',
-          place: 'Local Vegetarian Heritage Restaurant',
+          title: 'Traditional Dinner at ${dinnerVenue.name}',
+          place: '${dinnerVenue.name}, ${dinnerVenue.city}',
           durationMin: 60,
           breakType: 'dinner',
-          reason: 'Warm South Indian meals and prasadam sweets',
+          reason: '⭐ ${dinnerVenue.rating} · ${dinnerVenue.specialty}',
         ));
         cur += 60;
 
@@ -1174,8 +1199,8 @@ class ApiService {
           start: formatMin(cur),
           end: '06:30 AM',
           type: 'rest',
-          title: 'Night Rest at Hotel in $destName',
-          place: '$destName Hotel / Pilgrimage Guest House',
+          title: 'Night Rest at ${hotelVenue.name}',
+          place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 480,
           reason: 'Peaceful sleep after sacred darshan and travel',
         ));
@@ -1185,15 +1210,15 @@ class ApiService {
           start: '08:00 AM',
           end: '09:00 AM',
           type: 'meal',
-          title: 'Morning Breakfast in $destName',
-          place: '$destName Traditional Tiffin Center',
+          title: 'Morning Breakfast at ${breakfastVenue.name}',
+          place: '${breakfastVenue.name}, ${breakfastVenue.city}',
           durationMin: 60,
           breakType: 'breakfast',
-          reason: 'Idli, vada, dosa & hot filter coffee to start the day',
+          reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
         final t1 = getNextTemple();
-        final t1Duration = t1.recommendedDarshanMinutes;
+        final t1Duration = t1.recommendedDarshanMinutes > 180 ? 180 : t1.recommendedDarshanMinutes;
         final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
         blocks.add(TimelineBlock(
           start: '09:15 AM',
@@ -1210,15 +1235,15 @@ class ApiService {
           start: '12:45 PM',
           end: '01:45 PM',
           type: 'meal',
-          title: 'Traditional Lunch in $destName',
-          place: 'Celebrated Pure Veg Restaurant',
+          title: 'Traditional Lunch at ${lunchVenue.name}',
+          place: '${lunchVenue.name}, ${lunchVenue.city}',
           durationMin: 60,
           breakType: 'lunch',
-          reason: 'Traditional plantain leaf meals & prasadam refreshments',
+          reason: '⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}',
         ));
 
         final t2 = getNextTemple();
-        final t2Duration = t2.recommendedDarshanMinutes;
+        final t2Duration = t2.recommendedDarshanMinutes > 150 ? 150 : t2.recommendedDarshanMinutes;
         final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
         blocks.add(TimelineBlock(
           start: '02:00 PM',
@@ -1246,19 +1271,19 @@ class ApiService {
           start: '07:30 PM',
           end: '08:30 PM',
           type: 'meal',
-          title: 'Traditional Dinner in $destName',
-          place: 'Local Heritage Restaurant',
+          title: 'Traditional Dinner at ${dinnerVenue.name}',
+          place: '${dinnerVenue.name}, ${dinnerVenue.city}',
           durationMin: 60,
           breakType: 'dinner',
-          reason: 'Relaxing dinner before overnight rest',
+          reason: '⭐ ${dinnerVenue.rating} · ${dinnerVenue.specialty}',
         ));
 
         blocks.add(TimelineBlock(
           start: '09:30 PM',
           end: '06:30 AM',
           type: 'rest',
-          title: 'Night Rest at Hotel in $destName',
-          place: '$destName Hotel',
+          title: 'Night Rest at ${hotelVenue.name}',
+          place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 480,
           reason: 'Restful sleep preparing for morning visits',
         ));
@@ -1268,11 +1293,11 @@ class ApiService {
           start: '08:00 AM',
           end: '09:00 AM',
           type: 'meal',
-          title: 'Morning Breakfast in $destName',
-          place: '$destName Traditional Tiffin Center',
+          title: 'Morning Breakfast at ${breakfastVenue.name}',
+          place: '${breakfastVenue.name}, ${breakfastVenue.city}',
           durationMin: 60,
           breakType: 'breakfast',
-          reason: 'Energising morning breakfast & filter coffee',
+          reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
         final t1 = getNextTemple();
@@ -1306,11 +1331,11 @@ class ApiService {
           start: '12:30 PM',
           end: '01:30 PM',
           type: 'meal',
-          title: 'Traditional Farewell Lunch in $destName',
-          place: 'Authentic Pure Vegetarian Restaurant',
+          title: 'Traditional Farewell Lunch at ${lunchVenue.name}',
+          place: '${lunchVenue.name}, ${lunchVenue.city}',
           durationMin: 60,
           breakType: 'lunch',
-          reason: 'Sacred thali meals and prasadam laddu purchases',
+          reason: '⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}',
         ));
 
         // Hotel Check-out at 01:30 PM
@@ -1318,8 +1343,8 @@ class ApiService {
           start: '01:30 PM',
           end: '02:00 PM',
           type: 'checkout',
-          title: 'Hotel Check-out from $destName',
-          place: '$destName Hotel',
+          title: 'Hotel Check-out from ${hotelVenue.name}',
+          place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 30,
           reason: 'Settle bills, load prasadam & luggage into vehicle',
         ));
@@ -1350,11 +1375,11 @@ class ApiService {
             start: formatMin(cur),
             end: formatMin(cur + 45),
             type: 'coffee',
-            title: 'Sunset Highway Tea & Snack Break',
-            place: 'Highway Cafe / Rest Stop',
+            title: 'Sunset Highway Coffee Break at ${coffeeHighway.name}',
+            place: '${coffeeHighway.name}, ${coffeeHighway.city}',
             durationMin: 45,
             breakType: 'coffee',
-            reason: 'Refreshing evening tea, snacks and driver stretch break',
+            reason: '⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}',
           ));
           cur += 45;
 

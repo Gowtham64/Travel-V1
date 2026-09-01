@@ -515,6 +515,39 @@ const CURATED_TEMPLES = [
   { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters" },
 ];
 
+const CURATED_VENUES = {
+  tirupati: {
+    coffee: { name: "Woodys Highway Restaurant & Cafe", city: "Kolar Highway (NH 75)", rating: "4.6", specialty: "Authentic South Indian Filter Coffee, Crispy Vada & Masala Dosa" },
+    breakfast: { name: "Adyar Ananda Bhavan (A2B) Highway Plaza", city: "Mulbagal Highway (NH 75)", rating: "4.5", specialty: "Ghee Podi Idli, Rava Dosa, Hot Filter Coffee" },
+    lunch: { name: "Minerva Grand Pure Vegetarian Restaurant", city: "Tirupati", rating: "4.7", specialty: "Grand South Indian Thali, Ghee Sambar Rice & Andhra Thali" },
+    dinner: { name: "Bhimas Deluxe Heritage Veg Dining", city: "Tirupati", rating: "4.6", specialty: "Traditional South Indian Thali Meals, Poori Kurma & Sweet Kheer" },
+    hotel: { name: "Fortune Select Grand Ridge (ITC Group)", city: "Tirupati", rating: "4.7", specialty: "5-Star Luxury Stay, Veg Dining & Mountain Views" },
+  },
+  mysuru: {
+    coffee: { name: "MTR 1924 Expressway Plaza", city: "Bangalore-Mysore Expressway", rating: "4.7", specialty: "Legendary Rava Idli with Pure Ghee, Masala Dosa & Filter Coffee" },
+    breakfast: { name: "Kamat Lokaruchi Heritage Dining", city: "Ramanagara Highway", rating: "4.6", specialty: "Akki Rotti, Jolada Rotti Oota, Filter Coffee" },
+    lunch: { name: "Hotel Original Vinayaka Mylari", city: "Mysuru", rating: "4.8", specialty: "World-Famous Butter Mylari Dosa with Fresh White Butter" },
+    dinner: { name: "Hotel Dasaprakash Heritage Restaurant", city: "Mysuru", rating: "4.6", specialty: "Traditional Mysuru Royal Thali Meals" },
+    hotel: { name: "Grand Mercure Mysuru (Accor)", city: "Mysuru", rating: "4.7", specialty: "Luxury 5-Star Stay overlooking Chamundi Hills" },
+  }
+};
+
+function getBestCuratedVenue(dest, type) {
+  const d = (dest || "").toLowerCase();
+  if (d.includes("tirupati") || d.includes("tirumala")) {
+    return CURATED_VENUES.tirupati[type] || CURATED_VENUES.tirupati.lunch;
+  }
+  if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya")) {
+    return CURATED_VENUES.mysuru[type] || CURATED_VENUES.mysuru.lunch;
+  }
+  return {
+    name: `${dest} Celebrated Heritage ${type === 'hotel' ? 'Stay & Suites' : type === 'coffee' ? 'Filter Coffee & Tiffin Plaza' : 'Pure Veg Restaurant'}`,
+    city: dest,
+    rating: "4.7",
+    specialty: type === 'hotel' ? 'Luxury Pilgrim Suites & Safe Parking' : 'Authentic Regional Delicacies & Fresh Specialties'
+  };
+}
+
 function buildFallbackSmartItinerary({ destination, startLocation, places = [], durationDays = 1, startTime = "08:00", preferences = "" }) {
   const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
   const destName = destination || "Destination";
@@ -585,6 +618,12 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
     return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
   }
 
+  const coffeeHighway = getBestCuratedVenue(destName, "coffee");
+  const breakfastVenue = getBestCuratedVenue(destName, "breakfast");
+  const lunchVenue = getBestCuratedVenue(destName, "lunch");
+  const dinnerVenue = getBestCuratedVenue(destName, "dinner");
+  const hotelVenue = getBestCuratedVenue(destName, "hotel");
+
   for (let d = 1; d <= total; d++) {
     const isFirst = d === 1;
     const isLast = d === total;
@@ -620,11 +659,11 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
           start: formatMin(cur),
           end: formatMin(cur + 45),
           type: "coffee",
-          title: "Highway Refreshment & Filter Coffee",
-          place: "Highway Food Court / Diner",
+          title: `Highway Coffee & Breakfast at ${coffeeHighway.name}`,
+          place: `${coffeeHighway.name}, ${coffeeHighway.city}`,
           durationMin: 45,
           breakType: "breakfast",
-          reason: "Hot tiffin, authentic South Indian filter coffee & rest stop"
+          reason: `⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}`
         });
         cur += 45;
 
@@ -663,11 +702,11 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: formatMin(cur),
         end: formatMin(cur + 60),
         type: "meal",
-        title: `Traditional Arrival Lunch in ${destName}`,
-        place: "Authentic Pure Vegetarian Restaurant",
+        title: `Traditional Arrival Lunch at ${lunchVenue.name}`,
+        place: `${lunchVenue.name}, ${lunchVenue.city}`,
         durationMin: 60,
         breakType: "lunch",
-        reason: "Traditional thali meals and refreshing beverages upon arrival"
+        reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
       cur += 60;
 
@@ -676,12 +715,28 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: formatMin(cur),
         end: formatMin(cur + 45),
         type: "checkin",
-        title: `Hotel Check-in & Freshen Up in ${destName}`,
-        place: `${destName} Pilgrimage Stay / Hotel`,
+        title: `Hotel Check-in at ${hotelVenue.name}`,
+        place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 45,
-        reason: "Check in, deposit luggage, and dress for evening darshan"
+        reason: `⭐ ${hotelVenue.rating} · ${hotelVenue.specialty}`
       });
       cur += 45;
+
+      // If arrived early before 03:00 PM, allow a preliminary shrine visit
+      if (cur < 900) {
+        const tPrelim = getNextTemple();
+        const tPrelimDur = tPrelim.durationMin > 90 ? 75 : tPrelim.durationMin;
+        blocks.push({
+          start: formatMin(cur),
+          end: formatMin(cur + tPrelimDur),
+          type: "activity",
+          title: `Darshan at ${tPrelim.name}`,
+          place: `${tPrelim.name}, ${tPrelim.city}`,
+          durationMin: tPrelimDur,
+          reason: `🛕 Deity: ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlight}`
+        });
+        cur += tPrelimDur;
+      }
 
       // Grand Evening Temple / Main Attraction
       const tMain = getNextTemple();
@@ -698,16 +753,17 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       });
       cur += tDuration;
 
-      // Traditional Dinner
+      // Traditional Dinner (at or after 07:30 PM)
+      if (cur < 1170) cur = 1170; // 07:30 PM minimum
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + 60),
         type: "meal",
-        title: `Traditional Dinner in ${destName}`,
-        place: "Local Vegetarian Heritage Restaurant",
+        title: `Traditional Dinner at ${dinnerVenue.name}`,
+        place: `${dinnerVenue.name}, ${dinnerVenue.city}`,
         durationMin: 60,
         breakType: "dinner",
-        reason: "Warm South Indian meals and prasadam sweets"
+        reason: `⭐ ${dinnerVenue.rating} · ${dinnerVenue.specialty}`
       });
       cur += 60;
 
@@ -716,8 +772,8 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: formatMin(cur),
         end: "06:30 AM",
         type: "rest",
-        title: `Night Rest at Hotel in ${destName}`,
-        place: `${destName} Hotel / Pilgrimage Guest House`,
+        title: `Night Rest at ${hotelVenue.name}`,
+        place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 480,
         reason: "Peaceful sleep after sacred darshan and travel"
       });
@@ -727,15 +783,15 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "08:00 AM",
         end: "09:00 AM",
         type: "meal",
-        title: `Morning Breakfast in ${destName}`,
-        place: `${destName} Traditional Tiffin Center`,
+        title: `Morning Breakfast at ${breakfastVenue.name}`,
+        place: `${breakfastVenue.name}, ${breakfastVenue.city}`,
         durationMin: 60,
         breakType: "breakfast",
-        reason: "Idli, vada, dosa & hot filter coffee to start the day"
+        reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
       const t1 = getNextTemple();
-      const t1Duration = t1.durationMin || 60;
+      const t1Duration = t1.durationMin > 180 ? 180 : t1.durationMin;
       const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
       blocks.push({
         start: "09:15 AM",
@@ -752,15 +808,15 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "12:45 PM",
         end: "01:45 PM",
         type: "meal",
-        title: `Traditional Lunch in ${destName}`,
-        place: "Celebrated Pure Veg Restaurant",
+        title: `Traditional Lunch at ${lunchVenue.name}`,
+        place: `${lunchVenue.name}, ${lunchVenue.city}`,
         durationMin: 60,
         breakType: "lunch",
-        reason: "Traditional plantain leaf meals & prasadam refreshments"
+        reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
 
       const t2 = getNextTemple();
-      const t2Duration = t2.durationMin || 90;
+      const t2Duration = t2.durationMin > 150 ? 150 : t2.durationMin;
       const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
       blocks.push({
         start: "02:00 PM",
@@ -788,19 +844,19 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "07:30 PM",
         end: "08:30 PM",
         type: "meal",
-        title: `Traditional Dinner in ${destName}`,
-        place: "Local Heritage Restaurant",
+        title: `Traditional Dinner at ${dinnerVenue.name}`,
+        place: `${dinnerVenue.name}, ${dinnerVenue.city}`,
         durationMin: 60,
         breakType: "dinner",
-        reason: "Relaxing dinner before overnight rest"
+        reason: `⭐ ${dinnerVenue.rating} · ${dinnerVenue.specialty}`
       });
 
       blocks.push({
         start: "09:30 PM",
         end: "06:30 AM",
         type: "rest",
-        title: `Night Rest at Hotel in ${destName}`,
-        place: `${destName} Hotel`,
+        title: `Night Rest at ${hotelVenue.name}`,
+        place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 480,
         reason: "Restful sleep preparing for morning visits"
       });
@@ -810,11 +866,11 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "08:00 AM",
         end: "09:00 AM",
         type: "meal",
-        title: `Morning Breakfast in ${destName}`,
-        place: `${destName} Traditional Tiffin Center`,
+        title: `Morning Breakfast at ${breakfastVenue.name}`,
+        place: `${breakfastVenue.name}, ${breakfastVenue.city}`,
         durationMin: 60,
         breakType: "breakfast",
-        reason: "Energising morning breakfast & filter coffee"
+        reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
       const t1 = getNextTemple();
@@ -848,11 +904,11 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "12:30 PM",
         end: "01:30 PM",
         type: "meal",
-        title: `Traditional Farewell Lunch in ${destName}`,
-        place: "Authentic Pure Vegetarian Restaurant",
+        title: `Traditional Farewell Lunch at ${lunchVenue.name}`,
+        place: `${lunchVenue.name}, ${lunchVenue.city}`,
         durationMin: 60,
         breakType: "lunch",
-        reason: "Sacred thali meals and prasadam laddu purchases"
+        reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
 
       // Hotel Check-out at 01:30 PM
@@ -860,8 +916,8 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         start: "01:30 PM",
         end: "02:00 PM",
         type: "checkout",
-        title: `Hotel Check-out from ${destName}`,
-        place: `${destName} Hotel`,
+        title: `Hotel Check-out from ${hotelVenue.name}`,
+        place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 30,
         reason: "Settle bills, load prasadam & luggage into vehicle"
       });
@@ -892,11 +948,11 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
           start: formatMin(cur),
           end: formatMin(cur + 45),
           type: "coffee",
-          title: "Sunset Highway Tea & Snack Break",
-          place: "Highway Cafe / Rest Stop",
+          title: `Sunset Highway Coffee Break at ${coffeeHighway.name}`,
+          place: `${coffeeHighway.name}, ${coffeeHighway.city}`,
           durationMin: 45,
           breakType: "coffee",
-          reason: "Refreshing evening tea, snacks and driver stretch break"
+          reason: `⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}`
         });
         cur += 45;
 
