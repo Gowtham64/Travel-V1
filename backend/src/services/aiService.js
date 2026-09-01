@@ -528,6 +528,7 @@ async function smartItinerary({
 }
 
 const CURATED_TEMPLES = [
+  // --- Tirupati / Tirumala ---
   { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan" },
   { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs · VIP: ~1 hr", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam" },
   { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 45, wait: "20–45 mins", highlight: "Directly opposite main Mahadwaram gopuram" },
@@ -537,9 +538,17 @@ const CURATED_TEMPLES = [
   { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram" },
   { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", durationMin: 150, wait: "Rahu-Ketu: 2–3 hrs · General: 1–2 hrs", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja" },
   { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in water well" },
+  // --- Mysuru ---
+  { name: "Mysore Palace (Amba Vilas)", deity: "Wodeyar Royal Heritage & Durbar", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Palace Tour: 2–3 hrs", highlight: "Golden Throne, stained glass Kalyana Mantapa ceiling" },
   { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Hilltop Shakti Peetha & monolithic Nandi" },
+  { name: "Brindavan Gardens & Musical Fountain", deity: "Terraced Gardens & Kaveri Waterway", city: "Mysuru", rating: "4.7", durationMin: 120, wait: "Garden & Light Show: 2–2.5 hrs", highlight: "Terraced garden walkways & synchronized musical fountain" },
   { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Historic island shrine on Kaveri river" },
   { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters" },
+  // --- Bengaluru ---
+  { name: "ISKCON Temple Bangalore", deity: "Sri Sri Radha Krishnachandra", city: "Bengaluru", rating: "4.8", durationMin: 90, wait: "Darshan: 1–1.5 hrs", highlight: "Grand gold-plated dhwaja-stambha on Hare Krishna Hill" },
+  { name: "Bull Temple (Dodda Basavana Gudi)", deity: "Sacred Nandi Monolith", city: "Bengaluru", rating: "4.7", durationMin: 45, wait: "Darshan: 30–45 mins", highlight: "16th-century monolithic Nandi statue" },
+  { name: "Bangalore Palace & Royal Grounds", deity: "Wodeyar Royal Heritage", city: "Bengaluru", rating: "4.7", durationMin: 120, wait: "Tour: 1.5–2 hrs", highlight: "Tudor-style fortified turrets and royal galleries" },
+  { name: "Lalbagh Botanical Garden & Glass House", deity: "Heritage Flora & 3000-Million-Yr Rock", city: "Bengaluru", rating: "4.8", durationMin: 120, wait: "Garden Walk: 1.5–2.5 hrs", highlight: "Historic Glass House & Kempegowda watchtower" },
 ];
 
 const CURATED_VENUES = {
@@ -567,11 +576,12 @@ function getBestCuratedVenue(dest, type) {
   if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya")) {
     return CURATED_VENUES.mysuru[type] || CURATED_VENUES.mysuru.lunch;
   }
+  const cleanCity = dest ? dest.split(',')[0].trim() : 'Local';
   return {
-    name: `${dest} Celebrated Heritage ${type === 'hotel' ? 'Stay & Suites' : type === 'coffee' ? 'Filter Coffee & Tiffin Plaza' : 'Pure Veg Restaurant'}`,
-    city: dest,
+    name: `${cleanCity} Traditional ${type === 'hotel' ? 'Comfort Stay & Suites' : type === 'coffee' ? 'Filter Coffee & Refreshment Lounge' : 'Regional Dining Restaurant'}`,
+    city: cleanCity,
     rating: "4.7",
-    specialty: type === 'hotel' ? 'Luxury Pilgrim Suites & Safe Parking' : 'Authentic Regional Delicacies & Fresh Specialties'
+    specialty: type === 'hotel' ? 'Comfortable Air-Conditioned Rooms & Parking' : 'Authentic Regional Delicacies & Fresh Food'
   };
 }
 
@@ -582,11 +592,24 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
   const days = [];
 
   const text = `${destination} ${preferences} ${places.join(" ")}`.toLowerCase();
-  let pool = CURATED_TEMPLES;
+  let pool = [];
   if (text.includes("tirupati") || text.includes("tirumala") || text.includes("balaji") || text.includes("venkateswara")) {
     pool = CURATED_TEMPLES.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam"));
   } else if (text.includes("mysore") || text.includes("mysuru") || text.includes("srirangapatna") || text.includes("mandya")) {
     pool = CURATED_TEMPLES.filter(t => t.city.includes("Mysuru") || t.city.includes("Srirangapatna") || t.city.includes("Nanjangud"));
+  } else if (text.includes("bengaluru") || text.includes("bangalore") || text.includes("mathikere")) {
+    pool = CURATED_TEMPLES.filter(t => t.city.includes("Bengaluru"));
+  }
+
+  if (!pool.length) {
+    const cleanCity = destination ? destination.split(',')[0].trim() : "Destination";
+    pool = [
+      { name: `${cleanCity} Historic Heritage Monument & Palace`, deity: "Architectural Heritage & Grounds", city: cleanCity, rating: "4.8", durationMin: 120, wait: "Tour: 1.5–2.5 hrs", highlight: "Iconic royal architecture and scenic courtyard grounds" },
+      { name: `${cleanCity} Sacred Spiritual Sanctum`, deity: "Presiding Deity & Holy Sanctum", city: cleanCity, rating: "4.8", durationMin: 75, wait: "Darshan: 1–1.5 hrs", highlight: "Historic cultural sanctum and traditional aarti" },
+      { name: `${cleanCity} Waterfront Promenade & Botanical Gardens`, deity: "Scenic Nature & Lakeside Vista", city: cleanCity, rating: "4.7", durationMin: 75, wait: "Leisure: 1–1.5 hrs", highlight: "Lush botanical walkways and sunset fountain viewing" },
+      { name: `${cleanCity} Panoramic Hilltop Vista`, deity: "360° Panoramic Landscape", city: cleanCity, rating: "4.8", durationMin: 60, wait: "Sightseeing: 45–60 mins", highlight: "Golden hour photography and panoramic valley views" },
+      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, deity: "Regional Crafts & Specialties", city: cleanCity, rating: "4.6", durationMin: 90, wait: "Shopping: 1–2 hrs", highlight: "Authentic local delicacies and handcrafted souvenirs" },
+    ];
   }
 
   let templeIdx = 0;

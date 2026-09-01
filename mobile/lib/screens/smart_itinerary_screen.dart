@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
 import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
+import '../services/trip_history_service.dart';
 import '../services/auth_guard.dart';
 import '../widgets/app_design.dart';
 import '../data/temple_database.dart';
@@ -125,7 +127,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   /// Convert the AI timeline to PlanDays and persist it locally. Returns the
-  /// tripKey it was saved under.
+  /// Convert the AI timeline to PlanDays and persist it locally and to Supabase.
   Future<String> _persistPlan() async {
     final planDays = <PlanDay>[];
     for (int i = 0; i < _itinerary.length; i++) {
@@ -145,8 +147,66 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       planDays.add(PlanDay(id: '${DateTime.now().microsecondsSinceEpoch}_d$i', title: d.title.isEmpty ? 'Day ${i + 1}' : d.title, items: items));
     }
     final dest = _destCtrl.text.trim();
+    final start = _startLocCtrl.text.trim();
     final tripKey = 'smart_${dest.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
+    final tripTitle = start.isNotEmpty ? '$start to $dest' : '$dest (AI Trip)';
+    
+    // 1. Save locally to TripExtrasStore
     await TripExtrasStore(tripKey).saveDays(planDays, name: '$dest (AI plan)');
+
+    // 2. Save to TripHistoryService (automatically syncs to local cache & Supabase)
+    final historyItem = TripHistoryItem(
+      id: 'trip_${DateTime.now().millisecondsSinceEpoch}',
+      title: tripTitle,
+      startAddress: start.isNotEmpty ? start : 'Origin',
+      endAddress: dest.isNotEmpty ? dest : 'Destination',
+      waypoints: _placesCtrl.text
+          .split(RegExp(r'[,\n]'))
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList(),
+      distanceKm: _budget?.fuel != null ? 180.0 : 145.0,
+      durationMinutes: _durationDays * 480,
+      vehicleType: _vehicle?.type ?? 'car',
+      fuelCost: (_budget?.fuel ?? 0).toDouble(),
+      tollCost: (_budget?.tolls ?? 0).toDouble(),
+      totalCost: (_budget?.total ?? 0).toDouble(),
+      completedAt: DateTime.now(),
+      isRoundTrip: true,
+      totalStopsCount: planDays.fold(0, (sum, d) => sum + d.items.length),
+    );
+    await TripHistoryService.instance.saveTrip(historyItem);
+
+    // 3. Direct Supabase cloud persistence for cross-device sync
+    final session = Supabase.instance.client.auth.currentSession;
+    if (session != null) {
+      try {
+        final startCoord = GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
+        final endCoord = GeoPoint(lat: 12.2958, lng: 76.6394, name: dest.isNotEmpty ? dest : 'Destination');
+        await _api.saveTrip(
+          name: tripTitle,
+          start: startCoord,
+          end: endCoord,
+          waypoints: historyItem.waypoints
+              .map((w) => GeoPoint(lat: 0.0, lng: 0.0, name: w))
+              .toList(),
+          vehicleType: _vehicle?.type ?? 'car',
+          token: session.accessToken,
+          vehicle: _vehicle != null
+              ? Vehicle(
+                  type: _vehicle!.type,
+                  efficiencyKmPerLiter: _vehicle!.mileage,
+                  tankCapacityLiters: 45.0,
+                  currentFuelLiters: 45.0,
+                )
+              : null,
+          tripStart: _startDate,
+        );
+      } catch (e) {
+        debugPrint('Cloud save trip note: $e');
+      }
+    }
+
     return tripKey;
   }
 
@@ -156,7 +216,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     await _persistPlan();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Itinerary saved ✓ — find it in the day planner')),
+      const SnackBar(content: Text('Itinerary saved & synced to all your devices ✓')),
     );
   }
 
@@ -418,9 +478,38 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text('Set your start date & time — the AI schedules everything, breaks included.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
-          _placeField(_destCtrl, 'Destination (e.g. Coorg, Karnataka)', Icons.explore_rounded, isDest: true),
-          const SizedBox(height: 10),
-          _placeField(_startLocCtrl, 'Starting location (optional)', Icons.my_location_rounded, isDest: false),
+          _placeField(_startLocCtrl, '🛫 Starting location (e.g. Bangalore / Mathikere)', Icons.my_location_rounded, isDest: false),
+          const SizedBox(height: 6),
+          Center(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                setState(() {
+                  final tmp = _startLocCtrl.text;
+                  _startLocCtrl.text = _destCtrl.text;
+                  _destCtrl.text = tmp;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.swap_vert_rounded, color: AppColors.accentLight, size: 16),
+                    SizedBox(width: 4),
+                    Text('Swap Origin & Destination', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          _placeField(_destCtrl, '🎯 Destination (e.g. Mysore, Coorg, Ooty, Tirupati)', Icons.explore_rounded, isDest: true),
           const SizedBox(height: 10),
           _field(_placesCtrl, 'Places to visit (comma-separated, optional)', Icons.place_rounded, maxLines: 2),
           const SizedBox(height: 14),

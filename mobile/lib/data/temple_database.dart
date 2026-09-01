@@ -437,6 +437,120 @@ class TempleDatabase {
       lat: 19.8049,
       lng: 85.8179,
     ),
+    // --- Bengaluru Landmark Temples & Heritage ---
+    TempleInfo(
+      canonicalName: 'ISKCON Temple Bangalore (Hare Krishna Hill)',
+      aliases: ['iskcon bangalore', 'iskcon rajajinagar', 'iskcon temple', 'hare krishna hill'],
+      rating: 4.8,
+      reviewsCount: 110000,
+      deity: 'Sri Sri Radha Krishnachandra',
+      timing: 'Opens 4:15 AM · 7:15 AM - 1:00 PM · 4:15 PM - 8:30 PM',
+      description: 'One of the largest ISKCON complexes in the world, located on Hare Krishna Hill in Rajajinagar featuring magnificent gold-plated dhwaja-stambha and Vedic cultural exhibits.',
+      highlights: 'Grand gopuram, evening bhajans, sumptuous Khichdi prasadam and higher taste restaurant',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Darshan & Walkthrough: 1–1.5 hrs',
+      recommendedDarshanMinutes: 90,
+      lat: 13.0098,
+      lng: 77.5511,
+    ),
+    TempleInfo(
+      canonicalName: 'Bull Temple (Dodda Basavana Gudi)',
+      aliases: ['bull temple', 'dodda basavana gudi', 'basavanagudi temple', 'nandi temple'],
+      rating: 4.7,
+      reviewsCount: 45000,
+      deity: 'Sacred Nandi (Monolithic Bull)',
+      timing: 'Opens 6:00 AM · Closes 8:00 PM',
+      description: 'Historic 16th-century temple built by Kempe Gowda I, housing one of the largest monolithic Nandi statues in the world carved out of a single granite boulder.',
+      highlights: '15-ft tall monolithic Nandi, iconic Bugle Rock park surroundings, groundnut fair (Kadalekai Parishe)',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Darshan: 30–45 mins',
+      recommendedDarshanMinutes: 45,
+      lat: 12.9423,
+      lng: 77.5678,
+    ),
+    TempleInfo(
+      canonicalName: 'Sri Gavi Gangadhareshwara Cave Temple',
+      aliases: ['gavi gangadhareshwara', 'gavi cave temple', 'gavipuram temple'],
+      rating: 4.8,
+      reviewsCount: 32000,
+      deity: 'Lord Shiva (Gangadhareshwara)',
+      timing: 'Opens 6:00 AM · 12:30 PM | 6:00 PM · 8:30 PM',
+      description: 'Ancient subterranean rock-cut cave temple famous for astronomical precision where the sun rays illuminate the inner sanctum Shivalinga on Makar Sankranti.',
+      highlights: 'Natural rock cave sanctum, monolithic stone discs (Suryamajja), monolithic Trishula & Damaru',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Cave Darshan: 30–45 mins',
+      recommendedDarshanMinutes: 45,
+      lat: 12.9489,
+      lng: 77.5612,
+    ),
+    TempleInfo(
+      canonicalName: 'Bangalore Palace & Royal Grounds',
+      aliases: ['bangalore palace', 'bengaluru palace', 'royal palace bangalore'],
+      rating: 4.7,
+      reviewsCount: 68000,
+      deity: 'Wodeyar Royal Heritage & Architecture',
+      timing: 'Opens 10:00 AM · Closes 5:30 PM',
+      description: 'Majestic 19th-century royal palace built in Tudor-style architecture with fortified towers, battlements, elegant woodcarvings, and vintage paintings.',
+      highlights: 'Tudor architectural turrets, audio tour of Durbar hall, royal vintage photo galleries',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Tour Duration: 1.5–2 hrs',
+      recommendedDarshanMinutes: 120,
+      lat: 12.9982,
+      lng: 77.5921,
+    ),
+    TempleInfo(
+      canonicalName: 'Lalbagh Botanical Garden & Glass House',
+      aliases: ['lalbagh', 'lalbagh botanical garden', 'lalbagh glass house'],
+      rating: 4.8,
+      reviewsCount: 95000,
+      deity: 'Heritage Flora & 3000-Million-Year-Old Rock',
+      timing: 'Opens 6:00 AM · Closes 7:00 PM',
+      description: '240-acre historic botanical garden commissioned by Hyder Ali, featuring India’s largest collection of tropical plants and the iconic 1889 Glass House.',
+      highlights: 'Century-old Glass House, Kempegowda watchtower on Lalbagh Rock, serene lake walk',
+      city: 'Bengaluru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Garden Walk & Exploration: 1.5–2.5 hrs',
+      recommendedDarshanMinutes: 120,
+      lat: 12.9507,
+      lng: 77.5848,
+    ),
+    // --- Mysuru Heritage & Palaces ---
+    TempleInfo(
+      canonicalName: 'Mysore Palace (Amba Vilas Palace)',
+      aliases: ['mysore palace', 'amba vilas', 'mysuru palace'],
+      rating: 4.8,
+      reviewsCount: 145000,
+      deity: 'Wodeyar Royal Heritage & Durbar',
+      timing: 'Opens 10:00 AM · Closes 5:30 PM · Illumination 7:00 PM - 7:45 PM',
+      description: 'World-renowned Indo-Saracenic royal palace of the Wadiyar dynasty, illuminated by nearly 100,000 light bulbs every Sunday and holiday evening.',
+      highlights: 'Golden Throne, stained glass Kalyana Mantapa ceiling, Gombe Thotti doll pavilion, evening illumination',
+      city: 'Mysuru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Palace Tour: 2–3 hrs',
+      recommendedDarshanMinutes: 150,
+      lat: 12.3052,
+      lng: 76.6552,
+    ),
+    TempleInfo(
+      canonicalName: 'Brindavan Gardens & Musical Fountain',
+      aliases: ['brindavan gardens', 'krs dam gardens', 'musical fountain mysore'],
+      rating: 4.7,
+      reviewsCount: 88000,
+      deity: 'Terraced Gardens & Kaveri Waterway',
+      timing: 'Opens 6:30 AM · Closes 9:00 PM · Music show 6:30 PM onwards',
+      description: 'Celebrated terrace gardens adjoining the Krishnarajasagara (KRS) Dam across the Kaveri river, famous for evening laser and musical dancing fountains.',
+      highlights: 'Symmetric terraced garden walkways, boating in Kaveri lagoon, synchronized musical fountain',
+      city: 'Mysuru',
+      state: 'Karnataka',
+      darshanWaitInfo: 'Garden & Light Show: 2–2.5 hrs',
+      recommendedDarshanMinutes: 120,
+      lat: 12.4223,
+      lng: 76.5742,
+    ),
   ];
 
   /// Find rich temple info for any search query or place name
@@ -464,49 +578,10 @@ class TempleDatabase {
     String preferences = '',
     List<String> places = const [],
   }) {
+    final destClean = destination.toLowerCase();
     final text = '$destination $preferences ${places.join(" ")}'.toLowerCase();
 
-    // Check for Tirupati / Tirumala
-    if (text.contains('tirupati') || text.contains('tirumala') || text.contains('balaji') || text.contains('srikalahasti') || text.contains('kanipakam') || text.contains('venkateswara')) {
-      return allTemples.where((t) => t.city.contains('Tirupati') || t.city.contains('Tirumala') || t.city.contains('Srikalahasti') || t.city.contains('Kanipakam')).toList();
-    }
-
-    // Check for Mysuru / Srirangapatna / Nanjangud
-    if (text.contains('mysore') || text.contains('mysuru') || text.contains('chamundi') || text.contains('srirangapatna') || text.contains('nanjangud') || text.contains('mandya')) {
-      return allTemples.where((t) => t.city.contains('Mysuru') || t.city.contains('Srirangapatna') || t.city.contains('Nanjangud')).toList();
-    }
-
-    // Check for Coastal Karnataka / Western Ghats / Udupi
-    if (text.contains('udupi') || text.contains('murudeshwar') || text.contains('dharmasthala') || text.contains('kukke') || text.contains('subramanya') || text.contains('gokarna') || text.contains('mangalore')) {
-      return allTemples.where((t) => t.city.contains('Dakshina Kannada') || t.city.contains('Uttara Kannada') || t.city.contains('Udupi')).toList();
-    }
-
-    // Check for Tamil Nadu (Madurai, Rameshwaram, Thanjavur)
-    if (text.contains('madurai') || text.contains('meenakshi') || text.contains('rameshwaram') || text.contains('thanjavur')) {
-      return allTemples.where((t) => t.state == 'Tamil Nadu').toList();
-    }
-
-    // Check for Varanasi / Kashi
-    if (text.contains('varanasi') || text.contains('kashi') || text.contains('banaras') || text.contains('ganga')) {
-      return allTemples.where((t) => t.city.contains('Varanasi')).toList();
-    }
-
-    // Check for Amritsar / Golden Temple
-    if (text.contains('amritsar') || text.contains('harmandir') || text.contains('golden temple')) {
-      return allTemples.where((t) => t.city.contains('Amritsar')).toList();
-    }
-
-    // Check for Puri / Jagannath
-    if (text.contains('puri') || text.contains('jagannath')) {
-      return allTemples.where((t) => t.city.contains('Puri')).toList();
-    }
-
-    // Check for Bengaluru
-    if (text.contains('bengaluru') || text.contains('bangalore')) {
-      return allTemples.where((t) => t.city.contains('Bengaluru')).toList();
-    }
-
-    // Default: If specific places list provided, map them
+    // 1. Explicit Custom Places Passed by User
     if (places.isNotEmpty) {
       final res = <TempleInfo>[];
       for (final p in places) {
@@ -514,96 +589,143 @@ class TempleDatabase {
         if (match != null) {
           res.add(match);
         } else {
-          // Dynamically create high-fidelity info for requested custom place
           res.add(TempleInfo(
             canonicalName: p,
             aliases: [p.toLowerCase()],
-            rating: 4.7,
-            reviewsCount: 15000,
-            deity: 'Presiding Heritage & Cultural Site',
+            rating: 4.8,
+            reviewsCount: 22000,
+            deity: 'Prominent Landmark & Attraction',
             timing: 'Opens 8:00 AM · Closes 7:00 PM',
-            description: 'Major highlight and popular destination point in $destination.',
-            highlights: 'Top-rated sightseeing, local heritage, and scenic photography',
+            description: 'Major highlight and popular sightseeing point in $destination.',
+            highlights: 'Top-rated sightseeing, cultural heritage, and scenic photography',
             city: destination,
             state: 'India',
-            darshanWaitInfo: 'Estimated visit duration: 1.5–2.5 hrs',
-            recommendedDarshanMinutes: 120,
+            darshanWaitInfo: 'Estimated visit duration: 1.5–2 hrs',
+            recommendedDarshanMinutes: 100,
           ));
         }
       }
       if (res.isNotEmpty) return res;
     }
 
-    // Dynamic fallback for any destination worldwide:
+    // 2. Strict Check for Tirupati / Tirumala (ONLY when destination contains Tirupati/Tirumala/Balaji)
+    if (destClean.contains('tirupati') || destClean.contains('tirumala') || destClean.contains('balaji') || destClean.contains('srikalahasti') || destClean.contains('kanipakam') || destClean.contains('venkateswara')) {
+      return allTemples.where((t) => t.city.contains('Tirupati') || t.city.contains('Tirumala') || t.city.contains('Srikalahasti') || t.city.contains('Kanipakam')).toList();
+    }
+
+    // 3. Mysuru / Srirangapatna / Nanjangud / Mandya
+    if (destClean.contains('mysore') || destClean.contains('mysuru') || destClean.contains('chamundi') || destClean.contains('srirangapatna') || destClean.contains('nanjangud') || destClean.contains('mandya')) {
+      final matches = allTemples.where((t) => t.city.contains('Mysuru') || t.city.contains('Srirangapatna') || t.city.contains('Nanjangud')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 4. Bengaluru / Bangalore
+    if (destClean.contains('bengaluru') || destClean.contains('bangalore') || destClean.contains('mathikere') || destClean.contains('whitefield') || destClean.contains('indiranagar') || destClean.contains('jayanagar') || destClean.contains('malleshwaram')) {
+      final matches = allTemples.where((t) => t.city.contains('Bengaluru')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 5. Coastal Karnataka (Udupi, Murudeshwar, Dharmasthala, Gokarna, Mangalore)
+    if (destClean.contains('udupi') || destClean.contains('murudeshwar') || destClean.contains('dharmasthala') || destClean.contains('kukke') || destClean.contains('subramanya') || destClean.contains('gokarna') || destClean.contains('mangalore')) {
+      final matches = allTemples.where((t) => t.city.contains('Dakshina Kannada') || t.city.contains('Uttara Kannada') || t.city.contains('Udupi')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 6. Tamil Nadu (Madurai, Rameshwaram, Thanjavur)
+    if (destClean.contains('madurai') || destClean.contains('meenakshi') || destClean.contains('rameshwaram') || destClean.contains('thanjavur')) {
+      final matches = allTemples.where((t) => t.state == 'Tamil Nadu').toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 7. Varanasi / Kashi
+    if (destClean.contains('varanasi') || destClean.contains('kashi') || destClean.contains('banaras')) {
+      final matches = allTemples.where((t) => t.city.contains('Varanasi')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 8. Amritsar
+    if (destClean.contains('amritsar') || destClean.contains('harmandir')) {
+      final matches = allTemples.where((t) => t.city.contains('Amritsar')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 9. Puri
+    if (destClean.contains('puri') || destClean.contains('jagannath')) {
+      final matches = allTemples.where((t) => t.city.contains('Puri')).toList();
+      if (matches.isNotEmpty) return matches;
+    }
+
+    // 10. Dynamic Tailored Attractions strictly scoped to the user's Destination (NEVER Tirupati!)
+    final cityLabel = destination.isNotEmpty ? destination.split(',').first.trim() : 'Destination';
     return [
       TempleInfo(
-        canonicalName: '$destination Grand Heritage Palace & Royal Grounds',
-        aliases: ['palace', 'fort'],
+        canonicalName: '$cityLabel Iconic Heritage Landmark & Historic Grounds',
+        aliases: ['heritage', 'monument', 'landmark'],
         rating: 4.8,
-        reviewsCount: 35000,
-        deity: 'Architectural Monument & Royal Heritage',
-        timing: 'Opens 9:00 AM · Closes 6:00 PM',
-        description: 'Iconic royal architectural monument representing the rich cultural heritage of $destination.',
-        highlights: 'Monumental architecture, historical artifacts, royal courtyards',
-        city: destination,
+        reviewsCount: 38000,
+        deity: 'Architectural Monument & Cultural Heritage',
+        timing: 'Opens 8:30 AM · Closes 6:00 PM',
+        description: 'Iconic royal architectural monument representing the rich cultural heritage and timeless history of $cityLabel.',
+        highlights: 'Monumental architecture, historical galleries, manicured courtyard grounds',
+        city: cityLabel,
         state: 'Local Region',
-        darshanWaitInfo: 'Tour & Entry Duration: 2–3 hrs',
-        recommendedDarshanMinutes: 150,
+        darshanWaitInfo: 'Sightseeing & Tour: 1.5–2.5 hrs',
+        recommendedDarshanMinutes: 120,
       ),
       TempleInfo(
-        canonicalName: '$destination Sacred Heritage Shrine & Sanctum',
-        aliases: ['shrine', 'temple'],
+        canonicalName: '$cityLabel Sacred Cultural Shrine & Spiritual Sanctum',
+        aliases: ['shrine', 'temple', 'sanctum'],
         rating: 4.8,
-        reviewsCount: 28000,
-        deity: 'Presiding Deity & Holy Sanctum',
+        reviewsCount: 29000,
+        deity: 'Presiding Guardian Deity & Holy Sanctum',
         timing: 'Opens 6:00 AM · Closes 8:30 PM',
-        description: 'Ancient spiritual sanctum revered by pilgrims and travelers in $destination.',
-        highlights: 'Traditional rituals, peaceful sanctum, architectural carvings',
-        city: destination,
+        description: 'Historic spiritual sanctuary revered by travelers and pilgrims visiting $cityLabel.',
+        highlights: 'Traditional morning aarti, peaceful sanctum ambiance, intricate architecture',
+        city: cityLabel,
         state: 'Local Region',
-        darshanWaitInfo: 'Darshan & Prayer: 1–2 hrs',
-        recommendedDarshanMinutes: 90,
+        darshanWaitInfo: 'Sanctum Visit: 1–1.5 hrs',
+        recommendedDarshanMinutes: 75,
       ),
       TempleInfo(
-        canonicalName: '$destination Waterfront Promenade & Botanical Gardens',
-        aliases: ['gardens', 'lake'],
+        canonicalName: '$cityLabel Waterfront Promenade & Botanical Gardens',
+        aliases: ['gardens', 'park', 'lake'],
         rating: 4.7,
-        reviewsCount: 22000,
-        deity: 'Scenic Nature & Lakeside Vista',
-        timing: 'Opens 7:00 AM · Closes 7:30 PM',
-        description: 'Sprawling landscaped gardens and peaceful waterfront promenade in $destination.',
-        highlights: 'Lush greenery, scenic boating, fountain illumination',
-        city: destination,
+        reviewsCount: 24000,
+        deity: 'Scenic Flora & Waterside Vista',
+        timing: 'Opens 6:30 AM · Closes 7:30 PM',
+        description: 'Sprawling landscaped botanical gardens and serene waterside walking promenade in $cityLabel.',
+        highlights: 'Lush greenery, scenic boating, fountain illumination, golden hour photography',
+        city: cityLabel,
         state: 'Local Region',
         darshanWaitInfo: 'Garden Walk & Leisure: 1–1.5 hrs',
         recommendedDarshanMinutes: 75,
       ),
       TempleInfo(
-        canonicalName: '$destination Panoramic Hilltop & Sunset Vista',
-        aliases: ['viewpoint', 'sunset'],
+        canonicalName: '$cityLabel Panoramic Hilltop & Sunset Vista Viewpoint',
+        aliases: ['viewpoint', 'hilltop', 'sunset'],
         rating: 4.8,
-        reviewsCount: 19000,
-        deity: 'Panoramic Valley & Mountain Vistas',
+        reviewsCount: 21000,
+        deity: '360° Valley & Panoramic Vistas',
         timing: 'Opens 6:00 AM · Closes 7:00 PM',
-        description: 'Elevated viewpoint offering 360-degree panoramic sunset vistas across $destination.',
-        highlights: 'Golden hour photography, panoramic views, cool mountain breeze',
-        city: destination,
+        description: 'Elevated viewpoint offering breathtaking panoramic sunrise and sunset vistas across the $cityLabel region.',
+        highlights: 'Panoramic landscape photography, cool breeze, scenic cliffside pathways',
+        city: cityLabel,
         state: 'Local Region',
         darshanWaitInfo: 'Sunset Viewing: 45–60 mins',
         recommendedDarshanMinutes: 60,
       ),
       TempleInfo(
-        canonicalName: '$destination Traditional Silk, Spices & Handicrafts Bazaar',
-        aliases: ['market', 'bazaar'],
+        canonicalName: '$cityLabel Traditional Crafts & Regional Food Bazaar',
+        aliases: ['bazaar', 'market', 'handicrafts'],
         rating: 4.6,
-        reviewsCount: 16000,
-        deity: 'Regional Artisan Crafts & Specialties',
+        reviewsCount: 18000,
+        deity: 'Artisan Crafts & Regional Delicacies',
         timing: 'Opens 10:00 AM · Closes 9:30 PM',
-        description: 'Vibrant local market famous for authentic regional handicrafts, spices, and souvenirs.',
-        highlights: 'Handcrafted souvenirs, authentic street snacks, vibrant culture',
-        city: destination,
+        description: 'Vibrant local bazaar famous for authentic regional handicrafts, aromatic spices, and traditional culinary street treats in $cityLabel.',
+        highlights: 'Handcrafted souvenirs, authentic street specialties, vibrant cultural market',
+        city: cityLabel,
         state: 'Local Region',
-        darshanWaitInfo: 'Shopping & Exploration: 1–2 hrs',
+        darshanWaitInfo: 'Bazaar Exploration: 1–2 hrs',
         recommendedDarshanMinutes: 90,
       ),
     ];
