@@ -278,14 +278,26 @@ private struct TrackerLineView: View {
 
     private func stopSymbol(for raw: String) -> String {
         let st = raw.lowercased()
-        if st.contains("biryani") || st.contains("food") || st.contains("hotel") || st.contains("restaurant") || st.contains("mess") || st.contains("tiffin") || st.contains("maddur") || st.contains("dining") {
-            return "fork.knife"
-        } else if st.contains("tea") || st.contains("coffee") || st.contains("chai") || st.contains("cafe") {
-            return "cup.and.saucer.fill"
-        } else if st.contains("fuel") || st.contains("petrol") || st.contains("gas") || st.contains("shell") || st.contains("ioc") || st.contains("ev") || st.contains("charging") {
+        if st.contains("temple") || st.contains("mandir") || st.contains("kovil") || st.contains("gudi") || st.contains("shrine") || st.contains("pooja") || st.contains("church") || st.contains("masjid") || st.contains("mosque") {
+            return "building.columns.fill"
+        } else if st.contains("fuel") || st.contains("petrol") || st.contains("diesel") || st.contains("gas") || st.contains("lpg") || st.contains("cng") || st.contains("shell") || st.contains("ioc") || st.contains("hp") || st.contains("bp") || st.contains("bunk") {
             return "fuelpump.fill"
-        } else if st.contains("temple") || st.contains("palace") || st.contains("fort") || st.contains("hill") || st.contains("falls") || st.contains("view") || st.contains("waterfall") {
+        } else if st.contains("ev") || st.contains("charging") || st.contains("charge") {
+            return "bolt.car.fill"
+        } else if st.contains("biryani") || st.contains("food") || st.contains("restaurant") || st.contains("mess") || st.contains("tiffin") || st.contains("maddur") || st.contains("dining") || st.contains("dhaba") || st.contains("kitchen") {
+            return "fork.knife"
+        } else if st.contains("tea") || st.contains("coffee") || st.contains("chai") || st.contains("cafe") || st.contains("bakery") {
+            return "cup.and.saucer.fill"
+        } else if st.contains("hotel") || st.contains("resort") || st.contains("stay") || st.contains("lodge") || st.contains("inn") {
+            return "bed.double.fill"
+        } else if st.contains("hill") || st.contains("peak") || st.contains("mountain") || st.contains("ghat") {
             return "mountain.2.fill"
+        } else if st.contains("waterfall") || st.contains("falls") || st.contains("lake") || st.contains("river") || st.contains("dam") {
+            return "water.waves"
+        } else if st.contains("view") || st.contains("sight") || st.contains("camera") || st.contains("photo") {
+            return "camera.fill"
+        } else if st.contains("palace") || st.contains("fort") || st.contains("monument") {
+            return "crown.fill"
         } else {
             return "mappin"
         }
