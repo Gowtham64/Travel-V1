@@ -642,6 +642,10 @@ class ApiService {
         };
         final inserted = await Supabase.instance.client.from('trips').insert({
           'user_id': user.id,
+          // Stamp the account email so this trip is visible from the user's
+          // other sign-in identities (Google / email / phone). The DB also has
+          // a trigger that fills this in, so older app builds stay covered.
+          if (user.email != null) 'owner_email': user.email!.toLowerCase(),
           'name': name,
           'start_point': {'lat': start.lat, 'lng': start.lng, if (start.name != null) 'name': start.name},
           'end_point': enrichedEnd,
@@ -699,10 +703,15 @@ class ApiService {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
+        // Do NOT filter by user_id here. A user can sign in with different
+        // methods (Google / email / phone) on different devices, each a
+        // separate auth.users row. RLS now returns every trip owned by this
+        // account — matched by user_id OR the account's verified email — so
+        // trips saved from another device/identity sync in. Filtering by
+        // user_id would re-hide exactly those cross-device trips.
         final data = await Supabase.instance.client
             .from('trips')
             .select('*, trip_stops(*)')
-            .eq('user_id', user.id)
             .order('created_at', ascending: false);
         if (data is List && data.isNotEmpty) {
           return data;

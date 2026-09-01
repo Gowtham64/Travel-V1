@@ -330,6 +330,10 @@ router.post("/save", requireAuth, async (req, res) => {
 
     const { data, error } = await req.supabase.from('trips').insert({
       user_id,
+      // Stamp the account email so the trip is visible from the user's other
+      // sign-in identities (Google / email / phone). A DB trigger also fills
+      // this in, so this is belt-and-suspenders.
+      ...(req.user?.email ? { owner_email: String(req.user.email).toLowerCase() } : {}),
       name,
       start_point: startPoint,
       end_point: enrichedEnd,
@@ -370,10 +374,13 @@ router.get("/saved", requireAuth, async (req, res) => {
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
   
   try {
+    // No user_id filter: RLS returns every trip owned by this account (matched
+    // by user_id OR the account's verified email), so trips saved from another
+    // device/sign-in method sync in instead of being re-hidden.
     const { data, error } = await req.supabase.from('trips').select(`
       *,
       trip_stops (*)
-    `).eq('user_id', user_id).order('created_at', { ascending: false });
+    `).order('created_at', { ascending: false });
     
     if (error) throw error;
     res.json(data);

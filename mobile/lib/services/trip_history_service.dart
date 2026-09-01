@@ -164,10 +164,12 @@ class TripHistoryService {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
+        // No user_id filter: RLS returns every trip owned by this account,
+        // matched by user_id OR the account's verified email, so trips saved
+        // from another device/sign-in method (Google / email / phone) sync in.
         final cloudRows = await Supabase.instance.client
             .from('trips')
             .select('*, trip_stops(*)')
-            .eq('user_id', user.id)
             .order('created_at', ascending: false);
 
         if (cloudRows is List && cloudRows.isNotEmpty) {
@@ -231,6 +233,8 @@ class TripHistoryService {
         
         final inserted = await Supabase.instance.client.from('trips').insert({
           'user_id': user.id,
+          // Email-stamp so the trip syncs across the user's other identities.
+          if (user.email != null) 'owner_email': user.email!.toLowerCase(),
           'name': item.title.isNotEmpty ? item.title : '${item.startAddress} to ${item.endAddress}',
           'start_point': {'lat': startCoord['lat'], 'lng': startCoord['lng'], 'name': item.startAddress},
           'end_point': {
