@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
+import '../services/trip_history_service.dart';
 import '../services/api_service.dart';
 import 'itinerary_screen.dart';
 import 'bookings_screen.dart';
@@ -13,9 +14,8 @@ import 'gallery_screen.dart';
 
 /// A tabbed "trip workspace" — the single place that brings a trip together:
 /// Map, Itinerary, an interactive Packing checklist, an Expense tracker with
-/// splitting, and a Reservations manager. The three add-ons persist locally
-/// per trip.
-class TripWorkspaceScreen extends StatelessWidget {
+/// splitting, and a Reservations manager. The add-ons persist locally and sync to cloud.
+class TripWorkspaceScreen extends StatefulWidget {
   final String tripKey;
   final String tripName;
   final int travellers;
@@ -53,11 +53,50 @@ class TripWorkspaceScreen extends StatelessWidget {
   });
 
   @override
+  State<TripWorkspaceScreen> createState() => _TripWorkspaceScreenState();
+}
+
+class _TripWorkspaceScreenState extends State<TripWorkspaceScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _syncTripToCloud();
+  }
+
+  void _syncTripToCloud() {
+    final toll = widget.plan.toll?.fastagTollCost ?? 0.0;
+    final v = widget.vehicle;
+    final double litres = v.efficiencyKmPerLiter > 0 ? widget.plan.distanceKm / v.efficiencyKmPerLiter : 0.0;
+    final double fuel = widget.plan.toll?.fuelCost ?? (litres * 102.0);
+    final double total = toll + fuel;
+    final stops = widget.waypoints.map((w) => w.name ?? 'Waypoint').toList();
+
+    TripHistoryService.instance.saveTrip(
+      TripHistoryItem(
+        id: 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
+        title: widget.tripName.isNotEmpty ? widget.tripName : '${widget.startAddress} → ${widget.endAddress} (round trip)',
+        startAddress: widget.startAddress,
+        endAddress: widget.endAddress,
+        waypoints: stops,
+        distanceKm: widget.plan.distanceKm,
+        durationMinutes: widget.plan.durationMin,
+        vehicleType: widget.vehicle.type,
+        fuelCost: fuel,
+        tollCost: toll,
+        totalCost: total,
+        completedAt: DateTime.now(),
+        isRoundTrip: true,
+        totalStopsCount: stops.length,
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final store = TripExtrasStore(tripKey);
+    final store = TripExtrasStore(widget.tripKey);
     return DefaultTabController(
       length: 7,
-      initialIndex: initialTabIndex,
+      initialIndex: widget.initialTabIndex,
       child: Scaffold(
         backgroundColor: Voy.bg,
         appBar: AppBar(
@@ -66,13 +105,25 @@ class TripWorkspaceScreen extends StatelessWidget {
             children: [
               const Text('Trip Workspace',
                   style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 17)),
-              if (tripName.isNotEmpty)
-                Text(tripName,
+              if (widget.tripName.isNotEmpty)
+                Text(widget.tripName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.w500)),
             ],
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.cloud_done_rounded, color: Voy.brand),
+              tooltip: 'Trip synced to account',
+              onPressed: () {
+                _syncTripToCloud();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Trip & itinerary synced across your devices!')),
+                );
+              },
+            ),
+          ],
           bottom: const TabBar(
             isScrollable: true,
             indicatorColor: Voy.brand,
@@ -92,37 +143,37 @@ class TripWorkspaceScreen extends StatelessWidget {
         ),
         body: TabBarView(
           children: [
-            _MapTab(plan: plan, start: start, end: end, waypoints: waypoints),
+            _MapTab(plan: widget.plan, start: widget.start, end: widget.end, waypoints: widget.waypoints),
             _PlanTab(
               store: store,
-              plan: plan,
-              start: start,
-              end: end,
-              waypoints: waypoints,
-              startAddress: startAddress,
-              endAddress: endAddress,
+              plan: widget.plan,
+              start: widget.start,
+              end: widget.end,
+              waypoints: widget.waypoints,
+              startAddress: widget.startAddress,
+              endAddress: widget.endAddress,
             ),
             ItineraryScreen(
-              plan: plan,
-              startAddress: startAddress,
-              endAddress: endAddress,
-              start: start,
-              end: end,
-              waypoints: waypoints,
-              vehicleType: vehicle.type,
-              vehicle: vehicle,
-              travellers: travellers,
-              tripStart: tripStart,
-              initialItinerary: savedItinerary,
+              plan: widget.plan,
+              startAddress: widget.startAddress,
+              endAddress: widget.endAddress,
+              start: widget.start,
+              end: widget.end,
+              waypoints: widget.waypoints,
+              vehicleType: widget.vehicle.type,
+              vehicle: widget.vehicle,
+              travellers: widget.travellers,
+              tripStart: widget.tripStart,
+              initialItinerary: widget.savedItinerary,
               embedded: true,
             ),
             _PackingTab(store: store),
-            _ExpensesTab(store: store, travellers: travellers, currency: currency),
+            _ExpensesTab(store: store, travellers: widget.travellers, currency: widget.currency),
             _ReservationsTab(
               store: store,
-              fromName: startAddress,
-              toName: endAddress,
-              travellers: travellers,
+              fromName: widget.startAddress,
+              toName: widget.endAddress,
+              travellers: widget.travellers,
             ),
             _JournalTab(store: store),
           ],

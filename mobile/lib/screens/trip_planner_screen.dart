@@ -415,6 +415,31 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       if (_tripType == 'roundtrip') {
         final startAddr = _stopControllers.first.text.trim();
         final endAddr = _stopControllers.last.text.trim();
+        final toll = plan.toll?.fastagTollCost ?? 0.0;
+        final double litres = vehicle.efficiencyKmPerLiter > 0 ? plan.distanceKm / vehicle.efficiencyKmPerLiter : 0.0;
+        final double fuel = plan.toll?.fuelCost ?? (litres * 102.0);
+        final double total = toll + fuel;
+        final stops = waypoints.map((w) => w.name ?? 'Waypoint').toList();
+
+        TripHistoryService.instance.saveTrip(
+          TripHistoryItem(
+            id: 'trip_${start.lat.toStringAsFixed(3)}_${end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
+            title: '$startAddr → $endAddr (round trip)',
+            startAddress: startAddr,
+            endAddress: endAddr,
+            waypoints: stops,
+            distanceKm: plan.distanceKm,
+            durationMinutes: plan.durationMin,
+            vehicleType: vehicle.type,
+            fuelCost: fuel,
+            tollCost: toll,
+            totalCost: total,
+            completedAt: DateTime.now(),
+            isRoundTrip: true,
+            totalStopsCount: stops.length,
+          ),
+        );
+
         final tripKey = [
           start.lat.toStringAsFixed(3), start.lng.toStringAsFixed(3),
           end.lat.toStringAsFixed(3), end.lng.toStringAsFixed(3),
