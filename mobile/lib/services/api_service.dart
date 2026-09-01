@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:math';
+import 'dart:math' as math;
+import 'dart:math' show cos, sin, asin, sqrt;
 import 'package:flutter/foundation.dart' show kIsWeb, kReleaseMode;
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -1083,8 +1084,8 @@ class ApiService {
     final tollCost = 360;
     final foodCost = total * 750 * travellers;
     final stayCost = (total > 1 ? (total - 1) : 0) * 2200 * ((travellers / 2).ceil());
-    final bufferCost = 1000;
-    final grandTotal = fuelCost + tollCost + foodCost + stayCost + bufferCost;
+    final int bufferCost = 1000;
+    final int grandTotal = (fuelCost + tollCost + foodCost + stayCost + bufferCost).toInt();
 
     final budget = TripBudget(
       currency: 'INR',
