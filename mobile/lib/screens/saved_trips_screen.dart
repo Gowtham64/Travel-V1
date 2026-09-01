@@ -339,44 +339,51 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
   }
 
   Widget _cloudTripCard(dynamic trip) {
-    final start = trip['start_point']?['address'] ?? 'Unknown Start';
-    final end = trip['end_point']?['address'] ?? 'Unknown End';
+    final name = (trip['name'] as String?) ?? 'Trip';
+    final parts = name.split(' to ');
+    final start = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts.first : 'Start')).toString();
+    final end = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? (parts.length > 1 ? parts.last : 'End')).toString();
+
     return _buildTripCard(
       trip: trip,
       start: start,
       end: end,
       onTap: () async {
-              final startLat = trip['start_point']?['lat'] as num?;
-              final startLng = trip['start_point']?['lng'] as num?;
-              final endLat = trip['end_point']?['lat'] as num?;
-              final endLng = trip['end_point']?['lng'] as num?;
+              final endMeta = trip['end_point'];
+              final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
+              final tripKey = endMeta is Map ? endMeta['tripKey'] : null;
 
-              if (startLat == null || startLng == null || endLat == null || endLng == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Invalid saved trip coordinates.')),
-                );
+              // If it's a day-planner/itinerary trip, open in DayPlannerScreen directly
+              if (tripKey != null || (it is List && it.isNotEmpty)) {
+                await Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => DayPlannerScreen(
+                    tripKey: tripKey?.toString() ?? 'smart_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+                    tripName: name,
+                  ),
+                ));
+                _loadTrips();
                 return;
               }
+
+              final startLat = (trip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
+              final startLng = (trip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
+              final endLat = (trip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
+              final endLng = (trip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
 
               try {
                 setState(() {
                   _loadingTripDetails = true;
                 });
 
-                final name = trip['name'] as String? ?? 'Trip';
-                final parts = name.split(' to ');
-                final startAddress = parts.isNotEmpty ? parts[0] : (trip['start_point']?['address'] as String? ?? 'Start');
-                final endAddress = parts.length > 1 ? parts[1] : (trip['end_point']?['address'] as String? ?? 'End');
-
                 final startPoint = GeoPoint(
-                  lat: startLat.toDouble(),
-                  lng: startLng.toDouble(),
-                  name: startAddress,
+                  lat: startLat,
+                  lng: startLng,
+                  name: start,
                 );
                 final endPoint = GeoPoint(
-                  lat: endLat.toDouble(),
-                  lng: endLng.toDouble(),
-                  name: endAddress,
+                  lat: endLat,
+                  lng: endLng,
+                  name: end,
                 );
 
                 final List<dynamic> stopsList = trip['trip_stops'] ?? [];
@@ -419,8 +426,8 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                     MaterialPageRoute(
                       builder: (_) => TripScreen(
                         plan: plan,
-                        startAddress: startAddress,
-                        endAddress: endAddress,
+                        startAddress: start,
+                        endAddress: end,
                         vehicleType: vehicleType,
                         poiCategories: const ['restaurant', 'attraction', 'hotel', 'fuel', 'ev', 'viewpoint'],
                         start: startPoint,

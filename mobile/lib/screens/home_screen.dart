@@ -680,10 +680,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _tripCard(dynamic trip, int i) {
     final name = (trip['name'] ?? 'Trip').toString();
-    // Fall back to the "A to B" name when the stored points have no address.
     final parts = name.split(' to ');
-    final start = (trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts.first : 'Start')).toString();
-    final end = (trip['end_point']?['address'] ?? (parts.length > 1 ? parts.last : 'End')).toString();
+    final start = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts.first : 'Start')).toString();
+    final end = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? (parts.length > 1 ? parts.last : 'End')).toString();
     final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
     final isBike = vehicleType == 'motorcycle';
     final hasItinerary = (trip['itinerary'] is List) || (trip['end_point'] is Map && trip['end_point']['itinerary'] is List);
@@ -728,15 +727,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     const SizedBox(height: 5),
                     Row(
                       children: [
-                        const Icon(Icons.trip_origin, color: Voy.brand, size: 12),
+                        const Icon(Icons.trip_origin_rounded, color: Voy.brand, size: 12),
                         const SizedBox(width: 5),
-                        Expanded(child: Text('$start  →  $end', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12.5))),
+                        Expanded(child: Text('$start → $end', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12.5))),
                       ],
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Voy.sub),
+              const Icon(Icons.chevron_right_rounded, color: Voy.sub, size: 22),
             ],
           ),
         ),
@@ -792,22 +791,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Future<void> _openTrip(dynamic trip) async {
-    final startLat = trip['start_point']?['lat'] as num?;
-    final startLng = trip['start_point']?['lng'] as num?;
-    final endLat = trip['end_point']?['lat'] as num?;
-    final endLng = trip['end_point']?['lng'] as num?;
-    if (startLat == null || startLng == null || endLat == null || endLng == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invalid saved trip coordinates.')));
+    final name = (trip['name'] as String?) ?? 'Trip';
+    final endMeta = trip['end_point'];
+    final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
+    final tripKey = endMeta is Map ? endMeta['tripKey'] : null;
+
+    if (tripKey != null || (it is List && it.isNotEmpty)) {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => DayPlannerScreen(
+          tripKey: tripKey?.toString() ?? 'smart_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+          tripName: name,
+        ),
+      ));
+      _loadTrips();
       return;
     }
+
+    final startLat = (trip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
+    final startLng = (trip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
+    final endLat = (trip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
+    final endLng = (trip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
+
     setState(() => _opening = true);
     try {
-      final name = trip['name'] as String? ?? 'Trip';
       final parts = name.split(' to ');
-      final startAddress = parts.isNotEmpty ? parts[0] : (trip['start_point']?['address'] as String? ?? 'Start');
-      final endAddress = parts.length > 1 ? parts[1] : (trip['end_point']?['address'] as String? ?? 'End');
-      final startPoint = GeoPoint(lat: startLat.toDouble(), lng: startLng.toDouble(), name: startAddress);
-      final endPoint = GeoPoint(lat: endLat.toDouble(), lng: endLng.toDouble(), name: endAddress);
+      final startAddress = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts[0] : 'Start')).toString();
+      final endAddress = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? (parts.length > 1 ? parts[1] : 'End')).toString();
+      final startPoint = GeoPoint(lat: startLat, lng: startLng, name: startAddress);
+      final endPoint = GeoPoint(lat: endLat, lng: endLng, name: endAddress);
 
       final List<dynamic> stopsList = trip['trip_stops'] ?? [];
       stopsList.sort((a, b) => (a['order_index'] as int? ?? 0).compareTo(b['order_index'] as int? ?? 0));
