@@ -83,6 +83,11 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
                     name = city ? `Sri Temple (${city})` : "Sri Temple";
                   } else if (category === "fuel") {
                     name = city ? `Fuel Station (${city})` : "Fuel Station";
+                  } else {
+                    name = city ? `${term.toUpperCase()} (${city})` : term.toUpperCase();
+                  }
+                }
+
                 const key = `${name}-${lat.toFixed(3)}-${lng.toFixed(3)}`;
                 if (!seenKeys.has(key)) {
                   seenKeys.add(key);
