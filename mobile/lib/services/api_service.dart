@@ -848,6 +848,7 @@ class ApiService {
       destination: destination,
       startLocation: startLocation,
       places: places,
+      preferences: preferences,
       durationDays: durationDays,
       startTime: startTime,
       travellers: travellers,
@@ -904,6 +905,7 @@ class ApiService {
     required String destination,
     required String startLocation,
     required List<String> places,
+    String preferences = '',
     required int durationDays,
     required String startTime,
     required int travellers,
@@ -914,21 +916,19 @@ class ApiService {
     final startName = startLocation.isNotEmpty ? startLocation : 'Home';
     final daysList = <SmartDay>[];
 
-    final defaultAttractions = places.isNotEmpty ? places : [
-      '$destName Historic Palace & Royal Grounds',
-      'Sri Chamundeshwari Temple & Hilltop Ridge',
-      '$destName Waterfront Lake Promenade',
-      'Local Silk, Spices & Handicrafts Bazaar',
-      'Botanical Gardens & Viewpoint',
-      'Art & Cultural Heritage Museum',
-      'Sunset Hilltop & Scenic Vista',
-    ];
+    final pool = TempleDatabase.getAttractionPool(
+      destination: destination,
+      preferences: preferences,
+      places: places,
+    );
 
-    int placeIdx = 0;
-    String getNextPlace() {
-      final p = defaultAttractions[placeIdx % defaultAttractions.length];
-      placeIdx++;
-      return p;
+    final List<TempleInfo> templePool = pool.isNotEmpty ? pool : TempleDatabase.allTemples;
+    int templeIdx = 0;
+
+    TempleInfo getNextTemple() {
+      final t = templePool[templeIdx % templePool.length];
+      templeIdx++;
+      return t;
     }
 
     for (int d = 1; d <= total; d++) {
@@ -947,7 +947,7 @@ class ApiService {
           travelMin: 150,
           distanceKm: 145,
           travelMode: 'drive',
-          reason: 'Scenic highway drive with morning traffic clearance',
+          reason: 'Scenic morning drive along highway with traffic clearance',
         ));
         blocks.add(TimelineBlock(
           start: '10:30',
@@ -957,39 +957,39 @@ class ApiService {
           place: 'Highway Cafe / Diner',
           durationMin: 45,
           breakType: 'breakfast',
-          reason: 'Traditional filter coffee and light snack break',
+          reason: 'Traditional South Indian filter coffee & hot tiffin',
         ));
         blocks.add(TimelineBlock(
           start: '11:45',
           end: '12:30',
           type: 'checkin',
-          title: 'Hotel Check-in & Unpack in $destName',
-          place: '$destName Grand Stay / Resort',
+          title: 'Hotel Check-in & Freshen Up in $destName',
+          place: '$destName Pilgrimage Stay / Hotel',
           durationMin: 45,
-          reason: 'Check in, freshen up and relax before afternoon exploration',
+          reason: 'Check in, deposit luggage, and prepare for auspicious darshan',
         ));
       } else {
         blocks.add(TimelineBlock(
           start: '08:00',
           end: '09:00',
           type: 'meal',
-          title: 'Morning Breakfast at Hotel / Cafe',
-          place: '$destName Local Eatery',
+          title: 'Morning Breakfast in $destName',
+          place: '$destName Tiffin Center',
           durationMin: 60,
           breakType: 'breakfast',
-          reason: 'Fresh local breakfast to start the day energised',
+          reason: 'Traditional morning breakfast to energise for the pilgrimage',
         ));
       }
 
-      final p1 = getNextPlace();
+      final t1 = getNextTemple();
       blocks.add(TimelineBlock(
         start: isFirst ? '12:30' : '09:30',
         end: isFirst ? '14:00' : '12:30',
         type: 'activity',
-        title: 'Visit & Explore $p1',
-        place: p1,
+        title: 'Darshan at ${t1.canonicalName}',
+        place: '${t1.canonicalName}, ${t1.city}',
         durationMin: isFirst ? 90 : 180,
-        reason: 'Top-rated cultural and architectural highlight',
+        reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating} · ${t1.highlights}',
       ));
 
       blocks.add(TimelineBlock(
@@ -997,32 +997,32 @@ class ApiService {
         end: isFirst ? '15:00' : '14:00',
         type: 'meal',
         title: 'Traditional Lunch in $destName',
-        place: 'Local Heritage Restaurant',
+        place: 'Authentic Pure Vegetarian Restaurant',
         durationMin: 60,
         breakType: 'lunch',
-        reason: 'Authentic regional thali and specialties',
+        reason: 'Sacred thali meals & prasadam refreshments',
       ));
 
-      final p2 = getNextPlace();
+      final t2 = getNextTemple();
       blocks.add(TimelineBlock(
         start: '15:15',
         end: '17:30',
         type: 'activity',
-        title: 'Sightseeing at $p2',
-        place: p2,
+        title: 'Visit ${t2.canonicalName}',
+        place: '${t2.canonicalName}, ${t2.city}',
         durationMin: 135,
-        reason: 'Immerse in scenic views and vibrant local heritage',
+        reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating} · ${t2.highlights}',
       ));
 
       blocks.add(TimelineBlock(
         start: '17:45',
         end: '18:45',
         type: 'coffee',
-        title: 'Sunset Views & Evening Tea',
-        place: 'Panoramic Hill / Lakeside Viewpoint',
+        title: 'Evening Sunset & Tea Break',
+        place: 'Scenic Viewpoint / Temple Promenade',
         durationMin: 60,
         breakType: 'coffee',
-        reason: 'Golden hour photography and relaxing refreshments',
+        reason: 'Golden hour views and refreshing evening tea',
       ));
 
       if (isLast) {

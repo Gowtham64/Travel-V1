@@ -333,4 +333,46 @@ class TempleDatabase {
     }
     return null;
   }
+
+  /// Resolve rich, verified attractions & temples for any destination and query
+  static List<TempleInfo> getAttractionPool({
+    required String destination,
+    String preferences = '',
+    List<String> places = const [],
+  }) {
+    final text = '$destination $preferences ${places.join(" ")}'.toLowerCase();
+
+    // Check for Tirupati / Tirumala / Andhra Pilgrimage
+    if (text.contains('tirupati') || text.contains('tirumala') || text.contains('balaji') || text.contains('srikalahasti') || text.contains('kanipakam') || text.contains('venkateswara')) {
+      return allTemples.where((t) => t.city.contains('Tirupati') || t.city.contains('Tirumala') || t.city.contains('Srikalahasti') || t.city.contains('Kanipakam')).toList();
+    }
+
+    // Check for Mysuru / Srirangapatna / Nanjangud
+    if (text.contains('mysore') || text.contains('mysuru') || text.contains('chamundi') || text.contains('srirangapatna') || text.contains('nanjangud') || text.contains('mandya')) {
+      return allTemples.where((t) => t.city.contains('Mysuru') || t.city.contains('Srirangapatna') || t.city.contains('Nanjangud')).toList();
+    }
+
+    // Check for Coastal Karnataka / Western Ghats / Udupi
+    if (text.contains('udupi') || text.contains('murudeshwar') || text.contains('dharmasthala') || text.contains('kukke') || text.contains('subramanya') || text.contains('gokarna') || text.contains('mangalore')) {
+      return allTemples.where((t) => t.city.contains('Dakshina Kannada') || t.city.contains('Uttara Kannada') || t.city.contains('Udupi')).toList();
+    }
+
+    // Check for Bengaluru
+    if (text.contains('bengaluru') || text.contains('bangalore')) {
+      return allTemples.where((t) => t.city.contains('Bengaluru')).toList();
+    }
+
+    // Default: If specific places list provided, map them
+    if (places.isNotEmpty) {
+      final res = <TempleInfo>[];
+      for (final p in places) {
+        final match = findTemple(p);
+        if (match != null) res.add(match);
+      }
+      if (res.isNotEmpty) return res;
+    }
+
+    // Fallback: return top rated temples
+    return allTemples;
+  }
 }

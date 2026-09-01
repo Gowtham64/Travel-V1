@@ -7,6 +7,7 @@ import '../services/api_service.dart';
 import '../services/trip_extras_store.dart';
 import '../services/auth_guard.dart';
 import '../widgets/app_design.dart';
+import '../data/temple_database.dart';
 import 'day_planner_screen.dart';
 
 /// AI-powered smart trip planner: pick a start date/time + destination and the
@@ -909,6 +910,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     if (b.durationMin > 0) meta.add('${b.durationMin} min');
     if (b.travelMin > 0) meta.add('${isLeg ? _travelEmoji(b.travelMode) : "🚗"} ${b.travelMin} min');
     if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
+    final temple = TempleDatabase.findTemple(b.place.isNotEmpty ? b.place : b.title);
+    final isTemple = temple != null || b.title.toLowerCase().contains('darshan') || b.title.toLowerCase().contains('temple') || b.place.toLowerCase().contains('temple');
+
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -923,8 +927,12 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Column(children: [
             Container(
               width: 30, height: 30, alignment: Alignment.center,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.2), shape: BoxShape.circle, border: Border.all(color: color, width: 1.2)),
-              child: Icon(legIcon, size: 16, color: color),
+              decoration: BoxDecoration(
+                color: isTemple ? const Color(0xFFF59E0B).withValues(alpha: 0.2) : color.withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+                border: Border.all(color: isTemple ? const Color(0xFFF59E0B) : color, width: 1.2),
+              ),
+              child: Icon(isTemple ? Icons.temple_hindu_rounded : legIcon, size: 16, color: isTemple ? const Color(0xFFF59E0B) : color),
             ),
             if (!isLast) Expanded(child: Container(width: 2, color: Colors.white.withValues(alpha: 0.12), margin: const EdgeInsets.symmetric(vertical: 2))),
           ]),
@@ -933,30 +941,93 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(bottom: isLast ? 0 : 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(children: [
-                    Expanded(child: Text(b.title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))),
-                    if (b.breakType.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: color.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
-                        child: Text(b.breakType, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w700)),
+              child: Container(
+                padding: isTemple ? const EdgeInsets.all(10) : EdgeInsets.zero,
+                decoration: isTemple
+                    ? BoxDecoration(
+                        color: const Color(0xFF1E293B).withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                      )
+                    : null,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Expanded(
+                        child: Text(
+                          temple != null && b.type == 'activity' ? 'Darshan at ${temple.canonicalName}' : b.title,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isTemple ? 14.5 : 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                  ]),
-                  if (meta.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(meta.join(' · '), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11.5)),
-                    ),
-                  if (b.reason.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(b.reason,
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11.5, fontStyle: FontStyle.italic)),
-                    ),
-                ],
+                      if (b.breakType.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: color.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
+                          child: Text(b.breakType, style: TextStyle(color: color, fontSize: 10.5, fontWeight: FontWeight.w700)),
+                        ),
+                      if (temple != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(6)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.star, color: Color(0xFFF59E0B), size: 11),
+                              const SizedBox(width: 2),
+                              Text('${temple.rating}', style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                    ]),
+                    if (temple != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '🛕 Deity: ${temple.deity}',
+                        style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11.5, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.access_time, size: 11, color: Colors.white.withValues(alpha: 0.6)),
+                          const SizedBox(width: 4),
+                          Text(temple.timing, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 10.5)),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '✨ Highlights: ${temple.highlights}',
+                        style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 11, fontStyle: FontStyle.italic),
+                      ),
+                    ],
+                    if (meta.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(meta.join(' · '), style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11.5)),
+                      ),
+                    if (b.reason.isNotEmpty && (temple == null || !b.reason.contains('Deity:')))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(b.reason,
+                            style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11.5, fontStyle: FontStyle.italic)),
+                      ),
+                    if (temple != null && temple.city.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 11, color: Colors.white.withValues(alpha: 0.4)),
+                            const SizedBox(width: 3),
+                            Text('${temple.city}, ${temple.state}', style: TextStyle(color: Colors.white.withValues(alpha: 0.45), fontSize: 10.5)),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),

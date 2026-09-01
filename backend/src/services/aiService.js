@@ -500,27 +500,40 @@ async function smartItinerary({
   return days;
 }
 
+const CURATED_TEMPLES = [
+  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam" },
+  { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Holy Swami Pushkarini bank traditional first darshan" },
+  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", highlight: "Directly opposite main Mahadwaram gopuram" },
+  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", highlight: "Sacred Padma Sarovaram tank blessings" },
+  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", highlight: "Divine wedding post-marriage stay site" },
+  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", highlight: "Sacred mountain waterfall & spring" },
+  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", highlight: "Towering 12th-century Raja Gopuram" },
+  { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja" },
+  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", highlight: "Swayambhu growing Ganesha in water well" },
+  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", highlight: "Hilltop Shakti Peetha & monolithic Nandi" },
+  { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", highlight: "Historic island shrine on Kaveri river" },
+  { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", highlight: "Ancient Kapila river confluence & healing waters" },
+];
+
 function buildFallbackSmartItinerary({ destination, startLocation, places = [], durationDays = 1, startTime = "08:00", preferences = "" }) {
   const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
   const destName = destination || "Destination";
   const startName = startLocation || "Home";
   const days = [];
 
-  const defaultAttractions = places.length > 0 ? places : [
-    `${destName} Historic Palace & Royal Grounds`,
-    `Sri Chamundeshwari Temple & Hilltop Ridge`,
-    `${destName} Heritage Lake & Waterfront Promenade`,
-    `Local Spice, Silk & Handicrafts Bazaar`,
-    `Botanical Gardens & Panoramic Viewpoint`,
-    `Art & Cultural Heritage Museum`,
-    `Sunset Hilltop & Scenic Vista`
-  ];
+  const text = `${destination} ${preferences} ${places.join(" ")}`.toLowerCase();
+  let pool = CURATED_TEMPLES;
+  if (text.includes("tirupati") || text.includes("tirumala") || text.includes("balaji") || text.includes("venkateswara")) {
+    pool = CURATED_TEMPLES.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam"));
+  } else if (text.includes("mysore") || text.includes("mysuru") || text.includes("srirangapatna") || text.includes("mandya")) {
+    pool = CURATED_TEMPLES.filter(t => t.city.includes("Mysuru") || t.city.includes("Srirangapatna") || t.city.includes("Nanjangud"));
+  }
 
-  let placeIdx = 0;
-  function getNextPlace() {
-    const p = defaultAttractions[placeIdx % defaultAttractions.length];
-    placeIdx++;
-    return p;
+  let templeIdx = 0;
+  function getNextTemple() {
+    const t = pool[templeIdx % pool.length];
+    templeIdx++;
+    return t;
   }
 
   for (let d = 1; d <= total; d++) {
@@ -539,7 +552,7 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         travelMin: 150,
         distanceKm: 145,
         travelMode: "drive",
-        reason: "Scenic highway drive with morning traffic clearance"
+        reason: "Scenic morning highway drive with traffic clearance"
       });
       blocks.push({
         start: "10:30",
@@ -549,40 +562,40 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         place: "Highway Cafe / Diner",
         durationMin: 45,
         breakType: "breakfast",
-        reason: "Traditional filter coffee and light snack break"
+        reason: "Traditional South Indian filter coffee & hot tiffin"
       });
       blocks.push({
         start: "11:45",
         end: "12:30",
         type: "checkin",
-        title: `Hotel Check-in & Unpack in ${destName}`,
-        place: `${destName} Grand Stay / Resort`,
+        title: `Hotel Check-in & Freshen Up in ${destName}`,
+        place: `${destName} Pilgrimage Stay / Hotel`,
         durationMin: 45,
-        reason: "Check in, freshen up and relax before afternoon exploration"
+        reason: "Check in, deposit luggage, and prepare for auspicious darshan"
       });
     } else {
       blocks.push({
         start: "08:00",
         end: "09:00",
         type: "meal",
-        title: "Morning Breakfast at Hotel / Cafe",
-        place: `${destName} Local Eatery`,
+        title: `Morning Breakfast in ${destName}`,
+        place: `${destName} Tiffin Center`,
         durationMin: 60,
         breakType: "breakfast",
-        reason: "Fresh local breakfast to start the day energised"
+        reason: "Traditional morning breakfast to energise for the pilgrimage"
       });
     }
 
     // Morning / Afternoon Activity
-    const p1 = getNextPlace();
+    const t1 = getNextTemple();
     blocks.push({
       start: isFirst ? "12:30" : "09:30",
       end: isFirst ? "14:00" : "12:30",
       type: "activity",
-      title: `Visit & Explore ${p1}`,
-      place: p1,
+      title: `Darshan at ${t1.name}`,
+      place: `${t1.name}, ${t1.city}`,
       durationMin: isFirst ? 90 : 180,
-      reason: "Top-rated cultural and architectural highlight"
+      reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating} · ${t1.highlight}`
     });
 
     // Lunch
@@ -591,34 +604,34 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       end: isFirst ? "15:00" : "14:00",
       type: "meal",
       title: `Traditional Lunch in ${destName}`,
-      place: "Local Heritage Restaurant",
+      place: "Authentic Pure Vegetarian Restaurant",
       durationMin: 60,
       breakType: "lunch",
-      reason: "Authentic regional thali and specialties"
+      reason: "Sacred thali meals & prasadam refreshments"
     });
 
     // Afternoon Activity
-    const p2 = getNextPlace();
+    const t2 = getNextTemple();
     blocks.push({
       start: "15:15",
       end: "17:30",
       type: "activity",
-      title: `Sightseeing at ${p2}`,
-      place: p2,
+      title: `Visit ${t2.name}`,
+      place: `${t2.name}, ${t2.city}`,
       durationMin: 135,
-      reason: "Immerse in scenic views and vibrant local heritage"
+      reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating} · ${t2.highlight}`
     });
 
-    // Evening Coffee / Sunset
+    // Evening Tea / Sunset
     blocks.push({
       start: "17:45",
       end: "18:45",
       type: "coffee",
-      title: "Sunset Views & Evening Tea",
-      place: "Panoramic Hill / Lakeside Viewpoint",
+      title: "Evening Sunset & Tea Break",
+      place: "Scenic Viewpoint / Temple Promenade",
       durationMin: 60,
       breakType: "coffee",
-      reason: "Golden hour photography and relaxing refreshments"
+      reason: "Golden hour views and refreshing evening tea"
     });
 
     if (isLast) {
