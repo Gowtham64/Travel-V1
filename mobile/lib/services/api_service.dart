@@ -413,12 +413,7 @@ class ApiService {
     }
 
     // High-speed Photon OSM Proximity Search (global, free, zero restriction)
-    final photonResults = await _fetchPOIsWithPhoton(sampledCoords, activeCategories);
-    if (photonResults.values.any((l) => l.isNotEmpty)) {
-      return photonResults;
-    }
-
-    return await _fetchPOIsWithMapboxFallback(sampledCoords, activeCategories);
+    return await _fetchPOIsWithPhoton(sampledCoords, activeCategories);
   }
 
   Future<Map<String, List<PlaceOfInterest>>> _fetchPOIsWithPhoton(
