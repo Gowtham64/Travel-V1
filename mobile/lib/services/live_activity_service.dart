@@ -44,6 +44,7 @@ class LiveActivityService {
     double? nextStopDistanceKm,
     int? remainingStopsCount,
     String? currentVehicleType,
+    List<String>? activeStops,
   }) async {
     if (!_isIOS) return;
     try {
@@ -56,6 +57,7 @@ class LiveActivityService {
         if (nextStopDistanceKm != null) 'nextStopDistanceKm': nextStopDistanceKm,
         if (remainingStopsCount != null) 'remainingStopsCount': remainingStopsCount,
         if (currentVehicleType != null) 'currentVehicleType': currentVehicleType,
+        if (activeStops != null) 'activeStops': activeStops,
       });
     } catch (_) {/* no-op */}
   }

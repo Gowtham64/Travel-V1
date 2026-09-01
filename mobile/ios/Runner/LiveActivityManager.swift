@@ -45,7 +45,8 @@ final class LiveActivityManager {
             nextStopName: stops.first,
             nextStopDistanceKm: nil,
             remainingStopsCount: stops.count,
-            currentVehicleType: vehicleType
+            currentVehicleType: vehicleType,
+            activeStops: stops
         )
         do {
             if #available(iOS 16.2, *) {
@@ -70,7 +71,8 @@ final class LiveActivityManager {
         nextStopName: String? = nil,
         nextStopDistanceKm: Double? = nil,
         remainingStopsCount: Int? = nil,
-        currentVehicleType: String? = nil
+        currentVehicleType: String? = nil,
+        activeStops: [String]? = nil
     ) {
         guard let activity = activity else { return }
         let state = TripActivityAttributes.ContentState(
@@ -81,7 +83,8 @@ final class LiveActivityManager {
             nextStopName: nextStopName,
             nextStopDistanceKm: nextStopDistanceKm,
             remainingStopsCount: remainingStopsCount,
-            currentVehicleType: currentVehicleType
+            currentVehicleType: currentVehicleType,
+            activeStops: activeStops
         )
         Task {
             if #available(iOS 16.2, *) {

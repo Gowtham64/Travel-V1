@@ -1251,18 +1251,54 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ));
     }
 
-    // Selected places to visit (waypoints) pins (pop up as passed)
+    // All stop points (waypoints) pins — ALWAYS visible on the map with clear labels and stop numbers!
     for (int i = 0; i < _currentWaypoints.length; i++) {
       final wp = _currentWaypoints[i];
-      if (!_isPointVisited(wp)) continue;
-      
+      final isVisited = _isPointVisited(wp);
       final wpKey = '${wp.lat},${wp.lng}';
       final name = wp.name ?? _resolvedAddresses[wpKey] ?? 'Stop ${i + 1}';
-      markers.add(_pin(
-        wp.toLatLng(),
-        Icons.location_on,
-        const Color(0xFF2E75B6),
-        label: name,
+      
+      markers.add(Marker(
+        point: wp.toLatLng(),
+        width: 140,
+        height: 65,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+              decoration: BoxDecoration(
+                color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(8),
+                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+              ),
+              child: Text(
+                '📍 Stop ${i + 1}: $name',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(color: (isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.5), blurRadius: 6),
+                ],
+                border: Border.all(color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B), width: 2.5),
+              ),
+              child: Center(
+                child: isVisited
+                    ? const Icon(Icons.check, color: Color(0xFF10B981), size: 18)
+                    : Text('${i + 1}', style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+              ),
+            ),
+          ],
+        ),
       ));
     }
 
@@ -2660,6 +2696,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Refresh the live trip-progress notification / Live Activity.
     final arriving = remainingKm < 0.15;
+    final stopsList = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
     TripNotificationService.instance.update(
       destination: widget.endAddress,
       etaText: telemetry.formattedEta,
@@ -2671,6 +2708,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       nextStopDistanceKm: nextStopDistanceKm,
       remainingStopsCount: remainingStops,
       currentVehicleType: widget.modelSubtype ?? widget.vehicle.type,
+      activeStops: stopsList,
     );
   }
 

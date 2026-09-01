@@ -58,6 +58,7 @@ class TripNotificationService {
     double? nextStopDistanceKm,
     int? remainingStopsCount,
     String? currentVehicleType,
+    List<String>? activeStops,
   }) async {
     if (kIsWeb || !_active) return;
     try {
@@ -81,6 +82,7 @@ class TripNotificationService {
       nextStopDistanceKm: nextStopDistanceKm,
       remainingStopsCount: remainingStopsCount,
       currentVehicleType: currentVehicleType,
+      activeStops: activeStops,
     );
   }
 

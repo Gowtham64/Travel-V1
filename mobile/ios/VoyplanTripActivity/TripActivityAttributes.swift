@@ -15,6 +15,7 @@ struct TripActivityAttributes: ActivityAttributes {
         var nextStopDistanceKm: Double?
         var remainingStopsCount: Int?
         var currentVehicleType: String?
+        var activeStops: [String]?
     }
 
     /// Fixed for the whole activity.

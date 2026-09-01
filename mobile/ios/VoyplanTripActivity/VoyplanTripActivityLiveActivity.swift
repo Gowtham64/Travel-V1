@@ -48,6 +48,10 @@ struct VoyplanTripActivityLiveActivity: Widget {
         } dynamicIsland: { context in
             let activeVehicle = context.state.currentVehicleType ?? context.attributes.vehicleType
             let iconName = vehicleIcon(for: activeVehicle)
+            let allStops = (context.state.activeStops != nil && !context.state.activeStops!.isEmpty)
+                ? context.state.activeStops!
+                : (!context.attributes.stops.isEmpty ? context.attributes.stops : (context.state.nextStopName != nil ? [context.state.nextStopName!] : []))
+            
             return DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     HStack(spacing: 6) {
@@ -80,7 +84,7 @@ struct VoyplanTripActivityLiveActivity: Widget {
                                 .font(.system(size: 11))
                             if let nextStop = context.state.nextStopName, !nextStop.isEmpty {
                                 Text("Next: \(shortName(nextStop))")
-                                    .font(.system(size: 11, weight: .semibold))
+                                    .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(Self.amber)
                             } else {
                                 Text("To \(shortName(context.attributes.destination))")
@@ -93,7 +97,7 @@ struct VoyplanTripActivityLiveActivity: Widget {
                         TrackerLineView(
                             progress: CGFloat(max(0.02, min(0.98, context.state.progress))),
                             iconName: iconName,
-                            stops: context.attributes.stops,
+                            stops: allStops,
                             nextStop: context.state.nextStopName
                         )
                     }
@@ -149,22 +153,50 @@ private struct LockScreenView: View {
         let dest = shortName(context.attributes.destination)
         let orig = shortName(context.attributes.startPoint)
         let nextStop = context.state.nextStopName != nil ? shortName(context.state.nextStopName!) : nil
+        let allStops = (context.state.activeStops != nil && !context.state.activeStops!.isEmpty)
+            ? context.state.activeStops!
+            : (!context.attributes.stops.isEmpty ? context.attributes.stops : (context.state.nextStopName != nil ? [context.state.nextStopName!] : []))
         let progress = CGFloat(max(0.04, min(0.96, context.state.progress)))
 
         VStack(alignment: .leading, spacing: 6) {
-            // Row 1: Source / Segment Header + Brand Logo (Zomato-style)
-            HStack {
+            // Row 1: Source ➔ Stop Points ➔ Destination Route Trail + Brand Logo
+            HStack(spacing: 4) {
                 Text(orig)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.white.opacity(0.65))
+                    .lineLimit(1)
+                
+                if !allStops.isEmpty {
+                    ForEach(allStops.prefix(2), id: \.self) { st in
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 8))
+                            .foregroundColor(.white.opacity(0.35))
+                        Text(shortName(st))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(amber)
+                            .lineLimit(1)
+                    }
+                    if allStops.count > 2 {
+                        Text("+\(allStops.count - 2)")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(amber)
+                    }
+                }
+                
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8))
+                    .foregroundColor(.white.opacity(0.35))
+                Text(dest)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
                     .lineLimit(1)
                 
                 Spacer()
                 
                 Text("voyplan")
-                    .font(.system(size: 16, weight: .heavy, design: .rounded))
+                    .font(.system(size: 15, weight: .heavy, design: .rounded))
                     .foregroundColor(.white)
-                    .tracking(-0.4)
+                    .tracking(-0.3)
             }
             .padding(.bottom, 1)
 
@@ -172,7 +204,7 @@ private struct LockScreenView: View {
             Text(context.state.arriving 
                  ? "Arriving at \(dest)"
                  : (nextStop != nil ? "Heading to \(nextStop!)" : "Driving to \(dest)"))
-                .font(.system(size: 21, weight: .bold))
+                .font(.system(size: 20, weight: .bold))
                 .foregroundColor(.white)
                 .lineLimit(1)
 
@@ -194,16 +226,44 @@ private struct LockScreenView: View {
                     .font(.system(size: 12))
                     .foregroundColor(.white.opacity(0.6))
             }
-            .padding(.bottom, 6)
+            .padding(.bottom, 4)
 
-            // Row 4: Custom Moving Vehicle Track (Zomato-Style)
+            // Row 4: Custom Moving Vehicle Track (Zomato-Style with Stop Nodes)
             TrackerLineView(
                 progress: progress,
                 iconName: iconName,
-                stops: context.attributes.stops,
+                stops: allStops,
                 nextStop: context.state.nextStopName
             )
             .frame(height: 32)
+
+            // Row 5: Next Stop Point Pill Badge (if intermediate stops exist)
+            if let ns = nextStop, !ns.isEmpty {
+                HStack(spacing: 6) {
+                    Image(systemName: "mappin.and.ellipse")
+                        .foregroundColor(amber)
+                        .font(.system(size: 11, weight: .bold))
+                    Text("Next Stop: \(ns)")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(amber)
+                        .lineLimit(1)
+                    if let d = context.state.nextStopDistanceKm, d > 0 {
+                        Text("· \(String(format: "%.1f", d)) km")
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+                    Spacer()
+                    if let rem = context.state.remainingStopsCount, rem > 1 {
+                        Text("(\(rem) stops left)")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.white.opacity(0.5))
+                    }
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(amber.opacity(0.12))
+                .cornerRadius(6)
+            }
         }
     }
 }

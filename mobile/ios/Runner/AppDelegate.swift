@@ -63,7 +63,8 @@ import UserNotifications
         nextStopName: args["nextStopName"] as? String,
         nextStopDistanceKm: args["nextStopDistanceKm"] as? Double,
         remainingStopsCount: args["remainingStopsCount"] as? Int,
-        currentVehicleType: args["currentVehicleType"] as? String
+        currentVehicleType: args["currentVehicleType"] as? String,
+        activeStops: args["activeStops"] as? [String]
       )
     case "end":
       LiveActivityManager.shared.end()
