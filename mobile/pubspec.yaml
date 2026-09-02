@@ -33,8 +33,24 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.1
+
+# Voyplan app icon generation. Run: dart run flutter_launcher_icons
+flutter_launcher_icons:
+  image_path: "assets/icon/voyplan.png"
+  android: true
+  adaptive_icon_background: "#0f766e"
+  adaptive_icon_foreground: "assets/icon/voyplan_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/voyplan.png"
+    background_color: "#0f766e"
+    theme_color: "#0f766e"
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/icon/
