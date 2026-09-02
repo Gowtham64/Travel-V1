@@ -21,13 +21,19 @@ if [ -z "${MAPBOX_TOKEN:-}" ]; then
     echo "    Run: export MAPBOX_TOKEN=pk.your_token   before deploying."
 fi
 # The base href must point to the subdirectory where the app will live.
-flutter build web --base-href "/Travel-V1/app/" --release \
+# Custom domain (voyplan.in) serves the site at the ROOT, so the app lives at
+# /app/ (not /Travel-V1/app/).
+flutter build web --base-href "/app/" --release \
     --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN:-}"
 cd .. # back to project root
 
 echo "=== Step 3: Preparing deployment directory ==="
 # Prevent GitHub Pages from processing with Jekyll (ensures all Flutter web files serve correctly)
 touch $DEPLOY_DIR/.nojekyll
+# Custom domain for GitHub Pages. This file MUST be re-created on every deploy —
+# the force-push replaces the whole gh-pages branch, so without it GitHub drops
+# the custom domain and the site reverts to gowtham64.github.io/Travel-V1.
+echo "voyplan.in" > $DEPLOY_DIR/CNAME
 # Landing site lives under web/ ; everything there is served at the site root.
 cp web/index.html $DEPLOY_DIR/
 for f in ios-install.html privacy.html terms.html favicon.png favicon.svg preview.png manifest.json manifest.plist apps.json; do
