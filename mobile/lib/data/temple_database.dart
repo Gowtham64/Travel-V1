@@ -581,14 +581,25 @@ class TempleDatabase {
     final destClean = destination.toLowerCase();
     final text = '$destination $preferences ${places.join(" ")}'.toLowerCase();
 
-    // 1. Explicit Custom Places Passed by User
+    // 1. Explicit Custom Places Passed by User.
+    // Generic words ("Temples", "Darshan", "sightseeing"…) are NOT real place
+    // names — if we turned them into placeholders we'd shadow the rich
+    // destination database (e.g. a "Temples" trip to Tirupati would show
+    // "Darshan at Temples" instead of "…at Sri Venkateswara Swamy Temple").
+    // So we resolve real names, keep specific custom places, and skip generic
+    // terms so the destination-specific pools below can fill in the real names.
+    const genericPlaceTerms = {
+      'temple', 'temples', 'darshan', 'darshanam', 'attraction', 'attractions',
+      'sightseeing', 'places', 'tourist place', 'tourist places', 'landmark',
+      'landmarks', 'shrine', 'shrines', 'point', 'points', 'spot', 'spots',
+    };
     if (places.isNotEmpty) {
       final res = <TempleInfo>[];
       for (final p in places) {
         final match = findTemple(p);
         if (match != null) {
           res.add(match);
-        } else {
+        } else if (!genericPlaceTerms.contains(p.toLowerCase().trim())) {
           res.add(TempleInfo(
             canonicalName: p,
             aliases: [p.toLowerCase()],
@@ -604,7 +615,11 @@ class TempleDatabase {
             recommendedDarshanMinutes: 100,
           ));
         }
+        // Generic term → skip, let the destination-specific pool provide the
+        // real temple names below.
       }
+      // Only short-circuit when we actually resolved specific places; if every
+      // entry was a generic term, fall through to the destination pools.
       if (res.isNotEmpty) return res;
     }
 

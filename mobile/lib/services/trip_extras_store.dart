@@ -100,7 +100,6 @@ class TripExtrasStore {
         final rows = await Supabase.instance.client
             .from('trips')
             .select('*')
-            .eq('user_id', user.id)
             .order('created_at', ascending: false);
         if (rows is List) {
           for (final r in rows) {
@@ -136,7 +135,13 @@ class TripExtrasStore {
       }
     }
 
-    // Two-way Supabase Cloud Sync
+    // Two-way Supabase Cloud Sync.
+    // NOTE: we deliberately do NOT use upsert(onConflict: 'user_id, name') —
+    // the trips table has no unique constraint on (user_id, name), so that
+    // upsert throws (Postgres 42P10) and was silently swallowed, meaning
+    // itineraries never reached the cloud and never synced across devices.
+    // Instead: delete this itinerary's previous cloud copy (matched by its
+    // tripKey) and insert a fresh row.
     if (items.isNotEmpty) {
       try {
         final user = Supabase.instance.client.auth.currentUser;
@@ -144,9 +149,23 @@ class TripExtrasStore {
           final planName = name.isNotEmpty ? name : 'My Trip Plan';
           final firstPlace = items.expand((d) => d.items).firstOrNull?.text ?? 'Start';
           final lastPlace = items.expand((d) => d.items).lastOrNull?.text ?? 'Destination';
-          
-          await Supabase.instance.client.from('trips').upsert({
+
+          // Remove any prior cloud copy of THIS itinerary (keyed by tripKey).
+          try {
+            await Supabase.instance.client
+                .from('trips')
+                .delete()
+                .eq('user_id', user.id)
+                .filter('end_point->>tripKey', 'eq', tripKey);
+          } catch (e) {
+            debugPrint('Cloud saveDays cleanup note: $e');
+          }
+
+          await Supabase.instance.client.from('trips').insert({
             'user_id': user.id,
+            // Email-stamp so the itinerary syncs across the user's other
+            // sign-in identities that share the same verified email.
+            if (user.email != null) 'owner_email': user.email!.toLowerCase(),
             'name': planName,
             'start_point': {'name': firstPlace, 'lat': 12.9716, 'lng': 77.5946},
             'end_point': {
@@ -157,7 +176,7 @@ class TripExtrasStore {
               'itinerary': items.map((e) => e.toJson()).toList(),
             },
             'vehicle_type': 'car',
-          }, onConflict: 'user_id, name');
+          });
         }
       } catch (e) {
         debugPrint('Cloud saveDays note: $e');
@@ -208,7 +227,6 @@ class TripExtrasStore {
         final rows = await Supabase.instance.client
             .from('trips')
             .select('*')
-            .eq('user_id', user.id)
             .order('created_at', ascending: false);
 
         if (rows is List && rows.isNotEmpty) {
