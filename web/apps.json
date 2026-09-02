@@ -17,7 +17,7 @@
       "screenshotURLs": [],
       "version": "0.1.1",
       "versionDate": "2026-08-30",
-      "versionDescription": "Latest build: AI planning (Gemini), international budgets, booking suggestions, Start Trip active view, and travel gallery.",
+      "versionDescription": "Latest build: AI planning, international budgets, booking suggestions, Start Trip active view, and travel gallery.",
       "downloadURL": "https://voyplan.in/Voyplan.ipa",
       "size": 20523449,
       "minOSVersion": "13.0",
@@ -25,7 +25,7 @@
         {
           "version": "0.1.1",
           "date": "2026-08-30",
-          "localizedDescription": "Latest build: AI planning (Gemini), international budgets, booking suggestions, Start Trip active view, and travel gallery.",
+          "localizedDescription": "Latest build: AI planning, international budgets, booking suggestions, Start Trip active view, and travel gallery.",
           "downloadURL": "https://voyplan.in/Voyplan.ipa",
           "size": 20523449,
           "minOSVersion": "13.0"
