@@ -1195,6 +1195,9 @@ class ApiService {
       startTime: startTime,
       travellers: travellers,
       fuelEfficiency: fuelEfficiency,
+      selectedCategories: selectedCategories,
+      categoryPriorities: categoryPriorities,
+      customPreferences: customPreferences,
     );
   }
 
@@ -1217,19 +1220,19 @@ class ApiService {
             'part': 'Morning',
             'time': '08:00',
             'title': isFirst ? 'Drive from $start to $end' : 'Breakfast & Morning Sights in $end',
-            'note': isFirst ? 'Scenic morning drive along the highway' : 'Fresh regional breakfast and temple visit',
+            'note': isFirst ? 'Scenic morning drive along the highway' : 'Fresh regional breakfast and sightseeing visit',
           },
           {
             'part': 'Afternoon',
             'time': '13:00',
             'title': 'Heritage Exploration & Lunch',
-            'note': 'Authentic thali meal and iconic palace/monument visit',
+            'note': 'Authentic meal and iconic landmark/heritage visit',
           },
           {
             'part': 'Evening',
             'time': '17:30',
             'title': isLast ? 'Sunset Return Drive to $start' : 'Sunset Viewpoint & Local Bazaar',
-            'note': isLast ? 'Comfortable highway return journey' : 'Tea, photography and local handicraft shopping',
+            'note': isLast ? 'Comfortable highway return journey' : 'Tea, photography and local shopping',
           },
           {
             'part': 'Night',
@@ -1252,49 +1255,189 @@ class ApiService {
     required String startTime,
     required int travellers,
     double? fuelEfficiency,
+    List<String> selectedCategories = const [],
+    Map<String, String> categoryPriorities = const {},
+    String customPreferences = '',
   }) {
     final total = math.max(1, math.min(durationDays, 14));
     final destName = destination.isNotEmpty ? destination : 'Destination';
     final startName = startLocation.isNotEmpty ? startLocation : 'Home';
     final daysList = <SmartDay>[];
 
-    final pool = TempleDatabase.getAttractionPool(
-      destination: destination,
-      preferences: preferences,
-      places: places,
-    );
+    final cleanCity = destName.split(',').first.trim();
+    final text = '$destination $preferences $customPreferences ${places.join(" ")}'.toLowerCase();
 
-    final List<TempleInfo> templePool = pool.isNotEmpty ? pool : TempleDatabase.allTemples;
-    int templeIdx = 0;
+    // 1. Comprehensive attraction database across 16 categories
+    final allAttractions = <_FallbackAttraction>[
+      // --- Mumbai ---
+      const _FallbackAttraction(name: 'Gateway of India & Apollo Bunder', city: 'Mumbai', rating: '4.8', durationMin: 90, highlight: 'Iconic 1924 basalt arch monument overlooking Mumbai harbour', categories: ['Historical & Heritage Places', 'Monuments & Landmarks', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'Bandra-Worli Sea Link & Sea View Promenade', city: 'Mumbai', rating: '4.8', durationMin: 60, highlight: 'Spectacular 8-lane cable-stayed bridge spanning the Arabian Sea', categories: ['Famous Bridges / Dams', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Marine Drive & Queen\'s Necklace Viewpoint', city: 'Mumbai', rating: '4.8', durationMin: 90, highlight: 'Curved 3.6 km coastal promenade with sweeping sunset Arabian sea views', categories: ['Viewpoints & Scenic Places', 'Famous City Attractions', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Chhatrapati Shivaji Maharaj Terminus (CSMT)', city: 'Mumbai', rating: '4.8', durationMin: 60, highlight: 'UNESCO World Heritage Victorian Gothic architecture & illuminated facade', categories: ['Historical & Heritage Places', 'Monuments & Landmarks', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'Elephanta Caves & Island Ferry', city: 'Mumbai', rating: '4.7', durationMin: 180, highlight: 'Rock-cut 5th-century cave temples of Lord Shiva reached by scenic boat ride', categories: ['Historical & Heritage Places', 'Cultural Places', 'Rivers, Lakes & Waterfalls']),
+      const _FallbackAttraction(name: 'Sanjay Gandhi National Park & Kanheri Caves', city: 'Mumbai', rating: '4.7', durationMin: 180, highlight: 'Protected green forest reserve with ancient Buddhist caves and tiger safari', categories: ['Wildlife & National Parks', 'Nature & Forests', 'Hills & Mountains']),
+      const _FallbackAttraction(name: 'Juhu Beach & Street Food Boulevard', city: 'Mumbai', rating: '4.6', durationMin: 90, highlight: 'Sunset beach with famous Pav Bhaji, Bhel Puri and Arabian Sea breezes', categories: ['Beaches', 'Famous Markets & Local Places', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'Colaba Causeway & Heritage Art District', city: 'Mumbai', rating: '4.7', durationMin: 90, highlight: 'Bustling artisanal shopping bazaar, vintage cafes and art galleries', categories: ['Famous Markets & Local Places', 'Cultural Places']),
+      const _FallbackAttraction(name: 'Malabar Hill & Hanging Gardens', city: 'Mumbai', rating: '4.6', durationMin: 60, highlight: 'Terraced hilltop gardens with panoramic views of the city skyline', categories: ['Hills & Mountains', 'Viewpoints & Scenic Places', 'Nature & Forests']),
+      const _FallbackAttraction(name: 'Shree Siddhivinayak Temple', city: 'Mumbai', rating: '4.8', durationMin: 75, highlight: 'Historic 1801 gold-plated sanctum dedicated to Lord Ganesha', categories: ['Temples & Religious Places']),
 
-    TempleInfo getNextTemple() {
-      final t = templePool[templeIdx % templePool.length];
-      templeIdx++;
+      // --- Mysuru ---
+      const _FallbackAttraction(name: 'Mysore Palace (Amba Vilas)', city: 'Mysuru', rating: '4.8', durationMin: 150, highlight: 'Golden Throne, stained glass Kalyana Mantapa & illuminated royal durbar', categories: ['Forts & Palaces', 'Historical & Heritage Places', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'Brindavan Gardens & Musical Dancing Fountain', city: 'Mysuru', rating: '4.7', durationMin: 120, highlight: 'Terraced botanical gardens and synchronized musical dancing fountains', categories: ['Nature & Forests', 'Rivers, Lakes & Waterfalls', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'Sri Chamarajendra Zoological Gardens (Mysore Zoo)', city: 'Mysuru', rating: '4.8', durationMin: 150, highlight: 'Historic 1892 sanctuary with giraffes, big cats & exotic birds', categories: ['Wildlife & National Parks', 'Nature & Forests', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'KRS Dam (Krishna Raja Sagara Dam)', city: 'Mysuru', rating: '4.7', durationMin: 90, highlight: 'Majestic Kaveri river reservoir dam gates & illuminated walkways', categories: ['Famous Bridges / Dams', 'Rivers, Lakes & Waterfalls', 'Viewpoints & Scenic Places']),
+      const _FallbackAttraction(name: 'Karanji Lake & Walk-Through Aviary', city: 'Mysuru', rating: '4.6', durationMin: 75, highlight: 'Scenic lake boating, butterfly park & India\'s largest walk-through aviary', categories: ['Rivers, Lakes & Waterfalls', 'Nature & Forests', 'Viewpoints & Scenic Places']),
+      const _FallbackAttraction(name: 'Devaraja Heritage Spice & Silk Market', city: 'Mysuru', rating: '4.7', durationMin: 75, highlight: 'Vibrant 100-year-old market with pure sandalwood, silk & Mysore Pak', categories: ['Famous Markets & Local Places', 'Cultural Places', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'St. Philomena\'s Neo-Gothic Cathedral', city: 'Mysuru', rating: '4.7', durationMin: 45, highlight: 'Twin 175ft spires, stained glass French windows & subterranean crypts', categories: ['Monuments & Landmarks', 'Historical & Heritage Places', 'Cultural Places']),
+      const _FallbackAttraction(name: 'Jaganmohan Palace & Royal Art Gallery', city: 'Mysuru', rating: '4.7', durationMin: 90, highlight: 'Historic royal gallery housing original Raja Ravi Varma oil masterpieces', categories: ['Cultural Places', 'Forts & Palaces', 'Historical & Heritage Places']),
+      const _FallbackAttraction(name: 'Sri Chamundeshwari Temple & Monolithic Nandi', city: 'Chamundi Hills, Mysuru', rating: '4.8', durationMin: 90, highlight: 'Hilltop Shakti Peetha & 16ft monolithic Nandi statue', categories: ['Temples & Religious Places', 'Viewpoints & Scenic Places', 'Hills & Mountains']),
+      const _FallbackAttraction(name: 'Ranganathittu Bird Sanctuary', city: 'Srirangapatna', rating: '4.8', durationMin: 90, highlight: 'Kaveri river boat safari viewing migratory storks, pelicans & crocodiles', categories: ['Wildlife & National Parks', 'Rivers, Lakes & Waterfalls', 'Nature & Forests']),
+
+      // --- Coorg ---
+      const _FallbackAttraction(name: 'Abbey Falls & Hanging Bridge', city: 'Madikeri, Coorg', rating: '4.7', durationMin: 75, highlight: '70ft roaring waterfall surrounded by private coffee and spice estates', categories: ['Rivers, Lakes & Waterfalls', 'Nature & Forests', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Raja\'s Seat Sunset Viewpoint', city: 'Madikeri, Coorg', rating: '4.7', durationMin: 60, highlight: 'Panoramic sunset view over Western Ghats mist-covered valleys', categories: ['Viewpoints & Scenic Places', 'Hills & Mountains', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Dubare Elephant Camp & River Crossing', city: 'Kushalnagar, Coorg', rating: '4.7', durationMin: 120, highlight: 'Interactive elephant care, river boating & white water rafting', categories: ['Wildlife & National Parks', 'Rivers, Lakes & Waterfalls', 'Nature & Forests']),
+      const _FallbackAttraction(name: 'Namdroling Monastery (Golden Temple)', city: 'Bylakuppe, Coorg', rating: '4.8', durationMin: 90, highlight: '40ft gold-plated Buddha statues, ornate Tibetan murals & peace bell', categories: ['Cultural Places', 'Temples & Religious Places', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'Mandalpatti Peak 4x4 Jeep Safari', city: 'Madikeri, Coorg', rating: '4.8', durationMin: 150, highlight: 'Off-road 4x4 adventure through clouds to 4000ft high mountain ridge', categories: ['Hills & Mountains', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Nagarhole National Park (Kabini Safari)', city: 'Coorg / Kabini', rating: '4.8', durationMin: 180, highlight: 'Forest jeep safari spotting wild Asian elephants, leopards & tigers', categories: ['Wildlife & National Parks', 'Nature & Forests']),
+
+      // --- Ooty ---
+      const _FallbackAttraction(name: 'Ooty Botanical Gardens & Victorian Glass House', city: 'Ooty', rating: '4.7', durationMin: 90, highlight: 'Historic 55-acre garden with 20-million-year-old fossilized tree', categories: ['Nature & Forests', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'Doddabetta Peak & Telescope Observatory', city: 'Ooty', rating: '4.7', durationMin: 75, highlight: 'Highest peak in Nilgiris (8650ft) with 360-degree telescope observatory', categories: ['Hills & Mountains', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Ooty Lake & Boating Promenade', city: 'Ooty', rating: '4.6', durationMin: 75, highlight: 'Picturesque mountain lake surrounded by towering eucalyptus groves', categories: ['Rivers, Lakes & Waterfalls', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'Pykara Waterfalls & Lake Speed Boating', city: 'Near Ooty', rating: '4.7', durationMin: 90, highlight: 'Pristine tiered waterfalls and tranquil speed boat lake cruises', categories: ['Rivers, Lakes & Waterfalls', 'Nature & Forests', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Nilgiri Mountain Railway Toy Train', city: 'Ooty / Coonoor', rating: '4.8', durationMin: 120, highlight: 'UNESCO Heritage vintage steam train winding through mist and tunnels', categories: ['Historical & Heritage Places', 'Famous / Must-Visit Places', 'Cultural Places']),
+
+      // --- Bengaluru ---
+      const _FallbackAttraction(name: 'Bangalore Palace & Royal Grounds', city: 'Bengaluru', rating: '4.7', durationMin: 120, highlight: 'Wodeyar Tudor-style fortified turrets, royal ballrooms & manicured lawns', categories: ['Forts & Palaces', 'Historical & Heritage Places', 'Famous / Must-Visit Places']),
+      const _FallbackAttraction(name: 'Lalbagh Botanical Garden & Glass House', city: 'Bengaluru', rating: '4.8', durationMin: 120, highlight: 'Victorian Glass House, lotus lake and 3000-million-year peninsular rock', categories: ['Nature & Forests', 'Famous City Attractions', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Bannerghatta National Park & Safari', city: 'Bengaluru', rating: '4.7', durationMin: 180, highlight: 'Grand wildlife reserve, bus safari and butterfly conservatory', categories: ['Wildlife & National Parks', 'Nature & Forests']),
+      const _FallbackAttraction(name: 'Cubbon Park & Vidhana Soudha Architecture', city: 'Bengaluru', rating: '4.7', durationMin: 75, highlight: 'Neo-Dravidian architecture and shaded colonial park promenades', categories: ['Monuments & Landmarks', 'Nature & Forests', 'Famous City Attractions']),
+      const _FallbackAttraction(name: 'Nandi Hills & Sunrise Cloud-Sea Vista', city: 'Near Bengaluru', rating: '4.8', durationMin: 150, highlight: '4851ft mountain fortress with sea of clouds sunrise view', categories: ['Hills & Mountains', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Commercial Street & Brigade Road Bazaar', city: 'Bengaluru', rating: '4.6', durationMin: 90, highlight: 'Bustling shopping lanes with artisanal silk, crafts and cafes', categories: ['Famous Markets & Local Places', 'Famous City Attractions']),
+    ];
+
+    // Filter candidate places for the destination
+    var cityCandidates = allAttractions.where((a) =>
+      text.contains(a.city.toLowerCase()) ||
+      a.city.toLowerCase().contains(cleanCity.toLowerCase())
+    ).toList();
+
+    // Strict Category Filtering
+    final hasCategoryFilter = selectedCategories.isNotEmpty;
+    final templesAllowed = !hasCategoryFilter || selectedCategories.contains('Temples & Religious Places');
+
+    var pool = <_FallbackAttraction>[];
+
+    if (hasCategoryFilter) {
+      pool = cityCandidates.where((a) =>
+        a.categories.any((c) => selectedCategories.contains(c))
+      ).toList();
+
+      if (!templesAllowed) {
+        pool = pool.where((a) => !a.categories.contains('Temples & Religious Places')).toList();
+      }
+
+      // Prioritize Must Visit
+      pool.sort((a, b) {
+        final aMust = a.categories.any((c) => categoryPriorities[c] == 'must_visit');
+        final bMust = b.categories.any((c) => categoryPriorities[c] == 'must_visit');
+        if (aMust && !bMust) return -1;
+        if (!aMust && bMust) return 1;
+        return 0;
+      });
+
+      // Synthesize missing categories
+      for (final cat in selectedCategories) {
+        if (cat == 'Temples & Religious Places' && !templesAllowed) continue;
+        if (cat == 'Rivers, Lakes & Waterfalls') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Scenic Waterfalls & Lake Promenade', city: cleanCity, rating: '4.8', durationMin: 90, highlight: 'Cascading natural waterfalls and serene water promenade', categories: const ['Rivers, Lakes & Waterfalls', 'Nature & Forests']));
+        } else if (cat == 'Viewpoints & Scenic Places') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Panoramic Hilltop Valley Viewpoint', city: cleanCity, rating: '4.8', durationMin: 60, highlight: 'Breathtaking 360-degree landscape and golden hour sunset vista', categories: const ['Viewpoints & Scenic Places', 'Hills & Mountains', 'Instagrammable / Photography Spots']));
+        } else if (cat == 'Forts & Palaces') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Historic Royal Fort & Palace Grounds', city: cleanCity, rating: '4.8', durationMin: 120, highlight: 'Grand royal durbar architecture and fortified courtyard grounds', categories: const ['Forts & Palaces', 'Historical & Heritage Places', 'Famous / Must-Visit Places']));
+        } else if (cat == 'Beaches') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Sunset Beach & Coastal Promenade', city: cleanCity, rating: '4.8', durationMin: 90, highlight: 'Golden sand coastline, sea breeze and evening coastal sunset', categories: const ['Beaches', 'Viewpoints & Scenic Places']));
+        } else if (cat == 'Wildlife & National Parks') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Wildlife Sanctuary & Nature Safari', city: cleanCity, rating: '4.8', durationMin: 150, highlight: 'Protected natural fauna habitat and guided flora safari', categories: const ['Wildlife & National Parks', 'Nature & Forests']));
+        } else if (cat == 'Nature & Forests') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Lush Botanical Gardens & Forest Reserve', city: cleanCity, rating: '4.7', durationMin: 90, highlight: 'Scenic canopy walkways, rare flora and peaceful nature trails', categories: const ['Nature & Forests', 'Rivers, Lakes & Waterfalls']));
+        } else if (cat == 'Famous Markets & Local Places') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Traditional Artisan Bazaar & Market', city: cleanCity, rating: '4.7', durationMin: 75, highlight: 'Vibrant local market with regional handicrafts, spices and food', categories: const ['Famous Markets & Local Places', 'Cultural Places']));
+        } else if (cat == 'Historical & Heritage Places') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Ancient Heritage Monument & Museum', city: cleanCity, rating: '4.8', durationMin: 90, highlight: 'Historic archaeology, royal artifacts and architectural legacy', categories: const ['Historical & Heritage Places', 'Monuments & Landmarks']));
+        } else if (cat == 'Hills & Mountains') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Misty Mountain Peak & Ridge Lookout', city: cleanCity, rating: '4.8', durationMin: 120, highlight: 'High altitude clouds, mountain breeze and valley vistas', categories: const ['Hills & Mountains', 'Viewpoints & Scenic Places']));
+        } else if (cat == 'Famous Bridges / Dams') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Iconic Bridge & River Gateway', city: cleanCity, rating: '4.7', durationMin: 75, highlight: 'Towering river gateway and illuminated bridge walkways', categories: const ['Famous Bridges / Dams', 'Viewpoints & Scenic Places']));
+        } else if (cat == 'Cultural Places') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Cultural Heritage & Arts Center', city: cleanCity, rating: '4.7', durationMin: 90, highlight: 'Traditional folklore, handicrafts and live cultural exhibits', categories: const ['Cultural Places', 'Famous / Must-Visit Places']));
+        } else if (cat == 'Instagrammable / Photography Spots') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Panoramic Sunset Photography Spot', city: cleanCity, rating: '4.8', durationMin: 60, highlight: 'Picture-perfect photo point with scenic framing and golden hour light', categories: const ['Instagrammable / Photography Spots', 'Viewpoints & Scenic Places']));
+        } else if (cat == 'Famous City Attractions') {
+          pool.add(_FallbackAttraction(name: '$cleanCity City Center Plaza & Promenade', city: cleanCity, rating: '4.7', durationMin: 75, highlight: 'Iconic downtown landmark and leisure walking boulevard', categories: const ['Famous City Attractions', 'Monuments & Landmarks']));
+        } else if (cat == 'Monuments & Landmarks') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Historic Monument & Landmark Tower', city: cleanCity, rating: '4.7', durationMin: 60, highlight: 'Iconic landmark celebrating regional history and architecture', categories: const ['Monuments & Landmarks', 'Historical & Heritage Places']));
+        } else if (cat == 'Temples & Religious Places') {
+          pool.add(_FallbackAttraction(name: '$cleanCity Sacred Spiritual Sanctum', city: cleanCity, rating: '4.8', durationMin: 75, highlight: 'Historic sanctum, spiritual heritage and traditional architecture', categories: const ['Temples & Religious Places', 'Historical & Heritage Places']));
+        }
+      }
+    } else {
+      pool = cityCandidates.isNotEmpty
+          ? cityCandidates
+          : [
+              _FallbackAttraction(name: '$cleanCity Historic Heritage Monument', city: cleanCity, rating: '4.8', durationMin: 120, highlight: 'Iconic architecture and scenic courtyard grounds', categories: const ['Historical & Heritage Places', 'Famous / Must-Visit Places']),
+              _FallbackAttraction(name: '$cleanCity Waterfront Promenade & Gardens', city: cleanCity, rating: '4.7', durationMin: 75, highlight: 'Lush botanical walkways and sunset fountain viewing', categories: const ['Rivers, Lakes & Waterfalls', 'Nature & Forests']),
+              _FallbackAttraction(name: '$cleanCity Panoramic Hilltop Vista', city: cleanCity, rating: '4.8', durationMin: 60, highlight: 'Golden hour photography and panoramic valley views', categories: const ['Viewpoints & Scenic Places', 'Hills & Mountains']),
+              _FallbackAttraction(name: '$cleanCity Traditional Artisan Bazaar', city: cleanCity, rating: '4.6', durationMin: 90, highlight: 'Authentic local delicacies, handicrafts and regional souvenirs', categories: const ['Famous Markets & Local Places', 'Cultural Places']),
+            ];
+    }
+
+    // Deduplicate pool
+    final seen = <String>{};
+    pool = pool.where((p) => seen.add(p.name)).toList();
+
+    int placeIdx = 0;
+    _FallbackAttraction getNextAttraction() {
+      final t = pool[placeIdx % pool.length];
+      placeIdx++;
       return t;
     }
 
     // Realistic highway distance estimation
     double estimatedKm = 145.0;
     final pair = '$startName $destName'.toLowerCase();
-    if (pair.contains('mandya') && (pair.contains('tirupati') || pair.contains('tirumala'))) {
-      estimatedKm = 345.0;
-    } else if (pair.contains('bengaluru') || pair.contains('bangalore')) {
-      if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 250.0;
-      else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 145.0;
-      else if (pair.contains('coorg') || pair.contains('madikeri')) estimatedKm = 265.0;
-      else if (pair.contains('ooty')) estimatedKm = 280.0;
-      else if (pair.contains('chennai')) estimatedKm = 350.0;
-      else if (pair.contains('goa')) estimatedKm = 560.0;
-      else if (pair.contains('hampi')) estimatedKm = 340.0;
-    } else if (pair.contains('mysore') || pair.contains('mysuru')) {
-      if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 385.0;
-      else if (pair.contains('coorg') || pair.contains('madikeri')) estimatedKm = 120.0;
-      else if (pair.contains('ooty')) estimatedKm = 125.0;
-    } else if (pair.contains('chennai') && (pair.contains('tirupati') || pair.contains('tirumala'))) {
-      estimatedKm = 135.0;
+    if (pair.contains('bengaluru') || pair.contains('bangalore')) {
+      if (pair.contains('mumbai')) {
+        estimatedKm = 985.0;
+      } else if (pair.contains('delhi')) {
+        estimatedKm = 2150.0;
+      } else if (pair.contains('hyderabad')) {
+        estimatedKm = 570.0;
+      } else if (pair.contains('tirupati') || pair.contains('tirumala')) {
+        estimatedKm = 250.0;
+      } else if (pair.contains('mysore') || pair.contains('mysuru')) {
+        estimatedKm = 145.0;
+      } else if (pair.contains('coorg') || pair.contains('madikeri')) {
+        estimatedKm = 265.0;
+      } else if (pair.contains('ooty')) {
+        estimatedKm = 280.0;
+      } else if (pair.contains('chennai')) {
+        estimatedKm = 350.0;
+      } else if (pair.contains('goa')) {
+        estimatedKm = 560.0;
+      } else if (pair.contains('hampi')) {
+        estimatedKm = 340.0;
+      }
+    } else if (pair.contains('mumbai')) {
+      if (pair.contains('pune')) estimatedKm = 150.0;
+      else if (pair.contains('goa')) estimatedKm = 585.0;
+      else if (pair.contains('lonavala')) estimatedKm = 85.0;
+      else if (pair.contains('shirdi')) estimatedKm = 240.0;
+      else if (pair.contains('mahabaleshwar')) estimatedKm = 260.0;
     }
 
-    final totalDriveMin = (estimatedKm / 55.0 * 60).round();
+    final totalDriveMin = (estimatedKm / 60.0 * 60).round();
 
     int parseMinutes(String t) {
       final clean = t.trim().toLowerCase();
@@ -1322,6 +1465,36 @@ class ApiService {
       return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $ampm';
     }
 
+    String getEmoji(String cat) {
+      if (cat.contains('Temple') || cat.contains('Religious')) return '🛕';
+      if (cat.contains('Waterfall') || cat.contains('River') || cat.contains('Lake')) return '🌊';
+      if (cat.contains('Viewpoint') || cat.contains('Scenic')) return '🌄';
+      if (cat.contains('Hill') || cat.contains('Mountain')) return '⛰️';
+      if (cat.contains('Fort') || cat.contains('Palace')) return '🏰';
+      if (cat.contains('Forest') || cat.contains('Nature')) return '🌳';
+      if (cat.contains('Beach')) return '🏖️';
+      if (cat.contains('Wildlife') || cat.contains('National Park')) return '🐘';
+      if (cat.contains('Monument') || cat.contains('Landmark')) return '🗿';
+      if (cat.contains('Market')) return '🛍️';
+      if (cat.contains('Cultural')) return '🎨';
+      if (cat.contains('Bridge') || cat.contains('Dam')) return '🌉';
+      if (cat.contains('Instagrammable') || cat.contains('Photo')) return '📸';
+      if (cat.contains('City')) return '🏙️';
+      if (cat.contains('Historical') || cat.contains('Heritage')) return '🏛️';
+      return '⭐';
+    }
+
+    ({List<String> categories, String match}) resolveCats(_FallbackAttraction t) {
+      if (selectedCategories.isEmpty) {
+        return (categories: t.categories, match: t.categories.isNotEmpty ? t.categories.first : 'Famous Places');
+      }
+      final matches = t.categories.where((c) => selectedCategories.contains(c)).toList();
+      if (matches.isNotEmpty) {
+        return (categories: matches, match: matches.first);
+      }
+      return (categories: t.categories, match: t.categories.isNotEmpty ? t.categories.first : selectedCategories.first);
+    }
+
     // Curated Venues for highway, dining, and stay
     final coffeeHighway = VenueDatabase.getBestVenue(destination: destName, type: 'coffee', highwayRoute: '$startName $destName');
     final breakfastVenue = VenueDatabase.getBestVenue(destination: destName, type: 'breakfast');
@@ -1335,79 +1508,31 @@ class ApiService {
       final blocks = <TimelineBlock>[];
 
       if (isFirst) {
-        // --- DAY 1: OUTWARD TRAVEL & EVENING DARSHAN ---
+        // --- DAY 1: OUTWARD TRAVEL & FIRST SIGHTSEEING ---
         final startMin = parseMinutes(startTime);
         int cur = startMin;
 
-        if (totalDriveMin > 180) {
-          // Long drive (>3 hours): Split with midway breakfast/coffee
-          final leg1 = (totalDriveMin * 0.45).round();
-          final leg2 = totalDriveMin - leg1;
-          final dist1 = (estimatedKm * 0.45);
-          final dist2 = estimatedKm - dist1;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + leg1),
-            type: 'travel',
-            title: 'Drive from $startName (Highway Leg 1)',
-            place: 'National Highway',
-            durationMin: leg1,
-            travelMin: leg1,
-            distanceKm: dist1,
-            travelMode: 'drive',
-            reason: 'Morning highway drive with smooth cruising',
-          ));
-          cur += leg1;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + 45),
-            type: 'coffee',
-            title: 'Highway Coffee & Breakfast at ${coffeeHighway.name}',
-            place: '${coffeeHighway.name}, ${coffeeHighway.city}',
-            durationMin: 45,
-            breakType: 'breakfast',
-            reason: '⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}',
-          ));
-          cur += 45;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + leg2),
-            type: 'travel',
-            title: 'Drive to $destName (Highway Leg 2)',
-            place: destName,
-            durationMin: leg2,
-            travelMin: leg2,
-            distanceKm: dist2,
-            travelMode: 'drive',
-            reason: 'Scenic approach drive arriving in $destName',
-          ));
-          cur += leg2;
-        } else {
-          // Short drive (<= 3 hours)
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + totalDriveMin),
-            type: 'travel',
-            title: 'Drive from $startName to $destName',
-            place: destName,
-            durationMin: totalDriveMin,
-            travelMin: totalDriveMin,
-            distanceKm: estimatedKm,
-            travelMode: 'drive',
-            reason: 'Smooth morning drive along highway with traffic clearance',
-          ));
-          cur += totalDriveMin;
-        }
+        final driveMin = totalDriveMin > 360 ? 300 : totalDriveMin;
+        blocks.add(TimelineBlock(
+          start: formatMin(cur),
+          end: formatMin(cur + driveMin),
+          type: 'travel',
+          title: 'Drive from $startName to $destName',
+          place: destName,
+          durationMin: driveMin,
+          travelMin: driveMin,
+          distanceKm: estimatedKm,
+          travelMode: 'drive',
+          reason: 'Highway journey with optimal route pacing',
+        ));
+        cur += driveMin;
 
         // Arrival Lunch
         blocks.add(TimelineBlock(
           start: formatMin(cur),
           end: formatMin(cur + 60),
           type: 'meal',
-          title: 'Traditional Arrival Lunch at ${lunchVenue.name}',
+          title: 'Arrival Lunch at ${lunchVenue.name}',
           place: '${lunchVenue.name}, ${lunchVenue.city}',
           durationMin: 60,
           breakType: 'lunch',
@@ -1427,38 +1552,43 @@ class ApiService {
         ));
         cur += 45;
 
-        // If arrived before 03:00 PM, allow a preliminary shrine visit
-        if (cur < 900) {
-          final tPrelim = getNextTemple();
-          final tPrelimDur = tPrelim.recommendedDarshanMinutes > 90 ? 75 : tPrelim.recommendedDarshanMinutes;
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + tPrelimDur),
-            type: 'activity',
-            title: 'Darshan at ${tPrelim.canonicalName}',
-            place: '${tPrelim.canonicalName}, ${tPrelim.city}',
-            durationMin: tPrelimDur,
-            reason: '🛕 Deity: ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlights}',
-          ));
-          cur += tPrelimDur;
-        }
-
-        // Grand Evening Temple / Main Attraction (e.g. Balaji / Main Shrine)
-        final tMain = getNextTemple();
-        final tDuration = tMain.recommendedDarshanMinutes;
-        final tWait = tMain.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${tMain.darshanWaitInfo}' : '';
+        // Afternoon Sightseeing 1
+        final t1 = getNextAttraction();
+        final t1Dur = t1.durationMin > 90 ? 75 : t1.durationMin;
+        final res1 = resolveCats(t1);
+        final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
           start: formatMin(cur),
-          end: formatMin(cur + tDuration),
+          end: formatMin(cur + t1Dur),
           type: 'activity',
-          title: 'Grand Darshan at ${tMain.canonicalName}',
-          place: '${tMain.canonicalName}, ${tMain.city}',
-          durationMin: tDuration,
-          reason: '🛕 Deity: ${tMain.deity} · ⭐ ${tMain.rating}$tWait · ${tMain.highlights}',
+          title: 'Visit ${t1.name}',
+          place: '${t1.name}, ${t1.city}',
+          durationMin: t1Dur,
+          reason: '$emoji1 ⭐ ${t1.rating} · ${t1.highlight}',
+          categories: res1.categories,
+          whyIncluded: 'Matches your selected ${res1.match} preference along the route.',
         ));
-        cur += tDuration;
+        cur += t1Dur;
 
-        // Traditional Dinner (at or after 07:30 PM)
+        // Evening Sightseeing 2
+        final t2 = getNextAttraction();
+        final t2Dur = t2.durationMin > 90 ? 90 : t2.durationMin;
+        final res2 = resolveCats(t2);
+        final emoji2 = getEmoji(res2.match);
+        blocks.add(TimelineBlock(
+          start: formatMin(cur),
+          end: formatMin(cur + t2Dur),
+          type: 'activity',
+          title: 'Explore ${t2.name}',
+          place: '${t2.name}, ${t2.city}',
+          durationMin: t2Dur,
+          reason: '$emoji2 ⭐ ${t2.rating} · ${t2.highlight}',
+          categories: res2.categories,
+          whyIncluded: 'Matches your selected ${res2.match} preference along the route.',
+        ));
+        cur += t2Dur;
+
+        // Dinner
         if (cur < 1170) cur = 1170; // 07:30 PM minimum
         blocks.add(TimelineBlock(
           start: formatMin(cur),
@@ -1480,10 +1610,10 @@ class ApiService {
           title: 'Night Rest at ${hotelVenue.name}',
           place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 480,
-          reason: 'Peaceful sleep after sacred darshan and travel',
+          reason: 'Peaceful rest after sightseeing and travel',
         ));
       } else if (!isLast) {
-        // --- MIDDLE DAY: FULL SIGHTSEEING & PILGRIMAGE CIRCUIT ---
+        // --- MIDDLE DAY ---
         blocks.add(TimelineBlock(
           start: '08:00 AM',
           end: '09:00 AM',
@@ -1495,20 +1625,23 @@ class ApiService {
           reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
-        final t1 = getNextTemple();
-        final t1Duration = t1.recommendedDarshanMinutes > 180 ? 180 : t1.recommendedDarshanMinutes;
-        final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
+        final t1 = getNextAttraction();
+        final t1Duration = t1.durationMin > 150 ? 120 : t1.durationMin;
+        final res1 = resolveCats(t1);
+        final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
           start: '09:15 AM',
           end: formatMin(555 + t1Duration),
           type: 'activity',
-          title: 'Darshan at ${t1.canonicalName}',
-          place: '${t1.canonicalName}, ${t1.city}',
+          title: 'Visit ${t1.name}',
+          place: '${t1.name}, ${t1.city}',
           durationMin: t1Duration,
-          reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
+          reason: '$emoji1 ⭐ ${t1.rating} · ${t1.highlight}',
+          categories: res1.categories,
+          whyIncluded: 'Matches your selected ${res1.match} preference along the route.',
         ));
 
-        // Lunch strictly at 12:45 PM
+        // Lunch at 12:45 PM
         blocks.add(TimelineBlock(
           start: '12:45 PM',
           end: '01:45 PM',
@@ -1520,29 +1653,32 @@ class ApiService {
           reason: '⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}',
         ));
 
-        final t2 = getNextTemple();
-        final t2Duration = t2.recommendedDarshanMinutes > 150 ? 150 : t2.recommendedDarshanMinutes;
-        final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
+        final t2 = getNextAttraction();
+        final t2Duration = t2.durationMin > 150 ? 120 : t2.durationMin;
+        final res2 = resolveCats(t2);
+        final emoji2 = getEmoji(res2.match);
         blocks.add(TimelineBlock(
           start: '02:00 PM',
           end: formatMin(840 + t2Duration),
           type: 'activity',
-          title: 'Visit & Darshan at ${t2.canonicalName}',
-          place: '${t2.canonicalName}, ${t2.city}',
+          title: 'Explore ${t2.name}',
+          place: '${t2.name}, ${t2.city}',
           durationMin: t2Duration,
-          reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
+          reason: '$emoji2 ⭐ ${t2.rating} · ${t2.highlight}',
+          categories: res2.categories,
+          whyIncluded: 'Matches your selected ${res2.match} preference along the route.',
         ));
 
-        // Evening Sunset & Tea strictly around 05:45 PM
+        // Sunset tea
         blocks.add(TimelineBlock(
           start: '05:45 PM',
           end: '06:45 PM',
           type: 'coffee',
-          title: 'Evening Sunset & Tea Break',
-          place: 'Scenic Viewpoint / Temple Promenade',
+          title: 'Evening Sunset & Refreshment Break',
+          place: 'Scenic Viewpoint / Promenade',
           durationMin: 60,
           breakType: 'coffee',
-          reason: 'Golden hour views, cool evening breeze & hot tea',
+          reason: 'Golden hour vistas, scenic photography & tea',
         ));
 
         blocks.add(TimelineBlock(
@@ -1566,7 +1702,7 @@ class ApiService {
           reason: 'Restful sleep preparing for morning visits',
         ));
       } else {
-        // --- FINAL DAY: MORNING SHRINES, LUNCH, CHECK-OUT & RETURN DRIVE ---
+        // --- FINAL DAY ---
         blocks.add(TimelineBlock(
           start: '08:00 AM',
           end: '09:00 AM',
@@ -1578,38 +1714,44 @@ class ApiService {
           reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
-        final t1 = getNextTemple();
-        final t1Duration = t1.recommendedDarshanMinutes;
-        final t1Wait = t1.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t1.darshanWaitInfo}' : '';
+        final t1 = getNextAttraction();
+        final t1Duration = t1.durationMin > 90 ? 90 : t1.durationMin;
+        final res1 = resolveCats(t1);
+        final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
           start: '09:15 AM',
           end: '10:45 AM',
           type: 'activity',
-          title: 'Darshan at ${t1.canonicalName}',
-          place: '${t1.canonicalName}, ${t1.city}',
-          durationMin: t1Duration > 90 ? 90 : t1Duration,
-          reason: '🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}$t1Wait · ${t1.highlights}',
+          title: 'Explore ${t1.name}',
+          place: '${t1.name}, ${t1.city}',
+          durationMin: t1Duration,
+          reason: '$emoji1 ⭐ ${t1.rating} · ${t1.highlight}',
+          categories: res1.categories,
+          whyIncluded: 'Matches your selected ${res1.match} preference along the route.',
         ));
 
-        final t2 = getNextTemple();
-        final t2Duration = t2.recommendedDarshanMinutes;
-        final t2Wait = t2.darshanWaitInfo != null ? ' · ⏳ Darshan Wait: ${t2.darshanWaitInfo}' : '';
+        final t2 = getNextAttraction();
+        final t2Duration = t2.durationMin > 90 ? 90 : t2.durationMin;
+        final res2 = resolveCats(t2);
+        final emoji2 = getEmoji(res2.match);
         blocks.add(TimelineBlock(
           start: '11:00 AM',
           end: '12:30 PM',
           type: 'activity',
-          title: 'Visit & Darshan at ${t2.canonicalName}',
-          place: '${t2.canonicalName}, ${t2.city}',
-          durationMin: t2Duration > 90 ? 90 : t2Duration,
-          reason: '🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}$t2Wait · ${t2.highlights}',
+          title: 'Visit ${t2.name}',
+          place: '${t2.name}, ${t2.city}',
+          durationMin: t2Duration,
+          reason: '$emoji2 ⭐ ${t2.rating} · ${t2.highlight}',
+          categories: res2.categories,
+          whyIncluded: 'Matches your selected ${res2.match} preference along the route.',
         ));
 
-        // Lunch strictly at 12:30 PM
+        // Lunch
         blocks.add(TimelineBlock(
           start: '12:30 PM',
           end: '01:30 PM',
           type: 'meal',
-          title: 'Traditional Farewell Lunch at ${lunchVenue.name}',
+          title: 'Departure Lunch at ${lunchVenue.name}',
           place: '${lunchVenue.name}, ${lunchVenue.city}',
           durationMin: 60,
           breakType: 'lunch',
@@ -1624,99 +1766,40 @@ class ApiService {
           title: 'Hotel Check-out from ${hotelVenue.name}',
           place: '${hotelVenue.name}, ${hotelVenue.city}',
           durationMin: 30,
-          reason: 'Settle bills, load prasadam & luggage into vehicle',
+          reason: 'Settle bills and prepare for return journey',
         ));
 
         // Return Drive
-        int cur = 840; // 02:00 PM
-        if (totalDriveMin > 180) {
-          final ret1 = (totalDriveMin * 0.5).round();
-          final ret2 = totalDriveMin - ret1;
-          final dist1 = (estimatedKm * 0.5);
-          final dist2 = estimatedKm - dist1;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + ret1),
-            type: 'travel',
-            title: 'Return Drive (Highway Leg 1)',
-            place: 'National Highway',
-            durationMin: ret1,
-            travelMin: ret1,
-            distanceKm: dist1,
-            travelMode: 'drive',
-            reason: 'Smooth afternoon highway cruising returning home',
-          ));
-          cur += ret1;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + 45),
-            type: 'coffee',
-            title: 'Sunset Highway Coffee Break at ${coffeeHighway.name}',
-            place: '${coffeeHighway.name}, ${coffeeHighway.city}',
-            durationMin: 45,
-            breakType: 'coffee',
-            reason: '⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}',
-          ));
-          cur += 45;
-
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + ret2),
-            type: 'return',
-            title: 'Return Drive back to $startName',
-            place: startName,
-            durationMin: ret2,
-            travelMin: ret2,
-            distanceKm: dist2,
-            travelMode: 'drive',
-            reason: 'Final evening highway cruise arriving safely back at $startName',
-          ));
-          cur += ret2;
-        } else {
-          blocks.add(TimelineBlock(
-            start: formatMin(cur),
-            end: formatMin(cur + totalDriveMin),
-            type: 'return',
-            title: 'Return Drive back to $startName',
-            place: startName,
-            durationMin: totalDriveMin,
-            travelMin: totalDriveMin,
-            distanceKm: estimatedKm,
-            travelMode: 'drive',
-            reason: 'Smooth evening highway cruise returning home',
-          ));
-          cur += totalDriveMin;
-        }
-
+        final retDriveMin = totalDriveMin > 360 ? 300 : totalDriveMin;
         blocks.add(TimelineBlock(
-          start: formatMin(cur),
-          end: formatMin(cur + 45),
-          type: 'meal',
-          title: 'Dinner Arrival at $startName',
-          place: 'Local Restaurant / Home Diner',
-          durationMin: 45,
-          breakType: 'dinner',
-          reason: 'Relaxing dinner marking the auspicious conclusion of pilgrimage',
+          start: '02:00 PM',
+          end: formatMin(840 + retDriveMin),
+          type: 'return',
+          title: 'Return Drive back to $startName',
+          place: startName,
+          durationMin: retDriveMin,
+          travelMin: retDriveMin,
+          distanceKm: estimatedKm,
+          travelMode: 'drive',
+          reason: 'Safe return journey completing the round trip circuit',
         ));
       }
 
       daysList.add(SmartDay(
         day: d,
         date: 'Day $d',
-        title: isFirst ? 'Arrival & Highlights of $destName' : (isLast ? 'Farewell $destName & Return' : 'Deep Dive into $destName Heritage'),
+        title: isFirst ? 'Arrival & Highlights of $destName' : (isLast ? 'Farewell $destName & Return' : 'Full Exploration of $destName'),
         blocks: blocks,
       ));
     }
 
     final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
-    final totalKm = 320.0 * (total > 1 ? 1.4 : 1.0);
+    final totalKm = (estimatedKm * 2) * (total > 1 ? 1.2 : 1.0);
     final fuelCost = ((totalKm / eff) * 102.0).round();
-    final tollCost = 360;
+    final tollCost = (totalKm * 1.5).round();
     final foodCost = total * 750 * travellers;
     final stayCost = (total > 1 ? (total - 1) : 0) * 2200 * ((travellers / 2).ceil());
-    final int bufferCost = 1000;
+    const int bufferCost = 1000;
     final int grandTotal = (fuelCost + tollCost + foodCost + stayCost + bufferCost).toInt();
 
     final budget = TripBudget(
@@ -1798,4 +1881,22 @@ class ApiService {
     }
     return (jsonDecode(response.body) as Map<String, dynamic>)['text'] as String? ?? '';
   }
+}
+
+class _FallbackAttraction {
+  final String name;
+  final String city;
+  final String rating;
+  final int durationMin;
+  final String highlight;
+  final List<String> categories;
+
+  const _FallbackAttraction({
+    required this.name,
+    required this.city,
+    this.rating = '4.8',
+    this.durationMin = 90,
+    required this.highlight,
+    required this.categories,
+  });
 }
