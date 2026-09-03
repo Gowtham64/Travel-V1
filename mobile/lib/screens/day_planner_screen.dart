@@ -780,9 +780,15 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       ),
     ));
     if (!mounted) return;
-    // Reflect any check-offs and a possible "End trip".
+    // Reflect any check-offs, additions, edits, and a possible "End trip".
+    final refreshedDays = await _store.loadDays();
     if (ended == true) _startedAt = null;
-    setState(() {});
+    setState(() {
+      _days = refreshedDays;
+      if (_selectedDay >= _days.length) {
+        _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+      }
+    });
   }
 
   /// Launch turn-by-turn driving navigation for the selected day. Uses the

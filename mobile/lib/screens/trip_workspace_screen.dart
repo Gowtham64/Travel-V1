@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import 'itinerary_screen.dart';
 import 'bookings_screen.dart';
 import 'gallery_screen.dart';
+import 'active_trip_screen.dart';
 
 /// A tabbed "trip workspace" — the single place that brings a trip together:
 /// Map, Itinerary, an interactive Packing checklist, an Expense tracker with
@@ -1832,6 +1833,35 @@ class _PlanTabState extends State<_PlanTab> {
 
   void _persist() => widget.store.saveDays(_days);
 
+  Future<void> _startTrip() async {
+    if (_days.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add or generate a day first, then start the trip.')),
+      );
+      return;
+    }
+    var startedAt = await widget.store.loadStartedAt();
+    startedAt ??= DateTime.now();
+    await widget.store.saveStartedAt(startedAt);
+    if (!mounted) return;
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => ActiveTripScreen(
+        store: widget.store,
+        days: _days,
+        startedAt: startedAt!,
+        tripName: widget.startAddress.isNotEmpty ? '${widget.startAddress} → ${widget.endAddress} (round trip)' : 'Active Trip',
+      ),
+    ));
+    if (!mounted) return;
+    final refreshed = await widget.store.loadDays();
+    setState(() {
+      _days = refreshed;
+      if (_selectedDay >= _days.length) {
+        _selectedDay = _days.isEmpty ? 0 : _days.length - 1;
+      }
+    });
+  }
+
   void _seedDays() {
     final n = widget.plan.estimatedDays < 1 ? 1 : widget.plan.estimatedDays;
     setState(() {
@@ -2117,6 +2147,20 @@ class _PlanTabState extends State<_PlanTab> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 96),
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ElevatedButton.icon(
+            onPressed: _startTrip,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Voy.brand,
+              foregroundColor: const Color(0xFF04211F),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+            icon: const Icon(Icons.navigation_rounded),
+            label: const Text('START / RESUME ACTIVE TRIP', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13.5)),
+          ),
+        ),
         for (int di = 0; di < _days.length; di++) _dayCard(di),
         const SizedBox(height: 4),
         OutlinedButton.icon(
