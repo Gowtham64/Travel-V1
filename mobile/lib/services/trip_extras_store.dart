@@ -264,20 +264,46 @@ class TripExtrasStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       final list = await _readIndex(prefs);
+      // Grab the plan's display name before removing it — we need it to delete
+      // the cloud copy for itineraries saved WITHOUT a tripKey.
+      final entry = list.firstWhere(
+        (e) => e['key'] == key,
+        orElse: () => <String, dynamic>{},
+      );
+      final planName = (entry['name'] ?? '').toString();
+
       list.removeWhere((e) => e['key'] == key);
       await prefs.setString(_indexKey, jsonEncode(list));
       await prefs.remove('trip_$key.days');
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        // Match the cloud row by the tripKey stored inside end_point — NOT by
-        // ilike on name (the tripKey isn't part of the display name, so the old
-        // match deleted nothing and the plan reappeared on the next sync).
-        await Supabase.instance.client
-            .from('trips')
-            .delete()
-            .eq('user_id', user.id)
-            .filter('end_point->>tripKey', 'eq', key);
+        // 1) Delete by tripKey (itineraries saved via the day-planner store it
+        //    inside end_point).
+        try {
+          await Supabase.instance.client
+              .from('trips')
+              .delete()
+              .eq('user_id', user.id)
+              .filter('end_point->>tripKey', 'eq', key);
+        } catch (e) {
+          debugPrint('Cloud removeFromIndex (tripKey) note: $e');
+        }
+        // 2) Delete by name — itineraries saved via the trip "Save" button do
+        //    NOT store a tripKey, so savedPlans() invents a synthetic key that
+        //    tripKey-matching can never find. The display name is the reliable
+        //    handle for those rows.
+        if (planName.isNotEmpty) {
+          try {
+            await Supabase.instance.client
+                .from('trips')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('name', planName);
+          } catch (e) {
+            debugPrint('Cloud removeFromIndex (name) note: $e');
+          }
+        }
       }
     } catch (e) {
       debugPrint('Cloud removeFromIndex note: $e');
