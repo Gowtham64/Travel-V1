@@ -169,6 +169,9 @@ router.post("/smart-itinerary", async (req, res) => {
       mode: ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced",
       preferences: b.preferences ? String(b.preferences) : "",
       directive: b.directive ? String(b.directive) : "",
+      selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories.map(String) : [],
+      categoryPriorities: b.categoryPriorities && typeof b.categoryPriorities === "object" ? b.categoryPriorities : {},
+      customPreferences: b.customPreferences ? String(b.customPreferences) : "",
     });
     // Replace AI-estimated travel legs with real geocoded + routed distance/time
     // (best-effort; keeps AI numbers for any leg that can't be resolved).

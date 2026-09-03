@@ -32,6 +32,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   final _startLocCtrl = TextEditingController();
   final _placesCtrl = TextEditingController();
   final _prefsCtrl = TextEditingController();
+  final _customPrefCtrl = TextEditingController();
 
   DateTime? _startDate;
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
@@ -42,6 +43,23 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   String _mode = 'balanced';
   String _transportMode = 'car'; // 'car' or 'bike' — drives the vehicle list + fuel calc
   VehicleModel? _vehicle;
+
+  // Selected Place Categories & Priorities
+  final Set<String> _selectedCategoryIds = {
+    'temples',
+    'historical_heritage',
+    'viewpoints',
+    'hills_mountains',
+    'famous_places',
+  };
+  final Map<String, String> _categoryPriorities = {
+    'temples': 'must_visit',
+    'historical_heritage': 'must_visit',
+    'viewpoints': 'would_like',
+    'hills_mountains': 'would_like',
+    'famous_places': 'must_visit',
+  };
+  bool _showInsufficientPlacesWarning = false;
 
   // Destination / start-location autocomplete (via the backend proxy).
   Timer? _acDebounce;
@@ -61,6 +79,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     _startLocCtrl.dispose();
     _placesCtrl.dispose();
     _prefsCtrl.dispose();
+    _customPrefCtrl.dispose();
     super.dispose();
   }
 
@@ -75,6 +94,73 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   String _fmtDate(DateTime? d) => d == null ? 'Pick date' : '${d.day}/${d.month}/${d.year}';
   String _fmtTime(TimeOfDay? t) => t == null ? '--:--' : t.format(context);
 
+  void _toggleCategory(String id) {
+    setState(() {
+      if (_selectedCategoryIds.contains(id)) {
+        _selectedCategoryIds.remove(id);
+        _categoryPriorities.remove(id);
+      } else {
+        _selectedCategoryIds.add(id);
+        _categoryPriorities[id] = 'must_visit';
+      }
+    });
+  }
+
+  void _selectAllCategories() {
+    setState(() {
+      for (final cat in kPlaceCategories) {
+        _selectedCategoryIds.add(cat.id);
+        _categoryPriorities.putIfAbsent(cat.id, () => 'must_visit');
+      }
+    });
+  }
+
+  void _clearAllCategories() {
+    setState(() {
+      _selectedCategoryIds.clear();
+      _categoryPriorities.clear();
+    });
+  }
+
+  void _cyclePriority(String id) {
+    setState(() {
+      final current = _categoryPriorities[id] ?? 'must_visit';
+      if (current == 'must_visit') {
+        _categoryPriorities[id] = 'would_like';
+      } else if (current == 'would_like') {
+        _categoryPriorities[id] = 'optional';
+      } else {
+        _categoryPriorities[id] = 'must_visit';
+      }
+    });
+  }
+
+  String _priorityLabel(String prio) {
+    switch (prio) {
+      case 'must_visit':
+        return '⭐ Must Visit';
+      case 'would_like':
+        return '👍 Would Like';
+      case 'optional':
+        return '💡 Optional';
+      default:
+        return '⭐ Must Visit';
+    }
+  }
+
+  Color _priorityColor(String prio) {
+    switch (prio) {
+      case 'must_visit':
+        return const Color(0xFFF59E0B);
+      case 'would_like':
+        return const Color(0xFF3B82F6);
+      case 'optional':
+        return const Color(0xFF10B981);
+      default:
+        return const Color(0xFFF59E0B);
+    }
+  }
+
   Future<void> _generate({String directive = ''}) async {
     final dest = _destCtrl.text.trim();
     if (dest.isEmpty) {
@@ -84,6 +170,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _showInsufficientPlacesWarning = false;
     });
     try {
       final places = _placesCtrl.text
@@ -91,6 +178,20 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           .map((s) => s.trim())
           .where((s) => s.isNotEmpty)
           .toList();
+
+      final selectedCategoryLabels = _selectedCategoryIds.map((id) {
+        final cat = kPlaceCategories.firstWhere((c) => c.id == id,
+            orElse: () => PlaceCategoryOption(id: id, label: id, icon: ''));
+        return cat.label;
+      }).toList();
+
+      final categoryPrioritiesMapped = <String, String>{};
+      for (final entry in _categoryPriorities.entries) {
+        final cat = kPlaceCategories.firstWhere((c) => c.id == entry.key,
+            orElse: () => PlaceCategoryOption(id: entry.key, label: entry.key, icon: ''));
+        categoryPrioritiesMapped[cat.label] = entry.value;
+      }
+
       final res = await _api.aiSmartItinerary(
         destination: dest,
         startLocation: _startLocCtrl.text.trim(),
@@ -105,12 +206,24 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         directive: directive,
         travellers: _travellers,
         fuelEfficiency: _vehicle?.mileage,
+        selectedCategories: selectedCategoryLabels,
+        categoryPriorities: categoryPrioritiesMapped,
+        customPreferences: _customPrefCtrl.text.trim(),
       );
       if (!mounted) return;
       setState(() {
         _itinerary = res.days;
         _budget = res.budget;
         _splitCount = _travellers; // default: split among travellers
+
+        // Check if matching places are sparse
+        int activityCount = 0;
+        for (final d in res.days) {
+          activityCount += d.blocks.where((b) => b.type == 'activity').length;
+        }
+        if (res.days.isNotEmpty && _selectedCategoryIds.isNotEmpty && activityCount < _durationDays) {
+          _showInsufficientPlacesWarning = true;
+        }
       });
       if (res.days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
     } catch (e) {
@@ -511,7 +624,12 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           const SizedBox(height: 6),
           _placeField(_destCtrl, '🎯 Destination (e.g. Mysore, Coorg, Ooty, Tirupati)', Icons.explore_rounded, isDest: true),
           const SizedBox(height: 10),
-          _field(_placesCtrl, 'Places to visit (comma-separated, optional)', Icons.place_rounded, maxLines: 2),
+          _field(_placesCtrl, 'Specific places to visit (comma-separated, optional)', Icons.place_rounded, maxLines: 2),
+          const SizedBox(height: 12),
+          
+          // "Places I Want to Visit" Category Selector
+          _placesSelectionSection(),
+          
           const SizedBox(height: 14),
           // Start date + time
           Row(children: [
@@ -608,7 +726,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               ),
           ]),
           const SizedBox(height: 12),
-          _field(_prefsCtrl, 'Preferences (e.g. temples, hiking, veg food)', Icons.tune_rounded, maxLines: 2),
+          _field(_prefsCtrl, 'Additional notes (e.g. pure veg food, early starts)', Icons.tune_rounded, maxLines: 2),
           const SizedBox(height: 16),
           AccentButton(
             onPressed: _loading ? null : () => _generate(),
@@ -617,6 +735,302 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               const SizedBox(width: 8),
               Text(_itinerary.isEmpty ? 'GENERATE ITINERARY' : 'REGENERATE'),
             ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placesSelectionSection() {
+    final selectedCount = _selectedCategoryIds.length;
+    final selectedSummary = kPlaceCategories
+        .where((c) => _selectedCategoryIds.contains(c.id))
+        .map((c) => '${c.icon} ${c.label.split('&')[0].trim()}')
+        .join(' • ');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _selectedCategoryIds.isNotEmpty
+              ? AppColors.accentLight.withValues(alpha: 0.3)
+              : Colors.white.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(Icons.category_rounded, color: AppColors.accentLight, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'What type of places do you want to visit?',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Select categories below. The AI will strictly filter and optimize your route around your preferences.',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11.5),
+          ),
+          const SizedBox(height: 10),
+          // Action Buttons: Select All / Clear All
+          Row(
+            children: [
+              InkWell(
+                onTap: _selectAllCategories,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentLight.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.4)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.done_all_rounded, size: 14, color: AppColors.accentLight),
+                      SizedBox(width: 4),
+                      Text('Select All', style: TextStyle(color: AppColors.accentLight, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: _clearAllCategories,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.clear_all_rounded, size: 14, color: Colors.white70),
+                      SizedBox(width: 4),
+                      Text('Clear All', style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$selectedCount selected',
+                style: TextStyle(
+                  color: selectedCount > 0 ? AppColors.accentLight : Colors.white54,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Wrap of 16 Category Chips
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final cat in kPlaceCategories)
+                _categoryChip(cat),
+            ],
+          ),
+          if (selectedCount > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.accentLight.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.2)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle_outline, size: 14, color: AppColors.accentLight),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      selectedSummary,
+                      style: const TextStyle(
+                        color: Color(0xFFE2E8F0),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          // Custom preference text box
+          _field(
+            _customPrefCtrl,
+            'Custom preference (e.g. I want temples, waterfalls and scenic viewpoints)',
+            Icons.edit_note_rounded,
+            maxLines: 2,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _categoryChip(PlaceCategoryOption cat) {
+    final isSelected = _selectedCategoryIds.contains(cat.id);
+    final priority = _categoryPriorities[cat.id] ?? 'must_visit';
+    final prioColor = _priorityColor(priority);
+
+    return InkWell(
+      onTap: () => _toggleCategory(cat.id),
+      onLongPress: () {
+        if (isSelected) _cyclePriority(cat.id);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? prioColor.withValues(alpha: 0.18)
+              : Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? prioColor : Colors.white.withValues(alpha: 0.15),
+            width: isSelected ? 1.4 : 1.0,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: prioColor.withValues(alpha: 0.25),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  )
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(cat.icon, style: const TextStyle(fontSize: 15)),
+            const SizedBox(width: 6),
+            Text(
+              cat.label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.white.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 6),
+              Tooltip(
+                message: 'Priority: ${_priorityLabel(priority)}. Tap to cycle priority.',
+                child: InkWell(
+                  onTap: () => _cyclePriority(cat.id),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: prioColor.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      priority == 'must_visit'
+                          ? '⭐ Must'
+                          : priority == 'would_like'
+                              ? '👍 Like'
+                              : '💡 Opt',
+                      style: TextStyle(
+                        color: prioColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _insufficientPlacesBanner() {
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Color(0xFFF59E0B), size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Few places found for your current category selections',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'There aren\'t enough top attractions strictly matching your selected preferences for this route. What would you like to do?',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => _generate(directive: 'Expand discovery radius to 50 km around destination and route to discover more places in selected categories.'),
+                icon: const Icon(Icons.explore_rounded, size: 14),
+                label: const Text('Expand Search Radius', style: TextStyle(fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentLight,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() => _showInsufficientPlacesWarning = false);
+                },
+                icon: const Icon(Icons.category_rounded, size: 14, color: Colors.white70),
+                label: const Text('Add More Categories', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _showInsufficientPlacesWarning = false),
+                child: const Text('Keep Current Preferences', style: TextStyle(color: Colors.white60, fontSize: 11.5)),
+              ),
+            ],
           ),
         ],
       ),
@@ -750,6 +1164,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   List<Widget> _results() {
     return [
+      if (_showInsufficientPlacesWarning) ...[
+        _insufficientPlacesBanner(),
+        const SizedBox(height: 14),
+      ],
       if (_budget != null) ...[
         _budgetCard(_budget!),
         const SizedBox(height: 14),
@@ -1197,6 +1615,64 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         child: Text(
                           b.reason,
                           style: TextStyle(color: Colors.white.withValues(alpha: 0.58), fontSize: 11, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    if (b.categories.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: [
+                            for (final cat in b.categories)
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentLight.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.3)),
+                                ),
+                                child: Text(
+                                  cat,
+                                  style: const TextStyle(
+                                    color: AppColors.accentLight,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    if (b.whyIncluded.isNotEmpty)
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.25)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Padding(
+                              padding: EdgeInsets.only(top: 1),
+                              child: Icon(Icons.lightbulb_outline_rounded, size: 12, color: Color(0xFF38BDF8)),
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                'Why included: ${b.whyIncluded}',
+                                style: const TextStyle(
+                                  color: Color(0xFFE2E8F0),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                   ],

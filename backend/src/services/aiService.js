@@ -356,6 +356,10 @@ function safeParseSmart(text) {
             breakType: b.breakType ? String(b.breakType) : "",
             reason: b.reason ? String(b.reason) : "",
             travelMode: normalizeTravelMode(b),
+            categories: Array.isArray(b.categories)
+              ? b.categories.map(String).filter(Boolean)
+              : (b.category ? [String(b.category)] : []),
+            whyIncluded: b.whyIncluded ? String(b.whyIncluded) : "",
           }))
           .filter((b) => b.title || b.type),
       }))
@@ -382,13 +386,14 @@ const ITINERARY_RULES =
   `Use realistic visit durations (major temple 1.5–3 h, viewpoint 30–45 min, museum 1–2 h). Never ` +
   `place sightseeing inside a meal window. Keep each reason under ~10 words. Block "type" is one of: ` +
   `start, activity, travel, meal, coffee, rest, checkin, checkout, buffer, shopping, freetime, return. ` +
-  `For meal blocks set breakType to breakfast|lunch|dinner.`;
+  `For meal blocks set breakType to breakfast|lunch|dinner. ` +
+  `For activity blocks, ALWAYS include "categories": ["CategoryName", ...] matching the user's selected preferences, and "whyIncluded": "Clear explanation of why this place matches the user's category preference and route."`;
 
 const ITINERARY_JSON_HINT =
   `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
   `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
-  `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":""}]}]} — travel blocks set ` +
-  `travelMode; no prose, no markdown.`;
+  `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":"","categories":[],"whyIncluded":""}]}]} — travel blocks set ` +
+  `travelMode; activity blocks set categories and whyIncluded; no prose, no markdown.`;
 
 const ITINERARY_SYSTEM =
   "You are an expert, meticulous, world-aware travel planner with strong geographic knowledge. " +
@@ -420,12 +425,6 @@ async function generateWithRetry(prompt, opts, tries = 3) {
 /**
  * Generate a realistic, time-blocked day-by-day itinerary with automatic
  * meal/rest breaks, travel time and per-block reasoning.
- *
- * Long itineraries are generated in small day-batches and stitched together, so
- * no single model call exceeds the provider's token budget (which would truncate
- * the JSON — dropping days — or trip the free-tier rate limit). Batches are
- * best-effort: if one fails after retries, whatever days succeeded are returned
- * rather than failing the whole request.
  */
 async function smartItinerary({
   destination,
@@ -439,18 +438,48 @@ async function smartItinerary({
   mode = "balanced",
   preferences = "",
   directive = "",
+  selectedCategories = [],
+  categoryPriorities = {},
+  customPreferences = "",
 }) {
   const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
-  const placeLine = places.length ? `Must-visit places (spread across the trip): ${places.join(", ")}. ` : "";
+  const placeLine = places.length ? `Must-visit specific places (spread across the trip): ${places.join(", ")}. ` : "";
   const paceLine =
     mode === "packed"
       ? "Pace: PACKED — fit in as much as reasonably possible, shorter breaks. "
       : mode === "relaxed"
       ? "Pace: RELAXED — fewer activities, longer meals/rest, plenty of free time. "
       : "Pace: BALANCED — a comfortable mix of sightseeing, meals and rest. ";
-  const prefLine = preferences ? `Traveller preferences: ${preferences}. ` : "";
+  
+  const combinedPref = [preferences, customPreferences].filter(Boolean).join(". ");
+  const prefLine = combinedPref ? `Traveller custom preferences: ${combinedPref}. ` : "";
   const directiveLine = directive ? `IMPORTANT adjustment for this version: ${directive}. ` : "";
   const homeLine = startLocation ? ` starting from the traveller's home "${startLocation}"` : "";
+
+  // Build category constraint instructions
+  let categoryConstraintLine = "";
+  if (selectedCategories && selectedCategories.length) {
+    const mustVisit = [];
+    const wouldLike = [];
+    const optional = [];
+    for (const cat of selectedCategories) {
+      const prio = (categoryPriorities && categoryPriorities[cat]) || "must_visit";
+      if (prio === "must_visit") mustVisit.push(cat);
+      else if (prio === "would_like") wouldLike.push(cat);
+      else optional.push(cat);
+    }
+    categoryConstraintLine =
+      `\nSTRICT PLACE PREFERENCE CONSTRAINTS (HARD RULES):\n` +
+      `The traveller has selected the following place categories for this trip:\n` +
+      (mustVisit.length ? `- MUST VISIT (Top Priority): ${mustVisit.join(", ")}\n` : "") +
+      (wouldLike.length ? `- WOULD LIKE TO VISIT (Secondary Priority): ${wouldLike.join(", ")}\n` : "") +
+      (optional.length ? `- OPTIONAL (Include only if convenient on route): ${optional.join(", ")}\n` : "") +
+      `MANDATORY FILTERING & ROUTING RULES:\n` +
+      `1. Every activity/sightseeing stop MUST belong to one of these selected categories.\n` +
+      `2. DO NOT add attractions from unselected categories (e.g. no random shopping malls, nightlife, beaches, adventure parks, cafes, or unrelated tourist spots) unless explicitly selected by the user.\n` +
+      `3. For every activity stop, populate "categories": [list of matched categories] and "whyIncluded": "Explanation of why this place matches user category preferences along the route."\n` +
+      `4. Balance categories across the ${total} days following a logical sequence (Start -> Stop 1 -> Stop 2 -> Lunch -> Stop 3 -> Stay) without backtracking.\n`;
+  }
 
   // Build the prompt for one batch of days [from..to] of a `total`-day round trip.
   function batchPrompt(from, to) {
@@ -475,14 +504,9 @@ async function smartItinerary({
         `the traveller ALL THE WAY BACK to "${startLocation}" (realistic mode, distance & time). `;
     }
     if (isLast && (endDate || endTime)) ctx += `The trip should end around ${endDate} ${endTime}. `;
-    return ctx + placeLine + prefLine + paceLine + directiveLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
+    return ctx + placeLine + prefLine + paceLine + directiveLine + categoryConstraintLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
   }
 
-  // One model call for the whole trip (multiple back-to-back calls tripped the
-  // per-minute limit). reasoning_effort "low" keeps the token budget for the JSON
-  // rather than gpt-oss's hidden reasoning. Each Groq model has its OWN daily
-  // token quota, so on a rate-limit (429) we fall back to the next model instead
-  // of failing — this keeps planning working after one model's daily cap is hit.
   const MODELS =
     PROVIDER === "groq"
       ? ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
@@ -495,7 +519,6 @@ async function smartItinerary({
         system: ITINERARY_SYSTEM,
         json: true,
         model: m,
-        // reasoning_effort only applies to gpt-oss (reasoning) models.
         reasoningEffort: m && m.includes("gpt-oss") ? "low" : undefined,
         maxTokens: 7000,
       });
@@ -518,7 +541,10 @@ async function smartItinerary({
       places,
       durationDays: total,
       startTime,
-      preferences,
+      preferences: combinedPref,
+      selectedCategories,
+      categoryPriorities,
+      customPreferences,
     });
   }
 
@@ -529,26 +555,26 @@ async function smartItinerary({
 
 const CURATED_TEMPLES = [
   // --- Tirupati / Tirumala ---
-  { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan" },
-  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs · VIP: ~1 hr", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam" },
-  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 45, wait: "20–45 mins", highlight: "Directly opposite main Mahadwaram gopuram" },
-  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", durationMin: 90, wait: "Special: 1–2 hrs · General: 2–3 hrs", highlight: "Sacred Padma Sarovaram tank blessings" },
-  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Divine wedding post-marriage stay site" },
-  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Sacred mountain waterfall & spring" },
-  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram" },
-  { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", durationMin: 150, wait: "Rahu-Ketu: 2–3 hrs · General: 1–2 hrs", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja" },
-  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in water well" },
+  { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
+  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs · VIP: ~1 hr", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam", categories: ["Temples & Religious Places", "Famous / Must-Visit Places"] },
+  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 45, wait: "20–45 mins", highlight: "Directly opposite main Mahadwaram gopuram", categories: ["Temples & Religious Places"] },
+  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", durationMin: 90, wait: "Special: 1–2 hrs · General: 2–3 hrs", highlight: "Sacred Padma Sarovaram tank blessings", categories: ["Temples & Religious Places", "Cultural Places"] },
+  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Divine wedding post-marriage stay site", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
+  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Sacred mountain waterfall & spring", categories: ["Temples & Religious Places", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
+  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram", categories: ["Temples & Religious Places", "Monuments & Landmarks"] },
+  { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", durationMin: 150, wait: "Rahu-Ketu: 2–3 hrs · General: 1–2 hrs", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
+  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in water well", categories: ["Temples & Religious Places"] },
   // --- Mysuru ---
-  { name: "Mysore Palace (Amba Vilas)", deity: "Wodeyar Royal Heritage & Durbar", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Palace Tour: 2–3 hrs", highlight: "Golden Throne, stained glass Kalyana Mantapa ceiling" },
-  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Hilltop Shakti Peetha & monolithic Nandi" },
-  { name: "Brindavan Gardens & Musical Fountain", deity: "Terraced Gardens & Kaveri Waterway", city: "Mysuru", rating: "4.7", durationMin: 120, wait: "Garden & Light Show: 2–2.5 hrs", highlight: "Terraced garden walkways & synchronized musical fountain" },
-  { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Historic island shrine on Kaveri river" },
-  { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters" },
+  { name: "Mysore Palace (Amba Vilas)", deity: "Wodeyar Royal Heritage & Durbar", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Palace Tour: 2–3 hrs", highlight: "Golden Throne, stained glass Kalyana Mantapa ceiling", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
+  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Hilltop Shakti Peetha & monolithic Nandi", categories: ["Temples & Religious Places", "Viewpoints & Scenic Places", "Hills & Mountains"] },
+  { name: "Brindavan Gardens & Musical Fountain", deity: "Terraced Gardens & Kaveri Waterway", city: "Mysuru", rating: "4.7", durationMin: 120, wait: "Garden & Light Show: 2–2.5 hrs", highlight: "Terraced garden walkways & synchronized musical fountain", categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls", "Famous City Attractions"] },
+  { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Historic island shrine on Kaveri river", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
+  { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
   // --- Bengaluru ---
-  { name: "ISKCON Temple Bangalore", deity: "Sri Sri Radha Krishnachandra", city: "Bengaluru", rating: "4.8", durationMin: 90, wait: "Darshan: 1–1.5 hrs", highlight: "Grand gold-plated dhwaja-stambha on Hare Krishna Hill" },
-  { name: "Bull Temple (Dodda Basavana Gudi)", deity: "Sacred Nandi Monolith", city: "Bengaluru", rating: "4.7", durationMin: 45, wait: "Darshan: 30–45 mins", highlight: "16th-century monolithic Nandi statue" },
-  { name: "Bangalore Palace & Royal Grounds", deity: "Wodeyar Royal Heritage", city: "Bengaluru", rating: "4.7", durationMin: 120, wait: "Tour: 1.5–2 hrs", highlight: "Tudor-style fortified turrets and royal galleries" },
-  { name: "Lalbagh Botanical Garden & Glass House", deity: "Heritage Flora & 3000-Million-Yr Rock", city: "Bengaluru", rating: "4.8", durationMin: 120, wait: "Garden Walk: 1.5–2.5 hrs", highlight: "Historic Glass House & Kempegowda watchtower" },
+  { name: "ISKCON Temple Bangalore", deity: "Sri Sri Radha Krishnachandra", city: "Bengaluru", rating: "4.8", durationMin: 90, wait: "Darshan: 1–1.5 hrs", highlight: "Grand gold-plated dhwaja-stambha on Hare Krishna Hill", categories: ["Temples & Religious Places", "Cultural Places", "Famous / Must-Visit Places"] },
+  { name: "Bull Temple (Dodda Basavana Gudi)", deity: "Sacred Nandi Monolith", city: "Bengaluru", rating: "4.7", durationMin: 45, wait: "Darshan: 30–45 mins", highlight: "16th-century monolithic Nandi statue", categories: ["Temples & Religious Places", "Monuments & Landmarks"] },
+  { name: "Bangalore Palace & Royal Grounds", deity: "Wodeyar Royal Heritage", city: "Bengaluru", rating: "4.7", durationMin: 120, wait: "Tour: 1.5–2 hrs", highlight: "Tudor-style fortified turrets and royal galleries", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
+  { name: "Lalbagh Botanical Garden & Glass House", deity: "Heritage Flora & 3000-Million-Yr Rock", city: "Bengaluru", rating: "4.8", durationMin: 120, wait: "Garden Walk: 1.5–2.5 hrs", highlight: "Historic Glass House & Kempegowda watchtower", categories: ["Nature & Forests", "Famous City Attractions"] },
 ];
 
 const CURATED_VENUES = {
@@ -585,13 +611,37 @@ function getBestCuratedVenue(dest, type) {
   };
 }
 
-function buildFallbackSmartItinerary({ destination, startLocation, places = [], durationDays = 1, startTime = "08:00", preferences = "" }) {
+function resolveCategoriesForPlace(t, selectedCategories) {
+  const placeCats = Array.isArray(t.categories) && t.categories.length
+    ? t.categories
+    : (t.cat ? [t.cat] : ["Historical & Heritage Places"]);
+  if (!selectedCategories || !selectedCategories.length) {
+    return { categories: placeCats, match: placeCats[0] };
+  }
+  const matches = placeCats.filter(c => selectedCategories.includes(c));
+  if (matches.length) {
+    return { categories: matches, match: matches[0] };
+  }
+  return { categories: placeCats, match: placeCats[0] };
+}
+
+function buildFallbackSmartItinerary({
+  destination,
+  startLocation,
+  places = [],
+  durationDays = 1,
+  startTime = "08:00",
+  preferences = "",
+  selectedCategories = [],
+  categoryPriorities = {},
+  customPreferences = "",
+}) {
   const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
   const destName = destination || "Destination";
   const startName = startLocation || "Home";
   const days = [];
 
-  const text = `${destination} ${preferences} ${places.join(" ")}`.toLowerCase();
+  const text = `${destination} ${preferences} ${customPreferences} ${places.join(" ")}`.toLowerCase();
   let pool = [];
   if (text.includes("tirupati") || text.includes("tirumala") || text.includes("balaji") || text.includes("venkateswara")) {
     pool = CURATED_TEMPLES.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam"));
@@ -604,13 +654,15 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
   if (!pool.length) {
     const cleanCity = destination ? destination.split(',')[0].trim() : "Destination";
     pool = [
-      { name: `${cleanCity} Historic Heritage Monument & Palace`, deity: "Architectural Heritage & Grounds", city: cleanCity, rating: "4.8", durationMin: 120, wait: "Tour: 1.5–2.5 hrs", highlight: "Iconic royal architecture and scenic courtyard grounds" },
-      { name: `${cleanCity} Sacred Spiritual Sanctum`, deity: "Presiding Deity & Holy Sanctum", city: cleanCity, rating: "4.8", durationMin: 75, wait: "Darshan: 1–1.5 hrs", highlight: "Historic cultural sanctum and traditional aarti" },
-      { name: `${cleanCity} Waterfront Promenade & Botanical Gardens`, deity: "Scenic Nature & Lakeside Vista", city: cleanCity, rating: "4.7", durationMin: 75, wait: "Leisure: 1–1.5 hrs", highlight: "Lush botanical walkways and sunset fountain viewing" },
-      { name: `${cleanCity} Panoramic Hilltop Vista`, deity: "360° Panoramic Landscape", city: cleanCity, rating: "4.8", durationMin: 60, wait: "Sightseeing: 45–60 mins", highlight: "Golden hour photography and panoramic valley views" },
-      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, deity: "Regional Crafts & Specialties", city: cleanCity, rating: "4.6", durationMin: 90, wait: "Shopping: 1–2 hrs", highlight: "Authentic local delicacies and handcrafted souvenirs" },
+      { name: `${cleanCity} Historic Heritage Monument & Palace`, deity: "Architectural Heritage & Grounds", city: cleanCity, rating: "4.8", durationMin: 120, wait: "Tour: 1.5–2.5 hrs", highlight: "Iconic royal architecture and scenic courtyard grounds", categories: ["Historical & Heritage Places", "Forts & Palaces"] },
+      { name: `${cleanCity} Sacred Spiritual Sanctum`, deity: "Presiding Deity & Holy Sanctum", city: cleanCity, rating: "4.8", durationMin: 75, wait: "Darshan: 1–1.5 hrs", highlight: "Historic cultural sanctum and traditional aarti", categories: ["Temples & Religious Places"] },
+      { name: `${cleanCity} Waterfront Promenade & Botanical Gardens`, deity: "Scenic Nature & Lakeside Vista", city: cleanCity, rating: "4.7", durationMin: 75, wait: "Leisure: 1–1.5 hrs", highlight: "Lush botanical walkways and sunset fountain viewing", categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls"] },
+      { name: `${cleanCity} Panoramic Hilltop Vista`, deity: "360° Panoramic Landscape", city: cleanCity, rating: "4.8", durationMin: 60, wait: "Sightseeing: 45–60 mins", highlight: "Golden hour photography and panoramic valley views", categories: ["Viewpoints & Scenic Places", "Hills & Mountains"] },
+      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, deity: "Regional Crafts & Specialties", city: cleanCity, rating: "4.6", durationMin: 90, wait: "Shopping: 1–2 hrs", highlight: "Authentic local delicacies and handcrafted souvenirs", categories: ["Famous Markets & Local Places", "Cultural Places"] },
     ];
   }
+
+  const defaultCats = selectedCategories.length ? selectedCategories : ["Temples & Religious Places", "Historical & Heritage Places"];
 
   let templeIdx = 0;
   function getNextTemple() {
@@ -776,30 +828,36 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       if (cur < 900) {
         const tPrelim = getNextTemple();
         const tPrelimDur = tPrelim.durationMin > 90 ? 75 : tPrelim.durationMin;
+        const resCat = resolveCategoriesForPlace(tPrelim, selectedCategories);
         blocks.push({
           start: formatMin(cur),
           end: formatMin(cur + tPrelimDur),
           type: "activity",
-          title: `Darshan at ${tPrelim.name}`,
+          title: `Visit ${tPrelim.name}`,
           place: `${tPrelim.name}, ${tPrelim.city}`,
           durationMin: tPrelimDur,
-          reason: `🛕 Deity: ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlight}`
+          reason: `🛕 ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlight}`,
+          categories: resCat.categories,
+          whyIncluded: `Matches your selected ${resCat.match} preference along the route.`,
         });
         cur += tPrelimDur;
       }
 
-      // Grand Evening Temple / Main Attraction
+      // Grand Evening Attraction
       const tMain = getNextTemple();
       const tDuration = tMain.durationMin || 90;
       const tWait = tMain.wait ? ` · ⏳ Darshan Wait: ${tMain.wait}` : "";
+      const resMain = resolveCategoriesForPlace(tMain, selectedCategories);
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + tDuration),
         type: "activity",
-        title: `Grand Darshan at ${tMain.name}`,
+        title: `Explore ${tMain.name}`,
         place: `${tMain.name}, ${tMain.city}`,
         durationMin: tDuration,
-        reason: `🛕 Deity: ${tMain.deity} · ⭐ ${tMain.rating}${tWait} · ${tMain.highlight}`
+        reason: `🛕 ${tMain.deity} · ⭐ ${tMain.rating}${tWait} · ${tMain.highlight}`,
+        categories: resMain.categories,
+        whyIncluded: `Matches your selected ${resMain.match} preference along the route.`,
       });
       cur += tDuration;
 
@@ -825,7 +883,7 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         title: `Night Rest at ${hotelVenue.name}`,
         place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 480,
-        reason: "Peaceful sleep after sacred darshan and travel"
+        reason: "Peaceful sleep after sightseeing and travel"
       });
     } else if (!isLast) {
       // --- MIDDLE DAY: FULL SIGHTSEEING & PILGRIMAGE CIRCUIT ---
@@ -843,14 +901,17 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       const t1 = getNextTemple();
       const t1Duration = t1.durationMin > 180 ? 180 : t1.durationMin;
       const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
+      const res1 = resolveCategoriesForPlace(t1, selectedCategories);
       blocks.push({
         start: "09:15 AM",
         end: formatMin(555 + t1Duration),
         type: "activity",
-        title: `Darshan at ${t1.name}`,
+        title: `Visit ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
         durationMin: t1Duration,
-        reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`
+        reason: `🛕 ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`,
+        categories: res1.categories,
+        whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
 
       // Lunch strictly at 12:45 PM
@@ -868,14 +929,17 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       const t2 = getNextTemple();
       const t2Duration = t2.durationMin > 150 ? 150 : t2.durationMin;
       const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
+      const res2 = resolveCategoriesForPlace(t2, selectedCategories);
       blocks.push({
         start: "02:00 PM",
         end: formatMin(840 + t2Duration),
         type: "activity",
-        title: `Visit & Darshan at ${t2.name}`,
+        title: `Explore ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Duration,
-        reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`
+        reason: `🛕 ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`,
+        categories: res2.categories,
+        whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
 
       // Evening Sunset & Tea strictly around 05:45 PM
@@ -884,7 +948,7 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
         end: "06:45 PM",
         type: "coffee",
         title: "Evening Sunset & Tea Break",
-        place: "Scenic Viewpoint / Temple Promenade",
+        place: "Scenic Viewpoint / Promenade",
         durationMin: 60,
         breakType: "coffee",
         reason: "Golden hour views, cool evening breeze & hot tea"
@@ -926,27 +990,33 @@ function buildFallbackSmartItinerary({ destination, startLocation, places = [], 
       const t1 = getNextTemple();
       const t1Duration = t1.durationMin || 60;
       const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
+      const res1 = resolveCategoriesForPlace(t1, selectedCategories);
       blocks.push({
         start: "09:15 AM",
         end: "10:45 AM",
         type: "activity",
-        title: `Darshan at ${t1.name}`,
+        title: `Explore ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
         durationMin: t1Duration > 90 ? 90 : t1Duration,
-        reason: `🛕 Deity: ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`
+        reason: `🛕 ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`,
+        categories: res1.categories,
+        whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
 
       const t2 = getNextTemple();
       const t2Duration = t2.durationMin || 90;
       const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
+      const res2 = resolveCategoriesForPlace(t2, selectedCategories);
       blocks.push({
         start: "11:00 AM",
         end: "12:30 PM",
         type: "activity",
-        title: `Visit & Darshan at ${t2.name}`,
+        title: `Visit ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Duration > 90 ? 90 : t2Duration,
-        reason: `🛕 Deity: ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`
+        reason: `🛕 ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`,
+        categories: res2.categories,
+        whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
 
       // Lunch strictly at 12:30 PM

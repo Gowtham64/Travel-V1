@@ -149,6 +149,8 @@ class TimelineBlock {
   final String breakType; // breakfast|lunch|dinner|... (for meal/break blocks)
   final String reason;
   final String travelMode; // drive|flight|train|bus|ferry|walk (travel/return legs)
+  final List<String> categories; // matched place categories
+  final String whyIncluded; // explanation for why this stop was chosen
 
   TimelineBlock({
     required this.start,
@@ -162,6 +164,8 @@ class TimelineBlock {
     this.breakType = '',
     this.reason = '',
     this.travelMode = '',
+    this.categories = const [],
+    this.whyIncluded = '',
   });
 
   factory TimelineBlock.fromJson(Map<String, dynamic> j) => TimelineBlock(
@@ -176,8 +180,46 @@ class TimelineBlock {
         breakType: (j['breakType'] ?? '').toString(),
         reason: (j['reason'] ?? '').toString(),
         travelMode: (j['travelMode'] ?? '').toString(),
+        categories: (j['categories'] as List? ?? [])
+            .map((e) => e.toString())
+            .where((s) => s.isNotEmpty)
+            .toList(),
+        whyIncluded: (j['whyIncluded'] ?? '').toString(),
       );
 }
+
+class PlaceCategoryOption {
+  final String id;
+  final String label;
+  final String icon;
+  final String description;
+
+  const PlaceCategoryOption({
+    required this.id,
+    required this.label,
+    required this.icon,
+    this.description = '',
+  });
+}
+
+const List<PlaceCategoryOption> kPlaceCategories = [
+  PlaceCategoryOption(id: 'temples', label: 'Temples & Religious Places', icon: '🛕', description: 'Sacred shrines, heritage temples & spiritual places'),
+  PlaceCategoryOption(id: 'waterfalls_rivers', label: 'Rivers, Lakes & Waterfalls', icon: '🌊', description: 'Scenic falls, rivers, boating lakes & watersides'),
+  PlaceCategoryOption(id: 'viewpoints', label: 'Viewpoints & Scenic Places', icon: '🌄', description: 'Panoramic vistas, valleys & sunrise/sunset spots'),
+  PlaceCategoryOption(id: 'hills_mountains', label: 'Hills & Mountains', icon: '⛰️', description: 'Hill stations, mountain peaks & cool altitudes'),
+  PlaceCategoryOption(id: 'historical_heritage', label: 'Historical & Heritage Places', icon: '🏛️', description: 'Ancient ruins, UNESCO sites & archaeological wonders'),
+  PlaceCategoryOption(id: 'famous_places', label: 'Famous / Must-Visit Places', icon: '⭐', description: 'Top-rated bucket list landmarks & signature spots'),
+  PlaceCategoryOption(id: 'forts_palaces', label: 'Forts & Palaces', icon: '🏰', description: 'Royal residences, hill forts & grand architecture'),
+  PlaceCategoryOption(id: 'nature_forests', label: 'Nature & Forests', icon: '🌳', description: 'Botanical gardens, lush plantations & green trails'),
+  PlaceCategoryOption(id: 'beaches', label: 'Beaches', icon: '🏖️', description: 'Golden sands, coastal shores & ocean viewpoints'),
+  PlaceCategoryOption(id: 'wildlife_national_parks', label: 'Wildlife & National Parks', icon: '🐘', description: 'Animal sanctuaries, safari parks & reserves'),
+  PlaceCategoryOption(id: 'monuments_landmarks', label: 'Monuments & Landmarks', icon: '🗿', description: 'Iconic statues, memorials & architectural pillars'),
+  PlaceCategoryOption(id: 'city_attractions', label: 'Famous City Attractions', icon: '🏙️', description: 'Urban sights, city plazas & modern landmarks'),
+  PlaceCategoryOption(id: 'bridges_dams', label: 'Famous Bridges / Dams', icon: '🌉', description: 'Mega reservoirs, scenic dams & historic bridges'),
+  PlaceCategoryOption(id: 'markets_local', label: 'Famous Markets & Local Places', icon: '🛍️', description: 'Traditional bazaars, local craft streets & food lanes'),
+  PlaceCategoryOption(id: 'cultural_places', label: 'Cultural Places', icon: '🎨', description: 'Art galleries, folk villages & cultural centers'),
+  PlaceCategoryOption(id: 'photography_spots', label: 'Instagrammable / Photography Spots', icon: '📸', description: 'Aesthetic photo locations & picturesque backdrops'),
+];
 
 /// One day of the smart AI itinerary timeline.
 class SmartDay {

@@ -1141,6 +1141,9 @@ class ApiService {
     String directive = '',
     int travellers = 1,
     double? fuelEfficiency,
+    List<String> selectedCategories = const [],
+    Map<String, String> categoryPriorities = const {},
+    String customPreferences = '',
   }) async {
     try {
       final response = await http
@@ -1161,6 +1164,9 @@ class ApiService {
               'travellers': travellers,
               if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
               if (directive.isNotEmpty) 'directive': directive,
+              if (selectedCategories.isNotEmpty) 'selectedCategories': selectedCategories,
+              if (categoryPriorities.isNotEmpty) 'categoryPriorities': categoryPriorities,
+              if (customPreferences.isNotEmpty) 'customPreferences': customPreferences,
             }),
           )
           .timeout(const Duration(seconds: 45));
