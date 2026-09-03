@@ -929,6 +929,14 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     try {
       // Trip context to disambiguate short names (e.g. "to Tirupati").
       final ctx = _journeyEndpoints();
+      // Anchor on the trip destination: used to bias every stop's geocode so
+      // "Lunch at Ooty" can't resolve to a same-named place on another continent.
+      GeoPoint? anchor;
+      if (ctx.to.isNotEmpty) {
+        try {
+          anchor = await _api.geocode(ctx.to);
+        } catch (_) {}
+      }
       for (final it in day.items) {
         if (it.hasCoords) {
           stops.add(GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text));
@@ -938,14 +946,17 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         if (q.isEmpty) continue;
         try {
           GeoPoint? gp;
-          // 1. Try direct geocoding first
+          // 1. Prefer the context-qualified query for bare place names — a raw
+          //    "Botanical Garden" matches worldwide; "…, Ooty" pins it down.
+          final contextual =
+              (!q.contains(',') && ctx.to.isNotEmpty) ? '$q, ${ctx.to}' : null;
           try {
-            gp = await _api.geocode(q);
+            gp = await _api.geocode(contextual ?? q, near: anchor);
           } catch (_) {
-            // 2. If direct fails and no comma, try with trip destination context
-            if (!q.contains(',') && ctx.to.isNotEmpty) {
+            // 2. Contextual found nothing — retry the bare query.
+            if (contextual != null) {
               try {
-                gp = await _api.geocode('$q, ${ctx.to}');
+                gp = await _api.geocode(q, near: anchor);
               } catch (_) {}
             }
           }
@@ -955,6 +966,24 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             stops.add(GeoPoint(lat: gp.lat, lng: gp.lng, name: it.text));
           }
         } catch (_) {/* couldn't locate this one — skip it */}
+      }
+
+      // Guard against bad (often previously cached) geocodes: a day's driving
+      // route can't span continents, so keep only the largest group of stops
+      // that lie within 500 km of each other and drop far-flung outliers.
+      if (stops.length >= 3) {
+        var best = <GeoPoint>[];
+        for (final a in stops) {
+          final cluster = stops
+              .where((s) => _haversineKm(a.lat, a.lng, s.lat, s.lng) <= 500)
+              .toList();
+          if (cluster.length > best.length) best = cluster;
+        }
+        if (best.length >= 2 && best.length < stops.length) {
+          stops
+            ..clear()
+            ..addAll(best);
+        }
       }
 
       // If we only located 1 stop, try using journey origin (ctx.from) or destination (ctx.to)

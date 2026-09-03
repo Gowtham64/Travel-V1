@@ -40,7 +40,7 @@ app.use(
 // --- CORS restricted to the app's own origins (a browser-side firewall) ---
 const allowedOrigins = (
   process.env.ALLOWED_ORIGINS ||
-  "https://gowtham64.github.io,http://localhost:3000,http://localhost:8080,http://localhost:5000"
+  "https://gowtham64.github.io,https://voyplan.in,https://www.voyplan.in,http://localhost:3000,http://localhost:8080,http://localhost:5000"
 )
   .split(",")
   .map((s) => s.trim())

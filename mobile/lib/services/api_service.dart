@@ -226,13 +226,15 @@ class ApiService {
     return (jsonDecode(res.body) as Map).cast<String, dynamic>();
   }
 
-  Future<GeoPoint> geocode(String address) async {
+  Future<GeoPoint> geocode(String address, {GeoPoint? near}) async {
     // Prefer client-side Mapbox geocoding: the app's Mapbox token is typically
     // URL-restricted to this web origin, so it works from the browser but is
     // Forbidden (403) from the backend — and the backend's Nominatim fallback
     // gets rate-limited (429) on shared cloud IPs. Going direct avoids both.
+    // `near` biases ambiguous names toward the trip's area so short itinerary
+    // lines ("Lunch in Springfield") don't resolve on another continent.
     if (AppConfig.hasMapboxToken) {
-      final gp = await _geocodeWithMapbox(address);
+      final gp = await _geocodeWithMapbox(address, near: near);
       if (gp != null) return gp;
     }
 
@@ -283,7 +285,7 @@ class ApiService {
 
   /// Geocode directly against Mapbox from the client. Returns null on any error
   /// or no match so the caller can fall back to the backend geocoder.
-  Future<GeoPoint?> _geocodeWithMapbox(String address) async {
+  Future<GeoPoint?> _geocodeWithMapbox(String address, {GeoPoint? near}) async {
     try {
       final uri = Uri.parse(
               'https://api.mapbox.com/geocoding/v5/mapbox.places/${Uri.encodeComponent(address)}.json')
@@ -291,6 +293,9 @@ class ApiService {
         'access_token': AppConfig.mapboxToken,
         'limit': '1',
         'language': 'en',
+        // Soft ranking bias only (never excludes strong matches elsewhere):
+        // the trip's area when known, else India — same as the backend.
+        'proximity': near != null ? '${near.lng},${near.lat}' : '78.9629,20.5937',
       });
       final response = await http.get(uri).timeout(const Duration(seconds: 12));
       if (response.statusCode != 200) return null;
