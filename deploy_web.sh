@@ -16,7 +16,7 @@ cd mobile
 #   export MAPBOX_TOKEN=pk.your_url_restricted_token
 # Use a URL-restricted token from the Mapbox dashboard — client tokens are
 # always visible to end users, so restriction is the real protection.
-MAPBOX_TOKEN="${MAPBOX_TOKEN:-pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY210NG1rOTF2MDd5ZzJ4c2hscTE0ZHJ2diJ9.dngbDzSHZ7o6_z2BbJDa0A}"
+MAPBOX_TOKEN="${MAPBOX_TOKEN:-pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ}"
 flutter build web --base-href "/app/" --release \
     --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN}"
 cd .. # back to project root

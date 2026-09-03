@@ -38,6 +38,44 @@ async function geocodeWithMapbox(query) {
 }
 
 /**
+ * Geocode with OpenRouteService (Pelias). Works reliably from cloud IPs
+ * (Nominatim rate-blocks Render's shared IPs with 429s) and doesn't depend on
+ * the Mapbox token being valid. Returns null if nothing matches.
+ */
+async function geocodeWithORS(query) {
+  const orsKey = process.env.ORS_API_KEY;
+  if (!orsKey) throw new Error("ORS_API_KEY not configured");
+  const response = await axios.get(
+    "https://api.openrouteservice.org/geocode/search",
+    {
+      params: {
+        api_key: orsKey,
+        text: query,
+        size: 1,
+        // Worldwide, biased toward India so domestic names win when ambiguous.
+        "focus.point.lon": 78.9629,
+        "focus.point.lat": 20.5937,
+      },
+      timeout: 10000,
+    }
+  );
+  const feats = (response.data && response.data.features) || [];
+  const f = feats.find(
+    (x) =>
+      x.geometry &&
+      Array.isArray(x.geometry.coordinates) &&
+      x.geometry.coordinates.length === 2
+  );
+  if (!f) return null;
+  return {
+    lat: parseFloat(f.geometry.coordinates[1]),
+    lng: parseFloat(f.geometry.coordinates[0]),
+    displayName:
+      (f.properties && (f.properties.label || f.properties.name)) || query,
+  };
+}
+
+/**
  * Fallback geocoder using OpenStreetMap Nominatim. Kept as a secondary in
  * case Mapbox is unavailable.
  */
@@ -75,15 +113,28 @@ async function geocodeWithNominatim(query) {
  * @returns {Promise<{lat:number, lng:number, displayName:string}|null>}
  */
 async function geocodeAddress(query) {
+  // 1) ORS/Pelias first: reliable from cloud IPs and token-independent.
   try {
-    return await geocodeWithMapbox(query);
+    const gp = await geocodeWithORS(query);
+    if (gp) return gp;
+  } catch (err) {
+    console.warn(
+      "ORS geocode failed, trying Mapbox:",
+      err.response ? err.response.status : err.message
+    );
+  }
+  // 2) Mapbox (server token, if configured and valid).
+  try {
+    const gp = await geocodeWithMapbox(query);
+    if (gp) return gp;
   } catch (err) {
     console.warn(
       "Mapbox geocode failed, falling back to Nominatim:",
       err.response ? err.response.status : err.message
     );
-    return await geocodeWithNominatim(query);
   }
+  // 3) Nominatim last resort (rate-limited on shared cloud IPs).
+  return await geocodeWithNominatim(query);
 }
 
 /**

@@ -17,7 +17,7 @@ class AppConfig {
   /// URL-restricted token configured in the Mapbox dashboard — not hiding it.
   static const String mapboxToken = String.fromEnvironment(
     'MAPBOX_TOKEN',
-    defaultValue: 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY210NG1rOTF2MDd5ZzJ4c2hscTE0ZHJ2diJ9.dngbDzSHZ7o6_z2BbJDa0A',
+    defaultValue: 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
   );
 
   /// Whether a Mapbox token was provided at build time.
