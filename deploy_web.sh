@@ -42,7 +42,7 @@ done
 echo "  ✓ Landing site (index + iPhone guide + manifests + source) copied"
 
 # iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
-# The Android APK is distributed via GitHub Releases, so it is NOT bundled here.
+# The Android APK is distributed via GitHub Releases, so it is NOT bundled in gh-pages.
 if [ -f "mobile/build/ios/iphoneos/Voyplan.ipa" ]; then
     cp mobile/build/ios/iphoneos/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
     echo "  ✓ iOS IPA (fresh build) copied as Voyplan.ipa"
