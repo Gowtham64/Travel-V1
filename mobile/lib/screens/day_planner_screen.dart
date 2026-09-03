@@ -770,13 +770,25 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         if (it.hasCoords) {
           p = LatLng(it.lat!, it.lng!);
         } else if (geocodes < 15 && it.text.trim().isNotEmpty) {
-          geocodes++;
-          try {
-            final gp = await _api.geocode(context0.isEmpty ? it.text : '${it.text}, $context0');
-            p = LatLng(gp.lat, gp.lng);
-            it.lat = gp.lat; // cache back so future demos/map reuse it
-            it.lng = gp.lng;
-          } catch (_) {}
+          final q = _placeQueryFor(it) ?? it.text.trim();
+          if (q.isNotEmpty) {
+            geocodes++;
+            try {
+              GeoPoint? gp;
+              try {
+                gp = await _api.geocode(q);
+              } catch (_) {
+                if (context0.isNotEmpty && !q.contains(',')) {
+                  try { gp = await _api.geocode('$q, $context0'); } catch (_) {}
+                }
+              }
+              if (gp != null) {
+                p = LatLng(gp.lat, gp.lng);
+                it.lat = gp.lat; // cache back so future demos/map reuse it
+                it.lng = gp.lng;
+              }
+            } catch (_) {}
+          }
         }
         if (p != null) {
           stops.add(DemoStop(dayLabel: 'Day ${di + 1}', time: it.time, name: it.text, category: it.category, point: p));
@@ -867,19 +879,42 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   /// live trip-progress notification).
   /// Turn an itinerary line into a geocodable place query: strip leading verbs
   /// ("Drive to", "Visit"…) and generic activity words that aren't places.
+  /// Turn an itinerary line into a geocodable place query: strip leading verbs
+  /// ("Drive from", "Visit"…) and generic activity words that aren't places.
   String? _placeQueryFor(PlanItem it) {
     var t = it.text.trim();
-    // Drop obvious non-place activities (meals, breaks, check-in…).
-    final skip = RegExp(r'^(breakfast|lunch|dinner|brunch|coffee|tea|snack|'
-        r'lunch break|meal break|rest|free time|check-?in|check-?out|'
-        r'hotel check-?in|hotel check-?out|depart|return)\b', caseSensitive: false);
-    if (skip.hasMatch(t)) return null;
-    // Strip leading directional verbs.
-    t = t.replaceFirst(
-        RegExp(r'^(drive to|go to|head to|travel to|reach|visit|explore|'
-            r'stop at|arrive at|see|to)\s+', caseSensitive: false),
-        '');
+    if (t.isEmpty) return null;
+
+    // 1. Strip leading descriptive phrases / verbs / meal indicators
+    final prefixPattern = RegExp(
+      r'^(?:drive\s+(?:from|to|towards)|start\s+(?:from|at)|depart\s+(?:from)?|'
+      r'travel\s+(?:to|from)|journey\s+(?:to|from)|head\s+(?:to|towards|from)|'
+      r'reach|arrive\s+(?:at|in)?|arrival\s+(?:at|in)?|'
+      r'visit|explore|tour|see|stop\s+at|'
+      r'(?:arrival\s+)?(?:breakfast|lunch|dinner|brunch|snack|coffee|tea|meal)\s+(?:at|in)?|'
+      r'(?:hotel\s+)?(?:check-?in|check-?out|stay|rest|night\s+rest|night\s+stay)\s+(?:at|in)?|'
+      r'traditional\s+(?:dinner|lunch|breakfast)\s+(?:at|in)?|'
+      r'relax\s+(?:at|in)?|spend\s+time\s+(?:at|in)?)\s+',
+      caseSensitive: false,
+    );
+    t = t.replaceFirst(prefixPattern, '').trim();
+
+    // 2. Strip any remaining prepositions at the start
+    t = t.replaceFirst(RegExp(r'^(?:at|in|to|from)\s+', caseSensitive: false), '').trim();
+
+    // 3. Remove parenthetical descriptions, e.g. "(Mysore)" or "(Stay)"
     t = t.replaceAll(RegExp(r'\(.*?\)'), '').trim();
+
+    // 4. Strip surrounding punctuation
+    t = t.replaceAll(RegExp(r'^[^\w]+|[^\w]+$'), '').trim();
+
+    // 5. If it's a completely generic word with no place name, skip it
+    final genericOnly = RegExp(
+      r'^(?:lunch|dinner|breakfast|food|meal|rest|hotel|stay|break|free time|night|home)$',
+      caseSensitive: false,
+    );
+    if (genericOnly.hasMatch(t)) return null;
+
     return t.isEmpty ? null : t;
   }
 
@@ -899,18 +934,67 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
           stops.add(GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text));
           continue;
         }
-        final q = _placeQueryFor(it);
-        if (q == null) continue;
+        final q = _placeQueryFor(it) ?? it.text.trim();
+        if (q.isEmpty) continue;
         try {
-          final gp = await _api.geocode(q.contains(',') ? q : '$q, ${ctx.to}');
-          it.lat = gp.lat;
-          it.lng = gp.lng;
-          stops.add(GeoPoint(lat: gp.lat, lng: gp.lng, name: it.text));
+          GeoPoint? gp;
+          // 1. Try direct geocoding first
+          try {
+            gp = await _api.geocode(q);
+          } catch (_) {
+            // 2. If direct fails and no comma, try with trip destination context
+            if (!q.contains(',') && ctx.to.isNotEmpty) {
+              try {
+                gp = await _api.geocode('$q, ${ctx.to}');
+              } catch (_) {}
+            }
+          }
+          if (gp != null) {
+            it.lat = gp.lat;
+            it.lng = gp.lng;
+            stops.add(GeoPoint(lat: gp.lat, lng: gp.lng, name: it.text));
+          }
         } catch (_) {/* couldn't locate this one — skip it */}
       }
+
+      // If we only located 1 stop, try using journey origin (ctx.from) or destination (ctx.to)
+      if (stops.length == 1) {
+        if (ctx.from.isNotEmpty && stops.first.name != ctx.from) {
+          try {
+            final startGp = await _api.geocode(ctx.from);
+            stops.insert(0, startGp);
+          } catch (_) {}
+        }
+        if (stops.length == 1 && ctx.to.isNotEmpty && stops.first.name != ctx.to) {
+          try {
+            final endGp = await _api.geocode(ctx.to);
+            stops.add(endGp);
+          } catch (_) {}
+        }
+      }
+
       // Cache the freshly geocoded coords.
       await _store.saveDays(_days, name: widget.tripName);
     } catch (_) {/* fall through to the count check */}
+
+    // Deduplicate consecutive identical/super-close points (>50m away)
+    final distinctStops = <GeoPoint>[];
+    for (final s in stops) {
+      if (distinctStops.isEmpty) {
+        distinctStops.add(s);
+      } else {
+        final prev = distinctStops.last;
+        final distKm = _haversineKm(prev.lat, prev.lng, s.lat, s.lng);
+        if (distKm > 0.05) {
+          distinctStops.add(s);
+        }
+      }
+    }
+
+    if (distinctStops.length >= 2) {
+      stops.clear();
+      stops.addAll(distinctStops);
+    }
 
     if (stops.length < 2) {
       if (mounted) {
