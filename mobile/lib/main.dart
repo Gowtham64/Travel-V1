@@ -6,9 +6,12 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
+import 'config/app_config.dart';
 
-const supabaseUrl = 'https://dtemayjpttktntooxraa.supabase.co';
-const supabaseAnonKey = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
+// Environment-driven (see AppConfig). Defaults are the production project, so a
+// plain build is unchanged; staging/dev override via --dart-define.
+const supabaseUrl = AppConfig.supabaseUrl;
+const supabaseAnonKey = AppConfig.supabaseAnonKey;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,6 +54,44 @@ class TravelApp extends StatelessWidget {
       darkTheme: Voy.dark(textTheme),
       themeMode: ThemeMode.dark,
       home: const AuthStateWrapper(),
+      // A prominent, unmissable STAGING banner — shown ONLY on staging builds
+      // (APP_ENV=staging) so staging can never be confused with production.
+      builder: (context, child) {
+        final content = child ?? const SizedBox.shrink();
+        if (!AppConfig.isStaging) return content;
+        return Directionality(
+          textDirection: TextDirection.ltr,
+          child: Stack(
+            children: [
+              content,
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SafeArea(
+                  bottom: false,
+                  child: IgnorePointer(
+                    child: Container(
+                      color: const Color(0xF2C62828),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      alignment: Alignment.center,
+                      child: const Text(
+                        '⚠ STAGING — NOT PRODUCTION',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

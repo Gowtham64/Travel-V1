@@ -1,0 +1,64 @@
+name: Deploy Production (voyplan.in)
+
+# EXPLICIT production deploy only — never automatic on every commit.
+# Trigger manually (Actions tab → Run workflow) after staging QA + approval,
+# OR on a version tag (v*). Deploys the built site to the gh-pages branch,
+# exactly like deploy_web.sh does today.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DEPLOY to confirm production deployment'
+        required: true
+        default: ''
+  push:
+    tags: ['v*']
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build + deploy to GitHub Pages (production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify confirmation (manual runs)
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm != 'DEPLOY'
+        run: |
+          echo "::error::Production deploy not confirmed. Re-run and type DEPLOY in the confirm box."
+          exit 1
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build web (PRODUCTION config — defaults are prod)
+        working-directory: mobile
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --base-href "/app/" \
+            --dart-define=APP_ENV=production \
+            --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
+
+      - name: Assemble site (landing + app) into ./public
+        run: |
+          rm -rf public && mkdir -p public
+          cp -R web/* public/ 2>/dev/null || true
+          rm -rf public/app && mkdir -p public/app
+          cp -R mobile/build/web/* public/app/
+          echo "voyplan.in" > public/CNAME
+          touch public/.nojekyll
+
+      - name: Deploy to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
+          force_orphan: true
+          cname: voyplan.in

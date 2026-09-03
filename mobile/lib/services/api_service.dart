@@ -28,7 +28,8 @@ class ApiService {
   /// explicitly to override for local development.
   final String baseUrl;
 
-  static const String _prodBackend = 'https://travel-v1-mzia.onrender.com';
+  // Hosted backend, environment-driven (BACKEND_URL define; defaults to prod).
+  static const String _prodBackend = AppConfig.backendUrl;
 
   ApiService({String? baseUrl})
       : baseUrl = baseUrl ??

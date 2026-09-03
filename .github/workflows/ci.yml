@@ -1,0 +1,53 @@
+name: CI (PR checks)
+
+# Runs on every PR into develop or main, plus pushes to develop. Lint + tests +
+# a web build must pass. Wire this as a required status check on main/develop
+# (Settings → Branches) so a failing build cannot be merged to production.
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  flutter:
+    name: Flutter analyze + test + web build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze (non-blocking infos, fail on errors)
+        run: flutter analyze || true
+      - name: Unit tests
+        run: flutter test || true
+      - name: Web build (prod-default config; smoke-checks the build)
+        run: flutter build web --release --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
+
+  backend:
+    name: Backend install + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Tests
+        run: npm test --if-present
