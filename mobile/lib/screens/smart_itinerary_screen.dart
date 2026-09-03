@@ -1442,8 +1442,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       if (b.durationMin > 0) meta.add('${b.durationMin} min');
     }
     final isActivity = b.type == 'activity';
-    final temple = isActivity ? TempleDatabase.findTemple(b.title.isNotEmpty ? b.title : b.place) : null;
-    final isTemple = isActivity && (temple != null || b.title.toLowerCase().contains('darshan') || b.title.toLowerCase().contains('temple'));
+    final bool allowTempleRecognition = _selectedCategoryIds.isEmpty || _selectedCategoryIds.contains('temples');
+    final temple = (isActivity && allowTempleRecognition && (b.categories.contains('Temples & Religious Places') || b.title.toLowerCase().contains('temple') || b.title.toLowerCase().contains('darshan')))
+        ? TempleDatabase.findTemple(b.title.isNotEmpty ? b.title : b.place)
+        : null;
+    final isTemple = isActivity && temple != null;
 
     return IntrinsicHeight(
       child: Row(
@@ -1488,7 +1491,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                     Row(children: [
                       Expanded(
                         child: Text(
-                          temple != null && b.type == 'activity' ? 'Darshan at ${temple.canonicalName}' : b.title,
+                          b.title.isNotEmpty ? b.title : (temple != null ? 'Darshan at ${temple.canonicalName}' : b.place),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isTemple ? 14.5 : 14,
