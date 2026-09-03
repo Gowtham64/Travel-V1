@@ -844,29 +844,44 @@ function buildFallbackSmartItinerary({
     return { name: `${city} Iconic Heritage Landmark ${c}`, highlight: "Regional landmark, photography spot and cultural heritage", city: city, rating: "4.8", durationMin: 90, categories: [cat || "Famous / Must-Visit Places"] };
   }
 
-  // Balanced Round-Robin Place Selector (Never repeats any place across days)
+  // Time-of-Day Intelligent Category Selector (Never repeats any place across days)
   const usedAttractionNames = new Set();
   let slotCounter = 0;
 
-  function getNextAttraction() {
+  function getNextAttraction(timeSlot = "any") {
+    let preferred = [];
+    if (timeSlot === "morning") {
+      preferred = ["Temples & Religious Places", "Hills & Mountains", "Wildlife & National Parks", "Rivers, Lakes & Waterfalls", "Nature & Forests"];
+    } else if (timeSlot === "sunset" || timeSlot === "evening") {
+      preferred = ["Beaches", "Viewpoints & Scenic Places", "Famous Bridges / Dams", "Instagrammable / Photography Spots", "Famous City Attractions", "Famous Markets & Local Places"];
+    } else if (timeSlot === "afternoon") {
+      preferred = ["Historical & Heritage Places", "Forts & Palaces", "Cultural Places", "Monuments & Landmarks", "Famous City Attractions"];
+    }
+
     let targetCategory = null;
     if (hasCategoryFilter && selectedCategories.length > 0) {
-      targetCategory = selectedCategories[slotCounter % selectedCategories.length];
+      const aligned = selectedCategories.filter(c => preferred.includes(c));
+      if (aligned.length > 0) {
+        targetCategory = aligned[slotCounter % aligned.length];
+      } else {
+        targetCategory = selectedCategories[slotCounter % selectedCategories.length];
+      }
     }
     slotCounter++;
 
-    // 1. Try to find an unused matching place in pool
     let chosen = null;
     if (targetCategory) {
       chosen = pool.find(t => !usedAttractionNames.has(t.name) && (t.categories || []).includes(targetCategory));
+    }
+    if (!chosen && preferred.length > 0) {
+      chosen = pool.find(t => !usedAttractionNames.has(t.name) && (t.categories || []).some(c => preferred.includes(c)));
     }
     if (!chosen) {
       chosen = pool.find(t => !usedAttractionNames.has(t.name));
     }
 
-    // 2. If pool is exhausted or has no unused place, synthesize a unique place
     if (!chosen) {
-      const cat = targetCategory || (selectedCategories[0] || "Famous / Must-Visit Places");
+      const cat = targetCategory || (preferred[0] || (selectedCategories[0] || "Famous / Must-Visit Places"));
       const synthCount = usedAttractionNames.size + 1;
       chosen = synthesizeAttraction(cleanCity, cat, synthCount);
     }
@@ -881,7 +896,11 @@ function buildFallbackSmartItinerary({
   if (pair.includes("mandya") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
     estimatedKm = 345.0;
   } else if (pair.includes("bengaluru") || pair.includes("bangalore")) {
-    if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
+    if (pair.includes("mumbai")) estimatedKm = 985.0;
+    else if (pair.includes("delhi")) estimatedKm = 2150.0;
+    else if (pair.includes("hyderabad")) estimatedKm = 570.0;
+    else if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 350.0;
+    else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
     else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 145.0;
     else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 265.0;
     else if (pair.includes("ooty")) estimatedKm = 280.0;
@@ -889,18 +908,24 @@ function buildFallbackSmartItinerary({
     else if (pair.includes("goa")) estimatedKm = 560.0;
     else if (pair.includes("hampi")) estimatedKm = 340.0;
   } else if (pair.includes("mysore") || pair.includes("mysuru")) {
-    if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 385.0;
+    if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 255.0;
+    else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 385.0;
     else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 120.0;
     else if (pair.includes("ooty")) estimatedKm = 125.0;
-  } else if (pair.includes("chennai") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
-    estimatedKm = 135.0;
+    else if (pair.includes("wayanad")) estimatedKm = 140.0;
+  } else if (pair.includes("mumbai")) {
+    if (pair.includes("pune")) estimatedKm = 150.0;
+    else if (pair.includes("goa")) estimatedKm = 585.0;
+    else if (pair.includes("lonavala")) estimatedKm = 85.0;
+    else if (pair.includes("shirdi")) estimatedKm = 240.0;
+    else if (pair.includes("mahabaleshwar")) estimatedKm = 260.0;
   }
 
   const totalDriveMin = Math.round((estimatedKm / 55.0) * 60);
 
   function parseMinutes(t) {
     const clean = String(t || "").trim().toLowerCase();
-    if (!clean) return 480; // 08:00 AM
+    if (!clean) return 480;
     const isPm = clean.includes("pm");
     const isAm = clean.includes("am");
     const numStr = clean.replace(/[^0-9:]/g, "");
@@ -936,7 +961,6 @@ function buildFallbackSmartItinerary({
     const blocks = [];
 
     if (isFirst) {
-      // --- DAY 1: DEPARTURE & FIRST SIGHTSEEING ---
       let cur = parseMinutes(startTime);
 
       blocks.push({
@@ -954,7 +978,6 @@ function buildFallbackSmartItinerary({
       });
       cur += totalDriveMin;
 
-      // Arrival Lunch
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + 60),
@@ -967,7 +990,6 @@ function buildFallbackSmartItinerary({
       });
       cur += 60;
 
-      // Hotel Check-in
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + 45),
@@ -979,9 +1001,9 @@ function buildFallbackSmartItinerary({
       });
       cur += 45;
 
-      // Afternoon / Evening Stop 1
-      const t1 = getNextAttraction();
-      const t1Dur = t1.durationMin > 90 ? 75 : t1.durationMin;
+      // Afternoon Stop 1
+      const t1 = getNextAttraction("afternoon");
+      const t1Dur = t1.durationMin > 90 ? 75 : (t1.durationMin || 75);
       const res1 = resolveCategoriesForPlace(t1, selectedCategories);
       const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
@@ -995,11 +1017,11 @@ function buildFallbackSmartItinerary({
         categories: res1.categories,
         whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
-      cur += t1Dur;
+      cur += t1Dur + 15; // 15 min buffer to reach sunset spot
 
-      // Evening Stop 2
-      const t2 = getNextAttraction();
-      const t2Dur = t2.durationMin || 90;
+      // Evening Sunset Stop 2
+      const t2 = getNextAttraction("sunset");
+      const t2Dur = t2.durationMin || 75;
       const res2 = resolveCategoriesForPlace(t2, selectedCategories);
       const emoji2 = getCategoryEmoji(res2.match);
       blocks.push({
@@ -1009,14 +1031,13 @@ function buildFallbackSmartItinerary({
         title: `Explore ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Dur,
-        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Scenic evening experience"}`,
+        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Scenic golden hour sunset experience"}`,
         categories: res2.categories,
         whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
       cur += t2Dur;
 
-      // Traditional Dinner (at or after 07:30 PM)
-      if (cur < 1170) cur = 1170; // 07:30 PM minimum
+      if (cur < 1170) cur = 1170;
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + 60),
@@ -1029,7 +1050,6 @@ function buildFallbackSmartItinerary({
       });
       cur += 60;
 
-      // Night Rest
       blocks.push({
         start: formatMin(cur),
         end: "06:30 AM",
@@ -1040,7 +1060,6 @@ function buildFallbackSmartItinerary({
         reason: "Peaceful sleep after sightseeing and travel"
       });
     } else if (!isLast) {
-      // --- MIDDLE DAY: FULL SIGHTSEEING CIRCUIT ---
       blocks.push({
         start: "08:00 AM",
         end: "09:00 AM",
@@ -1052,8 +1071,9 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
-      const t1 = getNextAttraction();
-      const t1Duration = t1.durationMin > 180 ? 180 : t1.durationMin;
+      // Morning Activity: Ideal for Temples / Hills / Nature / Waterfalls
+      const t1 = getNextAttraction("morning");
+      const t1Duration = t1.durationMin > 150 ? 120 : (t1.durationMin || 90);
       const res1 = resolveCategoriesForPlace(t1, selectedCategories);
       const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
@@ -1063,12 +1083,11 @@ function buildFallbackSmartItinerary({
         title: `Visit ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
         durationMin: t1Duration,
-        reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Iconic regional highlight"}`,
+        reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Iconic morning regional highlight"}`,
         categories: res1.categories,
         whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
 
-      // Lunch strictly at 12:45 PM
       blocks.push({
         start: "12:45 PM",
         end: "01:45 PM",
@@ -1080,8 +1099,9 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
 
-      const t2 = getNextAttraction();
-      const t2Duration = t2.durationMin > 150 ? 150 : t2.durationMin;
+      // Afternoon Activity: Palaces / Heritage / Museums / Forts
+      const t2 = getNextAttraction("afternoon");
+      const t2Duration = t2.durationMin > 120 ? 105 : (t2.durationMin || 90);
       const res2 = resolveCategoriesForPlace(t2, selectedCategories);
       const emoji2 = getCategoryEmoji(res2.match);
       blocks.push({
@@ -1091,21 +1111,36 @@ function buildFallbackSmartItinerary({
         title: `Explore ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Duration,
-        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Immersive sightseeing stop"}`,
+        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Immersive heritage sightseeing stop"}`,
         categories: res2.categories,
         whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
 
-      // Evening Sunset & Tea strictly around 05:45 PM
+      // Evening Sunset Spot / Beach / Viewpoint
+      const t3 = getNextAttraction("sunset");
+      const res3 = resolveCategoriesForPlace(t3, selectedCategories);
+      const emoji3 = getCategoryEmoji(res3.match);
       blocks.push({
-        start: "05:45 PM",
-        end: "06:45 PM",
+        start: "04:30 PM",
+        end: "06:00 PM",
+        type: "activity",
+        title: `Sunset Experience at ${t3.name}`,
+        place: `${t3.name}, ${t3.city}`,
+        durationMin: 90,
+        reason: `${emoji3} ⭐ ${t3.rating || "4.8"} · ${t3.highlight || "Golden hour sunset panoramic view"}`,
+        categories: res3.categories,
+        whyIncluded: `Matches your selected ${res3.match} preference along the route.`,
+      });
+
+      blocks.push({
+        start: "06:15 PM",
+        end: "07:00 PM",
         type: "coffee",
-        title: "Evening Sunset & Tea Break",
-        place: "Scenic Viewpoint / Promenade",
-        durationMin: 60,
+        title: "Evening Coastal Tea & Refreshment",
+        place: "Local Promenade Cafe",
+        durationMin: 45,
         breakType: "coffee",
-        reason: "Golden hour views, cool evening breeze and hot tea"
+        reason: "Cool evening breeze, local snacks and filter coffee"
       });
 
       blocks.push({
@@ -1129,7 +1164,6 @@ function buildFallbackSmartItinerary({
         reason: "Restful sleep preparing for morning visits"
       });
     } else {
-      // --- FINAL DAY: MORNING SIGHTSEEING, LUNCH, CHECK-OUT & RETURN DRIVE ---
       blocks.push({
         start: "08:00 AM",
         end: "09:00 AM",
@@ -1141,29 +1175,31 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
-      const t1 = getNextAttraction();
-      const t1Duration = t1.durationMin || 60;
+      // Morning Stop 1
+      const t1 = getNextAttraction("morning");
+      const t1Duration = t1.durationMin || 75;
       const res1 = resolveCategoriesForPlace(t1, selectedCategories);
       const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
         start: "09:15 AM",
-        end: "10:45 AM",
+        end: "10:30 AM",
         type: "activity",
         title: `Explore ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
-        durationMin: t1Duration > 90 ? 90 : t1Duration,
+        durationMin: t1Duration > 75 ? 75 : t1Duration,
         reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Morning sightseeing exploration"}`,
         categories: res1.categories,
         whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
 
-      const t2 = getNextAttraction();
-      const t2Duration = t2.durationMin || 90;
+      // Morning Stop 2
+      const t2 = getNextAttraction("afternoon");
+      const t2Duration = t2.durationMin || 75;
       const res2 = resolveCategoriesForPlace(t2, selectedCategories);
       const emoji2 = getCategoryEmoji(res2.match);
       blocks.push({
-        start: "11:00 AM",
-        end: "12:30 PM",
+        start: "10:45 AM",
+        end: "12:15 PM",
         type: "activity",
         title: `Visit ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
@@ -1173,7 +1209,6 @@ function buildFallbackSmartItinerary({
         whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
 
-      // Lunch strictly at 12:30 PM
       blocks.push({
         start: "12:30 PM",
         end: "01:30 PM",
@@ -1185,7 +1220,6 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
 
-      // Hotel Check-out at 01:30 PM
       blocks.push({
         start: "01:30 PM",
         end: "02:00 PM",
@@ -1193,11 +1227,10 @@ function buildFallbackSmartItinerary({
         title: `Hotel Check-out from ${hotelVenue.name}`,
         place: `${hotelVenue.name}, ${hotelVenue.city}`,
         durationMin: 30,
-        reason: "Settle bills, load prasadam & luggage into vehicle"
+        reason: "Settle bills, load luggage into vehicle"
       });
 
-      // Return Drive
-      let cur = 840; // 02:00 PM
+      let cur = 840;
       if (totalDriveMin > 180) {
         const ret1 = Math.round(totalDriveMin * 0.5);
         const ret2 = totalDriveMin - ret1;
@@ -1208,53 +1241,56 @@ function buildFallbackSmartItinerary({
           start: formatMin(cur),
           end: formatMin(cur + ret1),
           type: "travel",
-          title: "Return Drive (Highway Leg 1)",
-          place: "National Highway",
+          title: `Return Highway Drive towards ${startName}`,
+          place: `Highway Route to ${startName}`,
           durationMin: ret1,
           travelMin: ret1,
           distanceKm: dist1,
           travelMode: "drive",
-          reason: "Smooth afternoon highway cruising returning home"
+          reason: "Smooth return journey across scenic ghats & expressway",
+          grounded: true
         });
         cur += ret1;
 
         blocks.push({
           start: formatMin(cur),
-          end: formatMin(cur + 45),
+          end: formatMin(cur + 30),
           type: "coffee",
-          title: `Sunset Highway Coffee Break at ${coffeeHighway.name}`,
+          title: `Highway Tea & Refreshment at ${coffeeHighway.name}`,
           place: `${coffeeHighway.name}, ${coffeeHighway.city}`,
-          durationMin: 45,
+          durationMin: 30,
           breakType: "coffee",
           reason: `⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}`
         });
-        cur += 45;
+        cur += 30;
 
         blocks.push({
           start: formatMin(cur),
           end: formatMin(cur + ret2),
-          type: "return",
-          title: `Return Drive back to ${startName}`,
+          type: "travel",
+          title: `Final Leg Return Drive to ${startName}`,
           place: startName,
           durationMin: ret2,
           travelMin: ret2,
           distanceKm: dist2,
           travelMode: "drive",
-          reason: `Final evening highway cruise arriving safely back at ${startName}`
+          reason: "Safe arrival back home",
+          grounded: true
         });
         cur += ret2;
       } else {
         blocks.push({
           start: formatMin(cur),
           end: formatMin(cur + totalDriveMin),
-          type: "return",
-          title: `Return Drive back to ${startName}`,
+          type: "travel",
+          title: `Return Drive to ${startName}`,
           place: startName,
           durationMin: totalDriveMin,
           travelMin: totalDriveMin,
           distanceKm: estimatedKm,
           travelMode: "drive",
-          reason: "Smooth evening highway cruise returning home"
+          reason: "Smooth drive back home",
+          grounded: true
         });
         cur += totalDriveMin;
       }
@@ -1263,17 +1299,17 @@ function buildFallbackSmartItinerary({
         start: formatMin(cur),
         end: formatMin(cur + 45),
         type: "meal",
-        title: `Dinner Arrival at ${startName}`,
-        place: "Local Restaurant / Home Diner",
+        title: `Arrival Dinner in ${startName}`,
+        place: `${startName} Home / Local Restaurant`,
         durationMin: 45,
         breakType: "dinner",
-        reason: "Relaxing dinner marking the auspicious conclusion of pilgrimage"
+        reason: "Enjoy a relaxed warm meal after completing your trip"
       });
     }
 
     days.push({
       day: d,
-      date: `Day ${d}`,
+      date: "",
       title: isFirst
         ? `Arrival & Highlights of ${destName}`
         : isLast

@@ -1428,14 +1428,28 @@ class ApiService {
       return _FallbackAttraction(name: '$city Iconic Heritage Landmark $c', city: city, rating: '4.8', durationMin: 90, highlight: 'Regional landmark, photography spot and cultural heritage', categories: [cat.isNotEmpty ? cat : 'Famous / Must-Visit Places']);
     }
 
-    // Balanced Round-Robin Place Selector (Never repeats any place across days)
+    // Time-of-Day Intelligent Category Selector (Never repeats any place across days)
     final usedAttractionNames = <String>{};
     int slotCounter = 0;
 
-    _FallbackAttraction getNextAttraction() {
+    _FallbackAttraction getNextAttraction([String timeSlot = 'any']) {
+      final preferred = <String>[];
+      if (timeSlot == 'morning') {
+        preferred.addAll(['Temples & Religious Places', 'Hills & Mountains', 'Wildlife & National Parks', 'Rivers, Lakes & Waterfalls', 'Nature & Forests']);
+      } else if (timeSlot == 'sunset' || timeSlot == 'evening') {
+        preferred.addAll(['Beaches', 'Viewpoints & Scenic Places', 'Famous Bridges / Dams', 'Instagrammable / Photography Spots', 'Famous City Attractions', 'Famous Markets & Local Places']);
+      } else if (timeSlot == 'afternoon') {
+        preferred.addAll(['Historical & Heritage Places', 'Forts & Palaces', 'Cultural Places', 'Monuments & Landmarks', 'Famous City Attractions']);
+      }
+
       String? targetCategory;
       if (hasCategoryFilter && selectedCategories.isNotEmpty) {
-        targetCategory = selectedCategories[slotCounter % selectedCategories.length];
+        final aligned = selectedCategories.where((c) => preferred.contains(c)).toList();
+        if (aligned.isNotEmpty) {
+          targetCategory = aligned[slotCounter % aligned.length];
+        } else {
+          targetCategory = selectedCategories[slotCounter % selectedCategories.length];
+        }
       }
       slotCounter++;
 
@@ -1443,6 +1457,14 @@ class ApiService {
       if (targetCategory != null) {
         for (final t in pool) {
           if (!usedAttractionNames.contains(t.name) && t.categories.contains(targetCategory)) {
+            chosen = t;
+            break;
+          }
+        }
+      }
+      if (chosen == null && preferred.isNotEmpty) {
+        for (final t in pool) {
+          if (!usedAttractionNames.contains(t.name) && t.categories.any((c) => preferred.contains(c))) {
             chosen = t;
             break;
           }
@@ -1458,7 +1480,7 @@ class ApiService {
       }
 
       if (chosen == null) {
-        final cat = targetCategory ?? (selectedCategories.isNotEmpty ? selectedCategories.first : 'Famous / Must-Visit Places');
+        final cat = targetCategory ?? (preferred.isNotEmpty ? preferred.first : (selectedCategories.isNotEmpty ? selectedCategories.first : 'Famous / Must-Visit Places'));
         final synthCount = usedAttractionNames.length + 1;
         chosen = synthesizeAttraction(cleanCity, cat, synthCount);
       }
@@ -1630,8 +1652,8 @@ class ApiService {
         cur += 45;
 
         // Afternoon Sightseeing 1
-        final t1 = getNextAttraction();
-        final t1Dur = t1.durationMin > 90 ? 75 : t1.durationMin;
+        final t1 = getNextAttraction('afternoon');
+        final t1Dur = t1.durationMin > 90 ? 75 : (t1.durationMin > 0 ? t1.durationMin : 75);
         final res1 = resolveCats(t1);
         final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
@@ -1645,11 +1667,11 @@ class ApiService {
           categories: res1.categories,
           whyIncluded: 'Matches your selected ${res1.match} preference along the route.',
         ));
-        cur += t1Dur;
+        cur += t1Dur + 15; // 15 min buffer to reach sunset spot
 
-        // Evening Sightseeing 2
-        final t2 = getNextAttraction();
-        final t2Dur = t2.durationMin > 90 ? 90 : t2.durationMin;
+        // Evening Sunset Sightseeing 2
+        final t2 = getNextAttraction('sunset');
+        final t2Dur = t2.durationMin > 90 ? 75 : (t2.durationMin > 0 ? t2.durationMin : 75);
         final res2 = resolveCats(t2);
         final emoji2 = getEmoji(res2.match);
         blocks.add(TimelineBlock(
@@ -1702,8 +1724,8 @@ class ApiService {
           reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
-        final t1 = getNextAttraction();
-        final t1Duration = t1.durationMin > 150 ? 120 : t1.durationMin;
+        final t1 = getNextAttraction('morning');
+        final t1Duration = t1.durationMin > 150 ? 120 : (t1.durationMin > 0 ? t1.durationMin : 90);
         final res1 = resolveCats(t1);
         final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
@@ -1730,8 +1752,8 @@ class ApiService {
           reason: '⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}',
         ));
 
-        final t2 = getNextAttraction();
-        final t2Duration = t2.durationMin > 150 ? 120 : t2.durationMin;
+        final t2 = getNextAttraction('afternoon');
+        final t2Duration = t2.durationMin > 120 ? 105 : (t2.durationMin > 0 ? t2.durationMin : 90);
         final res2 = resolveCats(t2);
         final emoji2 = getEmoji(res2.match);
         blocks.add(TimelineBlock(
@@ -1746,14 +1768,30 @@ class ApiService {
           whyIncluded: 'Matches your selected ${res2.match} preference along the route.',
         ));
 
-        // Sunset tea
+        // Sunset Spot
+        final t3 = getNextAttraction('sunset');
+        final res3 = resolveCats(t3);
+        final emoji3 = getEmoji(res3.match);
         blocks.add(TimelineBlock(
-          start: '05:45 PM',
-          end: '06:45 PM',
+          start: '04:30 PM',
+          end: '06:00 PM',
+          type: 'activity',
+          title: 'Sunset at ${t3.name}',
+          place: '${t3.name}, ${t3.city}',
+          durationMin: 90,
+          reason: '$emoji3 ⭐ ${t3.rating} · ${t3.highlight}',
+          categories: res3.categories,
+          whyIncluded: 'Matches your selected ${res3.match} preference along the route.',
+        ));
+
+        // Evening Tea
+        blocks.add(TimelineBlock(
+          start: '06:15 PM',
+          end: '07:00 PM',
           type: 'coffee',
           title: 'Evening Sunset & Refreshment Break',
           place: 'Scenic Viewpoint / Promenade',
-          durationMin: 60,
+          durationMin: 45,
           breakType: 'coffee',
           reason: 'Golden hour vistas, scenic photography & tea',
         ));
@@ -1791,13 +1829,13 @@ class ApiService {
           reason: '⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}',
         ));
 
-        final t1 = getNextAttraction();
-        final t1Duration = t1.durationMin > 90 ? 90 : t1.durationMin;
+        final t1 = getNextAttraction('morning');
+        final t1Duration = t1.durationMin > 90 ? 75 : (t1.durationMin > 0 ? t1.durationMin : 75);
         final res1 = resolveCats(t1);
         final emoji1 = getEmoji(res1.match);
         blocks.add(TimelineBlock(
           start: '09:15 AM',
-          end: '10:45 AM',
+          end: '10:30 AM',
           type: 'activity',
           title: 'Explore ${t1.name}',
           place: '${t1.name}, ${t1.city}',
@@ -1807,13 +1845,13 @@ class ApiService {
           whyIncluded: 'Matches your selected ${res1.match} preference along the route.',
         ));
 
-        final t2 = getNextAttraction();
-        final t2Duration = t2.durationMin > 90 ? 90 : t2.durationMin;
+        final t2 = getNextAttraction('afternoon');
+        final t2Duration = t2.durationMin > 90 ? 75 : (t2.durationMin > 0 ? t2.durationMin : 75);
         final res2 = resolveCats(t2);
         final emoji2 = getEmoji(res2.match);
         blocks.add(TimelineBlock(
-          start: '11:00 AM',
-          end: '12:30 PM',
+          start: '10:45 AM',
+          end: '12:00 PM',
           type: 'activity',
           title: 'Visit ${t2.name}',
           place: '${t2.name}, ${t2.city}',
