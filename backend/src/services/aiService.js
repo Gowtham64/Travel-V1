@@ -554,6 +554,43 @@ async function smartItinerary({
 }
 
 const CURATED_ATTRACTIONS = [
+  // --- Mangaluru & Udupi Coastal Circuit ---
+  { name: "Kudroli Gokarnanatheshwara Temple", deity: "Lord Shiva & Navadurga Sanctum", city: "Mangaluru (Mangalore)", rating: "4.8", durationMin: 75, highlight: "Illuminated marble corridors, golden gopuram & sacred Pushkarini", categories: ["Temples & Religious Places", "Cultural Places", "Historical & Heritage Places"] },
+  { name: "Panambur Beach & Water Sports", deity: "Arabian Sea Coastal Promenade", city: "Mangaluru (Mangalore)", rating: "4.7", durationMin: 90, highlight: "Jet skiing, boat rides, camel rides & sunset photography along Arabian Sea", categories: ["Beaches", "Famous City Attractions", "Instagrammable / Photography Spots"] },
+  { name: "Tannirbhavi Beach & Tree Park", deity: "Scenic Pine Grove & Beach Front", city: "Mangaluru (Mangalore)", rating: "4.7", durationMin: 90, highlight: "Tranquil beach with dense pine canopy, ferry crossing & walking trails", categories: ["Beaches", "Nature & Forests", "Viewpoints & Scenic Places"] },
+  { name: "Kadri Manjunath Temple & Ancient Caves", deity: "10th Century Lokeshwara Bronze Heritage", city: "Mangaluru (Mangalore)", rating: "4.8", durationMin: 75, highlight: "Historic hill shrine with natural mountain springs & Pandava caves", categories: ["Temples & Religious Places", "Historical & Heritage Places", "Hills & Mountains"] },
+  { name: "St. Aloysius Chapel & Heritage Art Gallery", deity: "1899 Italian Frescoes & Canvas Murals", city: "Mangaluru (Mangalore)", rating: "4.8", durationMin: 60, highlight: "Magnificent Sistine Chapel-style ceiling frescoes by Italian Jesuit Bro. Moscheni", categories: ["Historical & Heritage Places", "Cultural Places", "Monuments & Landmarks"] },
+  { name: "Pilikula Nisargadhama Biological Park", deity: "Eco-Education Botanical Reserve & Zoo", city: "Mangaluru (Mangalore)", rating: "4.7", durationMin: 150, highlight: "Safari zoo, heritage artisanal village, lake boating & 3D planetarium", categories: ["Wildlife & National Parks", "Nature & Forests", "Rivers, Lakes & Waterfalls"] },
+  { name: "Sultan Battery & Gurupura Riverfront", deity: "Tipu Sultan 1784 Naval Watchtower", city: "Mangaluru (Mangalore)", rating: "4.6", durationMin: 60, highlight: "Historic black stone watchtower overlooking river mouth & boat jetty", categories: ["Forts & Palaces", "Historical & Heritage Places", "Rivers, Lakes & Waterfalls"] },
+  { name: "Someshwara Beach & Rudra Shile Rocks", deity: "Sacred Sea Rocks & Beach Sunset", city: "Ullal, Mangaluru", rating: "4.7", durationMin: 75, highlight: "Dramatic large monolithic sea boulders & panoramic sunset viewpoint", categories: ["Beaches", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Surathkal Lighthouse & Beach Lookout", deity: "1972 Coastal Lighthouse & Rocky Shore", city: "Surathkal, Mangaluru", rating: "4.7", durationMin: 60, highlight: "Panoramic 360-degree ocean lookout atop rocky coastal lighthouse hill", categories: ["Viewpoints & Scenic Places", "Beaches", "Monuments & Landmarks"] },
+  { name: "Kateel Sri Durgaparameshwari Temple", deity: "Goddess Durga on Nandini River Island", city: "Kateel, Mangaluru", rating: "4.8", durationMin: 90, highlight: "Sacred river island sanctum surrounded by rushing streams of Nandini river", categories: ["Temples & Religious Places", "Rivers, Lakes & Waterfalls"] },
+  { name: "Udupi Sri Krishna Matha & Temple Square", deity: "Lord Krishna & Kanakana Kindi", city: "Udupi", rating: "4.9", durationMin: 90, highlight: "Historic 13th-century Madhvacharya matha, golden ratha & holy pond", categories: ["Temples & Religious Places", "Cultural Places", "Famous / Must-Visit Places"] },
+  { name: "Malpe Beach & St. Mary's Island", deity: "Unique Hexagonal Basalt Column Islands", city: "Malpe, Udupi", rating: "4.8", durationMin: 180, highlight: "Scenic ferry ride to million-year-old columnar basalt rock formations", categories: ["Beaches", "Nature & Forests", "Instagrammable / Photography Spots", "Famous / Must-Visit Places"] },
+
+  // --- Chikmagalur & Western Ghats ---
+  { name: "Mullayanagiri Peak & Trekking Ridge", deity: "Highest Peak in Karnataka (6330ft)", city: "Chikmagalur", rating: "4.8", durationMin: 150, highlight: "Sweeping Western Ghats mountain vistas, cool mist and hilltop temple", categories: ["Hills & Mountains", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Baba Budangiri & Datta Peeta", deity: "Sacred Mountain Shrine & Caves", city: "Chikmagalur", rating: "4.7", durationMin: 120, highlight: "Dramatic mountain pass, historic caves and origin of Indian coffee", categories: ["Hills & Mountains", "Cultural Places", "Historical & Heritage Places"] },
+  { name: "Hebbe Falls & Mountain Stream Trek", deity: "550ft Tiered Coffee Estate Waterfall", city: "Near Chikmagalur", rating: "4.8", durationMin: 180, highlight: "Exciting 4x4 jungle ride & trek through coffee plantations to roaring falls", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Hills & Mountains"] },
+  { name: "Z Point Sunset Lookout", deity: "Scenic Hill Ridge Viewpoint", city: "Kemmanagundi, Chikmagalur", rating: "4.7", durationMin: 90, highlight: "Thrilling cliffside walking trail with 360-degree green valley views", categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] },
+
+  // --- Wayanad ---
+  { name: "Banasura Sagar Dam & Speed Boating", deity: "Largest Earthen Dam in India", city: "Wayanad", rating: "4.7", durationMin: 120, highlight: "Speed boating in emerald reservoir surrounded by misty Banasura hills", categories: ["Famous Bridges / Dams", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
+  { name: "Edakkal Caves & Ancient Stone Age Carvings", deity: "Neolithic Petroglyphs (6000 BCE)", city: "Wayanad", rating: "4.7", durationMin: 120, highlight: "Scenic uphill mountain trek to prehistoric rock engravings & valley view", categories: ["Historical & Heritage Places", "Hills & Mountains", "Cultural Places"] },
+  { name: "Soochipara Waterfalls (Sentinel Rock)", deity: "3-Tiered Forest Mountain Cascade", city: "Meppadi, Wayanad", rating: "4.7", durationMin: 120, highlight: "Walk through tea plantations and lush evergreen forest to natural pool", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] },
+  { name: "Lakkidi View Point & Ghat Road Vista", deity: "Gateway to Wayanad High Mountain Pass", city: "Lakkidi, Wayanad", rating: "4.6", durationMin: 60, highlight: "Dramatic 700m high cliff edge looking over winding Thamarassery Churam", categories: ["Viewpoints & Scenic Places", "Hills & Mountains"] },
+
+  // --- Mumbai ---
+  { name: "Gateway of India & Apollo Bunder", deity: "Iconic 1924 Basalt Arch Monument", city: "Mumbai", rating: "4.8", durationMin: 90, highlight: "Overlooking Mumbai harbour, Taj Mahal Palace hotel & Arabian Sea boats", categories: ["Historical & Heritage Places", "Monuments & Landmarks", "Famous / Must-Visit Places"] },
+  { name: "Bandra-Worli Sea Link & Promenade", deity: "Cable-Stayed Sea Bridge Engineering Marvel", city: "Mumbai", rating: "4.8", durationMin: 60, highlight: "Spectacular 8-lane cable-stayed bridge spanning Arabian sea waters", categories: ["Famous Bridges / Dams", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Marine Drive & Queen's Necklace", deity: "Curved 3.6km Arabian Sea Coastal Boulevard", city: "Mumbai", rating: "4.8", durationMin: 90, highlight: "Panoramic sunset sea promenade illuminated like a necklace at night", categories: ["Viewpoints & Scenic Places", "Famous City Attractions", "Instagrammable / Photography Spots"] },
+  { name: "Chhatrapati Shivaji Maharaj Terminus (CSMT)", deity: "UNESCO Victorian Gothic Masterpiece", city: "Mumbai", rating: "4.8", durationMin: 60, highlight: "Ornate turrets, stained glass and evening architectural lighting", categories: ["Historical & Heritage Places", "Monuments & Landmarks", "Famous / Must-Visit Places"] },
+  { name: "Elephanta Caves & Island Ferry Ride", deity: "5th-Century Rock-Cut Shiva Temples", city: "Mumbai", rating: "4.7", durationMin: 180, highlight: "Scenic 1-hour harbour boat cruise to UNESCO Trimurti sculpture island", categories: ["Historical & Heritage Places", "Cultural Places", "Rivers, Lakes & Waterfalls"] },
+  { name: "Sanjay Gandhi National Park & Kanheri Caves", deity: "Protected Forest Reserve & Buddhist Caves", city: "Mumbai", rating: "4.7", durationMin: 180, highlight: "Lush green forest, tiger/lion safari & 109 rock-cut ancient Buddhist caves", categories: ["Wildlife & National Parks", "Nature & Forests", "Hills & Mountains"] },
+  { name: "Juhu Beach & Street Food Boulevard", deity: "Sunset Arabian Sea Beach", city: "Mumbai", rating: "4.6", durationMin: 90, highlight: "Famous Mumbai Pav Bhaji, Sev Puri & Arabian Sea evening breezes", categories: ["Beaches", "Famous Markets & Local Places", "Famous City Attractions"] },
+  { name: "Colaba Causeway & Arts District", deity: "Bustling Heritage Bazaar & Cafes", city: "Mumbai", rating: "4.7", durationMin: 90, highlight: "Artisanal shopping, antique jewelry, street stalls & iconic cafes", categories: ["Famous Markets & Local Places", "Cultural Places"] },
+  { name: "Shree Siddhivinayak Temple", deity: "Lord Ganesha (Gold-Plated Sanctum)", city: "Mumbai", rating: "4.8", durationMin: 75, highlight: "Historic 1801 inner gold-plated sanctum dedicated to Lord Ganesha", categories: ["Temples & Religious Places", "Famous / Must-Visit Places"] },
+
   // --- Tirupati / Tirumala ---
   { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam", categories: ["Temples & Religious Places", "Famous / Must-Visit Places"] },
   { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
@@ -710,24 +747,25 @@ function buildFallbackSmartItinerary({
   const startName = startLocation || "Home";
   const days = [];
 
+  function cleanCityName(str) {
+    if (!str) return "Destination";
+    const raw = str.split(',')[0].trim();
+    return raw.replace(/\s*\([^)]*\)/g, '').trim() || raw;
+  }
+
+  const cleanCity = cleanCityName(destination);
   const text = `${destination} ${preferences} ${customPreferences} ${places.join(" ")}`.toLowerCase();
-  const cleanCity = destination ? destination.split(',')[0].trim() : "Destination";
+
+  // Extract search terms including aliases inside parentheses e.g. "Mangaluru (Mangalore)" -> "mangaluru", "mangalore"
+  const parenMatch = destination ? destination.match(/\(([^)]+)\)/) : null;
+  const parenAlias = parenMatch ? parenMatch[1].toLowerCase().trim() : "";
+  const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter(s => s && s.length >= 3);
 
   // Step 1: Gather candidate places for this destination from curated library
-  let destCandidates = [];
-  if (text.includes("tirupati") || text.includes("tirumala") || text.includes("balaji") || text.includes("venkateswara")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam") || t.city.includes("Chandragiri"));
-  } else if (text.includes("mysore") || text.includes("mysuru") || text.includes("srirangapatna") || text.includes("mandya")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Mysuru") || t.city.includes("Srirangapatna") || t.city.includes("Nanjangud"));
-  } else if (text.includes("coorg") || text.includes("madikeri") || text.includes("kushalnagar")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Coorg") || t.city.includes("Madikeri") || t.city.includes("Kushalnagar"));
-  } else if (text.includes("ooty") || text.includes("nilgiri") || text.includes("coonoor")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Ooty") || t.city.includes("Nilgiris") || t.city.includes("Coonoor"));
-  } else if (text.includes("goa") || text.includes("calangute") || text.includes("baga") || text.includes("panjim")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Goa"));
-  } else if (text.includes("bengaluru") || text.includes("bangalore") || text.includes("mathikere")) {
-    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Bengaluru"));
-  }
+  let destCandidates = CURATED_ATTRACTIONS.filter(t => {
+    const tCity = t.city.toLowerCase();
+    return searchTerms.some(st => tCity.includes(st) || text.includes(st));
+  });
 
   // Step 2: Strict Category Filtering
   let pool = [];
@@ -735,13 +773,11 @@ function buildFallbackSmartItinerary({
   const templesAllowed = !hasCategoryFilter || selectedCategories.includes("Temples & Religious Places");
 
   if (hasCategoryFilter) {
-    // Filter candidate list to ONLY those that match at least one selected category
     pool = destCandidates.filter(t => {
       const pCats = t.categories || [];
       return pCats.some(c => selectedCategories.includes(c));
     });
 
-    // If user explicitly DID NOT select Temples, strictly purge any temple from the pool
     if (!templesAllowed) {
       pool = pool.filter(t => {
         const pCats = t.categories || [];
@@ -755,65 +791,88 @@ function buildFallbackSmartItinerary({
       const pB = (b.categories || []).some(c => (categoryPriorities && categoryPriorities[c]) === "must_visit") ? 0 : 1;
       return pA - pB;
     });
-
-    // If pool has fewer items than needed, dynamically synthesize high quality places for each selected category
-    for (const cat of selectedCategories) {
-      if (cat === "Temples & Religious Places" && !templesAllowed) continue;
-      if (cat === "Rivers, Lakes & Waterfalls") {
-        pool.push({ name: `${cleanCity} Scenic Waterfalls & Kaveri Cascades`, highlight: "Cascading natural waterfalls and serene water promenade", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] });
-      } else if (cat === "Viewpoints & Scenic Places") {
-        pool.push({ name: `${cleanCity} Panoramic Hilltop Valley Viewpoint`, highlight: "Breathtaking 360-degree landscape and golden hour sunset vista", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] });
-      } else if (cat === "Forts & Palaces") {
-        pool.push({ name: `${cleanCity} Historic Royal Fort & Palace Grounds`, highlight: "Grand royal durbar architecture and fortified courtyard grounds", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] });
-      } else if (cat === "Beaches") {
-        pool.push({ name: `${cleanCity} Sunset Beach & Coastal Promenade`, highlight: "Golden sand coastline, sea breeze and evening coastal sunset", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Beaches", "Viewpoints & Scenic Places"] });
-      } else if (cat === "Wildlife & National Parks") {
-        pool.push({ name: `${cleanCity} Wildlife Sanctuary & Nature Safari`, highlight: "Protected natural fauna habitat and guided flora safari", city: cleanCity, rating: "4.8", durationMin: 150, categories: ["Wildlife & National Parks", "Nature & Forests"] });
-      } else if (cat === "Nature & Forests") {
-        pool.push({ name: `${cleanCity} Lush Botanical Gardens & Forest Reserve`, highlight: "Scenic canopy walkways, rare flora and peaceful nature trails", city: cleanCity, rating: "4.7", durationMin: 90, categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls"] });
-      } else if (cat === "Famous Markets & Local Places") {
-        pool.push({ name: `${cleanCity} Traditional Artisan Bazaar & Silk Market`, highlight: "Vibrant local market with regional handicrafts, spices and food", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous Markets & Local Places", "Cultural Places"] });
-      } else if (cat === "Historical & Heritage Places") {
-        pool.push({ name: `${cleanCity} Ancient Heritage Monument & Museum`, highlight: "Historic archaeology, royal artifacts and architectural legacy", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Historical & Heritage Places", "Monuments & Landmarks"] });
-      } else if (cat === "Hills & Mountains") {
-        pool.push({ name: `${cleanCity} Misty Mountain Peak & Ridge Trek`, highlight: "High altitude clouds, mountain breeze and valley vistas", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Hills & Mountains", "Viewpoints & Scenic Places"] });
-      } else if (cat === "Famous Bridges / Dams") {
-        pool.push({ name: `${cleanCity} Reservoir Dam & River Gateway`, highlight: "Towering reservoir gates and illuminated river walkways", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous Bridges / Dams", "Rivers, Lakes & Waterfalls"] });
-      } else if (cat === "Cultural Places") {
-        pool.push({ name: `${cleanCity} Cultural Heritage & Arts Village`, highlight: "Traditional folklore, handicrafts and live cultural exhibits", city: cleanCity, rating: "4.7", durationMin: 90, categories: ["Cultural Places", "Famous / Must-Visit Places"] });
-      } else if (cat === "Instagrammable / Photography Spots") {
-        pool.push({ name: `${cleanCity} Panoramic Photography Point & Sunset Spot`, highlight: "Picture-perfect photo point with scenic framing and golden hour light", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Instagrammable / Photography Spots", "Viewpoints & Scenic Places"] });
-      } else if (cat === "Famous City Attractions") {
-        pool.push({ name: `${cleanCity} City Center Plaza & Heritage Promenade`, highlight: "Iconic downtown landmark and leisure walking boulevard", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous City Attractions", "Monuments & Landmarks"] });
-      } else if (cat === "Monuments & Landmarks") {
-        pool.push({ name: `${cleanCity} Historic Victory Monument & Tower`, highlight: "Iconic landmark celebrating regional history and architecture", city: cleanCity, rating: "4.7", durationMin: 60, categories: ["Monuments & Landmarks", "Historical & Heritage Places"] });
-      } else if (cat === "Temples & Religious Places") {
-        pool.push({ name: `${cleanCity} Sacred Spiritual Sanctum & Temple`, highlight: "Historic sanctum, spiritual heritage and traditional architecture", city: cleanCity, rating: "4.8", durationMin: 75, categories: ["Temples & Religious Places", "Historical & Heritage Places"] });
-      }
-    }
   } else {
-    // No specific categories selected by user: use balanced mix from destination candidates
-    pool = destCandidates.length ? destCandidates : [
-      { name: `${cleanCity} Historic Royal Palace & Monument`, highlight: "Iconic royal architecture and scenic courtyard grounds", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
-      { name: `${cleanCity} Waterfront Promenade & Lake Gardens`, highlight: "Lush botanical walkways and sunset fountain viewing", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Famous City Attractions"] },
-      { name: `${cleanCity} Panoramic Hilltop Vista`, highlight: "Golden hour photography and panoramic valley views", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] },
-      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, highlight: "Authentic local delicacies, handicrafts and regional souvenirs", city: cleanCity, rating: "4.6", durationMin: 90, categories: ["Famous Markets & Local Places", "Cultural Places"] },
-    ];
+    pool = destCandidates.length ? destCandidates : [];
   }
 
-  // Deduplicate pool
-  const seenNames = new Set();
-  pool = pool.filter(p => {
-    if (seenNames.has(p.name)) return false;
-    seenNames.add(p.name);
-    return true;
-  });
+  // Helper to synthesize distinct named attractions per category if needed
+  function synthesizeAttraction(city, cat, count) {
+    const emojis = {
+      "Temples & Religious Places": "🛕", "Rivers, Lakes & Waterfalls": "🌊", "Viewpoints & Scenic Places": "🌄",
+      "Hills & Mountains": "⛰️", "Forts & Palaces": "🏰", "Nature & Forests": "🌳", "Beaches": "🏖️",
+      "Wildlife & National Parks": "🐘", "Monuments & Landmarks": "🗿", "Famous Markets & Local Places": "🛍️",
+      "Cultural Places": "🎨", "Famous Bridges / Dams": "🌉", "Instagrammable / Photography Spots": "📸",
+      "Famous City Attractions": "🏙️", "Historical & Heritage Places": "🏛️"
+    };
+    const c = count || 1;
+    if (cat === "Temples & Religious Places") {
+      const names = [`${city} Sacred Heritage Shrine`, `${city} Hilltop Spiritual Sanctum`, `${city} Ancient Cultural Temple`];
+      return { name: names[(c - 1) % names.length], highlight: "Historic sanctum, spiritual heritage and traditional stone architecture", city: city, rating: "4.8", durationMin: 75, categories: ["Temples & Religious Places", "Historical & Heritage Places"] };
+    }
+    if (cat === "Beaches") {
+      const names = [`${city} Sunset Beach & Coastal Walkway`, `${city} Golden Sands Promenade`, `${city} Coastal Bay & Water Sports Beach`];
+      return { name: names[(c - 1) % names.length], highlight: "Golden sand coastline, sea breeze and evening coastal sunset", city: city, rating: "4.8", durationMin: 90, categories: ["Beaches", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] };
+    }
+    if (cat === "Hills & Mountains") {
+      const names = [`${city} Misty Mountain Peak & Ridge Lookout`, `${city} Valley Viewpoint & Mountain Trail`, `${city} Cloud-Capped Hilltop Ridge`];
+      return { name: names[(c - 1) % names.length], highlight: "High altitude clouds, mountain breeze and valley vistas", city: city, rating: "4.8", durationMin: 120, categories: ["Hills & Mountains", "Viewpoints & Scenic Places"] };
+    }
+    if (cat === "Rivers, Lakes & Waterfalls") {
+      const names = [`${city} Scenic Waterfalls & Cascades`, `${city} Lakefront Promenade & Boating`, `${city} Natural River Gorge & Falls`];
+      return { name: names[(c - 1) % names.length], highlight: "Cascading natural waterfalls and serene water promenade", city: city, rating: "4.8", durationMin: 90, categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests"] };
+    }
+    if (cat === "Viewpoints & Scenic Places") {
+      const names = [`${city} Panoramic Sunset Valley Viewpoint`, `${city} Skyline Lookout & Promenade`, `${city} Scenic Landscape Vista`];
+      return { name: names[(c - 1) % names.length], highlight: "Breathtaking 360-degree landscape and golden hour sunset vista", city: city, rating: "4.8", durationMin: 60, categories: ["Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] };
+    }
+    if (cat === "Forts & Palaces") {
+      const names = [`${city} Historic Royal Fort & Bastion`, `${city} Heritage Palace & Royal Grounds`, `${city} Ancient Citadel & Courtyard`];
+      return { name: names[(c - 1) % names.length], highlight: "Grand royal architecture and fortified courtyard grounds", city: city, rating: "4.8", durationMin: 120, categories: ["Forts & Palaces", "Historical & Heritage Places"] };
+    }
+    if (cat === "Wildlife & National Parks") {
+      const names = [`${city} Wildlife Sanctuary & Safari`, `${city} Nature Reserve & Fauna Park`, `${city} Botanical Bird Sanctuary`];
+      return { name: names[(c - 1) % names.length], highlight: "Protected natural fauna habitat and guided flora safari", city: city, rating: "4.8", durationMin: 150, categories: ["Wildlife & National Parks", "Nature & Forests"] };
+    }
+    if (cat === "Nature & Forests") {
+      const names = [`${city} Lush Botanical Gardens & Tree Park`, `${city} Forest Reserve & Canopy Trail`, `${city} Green Valley Eco Park`];
+      return { name: names[(c - 1) % names.length], highlight: "Scenic canopy walkways, rare flora and peaceful nature trails", city: city, rating: "4.7", durationMin: 90, categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls"] };
+    }
+    if (cat === "Famous Markets & Local Places") {
+      const names = [`${city} Traditional Artisan Bazaar`, `${city} Heritage Spice & Craft Market`, `${city} Local Food & Souvenir Street`];
+      return { name: names[(c - 1) % names.length], highlight: "Vibrant local market with regional delicacies, handicrafts and spices", city: city, rating: "4.7", durationMin: 75, categories: ["Famous Markets & Local Places", "Cultural Places"] };
+    }
+    return { name: `${city} Iconic Heritage Landmark ${c}`, highlight: "Regional landmark, photography spot and cultural heritage", city: city, rating: "4.8", durationMin: 90, categories: [cat || "Famous / Must-Visit Places"] };
+  }
 
-  let attractionIdx = 0;
+  // Balanced Round-Robin Place Selector (Never repeats any place across days)
+  const usedAttractionNames = new Set();
+  let slotCounter = 0;
+
   function getNextAttraction() {
-    const t = pool[attractionIdx % pool.length];
-    attractionIdx++;
-    return t;
+    let targetCategory = null;
+    if (hasCategoryFilter && selectedCategories.length > 0) {
+      targetCategory = selectedCategories[slotCounter % selectedCategories.length];
+    }
+    slotCounter++;
+
+    // 1. Try to find an unused matching place in pool
+    let chosen = null;
+    if (targetCategory) {
+      chosen = pool.find(t => !usedAttractionNames.has(t.name) && (t.categories || []).includes(targetCategory));
+    }
+    if (!chosen) {
+      chosen = pool.find(t => !usedAttractionNames.has(t.name));
+    }
+
+    // 2. If pool is exhausted or has no unused place, synthesize a unique place
+    if (!chosen) {
+      const cat = targetCategory || (selectedCategories[0] || "Famous / Must-Visit Places");
+      const synthCount = usedAttractionNames.size + 1;
+      chosen = synthesizeAttraction(cleanCity, cat, synthCount);
+    }
+
+    usedAttractionNames.add(chosen.name);
+    return chosen;
   }
 
   // Realistic highway distance estimation

@@ -1164,6 +1164,32 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
 
   List<Widget> _results() {
     return [
+      if (_loading) ...[
+        Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.accentLight.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.4)),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Regenerating balanced itinerary with AI...',
+                style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ],
       if (_showInsufficientPlacesWarning) ...[
         _insufficientPlacesBanner(),
         const SizedBox(height: 14),
@@ -1181,25 +1207,36 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       ),
       const SizedBox(height: 6),
       Row(children: [
+        OutlinedButton.icon(
+          onPressed: _loading ? null : () => _generate(directive: 'Regenerate fresh variety of attractions and balanced pacing.'),
+          icon: const Icon(Icons.refresh_rounded, size: 18, color: AppColors.accentLight),
+          label: const Text('Regenerate', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: AppColors.accentLight.withValues(alpha: 0.5)),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          ),
+        ),
+        const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.bookmark_add_rounded, size: 18, color: Colors.white),
-            label: const Text('Save', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+            label: const Text('Save', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
+          flex: 2,
           child: AccentButton(
             onPressed: _start,
             child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 6),
-              Text('START TRIP'),
+              SizedBox(width: 4),
+              Text('START TRIP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
             ]),
           ),
         ),
@@ -1324,11 +1361,27 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Tune with AI', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded, color: AppColors.accentLight, size: 18),
+              const SizedBox(width: 8),
+              const Text('Tune with AI', style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _loading ? null : () => _generate(directive: 'Regenerate fresh variety of attractions and balanced pacing.'),
+                icon: const Icon(Icons.autorenew_rounded, size: 16, color: AppColors.accentLight),
+                label: const Text('Fresh Plan', style: TextStyle(color: AppColors.accentLight, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 10),
           Wrap(spacing: 8, runSpacing: 8, children: [
             ctl('Optimize', Icons.tune_rounded, 'Optimise the schedule: tighten timings, minimise backtracking, better flow.'),
-            ctl('More sightseeing', Icons.add_photo_alternate_rounded, 'Add more sightseeing and notable attractions.'),
+            ctl('More sightseeing', Icons.add_photo_alternate_rounded, 'Add more sightseeing and notable attractions in selected categories.'),
             ctl('More free time', Icons.self_improvement_rounded, 'Add more free/relaxation time and shorten packed stretches.'),
             ctl('Reduce travel', Icons.route_rounded, 'Reduce travel: group nearby places, cut long transfers.'),
             ctl('Add meal breaks', Icons.restaurant_rounded, 'Ensure proper breakfast, lunch, dinner and a coffee break each day.'),
