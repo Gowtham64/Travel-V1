@@ -1828,87 +1828,46 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ));
     }
 
-    // Animated vehicle marker using 3D Asset or Emoji and Pulsing Ring
+    // Animated navigation symbol marker with pulsing aura and directional arrow
     if (_animatedVehiclePosition != null) {
-      final isCar = widget.vehicle.type.toLowerCase() == 'car' || widget.vehicle.type.toLowerCase() == 'suv';
       markers.add(Marker(
         point: _animatedVehiclePosition!,
-        width: 50,
-        height: 50,
+        width: 52,
+        height: 52,
         child: Stack(
           alignment: Alignment.center,
           children: [
             const _PulsingRing(),
-            // Soft contact shadow so the vehicle reads as sitting on the road.
-            Positioned(
-              bottom: 6,
+            Transform.rotate(
+              angle: _isPlayingAnimation ? 0.0 : _vehicleRotation,
               child: Container(
-                width: 24,
-                height: 7,
+                width: 36,
+                height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.28),
-                  borderRadius: BorderRadius.circular(50),
+                  shape: BoxShape.circle,
+                  color: Colors.white,
+                  border: Border.all(color: const Color(0xFF2E75B6), width: 2.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2E75B6).withOpacity(0.35),
+                      blurRadius: 10,
+                      spreadRadius: 2,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.25),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.navigation_rounded,
+                    color: Color(0xFF2E75B6),
+                    size: 22,
+                  ),
                 ),
               ),
-            ),
-            _DrivingWobble(
-              child: isCar
-                  ? Transform.rotate(
-                      angle: (_isPlayingAnimation ? 0.0 : _vehicleRotation) + (3 * pi / 4), // 135 degree offset for SW isometric car
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Image.asset(
-                            'assets/images/isometric_car.png',
-                            width: 28,
-                            height: 28,
-                            fit: BoxFit.contain,
-                          ),
-                          // Subtle rear brake lights (UR corner of SW car)
-                          if (_isSlowingDown)
-                            Positioned(
-                              top: 2,
-                              right: 2,
-                              child: Container(
-                                width: 5,
-                                height: 5,
-                                decoration: BoxDecoration(
-                                  color: Colors.redAccent,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.red.withOpacity(0.8),
-                                      blurRadius: 4,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          // Left Indicator (bottom-right front corner of SW car)
-                          if (_isTurningLeft)
-                            const Positioned(
-                              bottom: 3,
-                              right: 3,
-                              child: _BlinkingIndicator(),
-                            ),
-                          // Right Indicator (top-left front corner of SW car)
-                          if (_isTurningRight)
-                            const Positioned(
-                              top: 3,
-                              left: 3,
-                              child: _BlinkingIndicator(),
-                            ),
-                        ],
-                      ),
-                    )
-                  : Transform.rotate(
-                      angle: (_isPlayingAnimation ? 0.0 : _vehicleRotation) + (pi / 2), // 90 degree offset for emojis
-                      child: Text(
-                        _getVehicleEmoji(widget.vehicle.type),
-                        style: const TextStyle(fontSize: 26),
-                      ),
-                    ),
             ),
           ],
         ),

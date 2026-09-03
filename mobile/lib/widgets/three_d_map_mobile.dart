@@ -146,7 +146,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
     final opts = CircleOptions(
       geometry: _ll(pos),
       circleRadius: 9.0,
-      circleColor: '#6C63FF',
+      circleColor: '#2E75B6',
       circleStrokeColor: '#FFFFFF',
       circleStrokeWidth: 3.0,
     );

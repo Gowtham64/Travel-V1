@@ -191,11 +191,16 @@
     }
 
     function getVehicleMarkerHTML(type) {
-      const t = (type || '').toLowerCase();
-      if (t === 'car' || t === 'suv') {
-        return `<img src="assets/assets/images/isometric_car.png" style="width:56px; height:56px; object-fit:contain; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.45));" />`;
-      }
-      return `<div class="vehicle-emoji-container" style="font-size:40px; filter: drop-shadow(0 6px 5px rgba(0,0,0,0.45));">${getVehicleEmoji(type)}</div>`;
+      return `
+        <div class="nav-symbol-container" style="width: 48px; height: 48px; position: relative; display: flex; align-items: center; justify-content: center;">
+          <div class="pulsing-ring" style="position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 2.5px solid #2E75B6; background-color: rgba(46, 117, 182, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none; left: 2px; top: 2px;"></div>
+          <div class="nav-puck-disc" style="position: relative; width: 34px; height: 34px; border-radius: 50%; background: #ffffff; border: 2.5px solid #2E75B6; box-shadow: 0 4px 12px rgba(46, 117, 182, 0.35), 0 2px 6px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
+              <path d="M12 2L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2Z" fill="#2E75B6" stroke="#1D4ED8" stroke-width="1.2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      `;
     }
 
     // ---- Trip Planner preview globe (Earth in space) ----
@@ -417,15 +422,7 @@
               },
               labelLayerId
             );
-          }
-        } catch (e) { /* Standard has built-in 3D buildings */ }
-
-        // 3D vehicle via the Three.js custom layer (the technique proven to
-        // render in model_test.html). Loads a real glb model, with a procedural
-        // box-car fallback so a 3D vehicle always appears.
-        try {
-          window.addVehicle3DModelLayer(map, vehicleType);
-        } catch (e) { console.warn('3D vehicle layer failed', e); }
+        // Navigation symbol is displayed via the map marker
       });
 
       // Add route polyline
@@ -627,29 +624,18 @@
         }, 500);
       }
 
-      // Create vehicle marker (hidden initially at 0, 0)
-      const vehicleEl = document.createElement('div');
-      vehicleEl.id = 'vehicle-marker';
-      vehicleEl.style.width = '56px';
-      vehicleEl.style.height = '56px';
-      vehicleEl.style.position = 'relative';
-      vehicleEl.style.transition = 'transform 0.1s linear';
+      // Create navigation symbol marker (hidden initially at 0, 0)
+      const navEl = document.createElement('div');
+      navEl.id = 'vehicle-marker';
+      navEl.style.width = '48px';
+      navEl.style.height = '48px';
+      navEl.style.position = 'relative';
+      navEl.style.transition = 'transform 0.1s linear';
+      navEl.innerHTML = getVehicleMarkerHTML(vehicleType);
 
-      const emojiEl = document.createElement('div');
-      emojiEl.className = 'driving-wobble';
-      emojiEl.style.width = '56px';
-      emojiEl.style.height = '56px';
-      emojiEl.style.display = 'flex';
-      emojiEl.style.alignItems = 'center';
-      emojiEl.style.justifyContent = 'center';
-      emojiEl.style.position = 'relative';
-      emojiEl.innerHTML = getVehicleMarkerHTML(vehicleType);
-      vehicleEl.appendChild(emojiEl);
-
-      // Sits flat on the road and turns with the route (like the reference clip)
-      // instead of billboarding upright.
+      // Sits flat on the road and turns with the heading
       const vehicleMarker = new mapboxgl.Marker({
-        element: vehicleEl,
+        element: navEl,
         rotationAlignment: 'map',
         pitchAlignment: 'map'
       })
@@ -658,12 +644,8 @@
 
       if (window.smokeInterval) {
         clearInterval(window.smokeInterval);
+        window.smokeInterval = null;
       }
-      window.smokeInterval = setInterval(() => {
-        if (vehicleMarker && vehicleMarker.getLngLat().lng !== 0) {
-          spawnSmokeParticle(emojiEl);
-        }
-      }, 100);
 
       window.currentVehicleMarker = vehicleMarker;
       window.currentMapInstance = map;
@@ -891,15 +873,7 @@
       if (window.currentVehicleMarker && window.currentMapInstance) {
         const map = window.currentMapInstance;
         const position = [lng, lat];
-        const type = (window.currentVehicleType || '').toLowerCase();
-
-        let rotationDeg;
-        if (type === 'car' || type === 'suv') {
-          rotationDeg = (rotationRad * (180 / Math.PI)) + 45; // 45 degree offset for isometric car
-        } else {
-          rotationDeg = (rotationRad * (180 / Math.PI)) + 90; // 90 degree offset for emojis
-        }
-
+        const rotationDeg = rotationRad * (180 / Math.PI);
         window.currentVehicleMarker.setLngLat(position);
         window.currentVehicleMarker.setRotation(rotationDeg);
 
