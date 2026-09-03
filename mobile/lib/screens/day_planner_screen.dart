@@ -937,8 +937,19 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
           anchor = await _api.geocode(ctx.to);
         } catch (_) {}
       }
+      // A cached coordinate is suspect when the item's own text names the trip
+      // destination yet its coords sit far from it — stale results saved while
+      // geocoding was unbiased (e.g. "Night Rest at Ooty…" pinned in
+      // Bengaluru). Those are re-geocoded instead of trusted.
+      final destToken = ctx.to.split(',').first.trim().toLowerCase();
+      bool suspectCoords(PlanItem it) {
+        if (anchor == null || destToken.length < 3 || !it.hasCoords) return false;
+        if (!it.text.toLowerCase().contains(destToken)) return false;
+        return _haversineKm(it.lat!, it.lng!, anchor.lat, anchor.lng) > 60;
+      }
+
       for (final it in day.items) {
-        if (it.hasCoords) {
+        if (it.hasCoords && !suspectCoords(it)) {
           stops.add(GeoPoint(lat: it.lat!, lng: it.lng!, name: it.text));
           continue;
         }
@@ -959,6 +970,16 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                 gp = await _api.geocode(q, near: anchor);
               } catch (_) {}
             }
+          }
+          // A destination-named stop that STILL resolves far from the anchor is
+          // the geocoder mistaking a homonym — snap it to the destination town
+          // rather than sending the route to the wrong city.
+          if (gp != null &&
+              anchor != null &&
+              destToken.length >= 3 &&
+              it.text.toLowerCase().contains(destToken) &&
+              _haversineKm(gp.lat, gp.lng, anchor.lat, anchor.lng) > 60) {
+            gp = anchor;
           }
           if (gp != null) {
             it.lat = gp.lat;
