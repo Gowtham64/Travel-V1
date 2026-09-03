@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
@@ -72,6 +75,19 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   List<SmartDay> _itinerary = [];
   TripBudget? _budget;
   int _splitCount = 2; // how many ways to split the budget
+
+  // Starting-point quick picks: device GPS + a saved "home" address.
+  static const String _homePrefsKey = 'voy_home_location';
+  bool _locating = false;
+  String? _homeLocation;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((prefs) {
+      if (mounted) setState(() => _homeLocation = prefs.getString(_homePrefsKey));
+    });
+  }
 
   @override
   void dispose() {
@@ -514,6 +530,148 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     });
   }
 
+  /// Device position with graceful degradation: fresh cached fix → GPS at
+  /// decreasing accuracy → any last-known fix. Same ladder as the trip planner.
+  Future<Position> _currentPosition() async {
+    if (!kIsWeb) {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        throw 'Location permission denied — allow it in Settings, or search instead.';
+      }
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && DateTime.now().difference(last.timestamp).inMinutes < 15) {
+          return last;
+        }
+      } catch (_) {}
+    }
+    for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.medium, LocationAccuracy.low]) {
+      try {
+        return await Geolocator.getCurrentPosition(
+          locationSettings: LocationSettings(
+            accuracy: accuracy,
+            timeLimit: const Duration(seconds: 10),
+          ),
+        );
+      } catch (_) {/* try a lower accuracy */}
+    }
+    if (!kIsWeb) {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) return last;
+    }
+    throw "Couldn't get your location — check GPS/permissions, or search instead.";
+  }
+
+  /// Fill the starting point from the device's current location.
+  Future<void> _useCurrentLocation() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    try {
+      final pos = await _currentPosition();
+      final address = await _api.reverseGeocode(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      setState(() {
+        // Fall back to raw coordinates if every reverse geocoder came up empty.
+        _startLocCtrl.text = (address == null || address.trim().isEmpty)
+            ? '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}'
+            : address;
+        _startSuggestions = [];
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => _locating = false);
+    }
+  }
+
+  /// Fill the starting point from the saved home address (prompt to set it
+  /// the first time; long-press the chip to change it later).
+  Future<void> _useHomeLocation() async {
+    final home = _homeLocation;
+    if (home == null || home.trim().isEmpty) {
+      await _editHomeLocation();
+      return;
+    }
+    setState(() {
+      _startLocCtrl.text = home;
+      _startSuggestions = [];
+    });
+  }
+
+  Future<void> _editHomeLocation() async {
+    final ctrl = TextEditingController(text: _homeLocation ?? _startLocCtrl.text.trim());
+    final saved = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13233B),
+        title: const Text('Set home location', style: TextStyle(color: Colors.white, fontSize: 17)),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'e.g. Mathikere, Bengaluru',
+            hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (saved == null || saved.isEmpty) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_homePrefsKey, saved);
+    if (!mounted) return;
+    setState(() {
+      _homeLocation = saved;
+      _startLocCtrl.text = saved;
+      _startSuggestions = [];
+    });
+  }
+
+  /// Small pill button for the starting-point quick picks.
+  Widget _quickChip(IconData icon, String label, VoidCallback onTap, {VoidCallback? onLongPress}) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: AppColors.accentLight, size: 15),
+            const SizedBox(width: 5),
+            Text(label,
+                style: const TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.bold)),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// A place text field with a live autocomplete dropdown underneath.
   Widget _placeField(
     TextEditingController c,
@@ -613,7 +771,47 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text('Set your start date & time — the AI schedules everything, breaks included.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
-          _placeField(_startLocCtrl, '🛫 Starting location (e.g. Bangalore / Mathikere)', Icons.my_location_rounded, isDest: false),
+          _placeField(_startLocCtrl, '🛫 Starting location — search, or use a quick pick below', Icons.my_location_rounded, isDest: false),
+          const SizedBox(height: 8),
+          // Quick picks: GPS current location + saved home (long-press to change).
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _locating
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                              width: 13,
+                              height: 13,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentLight)),
+                          SizedBox(width: 6),
+                          Text('Locating…',
+                              style: TextStyle(color: Colors.white70, fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    )
+                  : _quickChip(Icons.my_location_rounded, 'Current location', _useCurrentLocation),
+              _quickChip(
+                Icons.home_rounded,
+                (_homeLocation == null || _homeLocation!.trim().isEmpty)
+                    ? 'Set home'
+                    : 'Home',
+                _useHomeLocation,
+                onLongPress: _editHomeLocation,
+              ),
+              if (_homeLocation != null && _homeLocation!.trim().isNotEmpty)
+                _quickChip(Icons.edit_location_alt_rounded, 'Edit home', _editHomeLocation),
+            ],
+          ),
           const SizedBox(height: 6),
           Center(
             child: InkWell(
