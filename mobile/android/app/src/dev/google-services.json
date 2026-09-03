@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "648797700398",
+    "project_id": "voyplan",
+    "storage_bucket": "voyplan.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:648797700398:android:b1e56459d7b68c80503abf",
+        "android_client_info": {
+          "package_name": "io.github.gowtham64.travelapp.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhDh0QkwBDGKyxuqfbM9oqera0b-Cvidc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

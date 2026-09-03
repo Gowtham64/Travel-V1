@@ -37,6 +37,30 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Environment flavors: dev / staging / prod. Each gets a distinct
+    // applicationId + app name so they install side-by-side and can never be
+    // confused. The actual backend/Supabase the build talks to comes from the
+    // --dart-define values (APP_ENV/BACKEND_URL/SUPABASE_*), so a staging build
+    // physically cannot reach production if built with the staging defines.
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+            // Base applicationId (unchanged) — production installs upgrade normally.
+            resValue("string", "app_name", "Voyplan")
+        }
+        create("staging") {
+            dimension = "env"
+            applicationIdSuffix = ".staging"
+            resValue("string", "app_name", "Voyplan Staging")
+        }
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            resValue("string", "app_name", "Voyplan Dev")
+        }
+    }
 }
 
 kotlin {

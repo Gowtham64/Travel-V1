@@ -25,3 +25,6 @@ gh-pages-deploy/
 Voyplan.app/
 web/Voyplan.ipa
 live.js
+
+# Local MCP config (contains Hostinger API token — never commit)
+.mcp.json

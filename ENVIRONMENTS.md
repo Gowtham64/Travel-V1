@@ -89,8 +89,39 @@ Test migration locally → on staging → back up prod (Supabase backup) → app
 prod → verify → keep the down/rollback SQL ready. Never run `DROP`/`TRUNCATE`/
 unscoped `DELETE` on prod without a backup.
 
-## Mobile (flavors — Phase 2)
-Android flavors give separate installs that can't cross-connect:
-`com.voyplan.app.dev` / `.staging` / prod, each with its own `BACKEND_URL` +
-Firebase app. iOS is limited by the free Apple team (dev installs only) until
-enrolled in the Apple Developer Program.
+## Mobile — Android flavors
+Three flavors install **side-by-side** (distinct applicationId + app name), so a
+staging/dev app can never be mistaken for production:
+
+| Flavor | applicationId | App name |
+|--------|---------------|----------|
+| prod | `io.github.gowtham64.travelapp` | Voyplan |
+| staging | `io.github.gowtham64.travelapp.staging` | Voyplan Staging |
+| dev | `io.github.gowtham64.travelapp.dev` | Voyplan Dev |
+
+The environment each build talks to comes from `--dart-define`, so a staging build
+physically cannot reach production. Build commands:
+```bash
+# Production
+flutter build apk --release --flavor prod \
+  --dart-define=APP_ENV=production --dart-define=MAPBOX_TOKEN=pk.xxx
+
+# Staging (points at staging Supabase + backend, shows STAGING banner)
+flutter build apk --release --flavor staging \
+  --dart-define=APP_ENV=staging \
+  --dart-define=SUPABASE_URL=https://fptqaasbzlioohvpyfht.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<staging anon key> \
+  --dart-define=BACKEND_URL=https://voyplan-staging.onrender.com \
+  --dart-define=MAPBOX_TOKEN=pk.xxx
+
+# Dev (local backend) — run on a device/emulator
+flutter run --flavor dev --dart-define=APP_ENV=development
+```
+Any Android build/run now REQUIRES `--flavor`. Firebase Analytics is wired to the
+prod flavor; staging/dev carry placeholder Firebase configs (no reporting) — to
+get real staging analytics, register `…​.staging` as an app in the Firebase
+project and drop its `google-services.json` into `android/app/src/staging/`.
+
+iOS stays a single target (free Apple team = dev installs only) until enrolled in
+the Apple Developer Program; build iOS with the matching `--dart-define`s (no
+`--flavor`).

@@ -43,7 +43,8 @@ jobs:
       # Lints are informational here so a warning/info doesn't fail the build;
       # real compile errors still fail.
       - run: flutter analyze --no-fatal-infos --no-fatal-warnings
-      - run: flutter build apk --release
+      # Flavors exist (dev/staging/prod) — production CI builds the prod flavor.
+      - run: flutter build apk --release --flavor prod --dart-define=APP_ENV=production --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
 
       - uses: actions/upload-artifact@v4
         with:
