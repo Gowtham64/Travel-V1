@@ -308,16 +308,31 @@ class TripHistoryService {
 
   Future<void> deleteTrip(String id) async {
     try {
-      final current = await getHistory();
-      current.removeWhere((e) => e.id == id);
+      // Load the local cache DIRECTLY — do NOT call getHistory(), whose
+      // push-sync would re-upload the very trip we're deleting (under a new id),
+      // making it reappear after deletion.
       final prefs = await SharedPreferences.getInstance();
+      List<TripHistoryItem> current = [];
+      final raw = prefs.getString(_storageKey);
+      if (raw != null && raw.isNotEmpty) {
+        current = (jsonDecode(raw) as List)
+            .map((e) => TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
+            .toList();
+      }
+      current.removeWhere((e) => e.id == id);
       await prefs.setString(
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
 
+      // Delete the cloud row by id. Wrapped so a non-UUID local id (a
+      // history-only card) doesn't throw — it just has no cloud row to remove.
       final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
-        await Supabase.instance.client.from('trips').delete().eq('id', id);
+      if (user != null && id.isNotEmpty) {
+        try {
+          await Supabase.instance.client.from('trips').delete().eq('id', id);
+        } catch (e) {
+          debugPrint('Cloud trip delete note: $e');
+        }
       }
     } catch (e) {
       debugPrint('Error deleting trip: $e');

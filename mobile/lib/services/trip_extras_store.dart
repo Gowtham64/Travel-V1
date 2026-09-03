@@ -270,8 +270,17 @@ class TripExtrasStore {
 
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        await Supabase.instance.client.from('trips').delete().eq('user_id', user.id).ilike('name', '%$key%');
+        // Match the cloud row by the tripKey stored inside end_point — NOT by
+        // ilike on name (the tripKey isn't part of the display name, so the old
+        // match deleted nothing and the plan reappeared on the next sync).
+        await Supabase.instance.client
+            .from('trips')
+            .delete()
+            .eq('user_id', user.id)
+            .filter('end_point->>tripKey', 'eq', key);
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Cloud removeFromIndex note: $e');
+    }
   }
 }

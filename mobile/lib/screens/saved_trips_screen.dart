@@ -541,6 +541,12 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                     ],
                   ),
                 ),
+                IconButton(
+                  icon: Icon(Icons.delete_outline_rounded,
+                      color: Colors.white.withOpacity(0.6)),
+                  tooltip: 'Delete trip',
+                  onPressed: () => _deleteCloudTrip(trip),
+                ),
                 Icon(Icons.chevron_right,
                     color: Colors.white.withOpacity(0.5)),
               ],
@@ -549,5 +555,60 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
         ),
       ),
     );
+  }
+
+  /// Delete a saved road trip from the cloud (and local cache), then refresh.
+  Future<void> _deleteCloudTrip(dynamic trip) async {
+    final id = (trip['id'] ?? '').toString();
+    final name = (trip['name'] ?? 'this trip').toString();
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16242C),
+        title: const Text('Delete trip?',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text('Remove "$name" from your saved trips? This can\'t be undone.',
+            style: const TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    // Optimistically drop it from the list.
+    setState(() => _trips.removeWhere((t) => (t['id'] ?? '').toString() == id));
+
+    try {
+      // Remove the specific cloud row by id (covers real cloud trips)…
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null && id.isNotEmpty) {
+        try {
+          await Supabase.instance.client.from('trips').delete().eq('id', id);
+        } catch (e) {
+          debugPrint('Cloud delete note: $e');
+        }
+      }
+      // …and from the local trip-history cache (no re-push side effect).
+      await TripHistoryService.instance.deleteTrip(id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not delete trip: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
+    if (mounted) _loadTrips();
   }
 }
