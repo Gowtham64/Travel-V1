@@ -2,6 +2,8 @@ plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase — processes google-services.json for Firebase Analytics (Android only).
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -52,4 +54,10 @@ dependencies {
     implementation("androidx.car.app:app:1.4.0")
     // Required by flutter_local_notifications (core library desugaring).
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+
+    // Firebase Analytics (Android). The BoM keeps versions aligned. Analytics
+    // auto-collects sessions, first_open, app_open, screen_view, geography and
+    // device data once the app runs — no Dart/plugin changes, iOS untouched.
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-analytics")
 }
