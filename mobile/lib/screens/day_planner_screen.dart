@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -10,6 +11,7 @@ import '../theme/app_theme.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:supabase_flutter/supabase_flutter.dart' show Supabase, RealtimeChannel;
 import '../widgets/app_design.dart';
+import '../data/attraction_database.dart';
 import '../services/collab_service.dart';
 import 'smart_itinerary_screen.dart';
 import 'trip_demo_screen.dart';
@@ -94,6 +96,20 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
   List<Map<String, String>> _results = [];
   bool _searching = false;
   String? _searchError;
+  Timer? _searchDebounce;
+  String _activeCategoryFilter = 'All';
+
+  static const List<String> _quickCategories = [
+    'All',
+    '✨ Activities',
+    '🛕 Temples',
+    '🏖️ Beaches',
+    '🌄 Viewpoints',
+    '🏰 Forts',
+    '🌊 Waterfalls',
+    '🐘 Wildlife',
+    '🍛 Food',
+  ];
 
   // Lazy caches: per-day weather (keyed by day id) and real road legs (keyed by
   // "fromItemId>toItemId"). Populated in the background, then setState refreshes.
@@ -110,6 +126,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     _channel?.unsubscribe();
     super.dispose();
@@ -124,6 +141,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       _startedAt = startedAt;
       _loading = false;
     });
+    _loadSuggestions();
     // Ensure any opened, non-empty plan is listed under "Saved trips".
     if (days.isNotEmpty) _store.saveDays(days, name: widget.tripName);
   }
@@ -174,20 +192,72 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     _persist();
   }
 
+  void _loadSuggestions() {
+    final cat = _activeCategoryFilter == 'All'
+        ? null
+        : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final toCity = _journeyEndpoints().to;
+    final results = AttractionDatabase.search(
+      '',
+      category: cat,
+      cityFilter: toCity.isNotEmpty ? toCity : null,
+    );
+    if (mounted) {
+      setState(() {
+        _results = results;
+        _searchError = null;
+      });
+    }
+  }
+
+  void _onSearchChanged(String val) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (val.trim().isEmpty) {
+        _loadSuggestions();
+      } else {
+        _search();
+      }
+    });
+  }
+
   Future<void> _search() async {
     final q = _searchCtrl.text.trim();
-    if (q.isEmpty) return;
+    if (q.isEmpty) {
+      _loadSuggestions();
+      return;
+    }
     setState(() {
       _searching = true;
       _searchError = null;
     });
     try {
-      final res = await _api.aiSearchPlaces(query: q);
+      final cat = _activeCategoryFilter == 'All'
+          ? null
+          : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final local = AttractionDatabase.search(q, category: cat);
+      if (local.isNotEmpty && mounted) {
+        setState(() => _results = local);
+      }
+      final toCity = _journeyEndpoints().to;
+      final res = await _api.aiSearchPlaces(query: q, near: toCity.isNotEmpty ? toCity : null);
       if (!mounted) return;
-      setState(() => _results = res);
+      if (res.isNotEmpty) {
+        setState(() => _results = res);
+      } else if (local.isNotEmpty) {
+        setState(() => _results = local);
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _searchError = e is ApiException ? e.message : 'Search failed. Try again.');
+      final cat = _activeCategoryFilter == 'All'
+          ? null
+          : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final local = AttractionDatabase.search(q, category: cat);
+      if (local.isNotEmpty) {
+        setState(() => _results = local);
+      } else {
+        setState(() => _searchError = e is ApiException ? e.message : 'Search failed. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -1606,7 +1676,20 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Add place / activity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                Row(
+                  children: [
+                    const Text('Add place / activity', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentLight.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('AUTO-SUGGEST', style: TextStyle(color: AppColors.accentLight, fontSize: 9.5, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 2),
                 Text(targetDay == null ? 'Add a day first' : 'Adding to ${targetDay.title}', style: const TextStyle(color: AppColors.accentLight, fontSize: 12, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 12),
@@ -1614,10 +1697,11 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                   controller: _searchCtrl,
                   style: const TextStyle(color: Colors.white),
                   textInputAction: TextInputAction.search,
+                  onChanged: _onSearchChanged,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
-                    hintText: 'Search places (AI)…',
-                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
+                    hintText: 'Search places, beaches, temples, food…',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 13),
                     filled: true,
                     fillColor: Colors.white.withValues(alpha: 0.08),
                     prefixIcon: Icon(Icons.search_rounded, color: Colors.white.withValues(alpha: 0.7)),
@@ -1631,7 +1715,59 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                     ),
                     suffixIcon: _searching
                         ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)))
-                        : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: AppColors.accentLight), onPressed: _search),
+                        : (_searchCtrl.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, color: Colors.white60, size: 18),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _loadSuggestions();
+                                },
+                              )
+                            : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: AppColors.accentLight), onPressed: _search)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Category Filter Chips for instant Autofill
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final cat in _quickCategories) ...[
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _activeCategoryFilter = cat);
+                            if (_searchCtrl.text.trim().isNotEmpty) {
+                              _search();
+                            } else {
+                              _loadSuggestions();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: _activeCategoryFilter == cat
+                                  ? AppColors.accentLight.withValues(alpha: 0.25)
+                                  : Colors.white.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _activeCategoryFilter == cat
+                                    ? AppColors.accentLight
+                                    : Colors.white.withValues(alpha: 0.12),
+                              ),
+                            ),
+                            child: Text(
+                              cat,
+                              style: TextStyle(
+                                color: _activeCategoryFilter == cat ? Colors.white : Colors.white70,
+                                fontSize: 11.5,
+                                fontWeight: _activeCategoryFilter == cat ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -1645,7 +1781,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
           ),
         ),
         if (_searchError != null)
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text(_searchError!, style: const TextStyle(color: Color(0xFFFB7185), fontSize: 12.5))),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text(_searchError!, style: const TextStyle(color: Color(0xFFFB7185), fontSize: 12.5))),
         // Inline bookings column: saved reservations + AI flight/train/hotel
         // suggestions for this journey (bounded so it shares the panel height).
         Padding(
@@ -1669,12 +1805,33 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
             ),
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: Row(
+            children: [
+              Text(
+                _searchCtrl.text.trim().isEmpty ? 'SUGGESTED PLACES & ACTIVITIES' : 'SEARCH RESULTS (${_results.length})',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Tap + to add',
+                style: TextStyle(color: AppColors.accentLight.withValues(alpha: 0.8), fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+        ),
         Expanded(
           child: _results.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Text(_searching ? 'Searching…' : 'Search for attractions, food, stays…', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
+                    child: Text(_searching ? 'Searching places…' : 'No places found. Tap "Add your own" above to add any place.', textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13)),
                   ),
                 )
               : ListView.builder(
@@ -1685,31 +1842,77 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                     final r = _results[i];
                     final name = r['name'] ?? '';
                     final area = r['area'] ?? '';
+                    final why = r['why'] ?? '';
+
+                    IconData placeIcon = Icons.place_rounded;
+                    Color iconColor = AppColors.accentLight;
+                    final lowerName = name.toLowerCase();
+                    if (lowerName.contains('temple') || lowerName.contains('darshan') || lowerName.contains('shrine')) {
+                      placeIcon = Icons.temple_hindu_rounded;
+                      iconColor = const Color(0xFFF59E0B);
+                    } else if (lowerName.contains('beach') || lowerName.contains('coast')) {
+                      placeIcon = Icons.beach_access_rounded;
+                      iconColor = const Color(0xFF38BDF8);
+                    } else if (lowerName.contains('view') || lowerName.contains('peak') || lowerName.contains('hill')) {
+                      placeIcon = Icons.landscape_rounded;
+                      iconColor = const Color(0xFF10B981);
+                    } else if (lowerName.contains('fort') || lowerName.contains('palace')) {
+                      placeIcon = Icons.castle_rounded;
+                      iconColor = const Color(0xFFA855F7);
+                    } else if (lowerName.contains('waterfall') || lowerName.contains('falls') || lowerName.contains('lake') || lowerName.contains('river')) {
+                      placeIcon = Icons.water_rounded;
+                      iconColor = const Color(0xFF06B6D4);
+                    } else if (lowerName.contains('thali') || lowerName.contains('lunch') || lowerName.contains('food') || lowerName.contains('dining')) {
+                      placeIcon = Icons.restaurant_rounded;
+                      iconColor = const Color(0xFFEF4444);
+                    } else if (lowerName.contains('safari') || lowerName.contains('zoo') || lowerName.contains('elephant')) {
+                      placeIcon = Icons.pets_rounded;
+                      iconColor = const Color(0xFF84CC16);
+                    }
+
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: GlassCard(
-                        padding: const EdgeInsets.fromLTRB(14, 10, 6, 10),
+                        padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
                         glow: false,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                                  if (!(area.isEmpty && (r['why'] ?? '').isEmpty))
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 3),
-                                      child: Text([area, r['why'] ?? ''].where((s) => s.isNotEmpty).join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12)),
-                                    ),
-                                ],
+                        child: InkWell(
+                          onTap: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: iconColor.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(placeIcon, size: 18, color: iconColor),
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.add_circle_rounded, color: AppColors.accentLight),
-                              onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
-                            ),
-                          ],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                                    if (!(area.isEmpty && why.isEmpty))
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          [area, why].where((s) => s.isNotEmpty).join(' · '),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11.5),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_rounded, color: AppColors.accentLight, size: 24),
+                                onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     );

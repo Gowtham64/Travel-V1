@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(security find-identity *)",
+      "Read(//Users/gowtham/Library/MobileDevice/**)",
+      "Bash(open \"/Users/gowtham/Downloads/downloads /travel-app/mobile/build/ios/archive/Runner.xcarchive\")"
+    ]
+  }
+}

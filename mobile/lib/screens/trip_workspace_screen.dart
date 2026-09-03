@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -8,6 +9,7 @@ import '../models/trip_extras.dart';
 import '../services/trip_extras_store.dart';
 import '../services/trip_history_service.dart';
 import '../services/api_service.dart';
+import '../data/attraction_database.dart';
 import 'itinerary_screen.dart';
 import 'bookings_screen.dart';
 import 'gallery_screen.dart';
@@ -1808,6 +1810,20 @@ class _PlanTabState extends State<_PlanTab> {
   List<Map<String, String>> _results = [];
   bool _searching = false;
   String? _searchError;
+  Timer? _searchDebounce;
+  String _activeCategoryFilter = 'All';
+
+  static const List<String> _quickCategories = [
+    'All',
+    '✨ Activities',
+    '🛕 Temples',
+    '🏖️ Beaches',
+    '🌄 Viewpoints',
+    '🏰 Forts',
+    '🌊 Waterfalls',
+    '🐘 Wildlife',
+    '🍛 Food',
+  ];
 
   @override
   void initState() {
@@ -1817,6 +1833,7 @@ class _PlanTabState extends State<_PlanTab> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -1828,6 +1845,36 @@ class _PlanTabState extends State<_PlanTab> {
       _days = days;
       _selectedDay = 0;
       _loading = false;
+    });
+    _loadSuggestions();
+  }
+
+  void _loadSuggestions() {
+    final cat = _activeCategoryFilter == 'All'
+        ? null
+        : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+    final toCity = widget.endAddress.isNotEmpty ? widget.endAddress : widget.startAddress;
+    final results = AttractionDatabase.search(
+      '',
+      category: cat,
+      cityFilter: toCity.isNotEmpty ? toCity : null,
+    );
+    if (mounted) {
+      setState(() {
+        _results = results;
+        _searchError = null;
+      });
+    }
+  }
+
+  void _onSearchChanged(String val) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (val.trim().isEmpty) {
+        _loadSuggestions();
+      } else {
+        _search();
+      }
     });
   }
 
@@ -1986,18 +2033,41 @@ class _PlanTabState extends State<_PlanTab> {
 
   Future<void> _search() async {
     final q = _searchCtrl.text.trim();
-    if (q.isEmpty) return;
+    if (q.isEmpty) {
+      _loadSuggestions();
+      return;
+    }
     setState(() {
       _searching = true;
       _searchError = null;
     });
     try {
-      final res = await _api.aiSearchPlaces(query: q, near: widget.startAddress);
+      final cat = _activeCategoryFilter == 'All'
+          ? null
+          : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final local = AttractionDatabase.search(q, category: cat);
+      if (local.isNotEmpty && mounted) {
+        setState(() => _results = local);
+      }
+      final toCity = widget.endAddress.isNotEmpty ? widget.endAddress : widget.startAddress;
+      final res = await _api.aiSearchPlaces(query: q, near: toCity.isNotEmpty ? toCity : null);
       if (!mounted) return;
-      setState(() => _results = res);
+      if (res.isNotEmpty) {
+        setState(() => _results = res);
+      } else if (local.isNotEmpty) {
+        setState(() => _results = local);
+      }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _searchError = e is ApiException ? e.message : 'Search failed. Try again.');
+      final cat = _activeCategoryFilter == 'All'
+          ? null
+          : _activeCategoryFilter.replaceAll(RegExp(r'[^\w\s]'), '').trim();
+      final local = AttractionDatabase.search(q, category: cat);
+      if (local.isNotEmpty) {
+        setState(() => _results = local);
+      } else {
+        setState(() => _searchError = e is ApiException ? e.message : 'Search failed. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _searching = false);
     }
@@ -2362,8 +2432,21 @@ class _PlanTabState extends State<_PlanTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Add place / activity',
-                    style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                Row(
+                  children: [
+                    const Text('Add place / activity',
+                        style: TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+                    const Spacer(),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Voy.brand.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text('AUTO-SUGGEST', style: TextStyle(color: Voy.brand, fontSize: 9.5, fontWeight: FontWeight.w800)),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 2),
                 Text(targetDay == null ? 'Add a day first' : 'Adding to ${targetDay.title}',
                     style: const TextStyle(color: Voy.brand, fontSize: 12, fontWeight: FontWeight.w700)),
@@ -2372,16 +2455,70 @@ class _PlanTabState extends State<_PlanTab> {
                   controller: _searchCtrl,
                   style: const TextStyle(color: Voy.ink),
                   textInputAction: TextInputAction.search,
+                  onChanged: _onSearchChanged,
                   onSubmitted: (_) => _search(),
                   decoration: InputDecoration(
-                    hintText: 'Search places (AI)…',
+                    hintText: 'Search places, beaches, temples, food…',
+                    hintStyle: const TextStyle(color: Voy.sub, fontSize: 13),
                     prefixIcon: const Icon(Icons.search_rounded, color: Voy.sub),
                     suffixIcon: _searching
                         ? const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
                           )
-                        : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: Voy.brand), onPressed: _search),
+                        : (_searchCtrl.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear_rounded, color: Voy.sub, size: 18),
+                                onPressed: () {
+                                  _searchCtrl.clear();
+                                  _loadSuggestions();
+                                },
+                              )
+                            : IconButton(icon: const Icon(Icons.arrow_forward_rounded, color: Voy.brand), onPressed: _search)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                // Category Filter Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final cat in _quickCategories) ...[
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _activeCategoryFilter = cat);
+                            if (_searchCtrl.text.trim().isNotEmpty) {
+                              _search();
+                            } else {
+                              _loadSuggestions();
+                            }
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: _activeCategoryFilter == cat
+                                  ? Voy.brand.withValues(alpha: 0.15)
+                                  : Voy.surface2,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: _activeCategoryFilter == cat
+                                    ? Voy.brand
+                                    : Voy.hairline,
+                              ),
+                            ),
+                            child: Text(
+                              cat,
+                              style: TextStyle(
+                                color: _activeCategoryFilter == cat ? Voy.brand : Voy.ink,
+                                fontSize: 11.5,
+                                fontWeight: _activeCategoryFilter == cat ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -2405,7 +2542,7 @@ class _PlanTabState extends State<_PlanTab> {
           ),
           if (_searchError != null)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
               child: Text(_searchError!, style: const TextStyle(color: Voy.danger, fontSize: 12.5)),
             ),
           // Inline bookings column: saved reservations + AI flight/train/hotel
@@ -2433,13 +2570,34 @@ class _PlanTabState extends State<_PlanTab> {
               ),
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+            child: Row(
+              children: [
+                Text(
+                  _searchCtrl.text.trim().isEmpty ? 'SUGGESTED PLACES & ACTIVITIES' : 'SEARCH RESULTS (${_results.length})',
+                  style: const TextStyle(
+                    color: Voy.sub,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+                const Spacer(),
+                const Text(
+                  'Tap + to add',
+                  style: TextStyle(color: Voy.brand, fontSize: 11, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: _results.isEmpty
                 ? Center(
                     child: Padding(
                       padding: const EdgeInsets.all(20),
                       child: Text(
-                        _searching ? 'Searching…' : 'Search for attractions, food, stays…',
+                        _searching ? 'Searching places…' : 'No places found. Tap "Add your own" above.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Voy.sub.withValues(alpha: 0.8), fontSize: 13),
                       ),
@@ -2453,19 +2611,81 @@ class _PlanTabState extends State<_PlanTab> {
                       final r = _results[i];
                       final name = r['name'] ?? '';
                       final area = r['area'] ?? '';
+                      final why = r['why'] ?? '';
+
+                      IconData placeIcon = Icons.place_rounded;
+                      Color iconColor = Voy.brand;
+                      final lowerName = name.toLowerCase();
+                      if (lowerName.contains('temple') || lowerName.contains('darshan') || lowerName.contains('shrine')) {
+                        placeIcon = Icons.temple_hindu_rounded;
+                        iconColor = const Color(0xFFF59E0B);
+                      } else if (lowerName.contains('beach') || lowerName.contains('coast')) {
+                        placeIcon = Icons.beach_access_rounded;
+                        iconColor = const Color(0xFF38BDF8);
+                      } else if (lowerName.contains('view') || lowerName.contains('peak') || lowerName.contains('hill')) {
+                        placeIcon = Icons.landscape_rounded;
+                        iconColor = const Color(0xFF10B981);
+                      } else if (lowerName.contains('fort') || lowerName.contains('palace')) {
+                        placeIcon = Icons.castle_rounded;
+                        iconColor = const Color(0xFFA855F7);
+                      } else if (lowerName.contains('waterfall') || lowerName.contains('falls') || lowerName.contains('lake') || lowerName.contains('river')) {
+                        placeIcon = Icons.water_rounded;
+                        iconColor = const Color(0xFF06B6D4);
+                      } else if (lowerName.contains('thali') || lowerName.contains('lunch') || lowerName.contains('food') || lowerName.contains('dining')) {
+                        placeIcon = Icons.restaurant_rounded;
+                        iconColor = const Color(0xFFEF4444);
+                      } else if (lowerName.contains('safari') || lowerName.contains('zoo') || lowerName.contains('elephant')) {
+                        placeIcon = Icons.pets_rounded;
+                        iconColor = const Color(0xFF84CC16);
+                      }
+
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
-                        child: ListTile(
-                          title: Text(name, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
-                          subtitle: (area.isEmpty && (r['why'] ?? '').isEmpty)
-                              ? null
-                              : Text([area, r['why'] ?? ''].where((s) => s.isNotEmpty).join(' · '),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Voy.sub, fontSize: 12)),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.add_circle_rounded, color: Voy.brand),
-                            onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Voy.hairline),
+                        ),
+                        child: InkWell(
+                          onTap: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(10),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: iconColor.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(placeIcon, size: 18, color: iconColor),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(name, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600, fontSize: 13.5)),
+                                      if (!(area.isEmpty && why.isEmpty))
+                                        Padding(
+                                          padding: const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            [area, why].where((s) => s.isNotEmpty).join(' · '),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(color: Voy.sub, fontSize: 11.5),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add_circle_rounded, color: Voy.brand, size: 24),
+                                  onPressed: targetDay == null ? null : () => _addSearchedPlace(name, area, targetDay),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       );

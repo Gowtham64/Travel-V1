@@ -11,6 +11,7 @@ import '../models/vehicles_data.dart';
 import '../config/app_config.dart';
 import '../data/temple_database.dart';
 import '../data/venue_database.dart';
+import '../data/attraction_database.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -1009,7 +1010,13 @@ class ApiService {
   }) async {
     final qClean = query.trim().toLowerCase();
 
-    // 1. Try backend AI search
+    // 1. Instant local database check (curated attractions, activities, temples, venues)
+    final localMatches = AttractionDatabase.search(query, cityFilter: near);
+    if (localMatches.isNotEmpty && qClean.length >= 2) {
+      return localMatches.take(15).toList();
+    }
+
+    // 2. Try backend AI search
     try {
       final response = await http
           .post(
@@ -1017,7 +1024,7 @@ class ApiService {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'query': query, if (near != null) 'near': near}),
           )
-          .timeout(const Duration(seconds: 12));
+          .timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final places = _parseAiPlaces(response);
         if (places.isNotEmpty) return places;
@@ -1026,35 +1033,7 @@ class ApiService {
       // Fallback gracefully on timeout or 502
     }
 
-    // 2. Fallback: Search in TempleDatabase
-    final localResults = <Map<String, String>>[];
-    for (final t in TempleDatabase.allTemples) {
-      final nameMatch = t.canonicalName.toLowerCase().contains(qClean) ||
-          t.aliases.any((a) => a.toLowerCase().contains(qClean)) ||
-          qClean.contains(t.canonicalName.toLowerCase());
-      final deityMatch = t.deity.toLowerCase().contains(qClean);
-      final cityMatch = t.city.toLowerCase().contains(qClean);
-      if (nameMatch || deityMatch || cityMatch) {
-        localResults.add({
-          'name': t.canonicalName,
-          'area': '${t.city}, ${t.state}',
-          'why': '🛕 ${t.deity} · ⭐ ${t.rating} · ${t.highlights}',
-        });
-      }
-    }
-    if (localResults.isNotEmpty) return localResults;
-
-    // 3. Fallback: Search in VenueDatabase
-    for (final v in VenueDatabase.allVenues) {
-      if (v.name.toLowerCase().contains(qClean) || v.city.toLowerCase().contains(qClean) || v.specialty.toLowerCase().contains(qClean)) {
-        localResults.add({
-          'name': v.name,
-          'area': v.city,
-          'why': '⭐ ${v.rating} · ${v.specialty}',
-        });
-      }
-    }
-    if (localResults.isNotEmpty) return localResults;
+    if (localMatches.isNotEmpty) return localMatches.take(15).toList();
 
     // 4. Fallback: Live Photon / OpenStreetMap Search
     try {
