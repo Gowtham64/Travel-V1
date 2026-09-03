@@ -18,16 +18,23 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
 
     private val tripNotifId = 4201
+    private val reminderBaseNotifId = 5200
     private val tripChannelId = "trip_progress"
+    private val reminderChannelId = "trip_reminders"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // Live trip-progress notification (lock screen + shade), driven from
-        // TripNotificationService (Dart). Native so iOS can stay on SPM.
+        // Live trip-progress & Pre-trip departure reminders, driven from Dart.
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "com.travelapp.notification")
             .setMethodCallHandler { call, result ->
                 when (call.method) {
+                    "requestPermissions" -> {
+                        ensureTripChannel()
+                        ensureReminderChannel()
+                        requestNotifPermissionIfNeeded()
+                        result.success(null)
+                    }
                     "start" -> {
                         ensureTripChannel()
                         requestNotifPermissionIfNeeded()
@@ -42,6 +49,18 @@ class MainActivity : FlutterActivity() {
                     }
                     "end" -> {
                         NotificationManagerCompat.from(this).cancel(tripNotifId)
+                        result.success(null)
+                    }
+                    "scheduleReminder" -> {
+                        ensureReminderChannel()
+                        requestNotifPermissionIfNeeded()
+                        scheduleDepartureReminder(call)
+                        result.success(null)
+                    }
+                    "cancelReminder" -> {
+                        val idStr = call.argument<String>("id") ?: ""
+                        val nid = reminderBaseNotifId + Math.abs(idStr.hashCode() % 1000)
+                        NotificationManagerCompat.from(this).cancel(nid)
                         result.success(null)
                     }
                     else -> result.notImplemented()
@@ -169,6 +188,59 @@ class MainActivity : FlutterActivity() {
             NotificationManagerCompat.from(this).notify(tripNotifId, builder.build())
         } catch (_: SecurityException) {
             // Permission not granted yet; will show once the user allows it.
+        }
+    }
+
+    // ---- Pre-trip departure reminders --------------------------------------
+
+    private fun ensureReminderChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val mgr = getSystemService(NotificationManager::class.java)
+            if (mgr.getNotificationChannel(reminderChannelId) == null) {
+                val channel = NotificationChannel(
+                    reminderChannelId, "Trip Reminders", NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Pre-trip preparation reminders & departure alerts"
+                    setShowBadge(true)
+                    enableVibration(true)
+                }
+                mgr.createNotificationChannel(channel)
+            }
+        }
+    }
+
+    private fun scheduleDepartureReminder(call: MethodCall) {
+        val idStr = call.argument<String>("id") ?: "reminder_${System.currentTimeMillis()}"
+        val title = call.argument<String>("title") ?: "🚗 Trip Departure Reminder"
+        val body = call.argument<String>("body") ?: "Your trip begins in 30 minutes. Time to get ready!"
+        val destination = call.argument<String>("destination") ?: "Trip"
+        val seconds = (call.argument<Double>("secondsFromNow") ?: 1.0).toLong()
+
+        val nid = reminderBaseNotifId + Math.abs(idStr.hashCode() % 1000)
+
+        val runnable = Runnable {
+            val builder = NotificationCompat.Builder(this, reminderChannelId)
+                .setSmallIcon(applicationInfo.icon)
+                .setContentTitle(title)
+                .setContentText(body)
+                .setSubText(destination)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+
+            try {
+                NotificationManagerCompat.from(this).notify(nid, builder.build())
+            } catch (_: SecurityException) {
+                // Ignore if not permitted
+            }
+        }
+
+        if (seconds <= 2) {
+            runnable.run()
+        } else {
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(runnable, seconds * 1000)
         }
     }
 }

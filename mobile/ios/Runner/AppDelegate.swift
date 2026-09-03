@@ -73,11 +73,13 @@ import UserNotifications
     }
   }
 
-  // MARK: - Live trip-progress local notification
+  // MARK: - Live trip-progress & Pre-trip departure reminders
 
   private func handleNotification(_ call: FlutterMethodCall) {
     NSLog("VOYPLAN notification channel: \(call.method)")
     switch call.method {
+    case "requestPermissions":
+      requestAuth()
     case "start":
       requestAuth()
       showTrip(call, arriving: false)
@@ -89,6 +91,15 @@ import UserNotifications
         .removeDeliveredNotifications(withIdentifiers: [tripNotifId])
       UNUserNotificationCenter.current()
         .removePendingNotificationRequests(withIdentifiers: [tripNotifId])
+    case "scheduleReminder":
+      scheduleDepartureReminder(call)
+    case "cancelReminder":
+      let args = call.arguments as? [String: Any] ?? [:]
+      let notifId = args["id"] as? String ?? ""
+      if !notifId.isEmpty {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [notifId])
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: [notifId])
+      }
     default:
       break
     }
@@ -96,7 +107,34 @@ import UserNotifications
 
   private func requestAuth() {
     UNUserNotificationCenter.current()
-      .requestAuthorization(options: [.alert]) { _, _ in }
+      .requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+  }
+
+  private func scheduleDepartureReminder(_ call: FlutterMethodCall) {
+    requestAuth()
+    let args = call.arguments as? [String: Any] ?? [:]
+    let notifId = args["id"] as? String ?? "reminder_\(Date().timeIntervalSince1970)"
+    let title = args["title"] as? String ?? "🚗 Trip Departure Reminder"
+    let body = args["body"] as? String ?? "Your trip begins in 30 minutes. Time to get ready!"
+    let seconds = max(1.0, (args["secondsFromNow"] as? Double ?? 1.0))
+
+    let content = UNMutableNotificationContent()
+    content.title = title
+    content.body = body
+    content.sound = UNNotificationSound.default
+    if #available(iOS 15.0, *) {
+      content.interruptionLevel = .timeSensitive
+    }
+
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: seconds, repeats: false)
+    let request = UNNotificationRequest(identifier: notifId, content: content, trigger: trigger)
+    UNUserNotificationCenter.current().add(request) { error in
+      if let error = error {
+        NSLog("VOYPLAN reminder error: \(error.localizedDescription)")
+      } else {
+        NSLog("VOYPLAN departure reminder scheduled in \(seconds)s: \(notifId)")
+      }
+    }
   }
 
   private func showTrip(_ call: FlutterMethodCall, arriving: Bool) {
@@ -127,9 +165,9 @@ import UserNotifications
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
     if #available(iOS 14.0, *) {
-      completionHandler([.banner, .list])
+      completionHandler([.banner, .list, .sound])
     } else {
-      completionHandler([.alert])
+      completionHandler([.alert, .sound])
     }
   }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/trip_history_service.dart';
-import '../widgets/app_design.dart';
+import '../services/trip_reminder_service.dart';
 import 'trip_planner_screen.dart';
 
 class TripHistoryScreen extends StatefulWidget {
@@ -874,25 +874,84 @@ class _TripDetailsModal extends StatelessWidget {
             ),
           ),
 
-          // Bottom Action Button
+          // Bottom Action Buttons
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFF1E293B),
               border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
             ),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF10B981),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: const Color(0xFF38BDF8).withValues(alpha: 0.6)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () async {
+                      final now = DateTime.now();
+                      final pickedTime = await showTimePicker(
+                        context: context,
+                        initialTime: TimeOfDay.fromDateTime(now.add(const Duration(minutes: 45))),
+                      );
+                      if (pickedTime != null && context.mounted) {
+                        final dep = DateTime(now.year, now.month, now.day, pickedTime.hour, pickedTime.minute);
+                        final targetDep = dep.isBefore(now) ? dep.add(const Duration(days: 1)) : dep;
+                        await TripReminderService.instance.scheduleDepartureReminder(
+                          tripId: 'history_${trip.id}',
+                          destination: trip.endAddress,
+                          startPoint: trip.startAddress,
+                          departureTime: targetDep,
+                          remindBeforeMinutes: 30,
+                          vehicleType: trip.vehicleType,
+                        );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              backgroundColor: const Color(0xFF0284C7),
+                              content: Row(
+                                children: [
+                                  const Icon(Icons.notifications_active_rounded, color: Colors.white, size: 18),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      '30-min departure reminder set for ${pickedTime.format(context)}!',
+                                      style: const TextStyle(fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.notifications_active_outlined, color: Color(0xFF38BDF8), size: 18),
+                    label: const Text(
+                      'Schedule 30-min Departure Alert',
+                      style: TextStyle(color: Color(0xFF38BDF8), fontSize: 13.5, fontWeight: FontWeight.w700),
+                    ),
+                  ),
                 ),
-                onPressed: onReplan,
-                icon: const Icon(Icons.navigation_rounded, color: Colors.white),
-                label: const Text('Re-plan This Trip ➔', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: onReplan,
+                    icon: const Icon(Icons.navigation_rounded, color: Colors.white),
+                    label: const Text('Re-plan This Trip ➔', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -8,6 +8,8 @@ import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
 import 'config/app_config.dart';
 
+import 'services/trip_reminder_service.dart';
+
 // Environment-driven (see AppConfig). Defaults are the production project, so a
 // plain build is unchanged; staging/dev override via --dart-define.
 const supabaseUrl = AppConfig.supabaseUrl;
@@ -25,6 +27,13 @@ void main() async {
     } catch (e) {
       debugPrint('Supabase initialization warning: $e');
     }
+  }
+
+  // Initialize pre-trip departure reminder listener
+  try {
+    await TripReminderService.instance.initialize();
+  } catch (e) {
+    debugPrint('TripReminderService init warning: $e');
   }
 
   runApp(const TravelApp());

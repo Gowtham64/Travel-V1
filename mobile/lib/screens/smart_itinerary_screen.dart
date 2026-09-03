@@ -10,6 +10,7 @@ import '../services/trip_history_service.dart';
 import '../services/auth_guard.dart';
 import '../widgets/app_design.dart';
 import '../data/temple_database.dart';
+import '../services/trip_reminder_service.dart';
 import 'day_planner_screen.dart';
 
 /// AI-powered smart trip planner: pick a start date/time + destination and the
@@ -225,6 +226,27 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           _showInsufficientPlacesWarning = true;
         }
       });
+
+      if (res.days.isNotEmpty) {
+        // Auto-schedule 30-minute departure reminder for Day 1
+        final tripDate = _startDate ?? DateTime.now();
+        final depTime = DateTime(
+          tripDate.year,
+          tripDate.month,
+          tripDate.day,
+          _startTime.hour,
+          _startTime.minute,
+        );
+        TripReminderService.instance.scheduleDepartureReminder(
+          tripId: 'smart_${dest.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
+          destination: dest,
+          startPoint: _startLocCtrl.text.trim().isNotEmpty ? _startLocCtrl.text.trim() : 'Home',
+          departureTime: depTime,
+          remindBeforeMinutes: 30,
+          vehicleType: _vehicle?.type ?? 'car',
+        );
+      }
+
       if (res.days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
     } catch (e) {
       if (!mounted) return;
@@ -1198,6 +1220,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         _budgetCard(_budget!),
         const SizedBox(height: 14),
       ],
+      _departureReminderCard(),
+      const SizedBox(height: 14),
       _controlsCard(),
       const SizedBox(height: 14),
       ...RevealIn.stagger(
@@ -1242,6 +1266,119 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         ),
       ]),
     ];
+  }
+
+  Widget _departureReminderCard() {
+    final tripDate = _startDate ?? DateTime.now();
+    final depTime = DateTime(
+      tripDate.year,
+      tripDate.month,
+      tripDate.day,
+      _startTime.hour,
+      _startTime.minute,
+    );
+    final reminderTime = depTime.subtract(const Duration(minutes: 30));
+    final reminderTimeFormatted =
+        '${(reminderTime.hour == 0 ? 12 : (reminderTime.hour > 12 ? reminderTime.hour - 12 : reminderTime.hour)).toString().padLeft(2, '0')}:${reminderTime.minute.toString().padLeft(2, '0')} ${reminderTime.hour >= 12 ? 'PM' : 'AM'}';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            const Color(0xFF6366F1).withValues(alpha: 0.10),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.5)),
+                ),
+                child: const Icon(
+                  Icons.notifications_active_rounded,
+                  color: Color(0xFF38BDF8),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '30-Minute Departure Alert',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Alert scheduled for $reminderTimeFormatted',
+                      style: const TextStyle(
+                        color: Color(0xFF7DD3FC),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF22C55E).withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF22C55E).withValues(alpha: 0.5)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.check_circle_rounded, color: Color(0xFF4ADE80), size: 12),
+                    SizedBox(width: 4),
+                    Text(
+                      'ACTIVE',
+                      style: TextStyle(
+                        color: Color(0xFF4ADE80),
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Voyplan will send a reminder notification 30 minutes before your departure to finish packing, verify fuel/tickets, and start getting ready.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 12.5,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _budgetCard(TripBudget b) {
