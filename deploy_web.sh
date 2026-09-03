@@ -16,15 +16,9 @@ cd mobile
 #   export MAPBOX_TOKEN=pk.your_url_restricted_token
 # Use a URL-restricted token from the Mapbox dashboard — client tokens are
 # always visible to end users, so restriction is the real protection.
-if [ -z "${MAPBOX_TOKEN:-}" ]; then
-    echo "⚠️  WARNING: MAPBOX_TOKEN is not set — map tiles/globe will not load."
-    echo "    Run: export MAPBOX_TOKEN=pk.your_token   before deploying."
-fi
-# The base href must point to the subdirectory where the app will live.
-# Custom domain (voyplan.in) serves the site at the ROOT, so the app lives at
-# /app/ (not /Travel-V1/app/).
+MAPBOX_TOKEN="${MAPBOX_TOKEN:-pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY210NG1rOTF2MDd5ZzJ4c2hscTE0ZHJ2diJ9.dngbDzSHZ7o6_z2BbJDa0A}"
 flutter build web --base-href "/app/" --release \
-    --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN:-}"
+    --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN}"
 cd .. # back to project root
 
 echo "=== Step 3: Preparing deployment directory ==="

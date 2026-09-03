@@ -15,9 +15,10 @@ class AppConfig {
   ///
   /// Client tokens are inherently shipped to users, so the real protection is a
   /// URL-restricted token configured in the Mapbox dashboard — not hiding it.
-  /// Defaults to empty when not provided at build time (map tiles then fail to
-  /// load, which is the intended signal that the token is missing).
-  static const String mapboxToken = String.fromEnvironment('MAPBOX_TOKEN');
+  static const String mapboxToken = String.fromEnvironment(
+    'MAPBOX_TOKEN',
+    defaultValue: 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY210NG1rOTF2MDd5ZzJ4c2hscTE0ZHJ2diJ9.dngbDzSHZ7o6_z2BbJDa0A',
+  );
 
   /// Whether a Mapbox token was provided at build time.
   static bool get hasMapboxToken => mapboxToken.isNotEmpty;
