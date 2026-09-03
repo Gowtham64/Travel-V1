@@ -553,28 +553,77 @@ async function smartItinerary({
   return days;
 }
 
-const CURATED_TEMPLES = [
+const CURATED_ATTRACTIONS = [
   // --- Tirupati / Tirumala ---
+  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam", categories: ["Temples & Religious Places", "Famous / Must-Visit Places"] },
   { name: "Shri Varaha Swamy Temple", deity: "Lord Adi Varaha Swamy", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 60, wait: "30–60 mins", highlight: "Holy Swami Pushkarini bank traditional first darshan", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
-  { name: "Sri Venkateswara Swamy Temple", deity: "Lord Venkateswara (Balaji)", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 240, wait: "SED (₹300): 3–4 hrs · SSD Slotted: 4–6 hrs · Free: 8–12 hrs · VIP: ~1 hr", highlight: "Golden Ananda Nilayam vimana & Laddu prasadam", categories: ["Temples & Religious Places", "Famous / Must-Visit Places"] },
-  { name: "Sri Bedi Anjaneya Swamy Temple", deity: "Lord Hanuman", city: "Tirumala, Tirupati", rating: "4.8", durationMin: 45, wait: "20–45 mins", highlight: "Directly opposite main Mahadwaram gopuram", categories: ["Temples & Religious Places"] },
-  { name: "Sri Padmavathi Ammavari Temple", deity: "Goddess Padmavathi (Alamelu Manga)", city: "Tiruchanur, Tirupati", rating: "4.7", durationMin: 90, wait: "Special: 1–2 hrs · General: 2–3 hrs", highlight: "Sacred Padma Sarovaram tank blessings", categories: ["Temples & Religious Places", "Cultural Places"] },
-  { name: "Sri Kalyana Venkateswara Swamy Temple", deity: "Lord Kalyana Venkateswara", city: "Srinivasa Mangapuram", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Divine wedding post-marriage stay site", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
-  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva", city: "Tirupati", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Sacred mountain waterfall & spring", categories: ["Temples & Religious Places", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
-  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram", categories: ["Temples & Religious Places", "Monuments & Landmarks"] },
+  { name: "Sri Kapileswara Swamy Temple & Kapila Theertham", deity: "Lord Shiva & Mountain Falls", city: "Tirupati", rating: "4.7", durationMin: 60, wait: "30–60 mins", highlight: "Sacred mountain waterfall & holy spring", categories: ["Temples & Religious Places", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
+  { name: "Silathoranam Natural Rock Arch & Chakra Theertham", deity: "Rare Million-Year Geological Arch", city: "Tirumala", rating: "4.7", durationMin: 45, wait: "Tour: 30–45 mins", highlight: "Rare natural geological rock arch & holy waterbody", categories: ["Monuments & Landmarks", "Nature & Forests", "Instagrammable / Photography Spots"] },
+  { name: "Sri Venkateswara National Park & Zoo Safari", deity: "Protected Flora, Fauna & Deer Park", city: "Tirupati", rating: "4.6", durationMin: 120, wait: "Safari: 1.5–2 hrs", highlight: "Lush wildlife habitat, bird watching & flora safari", categories: ["Wildlife & National Parks", "Nature & Forests"] },
+  { name: "Chandragiri Fort & Raja Mahal Palace", deity: "Vijayanagara Imperial Architecture", city: "Chandragiri, Tirupati", rating: "4.7", durationMin: 90, wait: "Tour: 1–1.5 hrs", highlight: "11th-century royal palace, fortified walls & light show", categories: ["Forts & Palaces", "Historical & Heritage Places", "Monuments & Landmarks"] },
+  { name: "Talakona Waterfalls & Valley Trek", deity: "Highest Waterfall in Andhra (270ft)", city: "Near Tirupati", rating: "4.7", durationMin: 150, wait: "Trek & Splash: 2–3 hrs", highlight: "Crystal clear cascades, canopy walkway & dense forest", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Hills & Mountains"] },
+  { name: "Sri Govindaraja Swamy Temple", deity: "Lord Govindaraja Swamy", city: "Tirupati", rating: "4.7", durationMin: 75, wait: "45–90 mins", highlight: "Towering 12th-century Raja Gopuram & bustling bazaar", categories: ["Temples & Religious Places", "Monuments & Landmarks", "Famous Markets & Local Places"] },
   { name: "Srikalahasti Temple", deity: "Lord Shiva (Kalahasteeswara)", city: "Srikalahasti", rating: "4.7", durationMin: 150, wait: "Rahu-Ketu: 2–3 hrs · General: 1–2 hrs", highlight: "Pancha Bhoota Vayu Lingam & Rahu-Ketu puja", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
-  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in water well", categories: ["Temples & Religious Places"] },
-  // --- Mysuru ---
-  { name: "Mysore Palace (Amba Vilas)", deity: "Wodeyar Royal Heritage & Durbar", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Palace Tour: 2–3 hrs", highlight: "Golden Throne, stained glass Kalyana Mantapa ceiling", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
-  { name: "Sri Chamundeshwari Temple", deity: "Goddess Chamundeshwari", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Hilltop Shakti Peetha & monolithic Nandi", categories: ["Temples & Religious Places", "Viewpoints & Scenic Places", "Hills & Mountains"] },
-  { name: "Brindavan Gardens & Musical Fountain", deity: "Terraced Gardens & Kaveri Waterway", city: "Mysuru", rating: "4.7", durationMin: 120, wait: "Garden & Light Show: 2–2.5 hrs", highlight: "Terraced garden walkways & synchronized musical fountain", categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls", "Famous City Attractions"] },
+  { name: "Kanipakam Vinayaka Temple", deity: "Lord Varasidhi Vinayaka", city: "Kanipakam", rating: "4.7", durationMin: 90, wait: "Special: 1–1.5 hrs · General: 2–3 hrs", highlight: "Swayambhu growing Ganesha in holy well", categories: ["Temples & Religious Places"] },
+
+  // --- Mysuru & Srirangapatna ---
+  { name: "Mysore Palace (Amba Vilas)", deity: "Wodeyar Royal Heritage & Durbar", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Palace Tour: 2–3 hrs", highlight: "Golden Throne, stained glass Kalyana Mantapa & illuminated facade", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
+  { name: "Sri Chamundeshwari Temple & Monolithic Nandi", deity: "Goddess Chamundeshwari & 360° City Vista", city: "Chamundi Hills, Mysuru", rating: "4.8", durationMin: 90, wait: "Special: 45–75 mins · General: 1.5–2.5 hrs", highlight: "Sacred hilltop Shakti Peetha & 16ft monolithic Nandi statue", categories: ["Temples & Religious Places", "Viewpoints & Scenic Places", "Hills & Mountains"] },
+  { name: "Brindavan Gardens & Musical Fountain", deity: "Terraced Gardens & Kaveri Waterway", city: "Mysuru", rating: "4.7", durationMin: 120, wait: "Garden & Light Show: 2–2.5 hrs", highlight: "Terraced botanical walkways & synchronized musical dancing fountains", categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls", "Famous City Attractions"] },
+  { name: "Sri Chamarajendra Zoological Gardens (Mysore Zoo)", deity: "Historic 1892 Wildlife Habitat", city: "Mysuru", rating: "4.8", durationMin: 150, wait: "Zoo Walk: 2–3 hrs", highlight: "One of India's oldest zoos with giraffes, elephants & exotic birds", categories: ["Wildlife & National Parks", "Nature & Forests", "Famous / Must-Visit Places"] },
+  { name: "Karanji Lake & Nature Park", deity: "Walk-Through Aviary & Boating", city: "Mysuru", rating: "4.6", durationMin: 75, wait: "Leisure: 1–1.5 hrs", highlight: "Scenic lake boating, butterfly park & India's largest walk-through aviary", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Viewpoints & Scenic Places"] },
+  { name: "KRS Dam (Krishna Raja Sagara Dam)", deity: "Historic Kaveri River Dam", city: "Mysuru", rating: "4.7", durationMin: 90, wait: "Dam Vista: 1–1.5 hrs", highlight: "Majestic reservoir dam gates & illuminated promenade", categories: ["Famous Bridges / Dams", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
+  { name: "Devaraja Heritage Market", deity: "100-Year-Old Royal Spice & Flower Bazaar", city: "Mysuru", rating: "4.7", durationMin: 75, wait: "Market Walk: 1–1.5 hrs", highlight: "Vibrant stalls of Mysore Pak, pure sandalwood, silk & colorful spices", categories: ["Famous Markets & Local Places", "Cultural Places", "Famous City Attractions"] },
+  { name: "St. Philomena's Neo-Gothic Cathedral", deity: "Twin 175ft Spired Cathedral", city: "Mysuru", rating: "4.7", durationMin: 45, wait: "Tour: 30–45 mins", highlight: "Towering Neo-Gothic spires, stained glass & underground catacombs", categories: ["Monuments & Landmarks", "Historical & Heritage Places", "Cultural Places"] },
+  { name: "Jaganmohan Palace & Art Gallery", deity: "Royal Artworks & Raja Ravi Varma Paintings", city: "Mysuru", rating: "4.7", durationMin: 90, wait: "Gallery: 1–1.5 hrs", highlight: "Magnificent collection of original Ravi Varma oil masterpieces", categories: ["Cultural Places", "Forts & Palaces", "Historical & Heritage Places"] },
+  { name: "Balmuri & Edmuri Waterfalls", deity: "Kaveri River Stepped Cascades", city: "Near Mysuru", rating: "4.5", durationMin: 75, wait: "Cascade Viewing: 1 hr", highlight: "Scenic stepped check-dam waterfalls popular for cinema shoots", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] },
+  { name: "Ranganathittu Bird Sanctuary", deity: "Kaveri River Boat Safari", city: "Srirangapatna", rating: "4.8", durationMin: 90, wait: "Boating: 1–1.5 hrs", highlight: "Close-up boat safari viewing migratory storks, pelicans & marsh crocodiles", categories: ["Wildlife & National Parks", "Rivers, Lakes & Waterfalls", "Nature & Forests"] },
+  { name: "Tipu Sultan's Summer Palace (Dariya Daulat Bagh)", deity: "Teakwood Royal Palace & Mural Gallery", city: "Srirangapatna", rating: "4.7", durationMin: 60, wait: "Tour: 45–60 mins", highlight: "Intricate Persian teakwood carvings & battle mural frescoes", categories: ["Forts & Palaces", "Historical & Heritage Places"] },
   { name: "Sri Ranganathaswamy Temple", deity: "Lord Ranganatha (Adi Ranga)", city: "Srirangapatna", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Historic island shrine on Kaveri river", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
   { name: "Sri Srikanteshwara Temple", deity: "Lord Shiva (Dakshina Kashi)", city: "Nanjangud", rating: "4.8", durationMin: 75, wait: "30–60 mins", highlight: "Ancient Kapila river confluence & healing waters", categories: ["Temples & Religious Places", "Historical & Heritage Places"] },
+
+  // --- Coorg (Madikeri / Kushalnagar) ---
+  { name: "Abbey Falls & Hanging Bridge", deity: "Cascading Coffee Plantation Waterfall", city: "Madikeri, Coorg", rating: "4.7", durationMin: 75, wait: "Sightseeing: 1 hr", highlight: "70ft roaring waterfall surrounded by lush coffee and spice estates", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] },
+  { name: "Raja's Seat Sunset Viewpoint", deity: "Royal Sunset Vista & Musical Fountain", city: "Madikeri, Coorg", rating: "4.7", durationMin: 60, wait: "Sunset: 45–60 mins", highlight: "Panoramic sunset view over Western Ghats mist-covered valleys", categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] },
+  { name: "Dubare Elephant Camp & River Rafting", deity: "Kaveri River Elephant Care & Bathing", city: "Kushalnagar, Coorg", rating: "4.7", durationMin: 120, wait: "Activity: 2 hrs", highlight: "River elephant interaction, river crossing boat ride & rafting", categories: ["Wildlife & National Parks", "Rivers, Lakes & Waterfalls", "Nature & Forests"] },
+  { name: "Namdroling Monastery (Golden Temple)", deity: "Grand Tibetan Buddhist Monastery", city: "Bylakuppe, Coorg", rating: "4.8", durationMin: 90, wait: "Tour: 1–1.5 hrs", highlight: "40ft gold-plated Buddha statues, ornate Tibetan murals & peace bell", categories: ["Cultural Places", "Temples & Religious Places", "Famous / Must-Visit Places"] },
+  { name: "Mandalpatti Peak & Jeep Safari", deity: "Misty High-Altitude Grassland Ridge", city: "Madikeri, Coorg", rating: "4.8", durationMin: 150, wait: "Safari: 2.5 hrs", highlight: "Off-road 4x4 jeep adventure through clouds to 4000ft peak vista", categories: ["Hills & Mountains", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Madikeri Fort & Palace Museum", deity: "17th Century Elevated Mud & Stone Fort", city: "Madikeri, Coorg", rating: "4.6", durationMin: 60, wait: "Tour: 45–60 mins", highlight: "Historic clock tower, life-size elephant statues & hill views", categories: ["Forts & Palaces", "Historical & Heritage Places", "Monuments & Landmarks"] },
+  { name: "Talacauvery & Brahmagiri Hills", deity: "Origin of River Kaveri & Mountain Sanctum", city: "Bhagamandala, Coorg", rating: "4.7", durationMin: 90, wait: "Darshan: 1–1.5 hrs", highlight: "Sacred Kundike holy spring & steps leading to Brahmagiri Peak", categories: ["Rivers, Lakes & Waterfalls", "Hills & Mountains", "Temples & Religious Places"] },
+  { name: "Nagarhole National Park (Kabini Safari)", deity: "Tiger & Elephant Safari Reserve", city: "Coorg / Kabini", rating: "4.8", durationMin: 180, wait: "Safari: 3 hrs", highlight: "Thrilling jeep/boat safari spotting leopards, tigers, herds of elephants", categories: ["Wildlife & National Parks", "Nature & Forests"] },
+  { name: "Iruppu Falls (Lakshmana Tirtha)", deity: "Dense Forest Mountain Waterfall", city: "South Coorg", rating: "4.7", durationMin: 90, wait: "Trek: 1.5 hrs", highlight: "Scenic forest trail leading to pristine tiered mountain cascades", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Hills & Mountains"] },
+  { name: "Coorg Coffee & Spice Estate Plantation Walk", deity: "Aromatic Arabica & Pepper Plantations", city: "Madikeri, Coorg", rating: "4.7", durationMin: 75, wait: "Walk: 1 hr", highlight: "Guided estate walk tasting fresh coffee beans, cardamom & wild honey", categories: ["Nature & Forests", "Famous Markets & Local Places", "Cultural Places"] },
+
+  // --- Ooty & Nilgiris ---
+  { name: "Ooty Botanical Gardens & Glass House", deity: "Historic 55-Acre Victorian Garden", city: "Ooty", rating: "4.7", durationMin: 90, wait: "Walk: 1.5 hrs", highlight: "Lush terraced lawns, 20-million-year-old fossilized tree & exotic flora", categories: ["Nature & Forests", "Famous City Attractions"] },
+  { name: "Doddabetta Peak & Telescope Observatory", deity: "Highest Peak in Nilgiris (8650ft)", city: "Ooty", rating: "4.7", durationMin: 75, wait: "Observatory: 1 hr", highlight: "Telescope views spanning the entire Nilgiri mountain range & valleys", categories: ["Hills & Mountains", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Ooty Lake & Boating Promenade", deity: "Picturesque Mountain Lake & Eucalyptus Groves", city: "Ooty", rating: "4.6", durationMin: 75, wait: "Boating: 1 hr", highlight: "Paddle & motor boating surrounded by towering Nilgiri trees", categories: ["Rivers, Lakes & Waterfalls", "Famous City Attractions"] },
+  { name: "Pykara Waterfalls & Pykara Lake", deity: "Sacred Toda Waterfalls & Speed Boating", city: "Near Ooty", rating: "4.7", durationMin: 90, wait: "Boating: 1.5 hrs", highlight: "Pristine tiered waterfalls and tranquil motorboat cruises", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] },
+  { name: "Nilgiri Mountain Railway (Heritage Toy Train)", deity: "UNESCO World Heritage Steam Railway", city: "Ooty / Coonoor", rating: "4.8", durationMin: 120, wait: "Train Ride: 1.5–2 hrs", highlight: "Historic vintage steam locomotive passing through mist, bridges & tunnels", categories: ["Historical & Heritage Places", "Famous / Must-Visit Places", "Cultural Places"] },
+  { name: "Government Rose Garden", deity: "India's Largest Rose Garden (20,000 Varieties)", city: "Ooty", rating: "4.7", durationMin: 60, wait: "Walk: 1 hr", highlight: "Terraced hillsides blooming with rare hybrid & colorful roses", categories: ["Nature & Forests", "Instagrammable / Photography Spots", "Famous City Attractions"] },
+  { name: "Mudumalai National Park & Tiger Reserve", deity: "Nilgiri Biosphere Wildlife Safari", city: "Near Ooty", rating: "4.7", durationMin: 150, wait: "Safari: 2.5 hrs", highlight: "Forest safari spotting wild Asian elephants, gaur, deer & peacocks", categories: ["Wildlife & National Parks", "Nature & Forests"] },
+  { name: "Avalanche Lake & Eco-Tourism Sanctuary", deity: "Pristine Trout Lake & Rolling Shola Grasslands", city: "Near Ooty", rating: "4.8", durationMin: 120, wait: "Tour: 2 hrs", highlight: "Untouched forest wonderland, trout fishing & rhododendron blooms", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Viewpoints & Scenic Places"] },
+
+  // --- Goa & Coastal ---
+  { name: "Baga & Calangute Beach Promenade", deity: "Iconic Golden Sand Beach & Water Sports", city: "North Goa", rating: "4.7", durationMin: 120, wait: "Leisure: 2 hrs", highlight: "Parasailing, jet skiing, sunset beach shacks & sea breeze", categories: ["Beaches", "Famous City Attractions", "Instagrammable / Photography Spots"] },
+  { name: "Fort Aguada & Historic 1864 Lighthouse", deity: "17th Century Portuguese Sea Bastion", city: "Sinquerim, Goa", rating: "4.7", durationMin: 75, wait: "Tour: 1–1.5 hrs", highlight: "Sweeping Arabian Sea cliffside vistas & preserved freshwater cisterns", categories: ["Forts & Palaces", "Monuments & Landmarks", "Historical & Heritage Places"] },
+  { name: "Dudhsagar Waterfalls & Jeep Safari", deity: "India's 5th Highest 4-Tiered Waterfall (1017ft)", city: "Mollem, Goa", rating: "4.8", durationMin: 240, wait: "Safari & Swim: 3–4 hrs", highlight: "Roaring milky-white mountain falls with rail bridge & jungle jeep trail", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Hills & Mountains"] },
+  { name: "Basilica of Bom Jesus & Old Goa Churches", deity: "UNESCO World Heritage Baroque Architecture", city: "Old Goa", rating: "4.8", durationMin: 75, wait: "Tour: 1 hr", highlight: "16th-century gilded altars and sacred relics of St. Francis Xavier", categories: ["Historical & Heritage Places", "Cultural Places", "Monuments & Landmarks"] },
+  { name: "Palolem Beach & Butterfly Island", deity: "Crescent-Shaped White Sand Beach & Kayaking", city: "South Goa", rating: "4.8", durationMin: 120, wait: "Relaxation: 2 hrs", highlight: "Scenic palm-fringed tranquil bay with calm waters & dolphin watching", categories: ["Beaches", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Chapora Fort (Dil Chahta Hai Fort)", deity: "Cliffside Fort overlooking Vagator & Arabian Sea", city: "Vagator, Goa", rating: "4.7", durationMin: 60, wait: "Sunset: 1 hr", highlight: "Iconic cinematic sunset viewpoint over sweeping red cliffs and coastline", categories: ["Forts & Palaces", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Anjuna Flea Market & Night Bazaar", deity: "Bohemian Craft, Apparel & Music Bazaar", city: "Anjuna, Goa", rating: "4.6", durationMin: 90, wait: "Shopping: 1.5 hrs", highlight: "Eclectic handcrafted jewelry, spices, beachwear & live acoustic music", categories: ["Famous Markets & Local Places", "Cultural Places"] },
+
   // --- Bengaluru ---
+  { name: "Bangalore Palace & Royal Grounds", deity: "Wodeyar Tudor-Style Fortified Palace", city: "Bengaluru", rating: "4.7", durationMin: 120, wait: "Tour: 1.5–2 hrs", highlight: "Tudor-style fortified turrets, royal ballrooms & audio guide tour", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
+  { name: "Lalbagh Botanical Garden & Glass House", deity: "Heritage Flora & 3000-Million-Yr Peninsular Rock", city: "Bengaluru", rating: "4.8", durationMin: 120, wait: "Garden Walk: 1.5–2 hrs", highlight: "Historic Victorian Glass House, lotus lake & bonsai pavilion", categories: ["Nature & Forests", "Famous City Attractions", "Instagrammable / Photography Spots"] },
+  { name: "Bannerghatta Biological Park & Zoo Safari", deity: "Grand Wildlife Park & Butterfly Conservatory", city: "Bengaluru", rating: "4.7", durationMin: 180, wait: "Safari: 2.5–3 hrs", highlight: "Air-conditioned bus safari spotting lions, tigers, bears & butterfly dome", categories: ["Wildlife & National Parks", "Nature & Forests"] },
+  { name: "Cubbon Park & Vidhana Soudha Architecture", deity: "300-Acre Green Lung & Neo-Dravidian Statehouse", city: "Bengaluru", rating: "4.7", durationMin: 75, wait: "Sightseeing: 1–1.5 hrs", highlight: "Colonial library walkways & illuminated Neo-Dravidian legislature facade", categories: ["Monuments & Landmarks", "Nature & Forests", "Famous City Attractions"] },
+  { name: "Nandi Hills & Sunrise Viewpoint", deity: "Ancient Hill Fortress & Cloud-Sea Sunrise", city: "Near Bengaluru", rating: "4.8", durationMin: 150, wait: "Sunrise Tour: 2 hrs", highlight: "4851ft high mountain sunrise above the clouds, Tipu's Drop & cool breeze", categories: ["Hills & Mountains", "Viewpoints & Scenic Places", "Instagrammable / Photography Spots"] },
+  { name: "Commercial Street & Brigade Road Bazaar", deity: "Iconic Shopping Boulevard & Food Street", city: "Bengaluru", rating: "4.6", durationMin: 90, wait: "Shopping: 1.5 hrs", highlight: "Bustling lanes of artisanal clothing, silk sarees & Bangalore cafes", categories: ["Famous Markets & Local Places", "Famous City Attractions"] },
+  { name: "Chunchi Waterfalls & Arkavathi Gorge", deity: "Rock-Hewn River Gorge Waterfalls", city: "Near Bengaluru", rating: "4.6", durationMin: 90, wait: "Viewpoint: 1.5 hrs", highlight: "Dramatic rocky river gorge with cascading waterfalls", categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Viewpoints & Scenic Places"] },
+  { name: "Manchanabele Dam & Reservoir Vista", deity: "Serene Backwaters & Arkavathi River Dam", city: "Near Bengaluru", rating: "4.5", durationMin: 60, wait: "Lookout: 1 hr", highlight: "Tranquil reservoir lookout surrounded by Savandurga hills", categories: ["Famous Bridges / Dams", "Rivers, Lakes & Waterfalls", "Viewpoints & Scenic Places"] },
   { name: "ISKCON Temple Bangalore", deity: "Sri Sri Radha Krishnachandra", city: "Bengaluru", rating: "4.8", durationMin: 90, wait: "Darshan: 1–1.5 hrs", highlight: "Grand gold-plated dhwaja-stambha on Hare Krishna Hill", categories: ["Temples & Religious Places", "Cultural Places", "Famous / Must-Visit Places"] },
   { name: "Bull Temple (Dodda Basavana Gudi)", deity: "Sacred Nandi Monolith", city: "Bengaluru", rating: "4.7", durationMin: 45, wait: "Darshan: 30–45 mins", highlight: "16th-century monolithic Nandi statue", categories: ["Temples & Religious Places", "Monuments & Landmarks"] },
-  { name: "Bangalore Palace & Royal Grounds", deity: "Wodeyar Royal Heritage", city: "Bengaluru", rating: "4.7", durationMin: 120, wait: "Tour: 1.5–2 hrs", highlight: "Tudor-style fortified turrets and royal galleries", categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
-  { name: "Lalbagh Botanical Garden & Glass House", deity: "Heritage Flora & 3000-Million-Yr Rock", city: "Bengaluru", rating: "4.8", durationMin: 120, wait: "Garden Walk: 1.5–2.5 hrs", highlight: "Historic Glass House & Kempegowda watchtower", categories: ["Nature & Forests", "Famous City Attractions"] },
 ];
 
 const CURATED_VENUES = {
@@ -599,7 +648,7 @@ function getBestCuratedVenue(dest, type) {
   if (d.includes("tirupati") || d.includes("tirumala")) {
     return CURATED_VENUES.tirupati[type] || CURATED_VENUES.tirupati.lunch;
   }
-  if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya")) {
+  if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya") || d.includes("srirangapatna")) {
     return CURATED_VENUES.mysuru[type] || CURATED_VENUES.mysuru.lunch;
   }
   const cleanCity = dest ? dest.split(',')[0].trim() : 'Local';
@@ -609,6 +658,26 @@ function getBestCuratedVenue(dest, type) {
     rating: "4.7",
     specialty: type === 'hotel' ? 'Comfortable Air-Conditioned Rooms & Parking' : 'Authentic Regional Delicacies & Fresh Food'
   };
+}
+
+function getCategoryEmoji(cat) {
+  if (!cat) return "⭐";
+  if (cat.includes("Temple") || cat.includes("Religious")) return "🛕";
+  if (cat.includes("Waterfall") || cat.includes("River") || cat.includes("Lake")) return "🌊";
+  if (cat.includes("Viewpoint") || cat.includes("Scenic")) return "🌄";
+  if (cat.includes("Hill") || cat.includes("Mountain")) return "⛰️";
+  if (cat.includes("Fort") || cat.includes("Palace")) return "🏰";
+  if (cat.includes("Forest") || cat.includes("Nature")) return "🌳";
+  if (cat.includes("Beach")) return "🏖️";
+  if (cat.includes("Wildlife") || cat.includes("National Park")) return "🐘";
+  if (cat.includes("Monument") || cat.includes("Landmark")) return "🗿";
+  if (cat.includes("Market")) return "🛍️";
+  if (cat.includes("Cultural")) return "🎨";
+  if (cat.includes("Bridge") || cat.includes("Dam")) return "🌉";
+  if (cat.includes("Instagrammable") || cat.includes("Photo")) return "📸";
+  if (cat.includes("City")) return "🏙️";
+  if (cat.includes("Historical") || cat.includes("Heritage")) return "🏛️";
+  return "⭐";
 }
 
 function resolveCategoriesForPlace(t, selectedCategories) {
@@ -642,32 +711,108 @@ function buildFallbackSmartItinerary({
   const days = [];
 
   const text = `${destination} ${preferences} ${customPreferences} ${places.join(" ")}`.toLowerCase();
-  let pool = [];
+  const cleanCity = destination ? destination.split(',')[0].trim() : "Destination";
+
+  // Step 1: Gather candidate places for this destination from curated library
+  let destCandidates = [];
   if (text.includes("tirupati") || text.includes("tirumala") || text.includes("balaji") || text.includes("venkateswara")) {
-    pool = CURATED_TEMPLES.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam"));
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Tirupati") || t.city.includes("Tirumala") || t.city.includes("Srikalahasti") || t.city.includes("Kanipakam") || t.city.includes("Chandragiri"));
   } else if (text.includes("mysore") || text.includes("mysuru") || text.includes("srirangapatna") || text.includes("mandya")) {
-    pool = CURATED_TEMPLES.filter(t => t.city.includes("Mysuru") || t.city.includes("Srirangapatna") || t.city.includes("Nanjangud"));
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Mysuru") || t.city.includes("Srirangapatna") || t.city.includes("Nanjangud"));
+  } else if (text.includes("coorg") || text.includes("madikeri") || text.includes("kushalnagar")) {
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Coorg") || t.city.includes("Madikeri") || t.city.includes("Kushalnagar"));
+  } else if (text.includes("ooty") || text.includes("nilgiri") || text.includes("coonoor")) {
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Ooty") || t.city.includes("Nilgiris") || t.city.includes("Coonoor"));
+  } else if (text.includes("goa") || text.includes("calangute") || text.includes("baga") || text.includes("panjim")) {
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Goa"));
   } else if (text.includes("bengaluru") || text.includes("bangalore") || text.includes("mathikere")) {
-    pool = CURATED_TEMPLES.filter(t => t.city.includes("Bengaluru"));
+    destCandidates = CURATED_ATTRACTIONS.filter(t => t.city.includes("Bengaluru"));
   }
 
-  if (!pool.length) {
-    const cleanCity = destination ? destination.split(',')[0].trim() : "Destination";
-    pool = [
-      { name: `${cleanCity} Historic Heritage Monument & Palace`, deity: "Architectural Heritage & Grounds", city: cleanCity, rating: "4.8", durationMin: 120, wait: "Tour: 1.5–2.5 hrs", highlight: "Iconic royal architecture and scenic courtyard grounds", categories: ["Historical & Heritage Places", "Forts & Palaces"] },
-      { name: `${cleanCity} Sacred Spiritual Sanctum`, deity: "Presiding Deity & Holy Sanctum", city: cleanCity, rating: "4.8", durationMin: 75, wait: "Darshan: 1–1.5 hrs", highlight: "Historic cultural sanctum and traditional aarti", categories: ["Temples & Religious Places"] },
-      { name: `${cleanCity} Waterfront Promenade & Botanical Gardens`, deity: "Scenic Nature & Lakeside Vista", city: cleanCity, rating: "4.7", durationMin: 75, wait: "Leisure: 1–1.5 hrs", highlight: "Lush botanical walkways and sunset fountain viewing", categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls"] },
-      { name: `${cleanCity} Panoramic Hilltop Vista`, deity: "360° Panoramic Landscape", city: cleanCity, rating: "4.8", durationMin: 60, wait: "Sightseeing: 45–60 mins", highlight: "Golden hour photography and panoramic valley views", categories: ["Viewpoints & Scenic Places", "Hills & Mountains"] },
-      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, deity: "Regional Crafts & Specialties", city: cleanCity, rating: "4.6", durationMin: 90, wait: "Shopping: 1–2 hrs", highlight: "Authentic local delicacies and handcrafted souvenirs", categories: ["Famous Markets & Local Places", "Cultural Places"] },
+  // Step 2: Strict Category Filtering
+  let pool = [];
+  const hasCategoryFilter = Array.isArray(selectedCategories) && selectedCategories.length > 0;
+  const templesAllowed = !hasCategoryFilter || selectedCategories.includes("Temples & Religious Places");
+
+  if (hasCategoryFilter) {
+    // Filter candidate list to ONLY those that match at least one selected category
+    pool = destCandidates.filter(t => {
+      const pCats = t.categories || [];
+      return pCats.some(c => selectedCategories.includes(c));
+    });
+
+    // If user explicitly DID NOT select Temples, strictly purge any temple from the pool
+    if (!templesAllowed) {
+      pool = pool.filter(t => {
+        const pCats = t.categories || [];
+        return !pCats.includes("Temples & Religious Places");
+      });
+    }
+
+    // Sort matching pool so "must_visit" categories come first, then "would_like", then "optional"
+    pool.sort((a, b) => {
+      const pA = (a.categories || []).some(c => (categoryPriorities && categoryPriorities[c]) === "must_visit") ? 0 : 1;
+      const pB = (b.categories || []).some(c => (categoryPriorities && categoryPriorities[c]) === "must_visit") ? 0 : 1;
+      return pA - pB;
+    });
+
+    // If pool has fewer items than needed, dynamically synthesize high quality places for each selected category
+    for (const cat of selectedCategories) {
+      if (cat === "Temples & Religious Places" && !templesAllowed) continue;
+      if (cat === "Rivers, Lakes & Waterfalls") {
+        pool.push({ name: `${cleanCity} Scenic Waterfalls & Kaveri Cascades`, highlight: "Cascading natural waterfalls and serene water promenade", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Instagrammable / Photography Spots"] });
+      } else if (cat === "Viewpoints & Scenic Places") {
+        pool.push({ name: `${cleanCity} Panoramic Hilltop Valley Viewpoint`, highlight: "Breathtaking 360-degree landscape and golden hour sunset vista", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] });
+      } else if (cat === "Forts & Palaces") {
+        pool.push({ name: `${cleanCity} Historic Royal Fort & Palace Grounds`, highlight: "Grand royal durbar architecture and fortified courtyard grounds", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] });
+      } else if (cat === "Beaches") {
+        pool.push({ name: `${cleanCity} Sunset Beach & Coastal Promenade`, highlight: "Golden sand coastline, sea breeze and evening coastal sunset", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Beaches", "Viewpoints & Scenic Places"] });
+      } else if (cat === "Wildlife & National Parks") {
+        pool.push({ name: `${cleanCity} Wildlife Sanctuary & Nature Safari`, highlight: "Protected natural fauna habitat and guided flora safari", city: cleanCity, rating: "4.8", durationMin: 150, categories: ["Wildlife & National Parks", "Nature & Forests"] });
+      } else if (cat === "Nature & Forests") {
+        pool.push({ name: `${cleanCity} Lush Botanical Gardens & Forest Reserve`, highlight: "Scenic canopy walkways, rare flora and peaceful nature trails", city: cleanCity, rating: "4.7", durationMin: 90, categories: ["Nature & Forests", "Rivers, Lakes & Waterfalls"] });
+      } else if (cat === "Famous Markets & Local Places") {
+        pool.push({ name: `${cleanCity} Traditional Artisan Bazaar & Silk Market`, highlight: "Vibrant local market with regional handicrafts, spices and food", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous Markets & Local Places", "Cultural Places"] });
+      } else if (cat === "Historical & Heritage Places") {
+        pool.push({ name: `${cleanCity} Ancient Heritage Monument & Museum`, highlight: "Historic archaeology, royal artifacts and architectural legacy", city: cleanCity, rating: "4.8", durationMin: 90, categories: ["Historical & Heritage Places", "Monuments & Landmarks"] });
+      } else if (cat === "Hills & Mountains") {
+        pool.push({ name: `${cleanCity} Misty Mountain Peak & Ridge Trek`, highlight: "High altitude clouds, mountain breeze and valley vistas", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Hills & Mountains", "Viewpoints & Scenic Places"] });
+      } else if (cat === "Famous Bridges / Dams") {
+        pool.push({ name: `${cleanCity} Reservoir Dam & River Gateway`, highlight: "Towering reservoir gates and illuminated river walkways", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous Bridges / Dams", "Rivers, Lakes & Waterfalls"] });
+      } else if (cat === "Cultural Places") {
+        pool.push({ name: `${cleanCity} Cultural Heritage & Arts Village`, highlight: "Traditional folklore, handicrafts and live cultural exhibits", city: cleanCity, rating: "4.7", durationMin: 90, categories: ["Cultural Places", "Famous / Must-Visit Places"] });
+      } else if (cat === "Instagrammable / Photography Spots") {
+        pool.push({ name: `${cleanCity} Panoramic Photography Point & Sunset Spot`, highlight: "Picture-perfect photo point with scenic framing and golden hour light", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Instagrammable / Photography Spots", "Viewpoints & Scenic Places"] });
+      } else if (cat === "Famous City Attractions") {
+        pool.push({ name: `${cleanCity} City Center Plaza & Heritage Promenade`, highlight: "Iconic downtown landmark and leisure walking boulevard", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Famous City Attractions", "Monuments & Landmarks"] });
+      } else if (cat === "Monuments & Landmarks") {
+        pool.push({ name: `${cleanCity} Historic Victory Monument & Tower`, highlight: "Iconic landmark celebrating regional history and architecture", city: cleanCity, rating: "4.7", durationMin: 60, categories: ["Monuments & Landmarks", "Historical & Heritage Places"] });
+      } else if (cat === "Temples & Religious Places") {
+        pool.push({ name: `${cleanCity} Sacred Spiritual Sanctum & Temple`, highlight: "Historic sanctum, spiritual heritage and traditional architecture", city: cleanCity, rating: "4.8", durationMin: 75, categories: ["Temples & Religious Places", "Historical & Heritage Places"] });
+      }
+    }
+  } else {
+    // No specific categories selected by user: use balanced mix from destination candidates
+    pool = destCandidates.length ? destCandidates : [
+      { name: `${cleanCity} Historic Royal Palace & Monument`, highlight: "Iconic royal architecture and scenic courtyard grounds", city: cleanCity, rating: "4.8", durationMin: 120, categories: ["Forts & Palaces", "Historical & Heritage Places", "Famous / Must-Visit Places"] },
+      { name: `${cleanCity} Waterfront Promenade & Lake Gardens`, highlight: "Lush botanical walkways and sunset fountain viewing", city: cleanCity, rating: "4.7", durationMin: 75, categories: ["Rivers, Lakes & Waterfalls", "Nature & Forests", "Famous City Attractions"] },
+      { name: `${cleanCity} Panoramic Hilltop Vista`, highlight: "Golden hour photography and panoramic valley views", city: cleanCity, rating: "4.8", durationMin: 60, categories: ["Viewpoints & Scenic Places", "Hills & Mountains", "Instagrammable / Photography Spots"] },
+      { name: `${cleanCity} Traditional Artisan & Food Bazaar`, highlight: "Authentic local delicacies, handicrafts and regional souvenirs", city: cleanCity, rating: "4.6", durationMin: 90, categories: ["Famous Markets & Local Places", "Cultural Places"] },
     ];
   }
 
-  const defaultCats = selectedCategories.length ? selectedCategories : ["Temples & Religious Places", "Historical & Heritage Places"];
+  // Deduplicate pool
+  const seenNames = new Set();
+  pool = pool.filter(p => {
+    if (seenNames.has(p.name)) return false;
+    seenNames.add(p.name);
+    return true;
+  });
 
-  let templeIdx = 0;
-  function getNextTemple() {
-    const t = pool[templeIdx % pool.length];
-    templeIdx++;
+  let attractionIdx = 0;
+  function getNextAttraction() {
+    const t = pool[attractionIdx % pool.length];
+    attractionIdx++;
     return t;
   }
 
@@ -732,79 +877,30 @@ function buildFallbackSmartItinerary({
     const blocks = [];
 
     if (isFirst) {
-      // --- DAY 1: OUTWARD TRAVEL & EVENING SIGHTSEEING/DARSHAN ---
-      const startMin = parseMinutes(startTime);
-      let cur = startMin;
+      // --- DAY 1: DEPARTURE & FIRST SIGHTSEEING ---
+      let cur = parseMinutes(startTime);
 
-      if (totalDriveMin > 180) {
-        // Long drive (>3 hours): Split with midway breakfast/coffee
-        const leg1 = Math.round(totalDriveMin * 0.45);
-        const leg2 = totalDriveMin - leg1;
-        const dist1 = Math.round(estimatedKm * 0.45);
-        const dist2 = Math.round(estimatedKm - dist1);
-
-        blocks.push({
-          start: formatMin(cur),
-          end: formatMin(cur + leg1),
-          type: "travel",
-          title: `Drive from ${startName} (Highway Leg 1)`,
-          place: "National Highway",
-          durationMin: leg1,
-          travelMin: leg1,
-          distanceKm: dist1,
-          travelMode: "drive",
-          reason: "Morning highway drive with smooth cruising"
-        });
-        cur += leg1;
-
-        blocks.push({
-          start: formatMin(cur),
-          end: formatMin(cur + 45),
-          type: "coffee",
-          title: `Highway Coffee & Breakfast at ${coffeeHighway.name}`,
-          place: `${coffeeHighway.name}, ${coffeeHighway.city}`,
-          durationMin: 45,
-          breakType: "breakfast",
-          reason: `⭐ ${coffeeHighway.rating} · ${coffeeHighway.specialty}`
-        });
-        cur += 45;
-
-        blocks.push({
-          start: formatMin(cur),
-          end: formatMin(cur + leg2),
-          type: "travel",
-          title: `Drive to ${destName} (Highway Leg 2)`,
-          place: destName,
-          durationMin: leg2,
-          travelMin: leg2,
-          distanceKm: dist2,
-          travelMode: "drive",
-          reason: `Scenic approach drive arriving in ${destName}`
-        });
-        cur += leg2;
-      } else {
-        // Short drive (<= 3 hours)
-        blocks.push({
-          start: formatMin(cur),
-          end: formatMin(cur + totalDriveMin),
-          type: "travel",
-          title: `Drive from ${startName} to ${destName}`,
-          place: destName,
-          durationMin: totalDriveMin,
-          travelMin: totalDriveMin,
-          distanceKm: estimatedKm,
-          travelMode: "drive",
-          reason: "Smooth morning drive along highway with traffic clearance"
-        });
-        cur += totalDriveMin;
-      }
+      blocks.push({
+        start: formatMin(cur),
+        end: formatMin(cur + totalDriveMin),
+        type: "travel",
+        title: `Drive from ${startName} to ${destName}`,
+        place: destName,
+        durationMin: totalDriveMin,
+        travelMin: totalDriveMin,
+        distanceKm: estimatedKm,
+        travelMode: "drive",
+        reason: "Scenic highway drive with optimal route pacing",
+        grounded: true
+      });
+      cur += totalDriveMin;
 
       // Arrival Lunch
       blocks.push({
         start: formatMin(cur),
         end: formatMin(cur + 60),
         type: "meal",
-        title: `Traditional Arrival Lunch at ${lunchVenue.name}`,
+        title: `Arrival Lunch at ${lunchVenue.name}`,
         place: `${lunchVenue.name}, ${lunchVenue.city}`,
         durationMin: 60,
         breakType: "lunch",
@@ -824,42 +920,41 @@ function buildFallbackSmartItinerary({
       });
       cur += 45;
 
-      // If arrived early before 03:00 PM, allow a preliminary shrine visit
-      if (cur < 900) {
-        const tPrelim = getNextTemple();
-        const tPrelimDur = tPrelim.durationMin > 90 ? 75 : tPrelim.durationMin;
-        const resCat = resolveCategoriesForPlace(tPrelim, selectedCategories);
-        blocks.push({
-          start: formatMin(cur),
-          end: formatMin(cur + tPrelimDur),
-          type: "activity",
-          title: `Visit ${tPrelim.name}`,
-          place: `${tPrelim.name}, ${tPrelim.city}`,
-          durationMin: tPrelimDur,
-          reason: `🛕 ${tPrelim.deity} · ⭐ ${tPrelim.rating} · ${tPrelim.highlight}`,
-          categories: resCat.categories,
-          whyIncluded: `Matches your selected ${resCat.match} preference along the route.`,
-        });
-        cur += tPrelimDur;
-      }
-
-      // Grand Evening Attraction
-      const tMain = getNextTemple();
-      const tDuration = tMain.durationMin || 90;
-      const tWait = tMain.wait ? ` · ⏳ Darshan Wait: ${tMain.wait}` : "";
-      const resMain = resolveCategoriesForPlace(tMain, selectedCategories);
+      // Afternoon / Evening Stop 1
+      const t1 = getNextAttraction();
+      const t1Dur = t1.durationMin > 90 ? 75 : t1.durationMin;
+      const res1 = resolveCategoriesForPlace(t1, selectedCategories);
+      const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
         start: formatMin(cur),
-        end: formatMin(cur + tDuration),
+        end: formatMin(cur + t1Dur),
         type: "activity",
-        title: `Explore ${tMain.name}`,
-        place: `${tMain.name}, ${tMain.city}`,
-        durationMin: tDuration,
-        reason: `🛕 ${tMain.deity} · ⭐ ${tMain.rating}${tWait} · ${tMain.highlight}`,
-        categories: resMain.categories,
-        whyIncluded: `Matches your selected ${resMain.match} preference along the route.`,
+        title: `Visit ${t1.name}`,
+        place: `${t1.name}, ${t1.city}`,
+        durationMin: t1Dur,
+        reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Top-rated highlight on route"}`,
+        categories: res1.categories,
+        whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
-      cur += tDuration;
+      cur += t1Dur;
+
+      // Evening Stop 2
+      const t2 = getNextAttraction();
+      const t2Dur = t2.durationMin || 90;
+      const res2 = resolveCategoriesForPlace(t2, selectedCategories);
+      const emoji2 = getCategoryEmoji(res2.match);
+      blocks.push({
+        start: formatMin(cur),
+        end: formatMin(cur + t2Dur),
+        type: "activity",
+        title: `Explore ${t2.name}`,
+        place: `${t2.name}, ${t2.city}`,
+        durationMin: t2Dur,
+        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Scenic evening experience"}`,
+        categories: res2.categories,
+        whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
+      });
+      cur += t2Dur;
 
       // Traditional Dinner (at or after 07:30 PM)
       if (cur < 1170) cur = 1170; // 07:30 PM minimum
@@ -886,7 +981,7 @@ function buildFallbackSmartItinerary({
         reason: "Peaceful sleep after sightseeing and travel"
       });
     } else if (!isLast) {
-      // --- MIDDLE DAY: FULL SIGHTSEEING & PILGRIMAGE CIRCUIT ---
+      // --- MIDDLE DAY: FULL SIGHTSEEING CIRCUIT ---
       blocks.push({
         start: "08:00 AM",
         end: "09:00 AM",
@@ -898,10 +993,10 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
-      const t1 = getNextTemple();
+      const t1 = getNextAttraction();
       const t1Duration = t1.durationMin > 180 ? 180 : t1.durationMin;
-      const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
       const res1 = resolveCategoriesForPlace(t1, selectedCategories);
+      const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
         start: "09:15 AM",
         end: formatMin(555 + t1Duration),
@@ -909,7 +1004,7 @@ function buildFallbackSmartItinerary({
         title: `Visit ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
         durationMin: t1Duration,
-        reason: `🛕 ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`,
+        reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Iconic regional highlight"}`,
         categories: res1.categories,
         whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
@@ -926,10 +1021,10 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${lunchVenue.rating} · ${lunchVenue.specialty}`
       });
 
-      const t2 = getNextTemple();
+      const t2 = getNextAttraction();
       const t2Duration = t2.durationMin > 150 ? 150 : t2.durationMin;
-      const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
       const res2 = resolveCategoriesForPlace(t2, selectedCategories);
+      const emoji2 = getCategoryEmoji(res2.match);
       blocks.push({
         start: "02:00 PM",
         end: formatMin(840 + t2Duration),
@@ -937,7 +1032,7 @@ function buildFallbackSmartItinerary({
         title: `Explore ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Duration,
-        reason: `🛕 ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`,
+        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Immersive sightseeing stop"}`,
         categories: res2.categories,
         whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
@@ -951,7 +1046,7 @@ function buildFallbackSmartItinerary({
         place: "Scenic Viewpoint / Promenade",
         durationMin: 60,
         breakType: "coffee",
-        reason: "Golden hour views, cool evening breeze & hot tea"
+        reason: "Golden hour views, cool evening breeze and hot tea"
       });
 
       blocks.push({
@@ -975,7 +1070,7 @@ function buildFallbackSmartItinerary({
         reason: "Restful sleep preparing for morning visits"
       });
     } else {
-      // --- FINAL DAY: MORNING SHRINES, LUNCH, CHECK-OUT & RETURN DRIVE ---
+      // --- FINAL DAY: MORNING SIGHTSEEING, LUNCH, CHECK-OUT & RETURN DRIVE ---
       blocks.push({
         start: "08:00 AM",
         end: "09:00 AM",
@@ -987,10 +1082,10 @@ function buildFallbackSmartItinerary({
         reason: `⭐ ${breakfastVenue.rating} · ${breakfastVenue.specialty}`
       });
 
-      const t1 = getNextTemple();
+      const t1 = getNextAttraction();
       const t1Duration = t1.durationMin || 60;
-      const t1Wait = t1.wait ? ` · ⏳ Darshan Wait: ${t1.wait}` : "";
       const res1 = resolveCategoriesForPlace(t1, selectedCategories);
+      const emoji1 = getCategoryEmoji(res1.match);
       blocks.push({
         start: "09:15 AM",
         end: "10:45 AM",
@@ -998,15 +1093,15 @@ function buildFallbackSmartItinerary({
         title: `Explore ${t1.name}`,
         place: `${t1.name}, ${t1.city}`,
         durationMin: t1Duration > 90 ? 90 : t1Duration,
-        reason: `🛕 ${t1.deity} · ⭐ ${t1.rating}${t1Wait} · ${t1.highlight}`,
+        reason: `${emoji1} ⭐ ${t1.rating || "4.8"} · ${t1.highlight || "Morning sightseeing exploration"}`,
         categories: res1.categories,
         whyIncluded: `Matches your selected ${res1.match} preference along the route.`,
       });
 
-      const t2 = getNextTemple();
+      const t2 = getNextAttraction();
       const t2Duration = t2.durationMin || 90;
-      const t2Wait = t2.wait ? ` · ⏳ Darshan Wait: ${t2.wait}` : "";
       const res2 = resolveCategoriesForPlace(t2, selectedCategories);
+      const emoji2 = getCategoryEmoji(res2.match);
       blocks.push({
         start: "11:00 AM",
         end: "12:30 PM",
@@ -1014,7 +1109,7 @@ function buildFallbackSmartItinerary({
         title: `Visit ${t2.name}`,
         place: `${t2.name}, ${t2.city}`,
         durationMin: t2Duration > 90 ? 90 : t2Duration,
-        reason: `🛕 ${t2.deity} · ⭐ ${t2.rating}${t2Wait} · ${t2.highlight}`,
+        reason: `${emoji2} ⭐ ${t2.rating || "4.8"} · ${t2.highlight || "Historic sight on return circuit"}`,
         categories: res2.categories,
         whyIncluded: `Matches your selected ${res2.match} preference along the route.`,
       });
