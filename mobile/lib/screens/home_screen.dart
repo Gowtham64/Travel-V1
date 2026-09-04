@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../models/trip_models.dart';
@@ -360,6 +361,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'export_pdf':
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Generating and downloading PDF Itinerary... ✓'), behavior: SnackBarBehavior.floating),
+        );
+        break;
+      case 'download_apk':
+        launchUrl(
+          Uri.parse('https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk'),
+          mode: LaunchMode.externalApplication,
         );
         break;
       default:

@@ -18,6 +18,39 @@
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+
+  <!-- Google Analytics (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-F8JKP99Q44"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    // send_page_view:false — the Flutter SPA sends page_view on route changes
+    // itself (see the pushState/replaceState hook below), so we avoid double-
+    // counting the initial load.
+    gtag('config', 'G-F8JKP99Q44', { send_page_view: true });
+    // Track in-app navigations (Flutter router uses history pushState) as GA
+    // page_views so you see which screens are used, not just the first load.
+    (function () {
+      function trackPage() {
+        gtag('event', 'page_view', {
+          page_path: location.pathname + location.hash,
+          page_location: location.href,
+          page_title: document.title,
+        });
+      }
+      ['pushState', 'replaceState'].forEach(function (m) {
+        var orig = history[m];
+        history[m] = function () {
+          var r = orig.apply(this, arguments);
+          trackPage();
+          return r;
+        };
+      });
+      window.addEventListener('popstate', trackPage);
+      window.addEventListener('hashchange', trackPage);
+    })();
+  </script>
   <!-- Force the browser to revalidate this HTML so inline map JS updates land. -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
