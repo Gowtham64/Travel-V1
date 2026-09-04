@@ -215,12 +215,15 @@ class LiveNavigationEngine extends ChangeNotifier {
     final speed = (pos.speed.isFinite && pos.speed > 0) ? pos.speed * 3.6 : 0.0;
     _liveSpeedKmh = speed;
 
-    // Heading calculation: use device heading when valid, else segment bearing if moving
+    // Heading calculation: when moving (> 2.5 km/h), use device heading or segment bearing;
+    // when stationary (<= 2.5 km/h), preserve last reliable heading to prevent spinning from GPS jitter.
     double headingRad;
-    if (pos.heading.isFinite && pos.heading >= 0) {
-      headingRad = pos.heading * pi / 180.0;
-    } else if (speed > 4.0) {
-      headingRad = proj.segmentBearing * pi / 180.0;
+    if (speed > 2.5) {
+      if (pos.heading.isFinite && pos.heading >= 0) {
+        headingRad = pos.heading * pi / 180.0;
+      } else {
+        headingRad = proj.segmentBearing * pi / 180.0;
+      }
     } else {
       headingRad = _vehicleRotation;
     }
@@ -237,8 +240,8 @@ class LiveNavigationEngine extends ChangeNotifier {
       }
     } else {
       _offRouteStreak = 0;
-      // When on-route within 30m, snap vehicle marker smoothly to road centerline
-      if (distFromRoute <= 30.0) {
+      // When on-route within 45m, snap vehicle marker smoothly to road centerline
+      if (distFromRoute <= 45.0) {
         _vehiclePosition = proj.snappedPoint;
       } else {
         _vehiclePosition = here;

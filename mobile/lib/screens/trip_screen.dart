@@ -94,6 +94,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _isCarMode = false;
   final CarGuidanceService _carGuidance = CarGuidanceService();
   final VoiceGuide _voice = VoiceGuide();
+  final Distance _distance = const Distance();
   bool _voiceMuted = false;
   
   final MapController _mapController = MapController();
@@ -111,6 +112,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   int _consecutiveOffRouteFixes = 0;
   GpsHealthStatus _gpsHealth = GpsHealthStatus.active;
   NavCameraMode _cameraMode = NavCameraMode.follow;
+  bool _showDebugNavOverlay = false;
+  Position? _lastRawPos;
+  RouteProjectionResult? _lastProjResult;
+  ManeuverInstruction? _lastManeuver;
   int _animationIndex = 0;
   LatLng? _animatedVehiclePosition;
   double _vehicleRotation = 0.0;
@@ -656,7 +661,37 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               ),
               PolylineLayer(
                 polylines: [
-                  Polyline(points: routePoints, strokeWidth: 6, color: const Color(0xFF2E75B6)),
+                  if (_isLiveNavigating && _animatedVehiclePosition != null && fullRoutePoints.isNotEmpty) ...[
+                    // Traveled route (behind vehicle)
+                    if (_animationIndex > 0)
+                      Polyline(
+                        points: [
+                          ...fullRoutePoints.take(_animationIndex + 1),
+                          _animatedVehiclePosition!,
+                        ],
+                        strokeWidth: 4.5,
+                        color: const Color(0xFF64748B).withOpacity(0.55),
+                      ),
+                    // Active route (ahead of vehicle) - starts EXACTLY at the vehicle marker
+                    Polyline(
+                      points: [
+                        _animatedVehiclePosition!,
+                        ...fullRoutePoints.skip(_animationIndex + 1),
+                      ],
+                      strokeWidth: 6.5,
+                      color: const Color(0xFF0EA5E9),
+                      borderColor: const Color(0xFF0369A1),
+                      borderStrokeWidth: 1.5,
+                    ),
+                  ] else ...[
+                    Polyline(
+                      points: routePoints,
+                      strokeWidth: 6.0,
+                      color: const Color(0xFF0EA5E9),
+                      borderColor: const Color(0xFF0369A1),
+                      borderStrokeWidth: 1.2,
+                    ),
+                  ],
                 ],
               ),
               MarkerLayer(markers: _buildMarkers(context)),
@@ -2014,8 +2049,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       return;
     }
 
-    final routePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
-    if (routePoints.isEmpty) return;
+    if (_currentPlan.coordinates.isEmpty) return;
 
     setState(() {
       _isPlayingAnimation = true;
@@ -2032,7 +2066,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _voice.reset();
     _voice.speak('Starting navigation. Drive safely.', force: true);
 
-    // Snap camera to the user immediately using the last/first fix.
+    // Initial fix: verify proximity to route start and reroute dynamically if needed
     try {
       final first = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
@@ -2040,7 +2074,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           timeLimit: Duration(seconds: 10),
         ),
       );
-      _onLivePosition(first, routePoints);
+      final here = LatLng(first.latitude, first.longitude);
+      final startDist = _distance.as(LengthUnit.Meter, here, _currentPlan.coordinates.first.toLatLng());
+      if (startDist > 45.0) {
+        _triggerLiveReroute(here);
+      } else {
+        _onLivePosition(first);
+      }
     } catch (_) {
       // Stream will deliver a fix shortly; ignore a slow first read.
     }
@@ -2077,7 +2117,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     _positionStream =
         Geolocator.getPositionStream(locationSettings: settings).listen(
-      (pos) => _onLivePosition(pos, routePoints),
+      (pos) => _onLivePosition(pos),
       onError: (e) {
         if (mounted) {
           setState(() {
@@ -2146,9 +2186,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       setState(() {
         _currentPlan = newPlan;
+        _animationIndex = 0;
+        _animatedVehiclePosition = currentGps;
         _consecutiveOffRouteFixes = 0;
         _isRerouting = false;
       });
+
+      if (_lastRawPos != null) {
+        _onLivePosition(_lastRawPos!);
+      }
 
       _voice.speak('New route active.');
     } catch (e) {
@@ -2164,13 +2210,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Handles one live GPS fix: projects it onto the route, updates the marker,
   /// heading, camera, lane guidance, off-route detection, and the live trip stats.
-  void _onLivePosition(Position pos, List<LatLng> routePoints) {
+  void _onLivePosition(Position pos) {
     if (!mounted || !_isLiveNavigating) return;
 
     final here = LatLng(pos.latitude, pos.longitude);
 
-    // 1. GPS Health
-    if (pos.accuracy > 45) {
+    // 1. GPS Health & Noise Filtering
+    if (pos.accuracy > 55) {
       _gpsHealth = GpsHealthStatus.weak;
     } else {
       _gpsHealth = GpsHealthStatus.active;
@@ -2178,45 +2224,47 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // 2. Road Matching / Route Snapping
     final proj = _carGuidance.projectOnRoute(here, _currentPlan.coordinates);
-    final LatLng displayPos = proj.distanceFromRouteMeters <= 35.0 ? proj.snappedPoint : here;
+    // When within 45m of route, snap vehicle marker directly onto the road centerline
+    final LatLng displayPos = proj.distanceFromRouteMeters <= 45.0 ? proj.snappedPoint : here;
 
-    // 3. Off-Route Detection with 3-fix debounce buffer
-    // NEVER reroute from single noisy GPS fix
-    if (proj.distanceFromRouteMeters > 45.0 && (pos.accuracy <= 40.0 || pos.accuracy == 0)) {
+    // 3. Off-Route Detection with 2-fix confirmation
+    if (proj.distanceFromRouteMeters > 50.0 && (pos.accuracy <= 40.0 || pos.accuracy == 0)) {
       _consecutiveOffRouteFixes++;
-      if (_consecutiveOffRouteFixes >= 3 && !_isRerouting) {
+      if (_consecutiveOffRouteFixes >= 2 && !_isRerouting) {
         _triggerLiveReroute(here);
       }
-    } else if (proj.distanceFromRouteMeters <= 30.0) {
+    } else if (proj.distanceFromRouteMeters <= 35.0) {
       _consecutiveOffRouteFixes = 0;
     }
 
-    // 4. Progress along active route
+    // 4. Progress & Remaining Distance along active route (meters -> km)
+    final double remainingKm = (proj.remainingDistanceMeters / 1000.0).clamp(0.0, _currentPlan.distanceKm);
     final double progress = proj.progressPercent.clamp(0.0, 1.0);
-    final double totalKm = _currentPlan.distanceKm;
-    final double remainingKm = ((1.0 - progress) * totalKm).clamp(0.0, totalKm);
 
-    // Live speed (m/s → km/h); heading in degrees clockwise from north.
-    final double speedKmh = (pos.speed.isFinite && pos.speed > 0) ? pos.speed * 3.6 : 0.0;
-    final double headingRad = (pos.heading.isFinite && pos.heading >= 0)
-        ? pos.heading * pi / 180.0
-        : _vehicleRotation;
+    // Live speed (m/s -> km/h)
+    final double rawSpeed = pos.speed;
+    final double speedKmh = (rawSpeed.isFinite && rawSpeed >= 0) ? rawSpeed * 3.6 : -1.0;
 
-    // ETA from current speed, falling back to planned pace when stationary.
-    final double paceKmh = speedKmh > 5
-        ? speedKmh
-        : (totalKm > 0 && _currentPlan.durationMin > 0 ? totalKm / (_currentPlan.durationMin / 60.0) : 40.0);
-    final int remainingMin = paceKmh > 0 ? (remainingKm / paceKmh * 60).round() : 0;
+    // Heading stabilization:
+    // When moving (> 2.5 km/h): use live device heading if valid, else segment bearing.
+    // When stationary (<= 2.5 km/h): preserve last reliable heading to prevent spinning from GPS jitter.
+    double headingRad = _vehicleRotation;
+    if (speedKmh > 2.5) {
+      if (pos.heading.isFinite && pos.heading >= 0) {
+        headingRad = pos.heading * pi / 180.0;
+      } else {
+        headingRad = proj.segmentBearing * pi / 180.0;
+      }
+    }
 
-    setState(() {
-      _animatedVehiclePosition = displayPos;
-      _vehicleRotation = headingRad;
-      _animationIndex = proj.segmentIndex;
-      _tripProgressPercent = progress;
-      _liveSpeedKmh = speedKmh;
-      _liveRemainingKm = remainingKm;
-      _liveRemainingMin = remainingMin;
-    });
+    // ETA calculation: dynamically calculate based on current pace & route duration
+    final double plannedPaceKmh = (_currentPlan.distanceKm > 0 && _currentPlan.durationMin > 0)
+        ? _currentPlan.distanceKm / (_currentPlan.durationMin / 60.0)
+        : 45.0;
+    final double effectivePaceKmh = (speedKmh > 15.0)
+        ? (0.6 * speedKmh + 0.4 * plannedPaceKmh).clamp(25.0, 120.0)
+        : plannedPaceKmh.clamp(20.0, 120.0);
+    final int remainingMin = ((remainingKm / effectivePaceKmh) * 60.0).round().clamp(0, 9999);
 
     // 5. Maneuver & Lane Guidance
     final maneuver = _carGuidance.calculateManeuver(
@@ -2228,6 +2276,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (maneuver.type != ManeuverType.destination) {
       _carGuidance.announceManeuver(maneuver);
     }
+
+    setState(() {
+      _animatedVehiclePosition = displayPos;
+      _vehicleRotation = headingRad;
+      _animationIndex = proj.segmentIndex;
+      _tripProgressPercent = progress;
+      _liveSpeedKmh = speedKmh;
+      _liveRemainingKm = remainingKm;
+      _liveRemainingMin = remainingMin;
+      _lastRawPos = pos;
+      _lastProjResult = proj;
+      _lastManeuver = maneuver;
+    });
 
     // Adaptive Navigation Zoom: intelligent scaling based on speed and upcoming turn proximity
     double adaptiveZoom = 16.5;
@@ -2259,7 +2320,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       maneuver,
       remainingKm,
       remainingMin,
-      speedKmh,
+      speedKmh >= 0 ? speedKmh : 0.0,
       throttle: false,
     );
 
@@ -3470,6 +3531,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ),
 
         _buildTopHUD(topPadding),
+        _buildNavDebugOverlay(topPadding),
         _buildBottomHUD(),
 
         // On desktop, place speedometer separately; on mobile it is integrated in the bottom bar
@@ -3637,6 +3699,23 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     _showMapStyleSheet();
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Icons.bug_report_rounded, color: Color(0xFF38BDF8)),
+                  title: const Text('Navigation Engine Debug HUD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Live GPS, map-match distance, speed & bearing telemetry', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  trailing: Switch(
+                    value: _showDebugNavOverlay,
+                    onChanged: (val) {
+                      Navigator.pop(ctx);
+                      setState(() => _showDebugNavOverlay = val);
+                    },
+                    activeColor: const Color(0xFF38BDF8),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    setState(() => _showDebugNavOverlay = !_showDebugNavOverlay);
+                  },
+                ),
               ],
             ),
           ),
@@ -3663,7 +3742,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Current display speed in km/h from the active model (real values only).
   int get _displaySpeedKmh {
-    if (_isLiveNavigating) return _liveSpeedKmh.round();
+    if (_isLiveNavigating) return _liveSpeedKmh >= 0 ? _liveSpeedKmh.round() : 0;
     if (_isTollStop || _activeStopHighlight != null) return 0;
     return (_currentSpeedModifier * 80).round();
   }
@@ -3671,6 +3750,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// Driver-cluster style speedometer gauge (reference: instrument cluster).
   Widget _buildSpeedometer({bool compact = false}) {
     final speed = _displaySpeedKmh;
+    final String speedText = (_isLiveNavigating && _liveSpeedKmh < 0) ? '--' : '$speed';
     final double size = compact ? 116 : 150;
     final double numSize = compact ? 34 : 44;
     return Container(
@@ -3694,7 +3774,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             children: [
               SizedBox(height: compact ? 6 : 8),
               Text(
-                '$speed',
+                speedText,
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: numSize,
@@ -3988,8 +4068,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ? '${(maneuver.distanceMeters / 1000).toStringAsFixed(1)} km'
         : '${maneuver.distanceMeters.round()} m';
 
+    final String cleanEndName = (widget.end.name ?? widget.endAddress)
+        .replaceAll(RegExp(r',\s*India$', caseSensitive: false), '')
+        .trim();
     String instruction = maneuver.instruction;
-    String sub = 'toward ${widget.end.name ?? widget.endAddress}';
+    String sub = (maneuver.roadName != null && maneuver.roadName!.isNotEmpty)
+        ? maneuver.roadName!
+        : 'toward $cleanEndName';
 
     if (_isTollStop) {
       turnIcon = Icons.payment_rounded;
@@ -4018,79 +4103,84 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pinned Turn Banner
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1A1F2E).withOpacity(0.96),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withOpacity(0.12)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.55),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                // Green vertical accent indicator on left edge
-                Container(
-                  width: 4,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF10B981),
-                    borderRadius: BorderRadius.circular(2),
+          // Pinned Turn Banner (tap/long-press opens developer debug telemetry)
+          GestureDetector(
+            onLongPress: () {
+              setState(() => _showDebugNavOverlay = !_showDebugNavOverlay);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1F2E).withOpacity(0.96),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.55),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    borderRadius: BorderRadius.circular(12),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Green vertical accent indicator on left edge
+                  Container(
+                    width: 4,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                  child: Icon(turnIcon, color: Colors.white, size: 28),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        distanceStr,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        instruction,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        sub,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.55),
-                          fontSize: 11,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(turnIcon, color: Colors.white, size: 28),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          distanceStr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          instruction,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          sub,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.55),
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -4124,6 +4214,57 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildNavDebugOverlay(double topPadding) {
+    if (!_showDebugNavOverlay || !_isLiveNavigating) return const SizedBox.shrink();
+    return Positioned(
+      top: topPadding + 85,
+      left: 14,
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xEE0B0F19),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF0EA5E9), width: 1.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black87, blurRadius: 16, offset: Offset(0, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.sensors_rounded, color: Color(0xFF0EA5E9), size: 14),
+                    SizedBox(width: 6),
+                    Text('NAV ENGINE DEBUG', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5)),
+                  ],
+                ),
+                GestureDetector(
+                  onTap: () => setState(() => _showDebugNavOverlay = false),
+                  child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                ),
+              ],
+            ),
+            const Divider(color: Colors.white24, height: 12),
+            Text('GPS: ${_lastRawPos?.latitude.toStringAsFixed(5)}, ${_lastRawPos?.longitude.toStringAsFixed(5)} (±${_lastRawPos?.accuracy.toStringAsFixed(1)}m)', style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'monospace')),
+            Text('Speed: ${_liveSpeedKmh < 0 ? "--" : _liveSpeedKmh.toStringAsFixed(1)} km/h | Status: ${_gpsHealth.name.toUpperCase()}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace')),
+            Text('Heading: ${(_vehicleRotation * 180 / pi).round()}° | Cam: ${_cameraMode.name}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace')),
+            const SizedBox(height: 4),
+            Text('Snapped: ${_lastProjResult?.snappedPoint.latitude.toStringAsFixed(5)}, ${_lastProjResult?.snappedPoint.longitude.toStringAsFixed(5)}', style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontFamily: 'monospace')),
+            Text('Off-Route Dist: ${_lastProjResult?.distanceFromRouteMeters.toStringAsFixed(1)}m (streak: $_consecutiveOffRouteFixes)', style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontFamily: 'monospace')),
+            Text('Remaining: ${_liveRemainingKm.toStringAsFixed(1)} km · ${_liveRemainingMin} min (${(_tripProgressPercent * 100).toStringAsFixed(1)}%)', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontFamily: 'monospace')),
+            Text('Maneuver: ${_lastManeuver?.instruction} (${_lastManeuver?.distanceMeters.round()}m)', style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 11, fontFamily: 'monospace')),
+          ],
+        ),
       ),
     );
   }

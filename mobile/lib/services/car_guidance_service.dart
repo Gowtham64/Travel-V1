@@ -265,16 +265,28 @@ class CarGuidanceService {
           );
         }
 
-        final roadName = routePoints[i].name;
-        final instructionText = (roadName != null && roadName.trim().isNotEmpty && roadName != 'Waypoint')
-            ? '$action onto $roadName'
+        final rawName = routePoints[i].name;
+        String? cleanRoadName;
+        if (rawName != null && rawName.trim().isNotEmpty) {
+          final trimmed = rawName.trim();
+          final isLocationOrCountry = trimmed == 'Waypoint' ||
+              trimmed.toLowerCase().contains('india') ||
+              trimmed.toLowerCase() == (end.name ?? '').toLowerCase().trim() ||
+              waypoints.any((w) => (w.name ?? '').toLowerCase().trim() == trimmed.toLowerCase());
+          if (!isLocationOrCountry) {
+            cleanRoadName = trimmed;
+          }
+        }
+
+        final instructionText = (cleanRoadName != null)
+            ? '$action onto $cleanRoadName'
             : action;
 
         return ManeuverInstruction(
           type: type,
           instruction: instructionText,
           distanceMeters: cumulativeTurnDist,
-          roadName: roadName,
+          roadName: cleanRoadName,
           laneGuidance: (cumulativeTurnDist <= 600) ? laneGuidance : null,
           bearing: b2,
         );
@@ -288,7 +300,7 @@ class CarGuidanceService {
       type: ManeuverType.straight,
       instruction: 'Continue on current route',
       distanceMeters: max(50.0, proj.remainingDistanceMeters),
-      roadName: routePoints[closestIdx].name,
+      roadName: null,
     );
   }
 
