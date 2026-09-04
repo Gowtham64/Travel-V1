@@ -2,9 +2,27 @@ class VehicleModel {
   final String id;
   final String name;
   final String type; // 'car' or 'motorcycle'
-  final double mileage; // km/l
+  final double mileage; // km/l or km/kg
   final double tankCapacity; // Liters
-  final String fuelType; // 'petrol', 'diesel', 'cng', 'ev'
+  final String fuelType; // 'petrol', 'diesel', 'cng', 'ev', 'hybrid'
+  final String? brandId;
+  final String? brandName;
+  final String? modelId;
+  final String? modelName;
+  final String? variantId;
+  final String? variantName;
+  final double? batteryCapacityKwh;
+  final int? evRangeKm;
+  final String? engine;
+  final String? transmission;
+  final int? seatingCapacity;
+  final String? bodyType;
+  final String? priceRange;
+  final int? modelYear;
+  final bool isUserMileageOverride;
+  final double? userCustomMileage;
+  final String source;
+  final String dataVersion;
 
   const VehicleModel({
     required this.id,
@@ -13,7 +31,154 @@ class VehicleModel {
     required this.mileage,
     required this.tankCapacity,
     this.fuelType = 'petrol',
+    this.brandId,
+    this.brandName,
+    this.modelId,
+    this.modelName,
+    this.variantId,
+    this.variantName,
+    this.batteryCapacityKwh,
+    this.evRangeKm,
+    this.engine,
+    this.transmission,
+    this.seatingCapacity,
+    this.bodyType,
+    this.priceRange,
+    this.modelYear,
+    this.isUserMileageOverride = false,
+    this.userCustomMileage,
+    this.source = 'CarDekho',
+    this.dataVersion = '2026.3.1',
   });
+
+  /// Effective mileage considering user override if provided
+  double get effectiveMileage {
+    if (isUserMileageOverride && userCustomMileage != null && userCustomMileage! > 0) {
+      return userCustomMileage!;
+    }
+    return mileage > 0 ? mileage : 15.0;
+  }
+
+  /// Full descriptive title (e.g. "Toyota Innova Crysta ZX 2.4 Diesel MT")
+  String get fullDisplayName {
+    if (variantName != null && variantName!.isNotEmpty) {
+      if (variantName!.toLowerCase().startsWith(name.toLowerCase())) {
+        return variantName!;
+      }
+      return '$name $variantName';
+    }
+    return name;
+  }
+
+  VehicleModel copyWith({
+    String? id,
+    String? name,
+    String? type,
+    double? mileage,
+    double? tankCapacity,
+    String? fuelType,
+    String? brandId,
+    String? brandName,
+    String? modelId,
+    String? modelName,
+    String? variantId,
+    String? variantName,
+    double? batteryCapacityKwh,
+    int? evRangeKm,
+    String? engine,
+    String? transmission,
+    int? seatingCapacity,
+    String? bodyType,
+    String? priceRange,
+    int? modelYear,
+    bool? isUserMileageOverride,
+    double? userCustomMileage,
+    String? source,
+    String? dataVersion,
+  }) {
+    return VehicleModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      type: type ?? this.type,
+      mileage: mileage ?? this.mileage,
+      tankCapacity: tankCapacity ?? this.tankCapacity,
+      fuelType: fuelType ?? this.fuelType,
+      brandId: brandId ?? this.brandId,
+      brandName: brandName ?? this.brandName,
+      modelId: modelId ?? this.modelId,
+      modelName: modelName ?? this.modelName,
+      variantId: variantId ?? this.variantId,
+      variantName: variantName ?? this.variantName,
+      batteryCapacityKwh: batteryCapacityKwh ?? this.batteryCapacityKwh,
+      evRangeKm: evRangeKm ?? this.evRangeKm,
+      engine: engine ?? this.engine,
+      transmission: transmission ?? this.transmission,
+      seatingCapacity: seatingCapacity ?? this.seatingCapacity,
+      bodyType: bodyType ?? this.bodyType,
+      priceRange: priceRange ?? this.priceRange,
+      modelYear: modelYear ?? this.modelYear,
+      isUserMileageOverride: isUserMileageOverride ?? this.isUserMileageOverride,
+      userCustomMileage: userCustomMileage ?? this.userCustomMileage,
+      source: source ?? this.source,
+      dataVersion: dataVersion ?? this.dataVersion,
+    );
+  }
+
+  factory VehicleModel.fromJson(Map<String, dynamic> json) {
+    return VehicleModel(
+      id: json['id'] as String? ?? 'custom_car',
+      name: json['name'] as String? ?? (json['variantName'] ?? json['modelName'] ?? 'Custom Vehicle'),
+      type: json['type'] as String? ?? 'car',
+      mileage: (json['mileage'] as num?)?.toDouble() ?? 15.0,
+      tankCapacity: (json['tankCapacity'] as num?)?.toDouble() ?? 45.0,
+      fuelType: json['fuelType'] as String? ?? 'petrol',
+      brandId: json['brandId'] as String?,
+      brandName: json['brandName'] as String?,
+      modelId: json['modelId'] as String?,
+      modelName: json['modelName'] as String?,
+      variantId: json['variantId'] as String?,
+      variantName: json['variantName'] as String?,
+      batteryCapacityKwh: (json['batteryCapacityKwh'] as num?)?.toDouble(),
+      evRangeKm: (json['evRangeKm'] as num?)?.toInt(),
+      engine: json['engine'] as String?,
+      transmission: json['transmission'] as String?,
+      seatingCapacity: (json['seatingCapacity'] as num?)?.toInt(),
+      bodyType: json['bodyType'] as String?,
+      priceRange: json['priceRange'] as String?,
+      modelYear: (json['modelYear'] as num?)?.toInt() ?? 2026,
+      isUserMileageOverride: json['isUserMileageOverride'] as bool? ?? false,
+      userCustomMileage: (json['userCustomMileage'] as num?)?.toDouble(),
+      source: json['source'] as String? ?? 'CarDekho',
+      dataVersion: json['dataVersion'] as String? ?? '2026.3.1',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'type': type,
+        'mileage': mileage,
+        'tankCapacity': tankCapacity,
+        'fuelType': fuelType,
+        'brandId': brandId,
+        'brandName': brandName,
+        'modelId': modelId,
+        'modelName': modelName,
+        'variantId': variantId,
+        'variantName': variantName,
+        'batteryCapacityKwh': batteryCapacityKwh,
+        'evRangeKm': evRangeKm,
+        'engine': engine,
+        'transmission': transmission,
+        'seatingCapacity': seatingCapacity,
+        'bodyType': bodyType,
+        'priceRange': priceRange,
+        'modelYear': modelYear,
+        'isUserMileageOverride': isUserMileageOverride,
+        'userCustomMileage': userCustomMileage,
+        'source': source,
+        'dataVersion': dataVersion,
+      };
 
   @override
   bool operator ==(Object other) =>

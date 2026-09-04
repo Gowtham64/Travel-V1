@@ -14,6 +14,7 @@ const currencyRouter = require("./routes/currency");
 const treksRouter = require("./routes/treks");
 const pricesRouter = require("./routes/prices");
 const fuelRouter = require("./routes/fuel");
+const vehiclesRouter = require("./routes/vehicles");
 const statusRouter = require("./routes/status");
 const priceService = require("./services/priceService");
 const { metricsMiddleware } = require("./services/metricsService");
@@ -96,6 +97,7 @@ app.use("/api/currency", currencyRouter);
 app.use("/api/treks", treksRouter);
 app.use("/api/prices", pricesRouter);
 app.use("/api/fuel", fuelRouter);
+app.use("/api/vehicles", vehiclesRouter);
 app.use("/", statusRouter);
 
 // --- 404 for unmatched API routes (sanitized JSON, never an HTML stack page) ---

@@ -24,6 +24,7 @@ import '../widgets/profile_menu.dart';
 import '../services/trip_history_service.dart';
 import '../widgets/app_design.dart';
 import '../widgets/globe_preview.dart';
+import '../widgets/vehicle_search_sheet.dart';
 import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
@@ -310,7 +311,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _updateVehicleFields() {
     if (_selectedVehicle != null) {
       final tank = _selectedVehicle!.tankCapacity;
-      _efficiencyController.text = _formatNum(_selectedVehicle!.mileage);
+      _efficiencyController.text = _formatNum(_selectedVehicle!.effectiveMileage);
       _tankController.text = _formatNum(tank);
       // Keep "current fuel" valid: never more than the (possibly smaller) tank.
       // Default to a full tank; if the user had already entered a smaller amount
@@ -384,6 +385,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         efficiencyKmPerLiter: double.parse(_efficiencyController.text),
         tankCapacityLiters: double.parse(_tankController.text),
         currentFuelLiters: double.parse(_currentFuelController.text),
+        fuelType: _selectedVehicle?.fuelType ?? 'petrol',
+        isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
       );
 
       final canReuseTemp = _tempPlan != null &&
@@ -569,6 +572,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           efficiencyKmPerLiter: double.parse(_efficiencyController.text),
           tankCapacityLiters: double.parse(_tankController.text),
           currentFuelLiters: double.parse(_currentFuelController.text),
+          fuelType: _selectedVehicle?.fuelType ?? 'petrol',
+          isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
         );
         plan = await _api.planTrip(
           start: start,
@@ -811,6 +816,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         efficiencyKmPerLiter: double.parse(_efficiencyController.text),
         tankCapacityLiters: double.parse(_tankController.text),
         currentFuelLiters: double.parse(_currentFuelController.text),
+        fuelType: _selectedVehicle?.fuelType ?? 'petrol',
+        isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
       );
 
       final tempPlan = await _api.planTrip(
@@ -2170,38 +2177,143 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   }
 
   Widget _buildVehicleCard() {
+    final v = _selectedVehicle ?? predefinedVehicles.first;
+    final isCustomOverride = v.isUserMileageOverride && v.userCustomMileage != null;
+
+    Color fuelBadgeColor = const Color(0xFF3B82F6);
+    switch (v.fuelType.toLowerCase()) {
+      case 'diesel':
+        fuelBadgeColor = const Color(0xFF10B981);
+        break;
+      case 'petrol':
+        fuelBadgeColor = const Color(0xFFF59E0B);
+        break;
+      case 'cng':
+        fuelBadgeColor = const Color(0xFF06B6D4);
+        break;
+      case 'ev':
+        fuelBadgeColor = const Color(0xFF8B5CF6);
+        break;
+      case 'hybrid':
+        fuelBadgeColor = const Color(0xFFEC4899);
+        break;
+    }
+
     return _buildGlassCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
-          const SizedBox(height: 24),
-          DropdownButtonFormField<VehicleModel>(
-            value: _selectedVehicle,
-            isExpanded: true,
-            dropdownColor: const Color(0xFF1A1A1A),
-            style: const TextStyle(color: Colors.white, fontSize: 16),
-            decoration: InputDecoration(
-              labelText: 'Select Vehicle',
-              labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-              filled: true,
-              fillColor: Colors.black.withOpacity(0.2),
-              prefixIcon: Icon(Icons.commute, color: Colors.white.withOpacity(0.7)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.2))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.white)),
-            ),
-            items: predefinedVehicles.map((v) {
-              return DropdownMenuItem(
-                value: v,
-                child: Text(v.name),
-              );
-            }).toList(),
-            onChanged: (value) {
-              setState(() {
-                _selectedVehicle = value;
-                _updateVehicleFields();
-              });
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
+              InkWell(
+                onTap: () async {
+                  final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+                  if (picked != null) {
+                    setState(() {
+                      _selectedVehicle = picked;
+                      _updateVehicleFields();
+                    });
+                  }
+                },
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF3B82F6).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.search, size: 14, color: Color(0xFF60A5FA)),
+                      SizedBox(width: 4),
+                      Text('Search Database', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Vehicle Display Tile
+          InkWell(
+            onTap: () async {
+              final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+              if (picked != null) {
+                setState(() {
+                  _selectedVehicle = picked;
+                  _updateVehicleFields();
+                });
+              }
             },
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withOpacity(0.14)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: fuelBadgeColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(v.type == 'motorcycle' ? Icons.two_wheeler_rounded : Icons.directions_car_filled_rounded, color: fuelBadgeColor, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          v.fullDisplayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: fuelBadgeColor.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                v.fuelType.toUpperCase(),
+                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fuelBadgeColor),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              isCustomOverride
+                                  ? 'Custom Mileage: ${v.effectiveMileage.toStringAsFixed(1)} km/L'
+                                  : 'Mileage: ${v.mileage.toStringAsFixed(1)} km/L',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isCustomOverride ? const Color(0xFF60A5FA) : Colors.white60,
+                                fontWeight: isCustomOverride ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(Icons.chevron_right_rounded, color: Colors.white.withOpacity(0.4), size: 22),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           Row(

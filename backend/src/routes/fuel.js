@@ -70,4 +70,20 @@ router.post('/calculate', (req, res) => {
   }
 });
 
+/**
+ * GET /api/fuel/provider-prices
+ * Query CarDekho / Authorized provider structure
+ */
+const { fuelPriceProvider } = require('../services/fuelPriceProvider');
+
+router.get('/provider-prices', async (req, res) => {
+  try {
+    const { country = 'India', state = 'Karnataka', city = 'Bengaluru', fuelType = 'PETROL' } = req.query;
+    const priceData = await fuelPriceProvider.getFuelPrice(country, state, city, fuelType);
+    res.json({ success: true, fuelPrice: priceData });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to retrieve provider fuel price', message: err.message });
+  }
+});
+
 module.exports = router;
