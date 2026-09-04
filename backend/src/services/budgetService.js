@@ -11,8 +11,10 @@
  * can be overridden by the caller.
  */
 
+const fuelService = require("./fuelService");
+
 const DEFAULTS = {
-  fuelPricePerLiter: 102, // INR, petrol-ish national average
+  fuelPricePerLiter: 102.86, // Dynamic fallback, will be resolved by location
   foodPerDay: 600, // per person, 3 meals mid-range (India)
   stayPerNight: 1800, // mid-range hotel room (India)
   travellers: 1,
@@ -80,13 +82,21 @@ function estimateBudget({
 
   const selfDriveKm = Number(driveKm != null ? driveKm : distanceKm) || 0;
 
-  // Fuel: prefer a fuel cost already computed upstream, otherwise derive it.
+  // Fuel: prefer a fuel cost already computed upstream, otherwise derive dynamically.
   const eff = vehicle && vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15;
+  const fType = (vehicle && vehicle.fuelType) || 'petrol';
   const liters = selfDriveKm / eff;
+  
+  let fuelRate = cfg.fuelPricePerLiter;
+  try {
+    const prices = fuelService.getFuelPrices({ locationName: start || '', fuelType: fType });
+    fuelRate = prices.price || fuelRate;
+  } catch (_) {}
+
   const fuelCost =
     toll && typeof toll.fuelCost === "number" && toll.fuelCost > 0
       ? toll.fuelCost
-      : liters * cfg.fuelPricePerLiter;
+      : Math.round(liters * fuelRate);
 
   // Tolls: use the FASTag figure when available, else the min estimate.
   let tollCost = 0;

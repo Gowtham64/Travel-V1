@@ -17,6 +17,7 @@ import '../services/api_service.dart';
 import '../data/temple_database.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
+import '../services/fuel_price_service.dart';
 import '../services/voice_guide.dart';
 import '../utils/calendar_helper.dart';
 import '../services/car_platform_channel.dart';
@@ -4977,44 +4978,18 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 }
 
-/// Approximate petrol price per litre by region, chosen from the trip's start
-/// location. Illustrative averages — labelled "approx" in the UI. Indian states
-/// vary enough to be worth distinguishing; other countries fall back to a
-/// country-level figure.
-const Map<String, double> _indiaStatePetrol = {
-  'karnataka': 110.0,
-  'maharashtra': 106.3,
-  'tamil nadu': 102.6,
-  'kerala': 107.6,
-  'telangana': 108.0,
-  'andhra pradesh': 109.4,
-  'delhi': 94.7,
-  'uttar pradesh': 94.7,
-  'rajasthan': 104.9,
-  'gujarat': 95.0,
-  'west bengal': 106.0,
-  'madhya pradesh': 106.5,
-};
-
-({double perLiter, String symbol, String region}) fuelPriceFor(String? name) {
-  final n = (name ?? '').toLowerCase();
-  // Non-India countries (per-litre, local currency symbol).
-  if (n.contains('united states') || n.endsWith(', usa') || n.contains(' usa')) {
-    return (perLiter: 0.92, symbol: '\$', region: 'USA');
-  }
-  if (n.contains('united kingdom') || n.contains('england') || n.contains('scotland')) {
-    return (perLiter: 1.45, symbol: '£', region: 'UK');
-  }
-  if (n.contains('united arab emirates') || n.contains('dubai') || n.contains('abu dhabi')) {
-    return (perLiter: 3.05, symbol: 'AED ', region: 'UAE');
-  }
-  // India (default for this app) — try to pin the state for a sharper price.
-  for (final e in _indiaStatePetrol.entries) {
-    if (n.contains(e.key)) {
-      return (perLiter: e.value, symbol: '₹', region: '${e.key[0].toUpperCase()}${e.key.substring(1)}');
-    }
-  }
-  return (perLiter: 101.0, symbol: '₹', region: 'India');
+/// Real-time location-aware fuel price lookup powered by FuelPriceService.
+({double perLiter, String symbol, String region, FuelPrice fuelPrice}) fuelPriceFor(String? name, {String fuelType = 'petrol'}) {
+  final fp = FuelPriceService.instance.getFuelPrice(locationName: name, fuelType: fuelType);
+  final regionName = fp.city != null && fp.state != null
+      ? '${fp.city}, ${fp.state}'
+      : (fp.state ?? fp.country);
+  return (
+    perLiter: fp.price,
+    symbol: fp.currency,
+    region: regionName,
+    fuelPrice: fp,
+  );
 }
 
 class _SummaryCard extends StatelessWidget {
@@ -5030,11 +5005,16 @@ class _SummaryCard extends StatelessWidget {
 
   const _SummaryCard({required this.plan, required this.vehicle, this.locationName, this.destination, this.tripStart});
 
-  String _estimateFuelCost(double distance, Vehicle vehicle) {
+  FuelEstimate _getFuelEstimate() {
+    if (plan.fuelEstimate != null) return plan.fuelEstimate!;
     final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
-    final fp = fuelPriceFor(locationName);
-    final cost = (distance / eff) * fp.perLiter;
-    return '${fp.symbol}${cost.toStringAsFixed(0)}';
+    return FuelPriceService.instance.calculateRouteFuel(
+      distanceKm: plan.distanceKm,
+      mileage: eff,
+      fuelType: vehicle.fuelType,
+      originLocation: locationName,
+      destLocation: destination,
+    );
   }
 
   /// Returns display string for toll cost.
@@ -5061,13 +5041,10 @@ class _SummaryCard extends StatelessWidget {
 
     final toll = plan.toll;
     final curr = (toll?.currency == 'INR' || toll?.currency == null) ? '₹' : toll!.currency;
-    final fuelDisplay = _estimateFuelCost(plan.distanceKm, vehicle);
+    final fuelEstimate = _getFuelEstimate();
 
-    final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
-    final fp = fuelPriceFor(locationName);
-    final fuelVal = (plan.distanceKm / eff) * fp.perLiter;
     final tollVal = (toll?.fastagTollCost ?? toll?.minTollCost ?? 0.0);
-    final totalCostVal = (fuelVal + tollVal).round();
+    final totalCostVal = (fuelEstimate.totalFuelCost + tollVal).round();
 
     return Center(
       child: ConstrainedBox(
@@ -5151,7 +5128,10 @@ class _SummaryCard extends StatelessWidget {
                       label: 'Fuel Cost',
                       badge: 'EST.',
                       badgeColor: const Color(0xFFF59E0B),
-                      value: fuelDisplay,
+                      value: '${fuelEstimate.currency} ${fuelEstimate.totalFuelCost.toStringAsFixed(0)}',
+                      subtitle: '${fuelEstimate.fuelRequiredLiters.toStringAsFixed(1)} L @ ${fuelEstimate.currency}${fuelEstimate.appliedPricePerLiter.toStringAsFixed(2)}/L',
+                      showInfoIcon: true,
+                      onTap: () => _showFuelBreakdownSheet(context, fuelEstimate, vehicle, locationName),
                     ),
                     Divider(color: Colors.white.withOpacity(0.12), height: 20),
                     // Total est. cost
@@ -5502,6 +5482,266 @@ class _SummaryCard extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showFuelBreakdownSheet(
+    BuildContext context,
+    FuelEstimate fuelEst,
+    Vehicle vehicle,
+    String? locationName,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161A26),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        final fuelTypeStr = vehicle.fuelType.toUpperCase();
+        final allPrices = FuelPriceService.instance.getAllFuelPrices(locationName: locationName);
+        final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF59E0B).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Real-Time Fuel Cost',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            Text(
+                              fuelEst.regionName.isNotEmpty ? fuelEst.regionName : (locationName ?? 'India'),
+                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        '$fuelTypeStr · ${eff.toStringAsFixed(1)} km/L',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFFBBF24)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Summary cards (Total Cost, Liters, Rate)
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2433),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            Text('Est. Fuel Cost', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${fuelEst.currency}${fuelEst.totalFuelCost.toStringAsFixed(0)}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2433),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        ),
+                        child: Column(
+                          children: [
+                            Text('Fuel Required', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${fuelEst.fuelRequiredLiters.toStringAsFixed(1)} L',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1F2433),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        ),
+                        child: Column(
+                          children: [
+                            Text('Retail Rate', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${fuelEst.currency}${fuelEst.appliedPricePerLiter.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Calculation Formula Card
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1F2433),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.calculate_outlined, color: Colors.white70, size: 16),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'Calculation Formula',
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          const Spacer(),
+                          if (fuelEst.isMultiRegionEstimate)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('MULTI-REGION ROUTE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        '1. Fuel Required: Distance (${plan.distanceKm.toStringAsFixed(1)} km) ÷ Mileage (${eff.toStringAsFixed(1)} km/L) = ${fuelEst.fuelRequiredLiters.toStringAsFixed(2)} Liters',
+                        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.75)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '2. Trip Fuel Cost: ${fuelEst.fuelRequiredLiters.toStringAsFixed(2)} L × ${fuelEst.currency}${fuelEst.appliedPricePerLiter.toStringAsFixed(2)}/L = ${fuelEst.currency}${fuelEst.totalFuelCost.toStringAsFixed(0)}',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.9)),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                // Today's Retail Fuel Price Matrix
+                const Text(
+                  'Today’s Regional Fuel Rates',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    _fuelTypePill('Petrol', allPrices['petrol']?.price ?? 102.86, vehicle.fuelType == 'petrol'),
+                    const SizedBox(width: 8),
+                    _fuelTypePill('Diesel', allPrices['diesel']?.price ?? 88.94, vehicle.fuelType == 'diesel'),
+                    const SizedBox(width: 8),
+                    _fuelTypePill('CNG', allPrices['cng']?.price ?? 82.50, vehicle.fuelType == 'cng'),
+                    const SizedBox(width: 8),
+                    _fuelTypePill('EV / kWh', allPrices['ev']?.price ?? 14.50, vehicle.fuelType == 'ev'),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.verified_rounded, size: 14, color: Colors.white.withOpacity(0.4)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Builder(
+                        builder: (_) {
+                          final updatedDate = DateTime.tryParse(fuelEst.lastUpdated) ?? DateTime.now();
+                          return Text(
+                            'Daily retail prices sourced from PPAC & OMC Daily Revision. Last updated: ${updatedDate.day}/${updatedDate.month}/${updatedDate.year}',
+                            style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.4)),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _fuelTypePill(String name, double price, bool isActive) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFF59E0B).withOpacity(0.18) : const Color(0xFF1F2433),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isActive ? const Color(0xFFF59E0B) : Colors.white.withOpacity(0.06),
+          ),
+        ),
+        child: Column(
+          children: [
+            Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isActive ? const Color(0xFFFBBF24) : Colors.white60)),
+            const SizedBox(height: 2),
+            Text('₹${price.toStringAsFixed(2)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isActive ? Colors.white : Colors.white70)),
+          ],
+        ),
+      ),
     );
   }
 

@@ -13,6 +13,7 @@ import '../data/temple_database.dart';
 import '../data/venue_database.dart';
 import '../data/attraction_database.dart';
 import 'toll_calculation_service.dart';
+import 'fuel_price_service.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -390,6 +391,18 @@ class ApiService {
         routeCoordinates: plan.coordinates,
       );
       plan = plan.copyWith(toll: calculatedToll);
+    }
+
+    // Ensure fuel estimate is calculated accurately from the actual route distance, efficiency & fuel type
+    if (plan.fuelEstimate == null) {
+      final fuelEst = FuelPriceService.instance.calculateRouteFuel(
+        distanceKm: plan.distanceKm,
+        mileage: vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0,
+        fuelType: vehicle.fuelType,
+        originLocation: start.name,
+        destLocation: end.name,
+      );
+      plan = plan.copyWith(fuelEstimate: fuelEst);
     }
 
     return plan;
@@ -1906,7 +1919,14 @@ class ApiService {
 
     final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
     final totalKm = (estimatedKm * 2) * (total > 1 ? 1.2 : 1.0);
-    final fuelCost = ((totalKm / eff) * 102.0).round();
+    final fuelEst = FuelPriceService.instance.calculateRouteFuel(
+      distanceKm: totalKm,
+      mileage: eff,
+      fuelType: 'petrol',
+      originLocation: startName,
+      destLocation: destName,
+    );
+    final fuelCost = fuelEst.totalFuelCost.round();
     
     // Realistic highway toll estimation based on actual corridor distance & expressway routes
     int tollCost = 0;

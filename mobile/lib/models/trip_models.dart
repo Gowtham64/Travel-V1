@@ -22,12 +22,16 @@ class Vehicle {
   final double efficiencyKmPerLiter;
   final double tankCapacityLiters;
   final double currentFuelLiters;
+  final String fuelType; // petrol | diesel | cng | ev
+  final bool isCustomEfficiency;
 
   const Vehicle({
     required this.type,
     required this.efficiencyKmPerLiter,
     required this.tankCapacityLiters,
     required this.currentFuelLiters,
+    this.fuelType = 'petrol',
+    this.isCustomEfficiency = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -35,7 +39,39 @@ class Vehicle {
         'efficiencyKmPerLiter': efficiencyKmPerLiter,
         'tankCapacityLiters': tankCapacityLiters,
         'currentFuelLiters': currentFuelLiters,
+        'fuelType': fuelType,
+        'isCustomEfficiency': isCustomEfficiency,
       };
+
+  factory Vehicle.fromJson(Map<String, dynamic> json) => Vehicle(
+        type: json['type'] as String? ?? 'car',
+        efficiencyKmPerLiter:
+            (json['efficiencyKmPerLiter'] as num?)?.toDouble() ?? 15.0,
+        tankCapacityLiters:
+            (json['tankCapacityLiters'] as num?)?.toDouble() ?? 45.0,
+        currentFuelLiters:
+            (json['currentFuelLiters'] as num?)?.toDouble() ?? 45.0,
+        fuelType: json['fuelType'] as String? ?? 'petrol',
+        isCustomEfficiency: json['isCustomEfficiency'] as bool? ?? false,
+      );
+
+  Vehicle copyWith({
+    String? type,
+    double? efficiencyKmPerLiter,
+    double? tankCapacityLiters,
+    double? currentFuelLiters,
+    String? fuelType,
+    bool? isCustomEfficiency,
+  }) {
+    return Vehicle(
+      type: type ?? this.type,
+      efficiencyKmPerLiter: efficiencyKmPerLiter ?? this.efficiencyKmPerLiter,
+      tankCapacityLiters: tankCapacityLiters ?? this.tankCapacityLiters,
+      currentFuelLiters: currentFuelLiters ?? this.currentFuelLiters,
+      fuelType: fuelType ?? this.fuelType,
+      isCustomEfficiency: isCustomEfficiency ?? this.isCustomEfficiency,
+    );
+  }
 }
 
 class RefuelStop {
@@ -264,6 +300,179 @@ class FuelPlan {
             .map((e) => RefuelStop.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
+}
+
+class FuelPrice {
+  final String country;
+  final String countryCode;
+  final String state;
+  final String city;
+  final String fuelType;
+  final double price;
+  final String currency;
+  final String currencySymbol;
+  final String unit;
+  final String effectiveAt;
+  final String lastUpdated;
+  final String source;
+  final String status; // 'live' | 'cached' | 'estimated' | 'unavailable'
+  final String confidence; // 'high' | 'medium' | 'low'
+  final Map<String, double> allPrices;
+
+  const FuelPrice({
+    required this.country,
+    this.countryCode = 'IN',
+    required this.state,
+    required this.city,
+    required this.fuelType,
+    required this.price,
+    this.currency = 'INR',
+    this.currencySymbol = '₹',
+    this.unit = 'litre',
+    required this.effectiveAt,
+    required this.lastUpdated,
+    this.source = 'PPAC / Official OMC Daily RSP',
+    this.status = 'live',
+    this.confidence = 'high',
+    this.allPrices = const {},
+  });
+
+  factory FuelPrice.fromJson(Map<String, dynamic> json) {
+    final pricesMap = <String, double>{};
+    if (json['allPrices'] is Map) {
+      (json['allPrices'] as Map).forEach((k, v) {
+        if (v is num) pricesMap[k.toString()] = v.toDouble();
+      });
+    }
+
+    return FuelPrice(
+      country: json['country'] as String? ?? 'India',
+      countryCode: json['countryCode'] as String? ?? 'IN',
+      state: json['state'] as String? ?? 'Karnataka',
+      city: json['city'] as String? ?? 'Bengaluru',
+      fuelType: json['fuelType'] as String? ?? 'petrol',
+      price: (json['price'] as num?)?.toDouble() ?? 102.86,
+      currency: json['currency'] as String? ?? 'INR',
+      currencySymbol: json['currencySymbol'] as String? ?? '₹',
+      unit: json['unit'] as String? ?? 'litre',
+      effectiveAt: json['effectiveAt'] as String? ?? DateTime.now().toIso8601String(),
+      lastUpdated: json['lastUpdated'] as String? ?? DateTime.now().toIso8601String(),
+      source: json['source'] as String? ?? 'Official OMC Daily RSP',
+      status: json['status'] as String? ?? 'live',
+      confidence: json['confidence'] as String? ?? 'high',
+      allPrices: pricesMap,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'country': country,
+        'countryCode': countryCode,
+        'state': state,
+        'city': city,
+        'fuelType': fuelType,
+        'price': price,
+        'currency': currency,
+        'currencySymbol': currencySymbol,
+        'unit': unit,
+        'effectiveAt': effectiveAt,
+        'lastUpdated': lastUpdated,
+        'source': source,
+        'status': status,
+        'confidence': confidence,
+        'allPrices': allPrices,
+      };
+
+  bool get isRealTime => status == 'live';
+  String get provider => source;
+}
+
+class FuelEstimate {
+  final double distanceKm;
+  final double vehicleEfficiency;
+  final String fuelType;
+  final double fuelRequired;
+  final double pricePerUnit;
+  final String currency;
+  final String currencySymbol;
+  final String unit;
+  final double totalCost;
+  final String startRegion;
+  final String endRegion;
+  final bool isMultiState;
+  final bool isDefaultMileage;
+  final String source;
+  final String effectiveAt;
+  final String lastUpdated;
+  final String status;
+
+  const FuelEstimate({
+    required this.distanceKm,
+    required this.vehicleEfficiency,
+    required this.fuelType,
+    required this.fuelRequired,
+    required this.pricePerUnit,
+    this.currency = 'INR',
+    this.currencySymbol = '₹',
+    this.unit = 'litre',
+    required this.totalCost,
+    this.startRegion = '',
+    this.endRegion = '',
+    this.isMultiState = false,
+    this.isDefaultMileage = false,
+    this.source = 'PPAC / Official OMC Daily RSP',
+    required this.effectiveAt,
+    required this.lastUpdated,
+    this.status = 'live',
+  });
+
+  double get totalFuelCost => totalCost;
+  double get fuelRequiredLiters => fuelRequired;
+  double get appliedPricePerLiter => pricePerUnit;
+  String get regionName => startRegion.isNotEmpty
+      ? (endRegion.isNotEmpty && isMultiState ? '$startRegion ➔ $endRegion' : startRegion)
+      : 'India';
+  bool get isMultiRegionEstimate => isMultiState;
+  String get dataSource => source;
+
+  factory FuelEstimate.fromJson(Map<String, dynamic> json) => FuelEstimate(
+        distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
+        vehicleEfficiency: (json['vehicleEfficiency'] as num?)?.toDouble() ?? 15.0,
+        fuelType: json['fuelType'] as String? ?? 'petrol',
+        fuelRequired: (json['fuelRequired'] as num?)?.toDouble() ?? 0.0,
+        pricePerUnit: (json['pricePerUnit'] as num?)?.toDouble() ?? 102.86,
+        currency: json['currency'] as String? ?? 'INR',
+        currencySymbol: json['currencySymbol'] as String? ?? '₹',
+        unit: json['unit'] as String? ?? 'litre',
+        totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
+        startRegion: json['startRegion'] as String? ?? '',
+        endRegion: json['endRegion'] as String? ?? '',
+        isMultiState: json['isMultiState'] as bool? ?? false,
+        isDefaultMileage: json['isDefaultMileage'] as bool? ?? false,
+        source: json['source'] as String? ?? 'Official OMC Daily RSP',
+        effectiveAt: json['effectiveAt'] as String? ?? DateTime.now().toIso8601String(),
+        lastUpdated: json['lastUpdated'] as String? ?? DateTime.now().toIso8601String(),
+        status: json['status'] as String? ?? 'live',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'distanceKm': distanceKm,
+        'vehicleEfficiency': vehicleEfficiency,
+        'fuelType': fuelType,
+        'fuelRequired': fuelRequired,
+        'pricePerUnit': pricePerUnit,
+        'currency': currency,
+        'currencySymbol': currencySymbol,
+        'unit': unit,
+        'totalCost': totalCost,
+        'startRegion': startRegion,
+        'endRegion': endRegion,
+        'isMultiState': isMultiState,
+        'isDefaultMileage': isDefaultMileage,
+        'source': source,
+        'effectiveAt': effectiveAt,
+        'lastUpdated': lastUpdated,
+        'status': status,
+      };
 }
 
 class TollPlaza {
@@ -724,6 +933,7 @@ class TripPlan {
   final bool avoidedMotorways;
   final int estimatedDays;
   final FuelPlan fuel;
+  final FuelEstimate? fuelEstimate;
   final TollEstimate? toll;
   final RouteWeather? weather;
   final DepartureAdvice? departureAdvice;
@@ -741,6 +951,7 @@ class TripPlan {
     this.avoidedMotorways = false,
     required this.estimatedDays,
     required this.fuel,
+    this.fuelEstimate,
     required this.toll,
     required this.weather,
     required this.departureAdvice,
@@ -765,6 +976,9 @@ class TripPlan {
       avoidedMotorways: (route['avoidedMotorways'] as bool?) ?? false,
       estimatedDays: json['estimatedDays'] as int,
       fuel: FuelPlan.fromJson(json['fuel'] as Map<String, dynamic>),
+      fuelEstimate: json['fuelEstimate'] != null
+          ? FuelEstimate.fromJson(json['fuelEstimate'] as Map<String, dynamic>)
+          : null,
       toll: json['toll'] != null ? TollEstimate.fromJson(json['toll'] as Map<String, dynamic>) : null,
       weather: json['weather'] != null ? RouteWeather.fromJson(json['weather'] as Map<String, dynamic>) : null,
       departureAdvice: json['departureAdvice'] != null
@@ -799,6 +1013,7 @@ class TripPlan {
     bool? avoidedMotorways,
     int? estimatedDays,
     FuelPlan? fuel,
+    FuelEstimate? fuelEstimate,
     TollEstimate? toll,
     RouteWeather? weather,
     DepartureAdvice? departureAdvice,
@@ -816,6 +1031,7 @@ class TripPlan {
       avoidedMotorways: avoidedMotorways ?? this.avoidedMotorways,
       estimatedDays: estimatedDays ?? this.estimatedDays,
       fuel: fuel ?? this.fuel,
+      fuelEstimate: fuelEstimate ?? this.fuelEstimate,
       toll: toll ?? this.toll,
       weather: weather ?? this.weather,
       departureAdvice: departureAdvice ?? this.departureAdvice,

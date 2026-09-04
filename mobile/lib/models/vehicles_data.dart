@@ -4,6 +4,7 @@ class VehicleModel {
   final String type; // 'car' or 'motorcycle'
   final double mileage; // km/l
   final double tankCapacity; // Liters
+  final String fuelType; // 'petrol', 'diesel', 'cng', 'ev'
 
   const VehicleModel({
     required this.id,
@@ -11,6 +12,7 @@ class VehicleModel {
     required this.type,
     required this.mileage,
     required this.tankCapacity,
+    this.fuelType = 'petrol',
   });
 
   @override
@@ -98,11 +100,11 @@ const List<VehicleModel> predefinedVehicles = [
   VehicleModel(id: 'fronx', name: 'Maruti Suzuki Fronx', type: 'car', mileage: 18.0, tankCapacity: 37.0),
   VehicleModel(id: 'ciaz', name: 'Maruti Suzuki Ciaz', type: 'car', mileage: 18.0, tankCapacity: 43.0),
   VehicleModel(id: 'xl6', name: 'Maruti Suzuki XL6', type: 'car', mileage: 17.0, tankCapacity: 45.0),
-  VehicleModel(id: 'innova', name: 'Toyota Innova Crysta', type: 'car', mileage: 12.0, tankCapacity: 55.0),
+  VehicleModel(id: 'innova', name: 'Toyota Innova Crysta', type: 'car', mileage: 12.0, tankCapacity: 55.0, fuelType: 'diesel'),
   VehicleModel(id: 'hycross', name: 'Toyota Innova Hycross', type: 'car', mileage: 15.0, tankCapacity: 52.0),
   VehicleModel(id: 'glanza', name: 'Toyota Glanza', type: 'car', mileage: 21.0, tankCapacity: 37.0),
   VehicleModel(id: 'hyryder', name: 'Toyota Urban Cruiser Hyryder', type: 'car', mileage: 18.0, tankCapacity: 45.0),
-  VehicleModel(id: 'fortuner', name: 'Toyota Fortuner', type: 'car', mileage: 11.0, tankCapacity: 80.0),
+  VehicleModel(id: 'fortuner', name: 'Toyota Fortuner', type: 'car', mileage: 11.0, tankCapacity: 80.0, fuelType: 'diesel'),
   VehicleModel(id: 'creta', name: 'Hyundai Creta', type: 'car', mileage: 16.0, tankCapacity: 50.0),
   VehicleModel(id: 'i20', name: 'Hyundai i20', type: 'car', mileage: 18.0, tankCapacity: 37.0),
   VehicleModel(id: 'venue', name: 'Hyundai Venue', type: 'car', mileage: 16.0, tankCapacity: 45.0),
@@ -118,13 +120,13 @@ const List<VehicleModel> predefinedVehicles = [
   VehicleModel(id: 'tiago', name: 'Tata Tiago', type: 'car', mileage: 17.0, tankCapacity: 35.0),
   VehicleModel(id: 'tigor', name: 'Tata Tigor', type: 'car', mileage: 17.0, tankCapacity: 35.0),
   VehicleModel(id: 'altroz', name: 'Tata Altroz', type: 'car', mileage: 17.0, tankCapacity: 37.0),
-  VehicleModel(id: 'harrier', name: 'Tata Harrier', type: 'car', mileage: 14.0, tankCapacity: 50.0),
-  VehicleModel(id: 'safari', name: 'Tata Safari', type: 'car', mileage: 14.0, tankCapacity: 50.0),
+  VehicleModel(id: 'harrier', name: 'Tata Harrier', type: 'car', mileage: 14.0, tankCapacity: 50.0, fuelType: 'diesel'),
+  VehicleModel(id: 'safari', name: 'Tata Safari', type: 'car', mileage: 14.0, tankCapacity: 50.0, fuelType: 'diesel'),
   VehicleModel(id: 'xuv700', name: 'Mahindra XUV700', type: 'car', mileage: 13.0, tankCapacity: 60.0),
-  VehicleModel(id: 'scorpio_n', name: 'Mahindra Scorpio-N', type: 'car', mileage: 13.0, tankCapacity: 57.0),
-  VehicleModel(id: 'scorpio_classic', name: 'Mahindra Scorpio Classic', type: 'car', mileage: 13.0, tankCapacity: 60.0),
-  VehicleModel(id: 'thar', name: 'Mahindra Thar', type: 'car', mileage: 13.0, tankCapacity: 57.0),
-  VehicleModel(id: 'bolero', name: 'Mahindra Bolero', type: 'car', mileage: 15.0, tankCapacity: 60.0),
+  VehicleModel(id: 'scorpio_n', name: 'Mahindra Scorpio-N', type: 'car', mileage: 13.0, tankCapacity: 57.0, fuelType: 'diesel'),
+  VehicleModel(id: 'scorpio_classic', name: 'Mahindra Scorpio Classic', type: 'car', mileage: 13.0, tankCapacity: 60.0, fuelType: 'diesel'),
+  VehicleModel(id: 'thar', name: 'Mahindra Thar', type: 'car', mileage: 13.0, tankCapacity: 57.0, fuelType: 'diesel'),
+  VehicleModel(id: 'bolero', name: 'Mahindra Bolero', type: 'car', mileage: 15.0, tankCapacity: 60.0, fuelType: 'diesel'),
   VehicleModel(id: 'xuv300', name: 'Mahindra XUV300', type: 'car', mileage: 15.0, tankCapacity: 42.0),
   VehicleModel(id: 'city', name: 'Honda City', type: 'car', mileage: 16.0, tankCapacity: 40.0),
   VehicleModel(id: 'amaze', name: 'Honda Amaze', type: 'car', mileage: 17.0, tankCapacity: 35.0),
@@ -134,7 +136,7 @@ const List<VehicleModel> predefinedVehicles = [
   VehicleModel(id: 'taigun', name: 'Volkswagen Taigun', type: 'car', mileage: 15.0, tankCapacity: 50.0),
   VehicleModel(id: 'astor', name: 'MG Astor', type: 'car', mileage: 13.0, tankCapacity: 45.0),
   VehicleModel(id: 'hector', name: 'MG Hector', type: 'car', mileage: 12.0, tankCapacity: 60.0),
-  VehicleModel(id: 'compass', name: 'Jeep Compass', type: 'car', mileage: 12.0, tankCapacity: 60.0),
+  VehicleModel(id: 'compass', name: 'Jeep Compass', type: 'car', mileage: 12.0, tankCapacity: 60.0, fuelType: 'diesel'),
   VehicleModel(id: 'magnite', name: 'Nissan Magnite', type: 'car', mileage: 17.0, tankCapacity: 40.0),
   VehicleModel(id: 'kiger', name: 'Renault Kiger', type: 'car', mileage: 17.0, tankCapacity: 40.0),
   VehicleModel(id: 'triber', name: 'Renault Triber', type: 'car', mileage: 16.0, tankCapacity: 40.0),
