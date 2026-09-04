@@ -194,6 +194,8 @@ class CarTelemetry {
   final double progressPercent;
   final String? nextStopName;
   final bool hasTollAhead;
+  final String? upcomingTollName;
+  final double? upcomingTollAmount;
   final bool needsRefuel;
   final GpsHealthStatus gpsStatus;
   final bool isRerouting;
@@ -206,6 +208,8 @@ class CarTelemetry {
     required this.progressPercent,
     this.nextStopName,
     this.hasTollAhead = false,
+    this.upcomingTollName,
+    this.upcomingTollAmount,
     this.needsRefuel = false,
     this.gpsStatus = GpsHealthStatus.active,
     this.isRerouting = false,

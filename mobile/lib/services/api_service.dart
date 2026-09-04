@@ -12,6 +12,7 @@ import '../config/app_config.dart';
 import '../data/temple_database.dart';
 import '../data/venue_database.dart';
 import '../data/attraction_database.dart';
+import 'toll_calculation_service.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -369,15 +370,26 @@ class ApiService {
       throw ApiException('Trip planning failed (${response.statusCode}): ${response.body}');
     }
 
-    final plan = TripPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
+    var plan = TripPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
     
     // If the plan returned straight-line or sparse points (< 25 points for > 3 km),
     // enhance immediately with high-resolution Mapbox or OSRM road geometry!
     if (plan.coordinates.length < 25 && plan.distanceKm > 3.0) {
       final roadCoords = await _fetchRoadCoordinates(start: start, end: end, waypoints: waypoints);
       if (roadCoords.length > 25) {
-        return plan.copyWith(coordinates: roadCoords);
+        plan = plan.copyWith(coordinates: roadCoords);
       }
+    }
+
+    // Ensure tolls are calculated accurately from the actual route polyline and vehicle type
+    if (plan.toll == null || plan.toll!.tolls.isEmpty || plan.toll!.isEstimated) {
+      final calculatedToll = TollCalculationService.instance.calculateTolls(
+        start: start,
+        end: end,
+        vehicleType: vehicle.type,
+        routeCoordinates: plan.coordinates,
+      );
+      plan = plan.copyWith(toll: calculatedToll);
     }
 
     return plan;
@@ -1895,7 +1907,25 @@ class ApiService {
     final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
     final totalKm = (estimatedKm * 2) * (total > 1 ? 1.2 : 1.0);
     final fuelCost = ((totalKm / eff) * 102.0).round();
-    final tollCost = (totalKm * 1.5).round();
+    
+    // Realistic highway toll estimation based on actual corridor distance & expressway routes
+    int tollCost = 0;
+    if (estimatedKm > 50.0) {
+      // Highway trip: estimate realistic toll based on corridor
+      final pair = '$startName $destName'.toLowerCase();
+      if ((pair.contains('bengaluru') || pair.contains('bangalore')) && (pair.contains('mysore') || pair.contains('mysuru'))) {
+        tollCost = 320 * 2; // Bengaluru-Mysuru Expressway round-trip (Kaniminike + Gananguru)
+      } else if ((pair.contains('bengaluru') || pair.contains('bangalore')) && pair.contains('chennai')) {
+        tollCost = 490 * 2; // Bengaluru-Chennai NH-48 round-trip
+      } else if (pair.contains('mumbai') && pair.contains('pune')) {
+        tollCost = 320 * 2; // Mumbai-Pune Expressway round-trip
+      } else if (pair.contains('delhi') && (pair.contains('agra') || pair.contains('lucknow'))) {
+        tollCost = pair.contains('lucknow') ? (530 + 655) * 2 : 530 * 2;
+      } else {
+        // Average NHAI 4-lane toll rate per km: ~₹1.10/km for cars on tollable highway sections
+        tollCost = ((estimatedKm * 2) * 1.10).round();
+      }
+    }
     final foodCost = total * 750 * travellers;
     final stayCost = (total > 1 ? (total - 1) : 0) * 2200 * ((travellers / 2).ceil());
     const int bufferCost = 1000;

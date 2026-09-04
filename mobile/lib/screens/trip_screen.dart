@@ -129,6 +129,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   int _pauseTicksRemaining = 0;
   PlaceOfInterest? _activeStopHighlight;
   bool _isTollStop = false;
+  TollPlaza? _activeTollPlaza;
   bool _showCinematicOverlay = false;
   double _eventZoom = 15.5;
   double _tripProgressPercent = 0.0;
@@ -2401,6 +2402,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _pauseTicksRemaining = 0;
       _activeStopHighlight = null;
       _isTollStop = false;
+      _activeTollPlaza = null;
       _tripProgressPercent = 0.0;
     });
     _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
@@ -2475,6 +2477,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           setState(() {
             _activeStopHighlight = null;
             _isTollStop = false;
+            _activeTollPlaza = null;
             _showCinematicOverlay = false;
             _eventZoom = 15.5;
           });
@@ -2622,18 +2625,24 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return;
       }
 
-      // Look ahead for Toll Plazas (at 33% and 66% progress) — shown in preview too.
-      if (((progressPercent >= 0.33 && progressPercent <= 0.35) ||
-           (progressPercent >= 0.66 && progressPercent <= 0.68)) &&
-          !_visitedStops.contains("toll_${(progressPercent * 10).round()}")) {
-        _visitedStops.add("toll_${(progressPercent * 10).round()}");
-        setState(() {
-          _isTollStop = true;
-          _pauseTicksRemaining = stopPause;
-          _currentSpeedModifier = 0.0;
-          _isSlowingDown = true;
-        });
-        return;
+      // Look ahead for actual route-specific Toll Plazas
+      final detectedTolls = _currentPlan.toll?.tolls ?? [];
+      for (final plaza in detectedTolls) {
+        final plazaKey = "toll_${plaza.id}";
+        final plazaDistMeters = plaza.distanceAlongRouteKm * 1000.0;
+        if (!_visitedStops.contains(plazaKey) &&
+            currentDistance >= plazaDistMeters - 200 &&
+            currentDistance <= plazaDistMeters + 350) {
+          _visitedStops.add(plazaKey);
+          setState(() {
+            _activeTollPlaza = plaza;
+            _isTollStop = true;
+            _pauseTicksRemaining = stopPause;
+            _currentSpeedModifier = 0.0;
+            _isSlowingDown = true;
+          });
+          return;
+        }
       }
 
       // Advance simulated distance using delta time. Preview is a relaxed
@@ -3360,14 +3369,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (throttle && now.difference(_lastCarPush).inMilliseconds < 350) return;
     _lastCarPush = now;
     final v = widget.vehicle;
+    TollPlaza? upcomingToll;
+    final tolls = _currentPlan.toll?.tolls ?? [];
+    for (final p in tolls) {
+      if (!_visitedStops.contains("toll_${p.id}") &&
+          p.distanceAlongRouteKm >= (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
+        upcomingToll = p;
+        break;
+      }
+    }
     final double litresNeeded =
         v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
+
     final telemetry = CarTelemetry(
       speedKmh: speedKmh,
       remainingDistanceKm: remainingKm,
       remainingDurationMin: remainingMin,
       progressPercent: _tripProgressPercent,
-      hasTollAhead: (_currentPlan.toll?.fastagTollCost ?? 0) > 0,
+      hasTollAhead: upcomingToll != null || ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 && _tripProgressPercent < 0.95),
+      upcomingTollName: upcomingToll?.name,
+      upcomingTollAmount: upcomingToll?.amount,
       needsRefuel: v.currentFuelLiters < litresNeeded,
     );
     CarPlatformChannel.updateNavigation(
@@ -3446,6 +3467,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _carGuidance.announceManeuver(maneuver);
       }
       final v = widget.vehicle;
+      TollPlaza? upcomingToll;
+      final tolls = _currentPlan.toll?.tolls ?? [];
+      for (final p in tolls) {
+        if (!_visitedStops.contains("toll_${p.id}") &&
+            p.distanceAlongRouteKm >= (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
+          upcomingToll = p;
+          break;
+        }
+      }
+
       final double litresNeeded =
           v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
       final telemetry = CarTelemetry(
@@ -3453,7 +3484,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         remainingDistanceKm: max(0.0, (1 - _tripProgressPercent) * _currentPlan.distanceKm),
         remainingDurationMin: max(0, ((1 - _tripProgressPercent) * _currentPlan.durationMin).round()),
         progressPercent: _tripProgressPercent,
-        hasTollAhead: (_currentPlan.toll?.fastagTollCost ?? 0) > 0,
+        hasTollAhead: upcomingToll != null || ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 && _tripProgressPercent < 0.95),
+        upcomingTollName: upcomingToll?.name,
+        upcomingTollAmount: upcomingToll?.amount,
         needsRefuel: v.currentFuelLiters < litresNeeded,
         gpsStatus: _isLiveNavigating ? _gpsHealth : GpsHealthStatus.active,
         isRerouting: _isRerouting,
@@ -4390,10 +4423,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (_isTollStop) {
       final double gateProgress = ((60.0 - _pauseTicksRemaining) / 60.0).clamp(0.0, 1.0);
       final String gateStatus = gateProgress < 0.4 ? "Paying Toll... 🪙" : (gateProgress < 0.8 ? "Gate Opening... 🔓" : "Gate Open! Go 🟢");
+      final String plazaName = _activeTollPlaza?.name ?? "FASTag Toll Plaza";
+      final String highway = _activeTollPlaza?.highway ?? "National Highway";
+      final double plazaCost = _activeTollPlaza?.amount ?? (_currentPlan.toll?.fastagTollCost ?? 0.0);
       
       return Container(
-        width: 290,
-        padding: isMobile ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.all(18),
+        width: 300,
+        padding: isMobile ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8) : const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E1E),
           borderRadius: BorderRadius.circular(20),
@@ -4410,27 +4446,30 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           mainAxisSize: MainAxisSize.min,
           children: [
               Container(
-                padding: EdgeInsets.all(isMobile ? 4 : 10),
+                padding: EdgeInsets.all(isMobile ? 5 : 10),
                 decoration: BoxDecoration(
                   color: Colors.amber.withOpacity(0.15),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(Icons.payment, color: Colors.amber, size: isMobile ? 22 : 36),
+                child: Icon(Icons.payment, color: Colors.amber, size: isMobile ? 24 : 36),
               ),
-              SizedBox(height: isMobile ? 2 : 12),
+              SizedBox(height: isMobile ? 3 : 10),
               Text(
-                "FASTag Toll Plaza",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 18),
+                plazaName,
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 17),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
-                "National Highway Authority",
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 9 : 12),
+                highway,
+                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 10 : 12),
+                textAlign: TextAlign.center,
               ),
-              SizedBox(height: isMobile ? 4 : 12),
+              SizedBox(height: isMobile ? 5 : 12),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: isMobile ? 2 : 8),
+                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: isMobile ? 3 : 8),
                 decoration: BoxDecoration(
                   color: Colors.amber.withOpacity(0.08),
                   borderRadius: BorderRadius.circular(10),
@@ -4439,8 +4478,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text("Toll Paid:", style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13)),
-                    Text("₹120.00", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: isMobile ? 12 : 15)),
+                    Text("FASTag Toll Paid:", style: TextStyle(color: Colors.white70, fontSize: isMobile ? 11 : 13)),
+                    Text("₹${plazaCost.toStringAsFixed(0)}", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: isMobile ? 13 : 15)),
                   ],
                 ),
               ),
@@ -4453,10 +4492,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   child: _buildTollAnimation(),
                 ),
               ],
-              SizedBox(height: isMobile ? 4 : 6),
+              SizedBox(height: isMobile ? 5 : 6),
               Text(
                 gateStatus,
-                style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13, fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.white70, fontSize: isMobile ? 11 : 13, fontWeight: FontWeight.w500),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -4474,8 +4513,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       final String durationText = totalDuration > 60 
           ? "${(totalDuration ~/ 60)}h ${(totalDuration % 60)}m" 
           : "$totalDuration mins";
-      final double tollCost = _currentPlan.toll?.fastagTollCost ?? 240.0;
-      final double fuelCost = _currentPlan.toll?.fuelCost ?? 980.0;
+      final double tollCost = _currentPlan.toll?.fastagTollCost ?? 0.0;
+      final double fuelCost = _tripCosts().fuel;
       final stopsCount = _currentWaypoints.length;
  
       return Container(
@@ -5073,6 +5112,8 @@ class _SummaryCard extends StatelessWidget {
                       label: 'FASTag Fees',
                       badge: 'FASTAG',
                       badgeColor: const Color(0xFF10B981),
+                      showInfoIcon: true,
+                      onTap: () => _showTollBreakdownSheet(context, toll, vehicleType: vehicle.type),
                       value: toll == null
                           ? 'Checking...'
                           : (!toll.hasTolls
@@ -5091,6 +5132,8 @@ class _SummaryCard extends StatelessWidget {
                       badge: 'CASH',
                       badgeColor: const Color(0xFFEF4444),
                       subtitle: '2× FASTag rate (NHAI)',
+                      showInfoIcon: true,
+                      onTap: () => _showTollBreakdownSheet(context, toll, vehicleType: vehicle.type),
                       value: toll == null
                           ? 'Checking...'
                           : (!toll.hasTolls
@@ -5224,6 +5267,244 @@ class _SummaryCard extends StatelessWidget {
   );
 }
 
+  void _showTollBreakdownSheet(BuildContext context, TollEstimate? toll, {String? vehicleType}) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF161A26),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      isScrollControlled: true,
+      builder: (ctx) {
+        final tolls = toll?.tolls ?? [];
+        final hasTolls = toll?.hasTolls == true && tolls.isNotEmpty;
+        final vehicle = (vehicleType ?? toll?.vehicleClass ?? 'Car').toUpperCase();
+        final fastagTotal = toll?.fastagTollCost ?? (hasTolls ? tolls.fold<double>(0.0, (s, t) => s + t.amount) : 0.0);
+        final cashTotal = toll?.cashTollCost ?? (hasTolls ? tolls.fold<double>(0.0, (s, t) => s + t.cashAmount) : 0.0);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.toll_rounded, color: Color(0xFF10B981), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'NHAI Toll Breakdown',
+                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            Text(
+                              hasTolls ? '${tolls.length} Toll Plaza${tolls.length > 1 ? 's' : ''} on route' : 'No tolls on this route',
+                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF3B82F6).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        vehicle,
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF60A5FA)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Total cards
+                if (hasTolls) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('FASTag Total', style: TextStyle(fontSize: 12, color: Color(0xFF10B981), fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text('₹${fastagTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Cash Rate (2×)', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Text('₹${cashTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'PLAZAS ON SELECTED ROUTE',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white38, letterSpacing: 0.8),
+                  ),
+                  const SizedBox(height: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.4),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: tolls.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (c, idx) {
+                        final p = tolls[idx];
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1F2433),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 28,
+                                height: 28,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.08),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Text(
+                                  '${idx + 1}',
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      p.name,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${p.highway} · ~${p.distanceAlongRouteKm.toStringAsFixed(1)} km from start',
+                                      style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '₹${p.amount.toStringAsFixed(0)}',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                  ),
+                                  Text(
+                                    'Cash ₹${p.cashAmount.toStringAsFixed(0)}',
+                                    style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1F2433),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 24),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'No NHAI or Expressway tolls detected on this route. Enjoy your toll-free journey!',
+                            style: TextStyle(fontSize: 13, color: Colors.white70),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Icon(Icons.verified_rounded, size: 14, color: Colors.white.withOpacity(0.35)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Tolls dynamically computed from NHAI Toll Information System (TIS) & State Expressway registries.',
+                        style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.35)),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _feeRow({
     required IconData icon,
     required Color iconColor,
@@ -5232,77 +5513,97 @@ class _SummaryCard extends StatelessWidget {
     required Color badgeColor,
     required String value,
     String? subtitle,
+    VoidCallback? onTap,
+    bool showInfoIcon = false,
   }) {
+    final rowContent = Row(
+      children: [
+        // Icon
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: iconColor.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, color: iconColor, size: 18),
+        ),
+        const SizedBox(width: 10),
+        // Label and badge — takes remaining space
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(label,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.75),
+                            fontWeight: FontWeight.w500)),
+                  ),
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: badgeColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(badge,
+                        style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: badgeColor,
+                            letterSpacing: 0.5)),
+                  ),
+                  if (showInfoIcon) ...[
+                    const SizedBox(width: 4),
+                    Icon(Icons.info_outline_rounded, size: 13, color: Colors.white.withOpacity(0.4)),
+                  ],
+                ],
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white.withOpacity(0.4))),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Price value — always visible on the right
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: iconColor,
+          ),
+        ),
+      ],
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          child: rowContent,
+        ),
+      );
+    }
+
     return Container(
       constraints: const BoxConstraints(minHeight: 40),
       margin: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          // Icon
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(9),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(width: 10),
-          // Label and badge — takes remaining space
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(label,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.white.withOpacity(0.75),
-                              fontWeight: FontWeight.w500)),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(badge,
-                          style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: badgeColor,
-                              letterSpacing: 0.5)),
-                    ),
-                  ],
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(subtitle,
-                      style: TextStyle(
-                          fontSize: 10,
-                          color: Colors.white.withOpacity(0.4))),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Price value — always visible on the right
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: iconColor,
-            ),
-          ),
-        ],
-      ),
+      child: rowContent,
     );
   }
 

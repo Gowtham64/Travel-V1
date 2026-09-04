@@ -282,7 +282,12 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
     }
 
     if (widget.telemetry.hasTollAhead) {
-      chips.add(_chip(Icons.toll, 'Toll ahead', _amber));
+      final tollLabel = widget.telemetry.upcomingTollName != null && widget.telemetry.upcomingTollName!.isNotEmpty
+          ? (widget.telemetry.upcomingTollAmount != null && widget.telemetry.upcomingTollAmount! > 0
+              ? 'Toll: ${widget.telemetry.upcomingTollName} (₹${widget.telemetry.upcomingTollAmount!.toStringAsFixed(0)})'
+              : 'Toll: ${widget.telemetry.upcomingTollName}')
+          : 'Toll plaza ahead';
+      chips.add(_chip(Icons.toll_rounded, tollLabel, _amber));
     }
     if (widget.telemetry.needsRefuel) {
       chips.add(_chip(Icons.local_gas_station, 'Refuel needed', const Color(0xFFFF9F0A)));

@@ -266,6 +266,72 @@ class FuelPlan {
       );
 }
 
+class TollPlaza {
+  final String id;
+  final String name;
+  final String highway;
+  final double latitude;
+  final double longitude;
+  final double amount;
+  final double cashAmount;
+  final String vehicleClass;
+  final String direction;
+  final double distanceAlongRouteKm;
+  final int routeIndex;
+  final bool isEstimated;
+  final String dataSource;
+
+  const TollPlaza({
+    required this.id,
+    required this.name,
+    required this.highway,
+    required this.latitude,
+    required this.longitude,
+    required this.amount,
+    required this.cashAmount,
+    required this.vehicleClass,
+    this.direction = 'single',
+    required this.distanceAlongRouteKm,
+    this.routeIndex = 0,
+    this.isEstimated = false,
+    this.dataSource = 'NHAI Toll Information System (TIS)',
+  });
+
+  factory TollPlaza.fromJson(Map<String, dynamic> json) => TollPlaza(
+        id: json['id'] as String? ?? '',
+        name: json['name'] as String? ?? 'Toll Plaza',
+        highway: json['highway'] as String? ?? 'Highway',
+        latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+        longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+        amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
+        cashAmount: (json['cashAmount'] as num?)?.toDouble() ??
+            ((json['amount'] as num?)?.toDouble() ?? 0.0) * 2,
+        vehicleClass: json['vehicleClass'] as String? ?? 'car',
+        direction: json['direction'] as String? ?? 'single',
+        distanceAlongRouteKm:
+            (json['distanceAlongRouteKm'] as num?)?.toDouble() ?? 0.0,
+        routeIndex: json['routeIndex'] as int? ?? 0,
+        isEstimated: json['isEstimated'] as bool? ?? false,
+        dataSource: json['dataSource'] as String? ?? 'NHAI TIS',
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'highway': highway,
+        'latitude': latitude,
+        'longitude': longitude,
+        'amount': amount,
+        'cashAmount': cashAmount,
+        'vehicleClass': vehicleClass,
+        'direction': direction,
+        'distanceAlongRouteKm': distanceAlongRouteKm,
+        'routeIndex': routeIndex,
+        'isEstimated': isEstimated,
+        'dataSource': dataSource,
+      };
+}
+
 class TollEstimate {
   final bool hasTolls;
   final String currency;
@@ -274,6 +340,13 @@ class TollEstimate {
   final double? fastagTollCost;
   final double? cashTollCost;
   final double? fuelCost;
+  final double? totalAmount;
+  final int tollCount;
+  final List<TollPlaza> tolls;
+  final String? vehicleClass;
+  final bool isEstimated;
+  final String? dataSource;
+  final String? lastUpdated;
 
   const TollEstimate({
     required this.hasTolls,
@@ -283,17 +356,63 @@ class TollEstimate {
     this.fastagTollCost,
     this.cashTollCost,
     this.fuelCost,
+    this.totalAmount,
+    this.tollCount = 0,
+    this.tolls = const [],
+    this.vehicleClass,
+    this.isEstimated = false,
+    this.dataSource,
+    this.lastUpdated,
   });
 
-  factory TollEstimate.fromJson(Map<String, dynamic> json) => TollEstimate(
-        hasTolls: json['hasTolls'] as bool? ?? false,
-        currency: json['currency'] as String? ?? '',
-        minTollCost: (json['minTollCost'] as num?)?.toDouble(),
-        maxTollCost: (json['maxTollCost'] as num?)?.toDouble(),
-        fastagTollCost: (json['fastagTollCost'] as num?)?.toDouble(),
-        cashTollCost: (json['cashTollCost'] as num?)?.toDouble(),
-        fuelCost: (json['fuelCost'] as num?)?.toDouble(),
-      );
+  factory TollEstimate.fromJson(Map<String, dynamic> json) {
+    final rawTolls = json['tolls'] as List<dynamic>? ?? [];
+    final tollsList = rawTolls
+        .map((e) => TollPlaza.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final count = json['tollCount'] as int? ?? tollsList.length;
+    final total = (json['totalAmount'] as num?)?.toDouble() ??
+        (json['fastagTollCost'] as num?)?.toDouble() ??
+        (tollsList.isNotEmpty
+            ? tollsList.fold<double>(0.0, (sum, t) => sum + t.amount)
+            : null);
+
+    return TollEstimate(
+      hasTolls: json['hasTolls'] as bool? ?? (count > 0 || (total != null && total > 0)),
+      currency: json['currency'] as String? ?? 'INR',
+      minTollCost: (json['minTollCost'] as num?)?.toDouble() ?? total,
+      maxTollCost: (json['maxTollCost'] as num?)?.toDouble() ??
+          (json['cashTollCost'] as num?)?.toDouble(),
+      fastagTollCost: (json['fastagTollCost'] as num?)?.toDouble() ?? total,
+      cashTollCost: (json['cashTollCost'] as num?)?.toDouble() ??
+          (total != null ? total * 2 : null),
+      fuelCost: (json['fuelCost'] as num?)?.toDouble(),
+      totalAmount: total,
+      tollCount: count,
+      tolls: tollsList,
+      vehicleClass: json['vehicleClass'] as String?,
+      isEstimated: json['isEstimated'] as bool? ?? false,
+      dataSource: json['dataSource'] as String?,
+      lastUpdated: json['lastUpdated'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'hasTolls': hasTolls,
+        'currency': currency,
+        'minTollCost': minTollCost,
+        'maxTollCost': maxTollCost,
+        'fastagTollCost': fastagTollCost,
+        'cashTollCost': cashTollCost,
+        'fuelCost': fuelCost,
+        'totalAmount': totalAmount,
+        'tollCount': tollCount,
+        'tolls': tolls.map((t) => t.toJson()).toList(),
+        'vehicleClass': vehicleClass,
+        'isEstimated': isEstimated,
+        'dataSource': dataSource,
+        'lastUpdated': lastUpdated,
+      };
 }
 
 class PlaceOfInterest {
