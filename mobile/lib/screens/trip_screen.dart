@@ -1166,12 +1166,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _buildLayersButton() {
     return Container(
-      width: 42,
-      height: 42,
+      width: 44,
+      height: 44,
       decoration: BoxDecoration(
-        color: const Color(0xFF1A1A1A).withOpacity(0.9),
+        color: const Color(0xFF1A1F2E).withOpacity(0.92),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+        border: Border.all(color: Colors.white.withOpacity(0.18), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.35),
@@ -1185,10 +1185,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: _showMapStyleSheet,
-          child: const Icon(
-            Icons.layers,
-            color: Colors.white,
-            size: 20,
+          child: const Center(
+            child: Icon(
+              Icons.layers_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
         ),
       ),
@@ -3526,7 +3528,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         // Dedicated floating Re-center / Follow Navigation button
         Positioned(
           right: rightPadding,
-          bottom: isDesktop ? 120 : 130,
+          bottom: isDesktop ? 120 : (MediaQuery.of(context).padding.bottom + 115),
           child: _buildRecenterButton(),
         ),
 
@@ -3726,15 +3728,32 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// A single round glass control button (shared by the rails).
   Widget _navCircle(IconData icon, VoidCallback onTap, {Color? bg}) {
-    return Material(
-      color: bg ?? Colors.black.withOpacity(0.45),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: Colors.white, size: 22),
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: bg ?? const Color(0xFF1A1F2E).withOpacity(0.92),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: bg != null ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.18),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Center(
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
         ),
       ),
     );
@@ -3802,30 +3821,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Vertical stack of round glass control buttons (reference: right rail).
   Widget _buildNavControlStack() {
-    Widget btn(IconData icon, VoidCallback onTap, {Color? bg}) {
-      return Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          color: bg ?? Colors.black.withOpacity(0.45),
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: onTap,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Icon(icon, color: Colors.white, size: 22),
-            ),
-          ),
-        ),
-      );
-    }
-
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        btn(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
-        btn(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+        _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
+        const SizedBox(height: 10),
+        _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
-        btn(Icons.more_vert_rounded, _showMoreNavOptions),
+        const SizedBox(height: 10),
+        _navCircle(Icons.more_vert_rounded, _showMoreNavOptions),
       ],
     );
   }
@@ -4093,12 +4097,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
-    final double cardWidth = isDesktop ? 400.0 : (screenWidth - 76).clamp(240.0, 360.0);
 
     return Positioned(
       top: topPadding,
-      left: 14,
-      width: cardWidth,
+      left: isDesktop ? 20 : 14,
+      right: isDesktop ? null : 68,
+      width: isDesktop ? 380 : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
 import '../models/trip_models.dart';
@@ -8,8 +10,7 @@ import '../models/trip_models.dart';
 /// the conditional export in `three_d_map.dart`.
 ///
 /// The public API mirrors the previous flutter_map implementation exactly so no
-/// call site changes. Markers are drawn as circles (no sprite/glyph dependency)
-/// so they render regardless of the style's icon set.
+/// call site changes.
 class ThreeDMap extends StatefulWidget {
   final List<GeoPoint> routePoints;
   final Map<String, List<PlaceOfInterest>> pois;
@@ -54,8 +55,9 @@ class _ThreeDMapState extends State<ThreeDMap> {
   static const _streetStyle = 'https://tiles.openfreemap.org/styles/liberty';
 
   MapLibreMapController? _controller;
-  Circle? _vehicleCircle;
+  Symbol? _vehicleSymbol;
   bool _routeDrawn = false;
+  bool _styleImageAdded = false;
 
   LatLng _ll(GeoPoint p) => LatLng(p.lat, p.lng);
 
@@ -63,7 +65,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
   void didUpdateWidget(covariant ThreeDMap old) {
     super.didUpdateWidget(old);
     final pos = widget.animatedVehiclePosition;
-    if (pos != null && pos != old.animatedVehiclePosition && _validPoint(pos)) {
+    if (pos != null && _validPoint(pos)) {
       final zoom = widget.customZoom ?? 15.5;
       // A 3D tilt is only safe once we're zoomed in (following the vehicle);
       // pitch at low zoom makes MapLibre's projection throw std::domain_error.
@@ -72,6 +74,56 @@ class _ThreeDMapState extends State<ThreeDMap> {
       ));
       _updateVehicle(pos);
     }
+  }
+
+  /// Generates the crisp, high-DPI directional navigation arrow disc image for MapLibre
+  Future<Uint8List> _createVehicleArrowImage() async {
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder, const Rect.fromLTWH(0, 0, 128, 128));
+
+    // 1. Soft blue glow / shadow
+    final glowPaint = Paint()
+      ..color = const Color(0x550EA5E9)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    canvas.drawCircle(const Offset(64, 64), 50, glowPaint);
+
+    // 2. White puck disc
+    final discPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(const Offset(64, 64), 44, discPaint);
+
+    // 3. Cyan/Blue border
+    final borderPaint = Paint()
+      ..color = const Color(0xFF0EA5E9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5.0;
+    canvas.drawCircle(const Offset(64, 64), 44, borderPaint);
+
+    // 4. Directional navigation arrow / chevron (pointing directly UP / North)
+    final arrowPath = Path()
+      ..moveTo(64, 28)
+      ..lineTo(40, 88)
+      ..lineTo(64, 74)
+      ..lineTo(88, 88)
+      ..close();
+
+    final arrowFillPaint = Paint()
+      ..color = const Color(0xFF0EA5E9)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(arrowPath, arrowFillPaint);
+
+    final arrowStrokePaint = Paint()
+      ..color = const Color(0xFF0284C7)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.0
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(arrowPath, arrowStrokePaint);
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(128, 128);
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    return byteData!.buffer.asUint8List();
   }
 
   /// A geographic point is only safe to hand to the native map if it's finite
@@ -97,6 +149,14 @@ class _ThreeDMapState extends State<ThreeDMap> {
     if (c == null || _routeDrawn) return;
     _routeDrawn = true;
 
+    try {
+      final imgBytes = await _createVehicleArrowImage();
+      await c.addImage('nav_vehicle_arrow', imgBytes);
+      _styleImageAdded = true;
+    } catch (e) {
+      debugPrint('Error registering nav_vehicle_arrow in MapLibre: $e');
+    }
+
     final route = widget.routePoints.where(_validPoint).toList();
 
     if (route.length >= 2) {
@@ -115,11 +175,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
       if (_validPoint(wp)) await _addMarker(wp, '#2E75B6');
     }
 
-    // Frame the whole route. We deliberately DON'T use CameraUpdate.newLatLngBounds
-    // here: the map has a tilted (pitched) camera, and MapLibre GL Native throws
-    // std::domain_error — aborting the whole app (SIGABRT) — when asked to fit
-    // bounds with a non-zero pitch. Instead we compute a centre + zoom ourselves
-    // and move with newLatLngZoom, which is safe at any pitch.
+    // Frame the whole route.
     if (route.length >= 2) {
       final minLat = route.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
       final maxLat = route.map((p) => p.lat).reduce((a, b) => a > b ? a : b);
@@ -147,17 +203,28 @@ class _ThreeDMapState extends State<ThreeDMap> {
   Future<void> _updateVehicle(GeoPoint pos) async {
     final c = _controller;
     if (c == null) return;
-    final opts = CircleOptions(
+    
+    if (!_styleImageAdded) {
+      try {
+        final imgBytes = await _createVehicleArrowImage();
+        await c.addImage('nav_vehicle_arrow', imgBytes);
+        _styleImageAdded = true;
+      } catch (_) {}
+    }
+
+    final bearingDeg = widget.vehicleRotation * (180 / math.pi);
+    final opts = SymbolOptions(
       geometry: _ll(pos),
-      circleRadius: 9.0,
-      circleColor: '#2E75B6',
-      circleStrokeColor: '#FFFFFF',
-      circleStrokeWidth: 3.0,
+      iconImage: 'nav_vehicle_arrow',
+      iconSize: 0.5,
+      iconRotate: bearingDeg,
+      zIndex: 10,
     );
-    if (_vehicleCircle == null) {
-      _vehicleCircle = await c.addCircle(opts);
+
+    if (_vehicleSymbol == null) {
+      _vehicleSymbol = await c.addSymbol(opts);
     } else {
-      await c.updateCircle(_vehicleCircle!, opts);
+      await c.updateSymbol(_vehicleSymbol!, opts);
     }
   }
 
