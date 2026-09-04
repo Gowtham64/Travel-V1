@@ -28,6 +28,12 @@ import 'trip_workspace_screen.dart';
 import 'trip_history_screen.dart';
 import '../services/trip_history_service.dart';
 
+enum NavCameraMode {
+  follow,
+  userExplore,
+  recentering,
+}
+
 class TripScreen extends StatefulWidget {
   final TripPlan plan;
   final String startAddress;
@@ -104,6 +110,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _isRerouting = false;
   int _consecutiveOffRouteFixes = 0;
   GpsHealthStatus _gpsHealth = GpsHealthStatus.active;
+  NavCameraMode _cameraMode = NavCameraMode.follow;
   int _animationIndex = 0;
   LatLng? _animatedVehiclePosition;
   double _vehicleRotation = 0.0;
@@ -614,12 +621,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             onAddWaypoint: (place) {
               _confirmAddPOI(place);
             },
+            onUserExplore: () {
+              if (_cameraMode == NavCameraMode.follow) {
+                setState(() {
+                  _cameraMode = NavCameraMode.userExplore;
+                });
+              }
+            },
           )
         : FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: mapCenter,
               initialZoom: mapZoom,
+              onPositionChanged: (camera, hasGesture) {
+                if (hasGesture && _cameraMode == NavCameraMode.follow) {
+                  setState(() {
+                    _cameraMode = NavCameraMode.userExplore;
+                  });
+                }
+              },
             ),
             children: [
               TileLayer(
@@ -1842,32 +1863,32 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           children: [
             const _PulsingRing(),
             Transform.rotate(
-              angle: _isPlayingAnimation ? 0.0 : _vehicleRotation,
+              angle: _vehicleRotation,
               child: Container(
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white,
-                  border: Border.all(color: const Color(0xFF2E75B6), width: 2.5),
+                  border: Border.all(color: const Color(0xFF0EA5E9), width: 2.5),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF2E75B6).withOpacity(0.35),
-                      blurRadius: 10,
+                      color: const Color(0xFF0EA5E9).withOpacity(0.4),
+                      blurRadius: 12,
                       spreadRadius: 2,
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 child: const Center(
                   child: Icon(
                     Icons.navigation_rounded,
-                    color: Color(0xFF2E75B6),
-                    size: 22,
+                    color: Color(0xFF0EA5E9),
+                    size: 24,
                   ),
                 ),
               ),
@@ -2197,17 +2218,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _liveRemainingMin = remainingMin;
     });
 
-    // Follow camera on 2D maps
-    if (_mapStyle != MapStyle.satellite3D) {
-      try {
-        _mapController.moveAndRotate(displayPos, 16.5, pos.heading.isFinite ? -pos.heading : 0.0);
-      } catch (_) {
-        try {
-          _mapController.move(displayPos, 16.5);
-        } catch (_) {}
-      }
-    }
-
     // 5. Maneuver & Lane Guidance
     final maneuver = _carGuidance.calculateManeuver(
       currentPos: displayPos,
@@ -2217,6 +2227,29 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
     if (maneuver.type != ManeuverType.destination) {
       _carGuidance.announceManeuver(maneuver);
+    }
+
+    // Adaptive Navigation Zoom: intelligent scaling based on speed and upcoming turn proximity
+    double adaptiveZoom = 16.5;
+    if (maneuver.distanceMeters < 250 && maneuver.type != ManeuverType.straight) {
+      adaptiveZoom = 17.4; // Approaching turn: zoom in
+    } else if (speedKmh > 70) {
+      adaptiveZoom = 15.2; // Highway: broad overview
+    } else if (speedKmh > 40) {
+      adaptiveZoom = 16.0; // Suburban / main road
+    } else {
+      adaptiveZoom = 16.8; // City pace
+    }
+
+    // Follow camera on 2D maps only when in FOLLOW mode
+    if (_mapStyle != MapStyle.satellite3D && _cameraMode == NavCameraMode.follow) {
+      try {
+        _mapController.moveAndRotate(displayPos, adaptiveZoom, pos.heading.isFinite ? -pos.heading : 0.0);
+      } catch (_) {
+        try {
+          _mapController.move(displayPos, adaptiveZoom);
+        } catch (_) {}
+      }
     }
 
     // Stream the live fix to Android Auto / CarPlay
@@ -3422,13 +3455,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: _buildNavControlStack(),
           ),
         ] else
-          // Mobile: ONE unified right rail so the controls never overlap, with a
-          // staggered slide-in entrance.
+          // Mobile: Streamlined right rail of top-priority controls so they never overlap
           Positioned(
             right: rightPadding,
             top: topPadding,
             child: _buildMobileControlRail(),
           ),
+
+        // Dedicated floating Re-center / Follow Navigation button
+        Positioned(
+          right: rightPadding,
+          bottom: isDesktop ? 120 : 130,
+          child: _buildRecenterButton(),
+        ),
 
         _buildTopHUD(topPadding),
         _buildBottomHUD(),
@@ -3457,8 +3496,56 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Single, non-overlapping vertical rail of controls for mobile, each sliding
-  /// in from the right with a staggered fade for a dynamic entrance.
+  /// Dedicated floating Re-center / Follow Navigation button with animated state
+  Widget _buildRecenterButton() {
+    final isExploring = _cameraMode == NavCameraMode.userExplore;
+    return Material(
+      color: isExploring ? const Color(0xFF0EA5E9) : const Color(0xDD111827),
+      borderRadius: BorderRadius.circular(28),
+      elevation: isExploring ? 8 : 4,
+      shadowColor: isExploring ? const Color(0xFF0EA5E9).withOpacity(0.5) : Colors.black45,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: _recenterMap,
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isExploring ? 14 : 12,
+            vertical: 11,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            border: Border.all(
+              color: isExploring ? Colors.white : Colors.white.withOpacity(0.18),
+              width: isExploring ? 1.5 : 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                isExploring ? Icons.near_me_rounded : Icons.my_location_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              if (isExploring) ...[
+                const SizedBox(width: 6),
+                const Text(
+                  'Re-center',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Compact, clean right rail of high-priority controls (no vertical sprawl)
   Widget _buildMobileControlRail() {
     Widget railItem(int i, Widget child) {
       final double begin = (i * 0.07).clamp(0.0, 0.6);
@@ -3473,17 +3560,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     final items = <Widget>[
-      _buildMapDriveCluster(false),
-      _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
       _buildLayersButton(),
-      _buildStopsButton(),
-      _navCircle(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
-      _navCircle(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
-          _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
+      _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
       _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
           () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
-      _navCircle(Icons.explore_outlined, _recenterMap),
-      _navCircle(Icons.settings_outlined, _showMapStyleSheet),
+      _navCircle(Icons.more_vert_rounded, _showMoreNavOptions),
     ];
 
     return Column(
@@ -3494,6 +3575,73 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           railItem(i, items[i]),
         ],
       ],
+    );
+  }
+
+  void _showMoreNavOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E293B),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.pin_drop_rounded, color: Color(0xFF0EA5E9)),
+                  title: const Text('Add Stops / Places', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Search POIs, fuel, food on route', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showStopsManagerSheet();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.ios_share_rounded, color: Color(0xFF10B981)),
+                  title: const Text('Share Itinerary', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Export live route or send to friends', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _shareTrip();
+                  },
+                ),
+                ListTile(
+                  leading: Icon(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded, color: const Color(0xFFF59E0B)),
+                  title: const Text('Save to My Trips', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Sync itinerary to cloud profile', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    if (!_saving) _saveTrip();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.layers_rounded, color: Color(0xFF8B5CF6)),
+                  title: const Text('Map Styles & 3D View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Switch between 3D Satellite, 2D Traffic, Street', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showMapStyleSheet();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -3595,24 +3743,42 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     return Column(
       children: [
         btn(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
-        // Always-visible Save + Share on the map (also in the side panel).
-        btn(Icons.ios_share_rounded, _shareTrip, bg: const Color(0xCC2E75B6)),
-        btn(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded,
-            _saving ? () {} : _saveTrip, bg: const Color(0xCC2E75B6)),
         btn(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
             () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
-        btn(Icons.explore_outlined, _recenterMap),
-        btn(Icons.settings_outlined, _showMapStyleSheet),
+        btn(Icons.more_vert_rounded, _showMoreNavOptions),
       ],
     );
   }
 
   void _recenterMap() {
-    // Recenter the 2D map on the current position (3D map auto-follows).
-    final pos = _animatedVehiclePosition;
-    if (pos != null && _mapStyle != MapStyle.satellite3D) {
-      try { _mapController.move(pos, 16.5); } catch (_) {}
+    final target = _animatedVehiclePosition ?? widget.start.toLatLng();
+    setState(() {
+      _cameraMode = NavCameraMode.recentering;
+    });
+
+    if (_mapStyle == MapStyle.satellite3D) {
+      ThreeDMap.recenter(
+        target.longitude,
+        target.latitude,
+        _vehicleRotation * (180 / pi),
+      );
+    } else {
+      try {
+        _mapController.moveAndRotate(target, 16.8, -_vehicleRotation * (180 / pi));
+      } catch (_) {
+        try {
+          _mapController.move(target, 16.8);
+        } catch (_) {}
+      }
     }
+
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() {
+          _cameraMode = NavCameraMode.follow;
+        });
+      }
+    });
   }
 
   /// Small live minimap inset showing the whole route + current position.
@@ -3840,10 +4006,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       instruction = 'Sharp bend · Decelerating';
     }
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isDesktop = screenWidth > 900;
+    final double cardWidth = isDesktop ? 400.0 : (screenWidth - 76).clamp(240.0, 360.0);
+
     return Positioned(
       top: topPadding,
-      left: 16,
-      right: 16,
+      left: 14,
+      width: cardWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,

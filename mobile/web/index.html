@@ -192,11 +192,11 @@
 
     function getVehicleMarkerHTML(type) {
       return `
-        <div class="nav-symbol-container" style="width: 48px; height: 48px; position: relative; display: flex; align-items: center; justify-content: center;">
-          <div class="pulsing-ring" style="position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 2.5px solid #2E75B6; background-color: rgba(46, 117, 182, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none; left: 2px; top: 2px;"></div>
-          <div class="nav-puck-disc" style="position: relative; width: 34px; height: 34px; border-radius: 50%; background: #ffffff; border: 2.5px solid #2E75B6; box-shadow: 0 4px 12px rgba(46, 117, 182, 0.35), 0 2px 6px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
-              <path d="M12 2L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2Z" fill="#2E75B6" stroke="#1D4ED8" stroke-width="1.2" stroke-linejoin="round"/>
+        <div class="nav-symbol-container" style="width: 52px; height: 52px; position: relative; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <div class="pulsing-ring" style="position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid #0EA5E9; background-color: rgba(14, 165, 233, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none;"></div>
+          <div class="nav-puck-disc" style="position: relative; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; border: 2.5px solid #0EA5E9; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45), 0 2px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="display: block; transform: rotate(0deg); transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);">
+              <path d="M12 2.5L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2.5Z" fill="#0EA5E9" stroke="#0284C7" stroke-width="1.2" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
@@ -635,14 +635,29 @@
       navEl.style.transition = 'transform 0.1s linear';
       navEl.innerHTML = getVehicleMarkerHTML(vehicleType);
 
-      // Sits flat on the road and turns with the heading
+      // Sits upright facing camera and turns accurately with the heading
       const vehicleMarker = new mapboxgl.Marker({
         element: navEl,
         rotationAlignment: 'map',
-        pitchAlignment: 'map'
+        pitchAlignment: 'viewport'
       })
       .setLngLat([0, 0])
       .addTo(map);
+
+      // Track user gesture on map for camera exploration mode
+      window.mapboxUserExploring = false;
+      const notifyExplore = () => {
+        window.mapboxUserExploring = true;
+        if (typeof window.onMapbox3DUserExplore === 'function') {
+          window.onMapbox3DUserExplore();
+        }
+      };
+      map.on('dragstart', notifyExplore);
+      map.on('rotatestart', notifyExplore);
+      map.on('pitchstart', notifyExplore);
+      map.on('zoomstart', (e) => {
+        if (e.originalEvent) notifyExplore();
+      });
 
       if (window.smokeInterval) {
         clearInterval(window.smokeInterval);
@@ -982,18 +997,40 @@
         if (diff > 180) diff -= 360;
         const bearingVal = (currentBearing + diff * 0.14) % 360;
 
-        // Push the focal point down so the car sits low and the road ahead fills
-        // the frame (padding.top reserves space, moving the centered car lower).
+        // Only follow vehicle camera when not manually exploring
+        if (!window.mapboxUserExploring) {
+          // Push the focal point down so the car sits low and the road ahead fills
+          // the frame (padding.top reserves space, moving the centered car lower).
+          const h = map.getContainer().clientHeight || 600;
+          const w = map.getContainer().clientWidth || 1200;
+          // Offset right past the floating panel on wide screens so the car and
+          // the road ahead sit in the open, visible part of the map.
+          const leftPad = w > 900 ? 300 : 0;
+          map.jumpTo({
+            center: position,
+            zoom: zoomVal,
+            pitch: pitchVal,
+            bearing: bearingVal,
+            padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+          });
+        }
+      }
+    };
+
+    window.recenterMapbox3D = function(lng, lat, bearingDeg) {
+      window.mapboxUserExploring = false;
+      if (window.currentMapInstance) {
+        const map = window.currentMapInstance;
         const h = map.getContainer().clientHeight || 600;
         const w = map.getContainer().clientWidth || 1200;
-        // Offset right past the floating panel on wide screens so the car and
-        // the road ahead sit in the open, visible part of the map.
         const leftPad = w > 900 ? 300 : 0;
-        map.jumpTo({
-          center: position,
-          zoom: zoomVal,
-          pitch: pitchVal,
-          bearing: bearingVal,
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 17.2,
+          pitch: 66,
+          bearing: bearingDeg || 0,
+          duration: 1200,
+          essential: true,
           padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
         });
       }

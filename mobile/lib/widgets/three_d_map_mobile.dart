@@ -23,6 +23,9 @@ class ThreeDMap extends StatefulWidget {
   final double speed;
   final double? customZoom;
   final Function(PlaceOfInterest) onAddWaypoint;
+  final VoidCallback? onUserExplore;
+
+  static void recenter(double lng, double lat, double bearingDeg) {}
 
   const ThreeDMap({
     super.key,
@@ -38,6 +41,7 @@ class ThreeDMap extends StatefulWidget {
     this.speed = 1.0,
     this.customZoom,
     required this.onAddWaypoint,
+    this.onUserExplore,
   });
 
   @override
