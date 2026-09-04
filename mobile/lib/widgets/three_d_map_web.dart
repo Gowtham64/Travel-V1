@@ -91,6 +91,12 @@ class _ThreeDMapState extends State<ThreeDMap> {
   @override
   void didUpdateWidget(ThreeDMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.routePoints != oldWidget.routePoints) {
+      final routeJson = jsonEncode(widget.routePoints.map((p) => [p.lng, p.lat]).toList());
+      try {
+        js.context.callMethod('update3DRouteGeometry', [routeJson]);
+      } catch (_) {}
+    }
     if (widget.animatedVehiclePosition != oldWidget.animatedVehiclePosition ||
         widget.speed != oldWidget.speed ||
         widget.customZoom != oldWidget.customZoom) {

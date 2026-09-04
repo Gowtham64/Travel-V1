@@ -101,6 +101,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   bool _navSoundOn = true;
   double _liveRemainingKm = 0.0;
   int _liveRemainingMin = 0;
+  bool _isRerouting = false;
+  int _consecutiveOffRouteFixes = 0;
+  GpsHealthStatus _gpsHealth = GpsHealthStatus.active;
   int _animationIndex = 0;
   LatLng? _animatedVehiclePosition;
   double _vehicleRotation = 0.0;
@@ -1975,7 +1978,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Starts REAL navigation: follows the device's live GPS position along the
   /// route, moving the vehicle marker and camera as the user actually moves,
-  /// and updating live speed / remaining distance / ETA.
+  /// and updating live speed / remaining distance / ETA / lane guidance.
   Future<void> _startLiveNavigation() async {
     _stopAnimation(); // clean up any preview/sim in progress
 
@@ -2001,6 +2004,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _visitedStops.clear();
       _tripProgressPercent = 0.0;
       _liveSpeedKmh = 0.0;
+      _consecutiveOffRouteFixes = 0;
+      _isRerouting = false;
     });
     _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
     _voice.reset();
@@ -2019,24 +2024,44 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       // Stream will deliver a fix shortly; ignore a slow first read.
     }
 
-    final LocationSettings settings = (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS)
-        ? AppleSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 3,
-            activityType: ActivityType.automotiveNavigation,
-            pauseLocationUpdatesAutomatically: false,
-            showBackgroundLocationIndicator: true,
-            allowBackgroundLocationUpdates: true,
-          )
-        : const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            distanceFilter: 3,
-          );
+    final LocationSettings settings;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      settings = AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
+        forceLocationManager: false,
+        intervalDuration: const Duration(seconds: 1),
+        foregroundNotificationConfig: const ForegroundNotificationConfig(
+          notificationText: "VoyPlan is providing turn-by-turn live navigation.",
+          notificationTitle: "VoyPlan Live Navigation",
+          enableWakeLock: true,
+          setOngoing: true,
+        ),
+      );
+    } else if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      settings = AppleSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
+        activityType: ActivityType.automotiveNavigation,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: true,
+        allowBackgroundLocationUpdates: true,
+      );
+    } else {
+      settings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 2,
+      );
+    }
+
     _positionStream =
         Geolocator.getPositionStream(locationSettings: settings).listen(
       (pos) => _onLivePosition(pos, routePoints),
       onError: (e) {
         if (mounted) {
+          setState(() {
+            _gpsHealth = GpsHealthStatus.lost;
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('GPS error: $e'), backgroundColor: Colors.redAccent),
           );
@@ -2045,27 +2070,108 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Reroutes dynamically from CURRENT LIVE VEHICLE LOCATION.
+  /// Never reroutes from the original start point!
+  Future<void> _triggerLiveReroute(LatLng currentGps) async {
+    if (_isRerouting || !_isLiveNavigating) return;
+    setState(() {
+      _isRerouting = true;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              ),
+              SizedBox(width: 12),
+              Text('Rerouting from current location...'),
+            ],
+          ),
+          duration: Duration(seconds: 3),
+          backgroundColor: Color(0xFF2563EB),
+        ),
+      );
+    }
+    _voice.speak('Rerouting from current location.');
+
+    try {
+      final currentStart = GeoPoint(
+        lat: currentGps.latitude,
+        lng: currentGps.longitude,
+        name: 'Current Location',
+      );
+
+      // Filter remaining unvisited waypoints
+      final remainingWaypoints = _currentWaypoints.where((wp) {
+        final dist = _getDistance(currentGps, wp.toLatLng());
+        return !_visitedStops.contains(wp.name) && dist > 0.003;
+      }).toList();
+
+      final newPlan = await _api.planTrip(
+        start: currentStart,
+        end: widget.end,
+        waypoints: remainingWaypoints,
+        vehicle: widget.vehicle,
+        dailyDrivingHours: 7,
+        travellers: widget.travellers,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _currentPlan = newPlan;
+        _consecutiveOffRouteFixes = 0;
+        _isRerouting = false;
+      });
+
+      _voice.speak('New route active.');
+    } catch (e) {
+      debugPrint('[LiveNav] Reroute error: $e');
+      if (mounted) {
+        setState(() {
+          _isRerouting = false;
+          _consecutiveOffRouteFixes = 0;
+        });
+      }
+    }
+  }
+
   /// Handles one live GPS fix: projects it onto the route, updates the marker,
-  /// heading, camera, and the live trip stats.
+  /// heading, camera, lane guidance, off-route detection, and the live trip stats.
   void _onLivePosition(Position pos, List<LatLng> routePoints) {
     if (!mounted || !_isLiveNavigating) return;
 
     final here = LatLng(pos.latitude, pos.longitude);
 
-    // Nearest route vertex → progress along the planned route.
-    int nearestIdx = 0;
-    double minDist = double.infinity;
-    for (int i = 0; i < routePoints.length; i++) {
-      final d = _getDistance(here, routePoints[i]);
-      if (d < minDist) {
-        minDist = d;
-        nearestIdx = i;
-      }
+    // 1. GPS Health
+    if (pos.accuracy > 45) {
+      _gpsHealth = GpsHealthStatus.weak;
+    } else {
+      _gpsHealth = GpsHealthStatus.active;
     }
-    final double progress = routePoints.length > 1
-        ? (nearestIdx / (routePoints.length - 1)).clamp(0.0, 1.0)
-        : 0.0;
 
+    // 2. Road Matching / Route Snapping
+    final proj = _carGuidance.projectOnRoute(here, _currentPlan.coordinates);
+    final LatLng displayPos = proj.distanceFromRouteMeters <= 35.0 ? proj.snappedPoint : here;
+
+    // 3. Off-Route Detection with 3-fix debounce buffer
+    // NEVER reroute from single noisy GPS fix
+    if (proj.distanceFromRouteMeters > 45.0 && (pos.accuracy <= 40.0 || pos.accuracy == 0)) {
+      _consecutiveOffRouteFixes++;
+      if (_consecutiveOffRouteFixes >= 3 && !_isRerouting) {
+        _triggerLiveReroute(here);
+      }
+    } else if (proj.distanceFromRouteMeters <= 30.0) {
+      _consecutiveOffRouteFixes = 0;
+    }
+
+    // 4. Progress along active route
+    final double progress = proj.progressPercent.clamp(0.0, 1.0);
     final double totalKm = _currentPlan.distanceKm;
     final double remainingKm = ((1.0 - progress) * totalKm).clamp(0.0, totalKm);
 
@@ -2075,61 +2181,75 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ? pos.heading * pi / 180.0
         : _vehicleRotation;
 
-    // ETA from current speed, falling back to the planned pace when stationary.
-    final double paceKmh = speedKmh > 5 ? speedKmh : (totalKm > 0 && _currentPlan.durationMin > 0
-        ? totalKm / (_currentPlan.durationMin / 60.0)
-        : 40.0);
+    // ETA from current speed, falling back to planned pace when stationary.
+    final double paceKmh = speedKmh > 5
+        ? speedKmh
+        : (totalKm > 0 && _currentPlan.durationMin > 0 ? totalKm / (_currentPlan.durationMin / 60.0) : 40.0);
     final int remainingMin = paceKmh > 0 ? (remainingKm / paceKmh * 60).round() : 0;
 
     setState(() {
-      _animatedVehiclePosition = here;
+      _animatedVehiclePosition = displayPos;
       _vehicleRotation = headingRad;
-      _animationIndex = nearestIdx;
+      _animationIndex = proj.segmentIndex;
       _tripProgressPercent = progress;
       _liveSpeedKmh = speedKmh;
       _liveRemainingKm = remainingKm;
       _liveRemainingMin = remainingMin;
     });
 
-    // Follow camera on the 2D maps (the 3D map follows the marker internally).
+    // Follow camera on 2D maps
     if (_mapStyle != MapStyle.satellite3D) {
       try {
-        _mapController.moveAndRotate(here, 16.5, pos.heading.isFinite ? -pos.heading : 0.0);
+        _mapController.moveAndRotate(displayPos, 16.5, pos.heading.isFinite ? -pos.heading : 0.0);
       } catch (_) {
         try {
-          _mapController.move(here, 16.5);
+          _mapController.move(displayPos, 16.5);
         } catch (_) {}
       }
     }
 
-    // Spoken turn-by-turn: announce the current maneuver (de-duplicated).
+    // 5. Maneuver & Lane Guidance
     final maneuver = _carGuidance.calculateManeuver(
-      currentPos: here,
+      currentPos: displayPos,
       routePoints: _currentPlan.coordinates,
       end: widget.end,
       waypoints: _currentWaypoints,
     );
     if (maneuver.type != ManeuverType.destination) {
-      final phrase = maneuver.type == ManeuverType.straight
-          ? maneuver.instruction
-          : '${maneuver.instruction} in ${maneuver.formattedDistance}';
-      _voice.speak(phrase);
+      _carGuidance.announceManeuver(maneuver);
     }
 
-    // Stream the live fix to Android Auto / CarPlay so the car map follows us.
+    // Stream the live fix to Android Auto / CarPlay
     _pushCarNav(
-      here,
+      displayPos,
       (pos.heading.isFinite && pos.heading >= 0) ? pos.heading : 0.0,
       maneuver,
       remainingKm,
       remainingMin,
       speedKmh,
-      throttle: false, // GPS already arrives ~1/s
+      throttle: false,
     );
 
-    // Arrival: within ~120 m of the destination.
-    final destDist = _getDistance(here, routePoints.last);
-    if (destDist < 0.0011 && !_visitedStops.contains('live_arrival')) {
+    // 6. Stop/Waypoint Arrival Detection (for Around / Multi-Stop trips)
+    for (final wp in _currentWaypoints) {
+      final distWp = _getDistance(here, wp.toLatLng());
+      if (distWp < 0.0012 && !_visitedStops.contains(wp.name ?? 'Stop')) {
+        _visitedStops.add(wp.name ?? 'Stop');
+        _voice.speak('Arriving at stop: ${wp.name ?? "Waypoint"}.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('📍 Arrived at ${wp.name ?? "Waypoint"}!'),
+              backgroundColor: const Color(0xFF10B981),
+            ),
+          );
+        }
+      }
+    }
+
+    // 7. Destination Arrival Detection
+    final destDist = _getDistance(here, LatLng(widget.end.lat, widget.end.lng));
+    if (destDist < 0.0012 && !_visitedStops.contains('live_arrival')) {
       _voice.speak('You have arrived at your destination.', force: true);
       _visitedStops.add('live_arrival');
       _recordTripToHistory(completed: true);
@@ -3239,6 +3359,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         progressPercent: _tripProgressPercent,
         hasTollAhead: (_currentPlan.toll?.fastagTollCost ?? 0) > 0,
         needsRefuel: v.currentFuelLiters < litresNeeded,
+        gpsStatus: _isLiveNavigating ? _gpsHealth : GpsHealthStatus.active,
+        isRerouting: _isRerouting,
       );
 
       CarPlatformChannel.updateNavigation(maneuver: maneuver, telemetry: telemetry);

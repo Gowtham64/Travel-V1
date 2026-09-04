@@ -1009,6 +1009,41 @@
       }
     };
 
+    window.update3DRouteGeometry = function(routeJson) {
+      try {
+        const newRoutePoints = JSON.parse(routeJson);
+        window.currentRoutePoints = newRoutePoints;
+        if (window.currentMapInstance) {
+          const map = window.currentMapInstance;
+          const activeSource = map.getSource('route');
+          if (activeSource) {
+            activeSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': newRoutePoints
+              }
+            });
+          }
+          const traveledSource = map.getSource('traveled');
+          if (traveledSource) {
+            traveledSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': []
+              }
+            });
+          }
+          if (map.triggerRepaint) map.triggerRepaint();
+        }
+      } catch (e) {
+        console.error('Failed to update 3D route geometry:', e);
+      }
+    };
+
     window.hide3DVehicle = function() {
       if (window.vehicleState) {
         window.vehicleState.visible = false;
