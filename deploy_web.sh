@@ -30,10 +30,10 @@ touch $DEPLOY_DIR/.nojekyll
 echo "voyplan.in" > $DEPLOY_DIR/CNAME
 # Landing site lives under web/ ; everything there is served at the site root.
 cp web/index.html $DEPLOY_DIR/
-for f in ios-install.html privacy.html terms.html favicon.png favicon.svg preview.png manifest.json manifest.plist apps.json; do
+for f in ios-install.html privacy.html terms.html favicon.ico favicon.png favicon.svg favicon-48x48.png favicon-96x96.png favicon-144x144.png favicon-192x192.png favicon-512x512.png apple-touch-icon.png preview.png manifest.json manifest.plist apps.json robots.txt sitemap.xml; do
     [ -f "web/$f" ] && cp "web/$f" $DEPLOY_DIR/
 done
-echo "  ✓ Landing site (index + iPhone guide + manifests + source) copied"
+echo "  ✓ Landing site (index + favicons + SEO + manifests) copied"
 
 # iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
 # The Android APK is distributed via GitHub Releases, so it is NOT bundled in gh-pages.
