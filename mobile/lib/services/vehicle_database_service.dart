@@ -348,12 +348,26 @@ class VehicleDatabaseService {
         'limit': limit.toString(),
       });
 
-      final res = await http.get(uri).timeout(const Duration(seconds: 4));
+      final res = await http.get(uri).timeout(const Duration(seconds: 2));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final list = (data['vehicles'] as List<dynamic>?) ?? [];
         if (list.isNotEmpty) {
-          return list.map((v) => VehicleModel.fromJson(v as Map<String, dynamic>)).toList();
+          final remoteVehicles = list
+              .map((v) => VehicleModel.fromJson(v as Map<String, dynamic>))
+              .where((v) {
+                if (normFuel != null && normFuel != 'all' && v.fuelType.toLowerCase() != normFuel) {
+                  return false;
+                }
+                if (type != null && type != 'all' && v.type.toLowerCase() != type) {
+                  return false;
+                }
+                return true;
+              })
+              .toList();
+          if (remoteVehicles.isNotEmpty) {
+            return remoteVehicles;
+          }
         }
       }
     } catch (_) {

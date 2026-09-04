@@ -125,9 +125,25 @@ class VehicleModel {
   }
 
   factory VehicleModel.fromJson(Map<String, dynamic> json) {
+    final brand = json['brandName'] as String?;
+    final model = json['modelName'] as String?;
+    final variant = json['variantName'] as String?;
+    String computedName = json['name'] as String? ?? '';
+    if (computedName.isEmpty) {
+      if (brand != null && model != null) {
+        computedName = '$brand $model';
+      } else if (model != null) {
+        computedName = model;
+      } else if (variant != null) {
+        computedName = variant;
+      } else {
+        computedName = 'Custom Vehicle';
+      }
+    }
+
     return VehicleModel(
       id: json['id'] as String? ?? 'custom_car',
-      name: json['name'] as String? ?? (json['variantName'] ?? json['modelName'] ?? 'Custom Vehicle'),
+      name: computedName,
       type: json['type'] as String? ?? 'car',
       mileage: (json['mileage'] as num?)?.toDouble() ?? 15.0,
       tankCapacity: (json['tankCapacity'] as num?)?.toDouble() ?? 45.0,
