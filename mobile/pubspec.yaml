@@ -39,7 +39,7 @@ dev_dependencies:
 flutter_launcher_icons:
   image_path: "assets/icon/voyplan.png"
   android: true
-  adaptive_icon_background: "#0f766e"
+  adaptive_icon_background: "assets/icon/voyplan_background.png"
   adaptive_icon_foreground: "assets/icon/voyplan_foreground.png"
   ios: true
   remove_alpha_ios: true
