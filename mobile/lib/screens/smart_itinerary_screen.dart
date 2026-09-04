@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -531,18 +533,34 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   /// Device position with graceful degradation: fresh cached fix → GPS at
-  /// decreasing accuracy → any last-known fix. Same ladder as the trip planner.
+  /// decreasing accuracy → any last-known fix → IP-based approximate location.
   Future<Position> _currentPosition() async {
     if (!kIsWeb) {
+      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
       }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.deniedForever) {
         final last = await Geolocator.getLastKnownPosition();
         if (last != null) return last;
-        throw 'Location permission denied — allow it in Settings, or search instead.';
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
+        throw 'Location permission is permanently denied. Enable it for this app in Settings.';
+      }
+      if (permission == LocationPermission.denied) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
+        throw 'Location permission was denied. Please allow it to use your current location.';
+      }
+      if (!serviceEnabled) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+        final ipPos = await _ipApproxPosition();
+        if (ipPos != null) return ipPos;
+        throw 'Location services are turned off. Enable them in device settings and try again.';
       }
       try {
         final last = await Geolocator.getLastKnownPosition();
@@ -562,10 +580,42 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       } catch (_) {/* try a lower accuracy */}
     }
     if (!kIsWeb) {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null) return last;
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return last;
+      } catch (_) {}
     }
+    final ipPos = await _ipApproxPosition();
+    if (ipPos != null) return ipPos;
+
     throw "Couldn't get your location — check GPS/permissions, or search instead.";
+  }
+
+  /// Approximate location from the caller's IP address (city-level fallback).
+  Future<Position?> _ipApproxPosition() async {
+    for (final url in const ['https://ipwho.is/', 'https://ipapi.co/json/']) {
+      try {
+        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        if (res.statusCode != 200) continue;
+        final m = jsonDecode(res.body) as Map<String, dynamic>;
+        final lat = (m['latitude'] as num?)?.toDouble();
+        final lng = (m['longitude'] as num?)?.toDouble();
+        if (lat == null || lng == null) continue;
+        return Position(
+          latitude: lat,
+          longitude: lng,
+          timestamp: DateTime.now(),
+          accuracy: 5000,
+          altitude: 0,
+          altitudeAccuracy: 0,
+          heading: 0,
+          headingAccuracy: 0,
+          speed: 0,
+          speedAccuracy: 0,
+        );
+      } catch (_) {}
+    }
+    return null;
   }
 
   /// Fill the starting point from the device's current location.
