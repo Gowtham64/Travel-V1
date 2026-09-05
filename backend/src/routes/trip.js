@@ -11,7 +11,46 @@ const { getWikiPlaces } = require("../services/wikiService");
 const { getDestinationEvents } = require("../services/eventsService");
 const { annotateCumulativeDistance, nearestRouteDistanceKm } = require("../utils/geo");
 
+const { calculateTripRoute } = require("../services/routeCalculationService");
+
 const router = express.Router();
+
+/**
+ * POST /api/trip/calculate-route
+ * Authoritative single source of truth for route distance, duration, polyline,
+ * budget, and navigation waypoints.
+ */
+router.post("/calculate-route", async (req, res) => {
+  const {
+    origin,
+    destination,
+    stops = [],
+    vehicle = {},
+    tripType = "around",
+    durationDays = 1,
+    travellers = 1,
+    routeVersion = 1,
+    options = {},
+  } = req.body || {};
+
+  try {
+    const result = await calculateTripRoute({
+      origin,
+      destination,
+      stops,
+      vehicle,
+      tripType,
+      durationDays,
+      travellers,
+      routeVersion,
+      options,
+    });
+    res.json(result);
+  } catch (err) {
+    console.error("[TRIP ROUTE CALCULATION] Error:", err.message);
+    res.status(400).json({ error: err.message });
+  }
+});
 
 function isValidPoint(p) {
   return p && typeof p.lat === "number" && typeof p.lng === "number";

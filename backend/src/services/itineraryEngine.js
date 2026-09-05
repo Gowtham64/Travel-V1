@@ -6,6 +6,7 @@ const { findPOIsInArea } = require("./orsPoiService");
 const FuelRangeService = require("./fuelRangeService");
 const { rankCandidatesWithAI } = require("./aiService");
 const curatedPlaces = require("../data/curatedPlaces.json");
+const { calculateTripRoute } = require("./routeCalculationService");
 
 /**
  * Category-based standard visit durations (minutes)
@@ -948,6 +949,70 @@ async function planItinerary(params = {}) {
     });
   }
 
+  // Step 6.5: Calculate Authoritative Unified Multi-Stop Route & Budget
+  let authoritativeRouteResult = null;
+  try {
+    const extractedStops = [];
+    for (const d of generatedDays) {
+      for (const b of d.blocks) {
+        if (b.type !== "start" && b.type !== "return" && b.type !== "travel" && b.lat && b.lng) {
+          extractedStops.push({
+            id: b.id,
+            name: b.place || b.title,
+            lat: b.lat,
+            lng: b.lng,
+            address: b.address || b.place || b.title,
+            type: b.type,
+            sequence: extractedStops.length + 1,
+            durationMin: b.durationMin,
+            stayDuration: b.durationMin,
+            category: b.category,
+            reason: b.reason,
+          });
+        }
+      }
+    }
+
+    authoritativeRouteResult = await calculateTripRoute({
+      origin: startPt,
+      destination: destPt,
+      stops: extractedStops,
+      vehicle: {
+        type: vehicle.type || "car",
+        efficiencyKmPerLiter: efficiency,
+        tankCapacityLiters: tankCapacity,
+        currentFuelLiters: currentFuel,
+      },
+      tripType: isAroundTrip ? "around" : "one_way",
+      durationDays: totalDays,
+      travellers: Math.max(1, Number(vehicle.travellers) || 1),
+      routeVersion: 1,
+    });
+
+    if (authoritativeRouteResult && authoritativeRouteResult.route) {
+      cumulativeTripKm = authoritativeRouteResult.route.distanceKm;
+
+      // Synchronize travel block distances and durations from authoritative route legs if available
+      const legs = authoritativeRouteResult.route.legs || [];
+      if (legs.length > 0) {
+        let legIdx = 0;
+        for (const d of generatedDays) {
+          for (const b of d.blocks) {
+            if ((b.type === "travel" || b.type === "return") && legIdx < legs.length) {
+              const rLeg = legs[legIdx++];
+              if (rLeg.distanceKm > 0) {
+                b.distanceKm = Math.round(rLeg.distanceKm * 10) / 10;
+                b.travelMin = Math.max(1, Math.round(rLeg.durationMin || (rLeg.durationSeconds / 60) || 5));
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[ITINERARY ENGINE] Authoritative route calculation fallback:", err.message);
+  }
+
   // Step 7: Automated Quality Gate Verification
   validateItineraryQuality({
     days: generatedDays,
@@ -962,7 +1027,7 @@ async function planItinerary(params = {}) {
 
   return {
     days: generatedDays,
-    tripType: "around",
+    tripType: isAroundTrip ? "around" : "one_way",
     startPoint: startPt,
     endPoint: startPt,
     destinationPoint: destPt,
@@ -970,12 +1035,16 @@ async function planItinerary(params = {}) {
     placesFoundCount: candidateStops.filter((s) => !s.isDestinationAnchor).length,
     canExpandSearch: searchRadius < 100,
     nextSearchRadiusKm: searchRadius < 50 ? 50 : 100,
-    totalDistanceKm: Math.round(cumulativeTripKm * 10) / 10,
-    totalDurationMin: generatedDays.reduce((acc, d) => {
+    totalDistanceKm: authoritativeRouteResult ? authoritativeRouteResult.route.distanceKm : Math.round(cumulativeTripKm * 10) / 10,
+    totalDurationMin: authoritativeRouteResult ? authoritativeRouteResult.route.durationMin : generatedDays.reduce((acc, d) => {
       const first = parseMinutes(d.blocks[0]?.start);
       const last = parseMinutes(d.blocks[d.blocks.length - 1]?.end);
       return acc + (last >= first ? last - first : 1440 - first + last);
     }, 0),
+    route: authoritativeRouteResult?.route || null,
+    budget: authoritativeRouteResult?.budget || null,
+    navigationRoute: authoritativeRouteResult?.navigationRoute || null,
+    routeVersion: 1,
     isConfirmed: false,
     status: "DRAFT",
   };

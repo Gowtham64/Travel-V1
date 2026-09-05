@@ -9,6 +9,7 @@ function isInIndia(pt) {
 }
 const { estimateBudget } = require("../services/budgetService");
 const priceService = require("../services/priceService");
+const { calculateTripRoute } = require("../services/routeCalculationService");
 
 const router = express.Router();
 
@@ -252,8 +253,11 @@ router.post("/smart-itinerary", async (req, res) => {
 
     res.json({
       days,
-      budget,
-      tripType: "around",
+      budget: planResult.budget || budget,
+      route: planResult.route || null,
+      navigationRoute: planResult.navigationRoute || null,
+      routeVersion: planResult.routeVersion || 1,
+      tripType: planResult.tripType || "around",
       startPoint: planResult.startPoint,
       endPoint: planResult.endPoint,
       destinationPoint: planResult.destinationPoint,
@@ -279,8 +283,106 @@ router.post("/recalculate-itinerary", async (req, res) => {
   }
 
   try {
+    const inputVersion = Number(b.routeVersion) || 1;
+    const nextRouteVersion = inputVersion + 1;
+
+    // 1. Extract start location, destination, and all intermediate stops
+    let startPoint = null;
+    let destPoint = null;
+    const intermediateStops = [];
+
+    // Check provided explicit strings or points
+    if (b.origin || b.startLocation) {
+      try {
+        startPoint = await geocode(b.origin || b.startLocation, "");
+      } catch (_) {}
+    }
+    if (b.destination) {
+      try {
+        destPoint = await geocode(b.destination, "");
+      } catch (_) {}
+    }
+
+    // Inspect blocks from all days
+    for (const day of days) {
+      const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+      for (const blk of blocks) {
+        if (!startPoint && blk.type === "start" && blk.lat && blk.lng) {
+          startPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+        }
+        if (blk.type !== "start" && blk.type !== "return" && blk.type !== "travel" && blk.lat && blk.lng) {
+          intermediateStops.push({
+            id: blk.id,
+            name: blk.place || blk.title,
+            lat: blk.lat,
+            lng: blk.lng,
+            address: blk.address || blk.place || blk.title,
+            type: blk.type,
+            sequence: intermediateStops.length + 1,
+            durationMin: blk.durationMin,
+            stayDuration: blk.durationMin,
+            category: blk.category,
+            reason: blk.reason,
+          });
+          if (!destPoint) {
+            destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+          }
+        }
+      }
+    }
+
+    if (!startPoint && intermediateStops.length > 0) {
+      startPoint = { lat: intermediateStops[0].lat, lng: intermediateStops[0].lng, name: intermediateStops[0].name };
+    }
+    if (!destPoint) {
+      destPoint = startPoint;
+    }
+
+    // 2. Authoritative Route Calculation
+    let routeCalc = null;
+    if (startPoint && destPoint) {
+      try {
+        routeCalc = await calculateTripRoute({
+          origin: startPoint,
+          destination: destPoint,
+          stops: intermediateStops,
+          vehicle: {
+            type: b.vehicleType || "car",
+            efficiencyKmPerLiter: Number(b.fuelEfficiency) || 15,
+            tankCapacityLiters: Number(b.tankCapacity) || 45,
+            currentFuelLiters: Number(b.currentFuel) || 30,
+          },
+          tripType: b.tripType || "around",
+          durationDays: days.length,
+          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          routeVersion: nextRouteVersion,
+        });
+      } catch (err) {
+        console.warn("[RECALCULATE ITINERARY] Route calculation warning:", err.message);
+      }
+    }
+
+    // 3. Synchronize block travel metrics with authoritative route legs if available
+    if (routeCalc && routeCalc.route && Array.isArray(routeCalc.route.legs) && routeCalc.route.legs.length > 0) {
+      const legs = routeCalc.route.legs;
+      let legIdx = 0;
+      for (const day of days) {
+        const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+        for (const blk of blocks) {
+          if ((blk.type === "travel" || blk.type === "return") && legIdx < legs.length) {
+            const rLeg = legs[legIdx++];
+            if (rLeg.distanceKm > 0) {
+              blk.distanceKm = Math.round(rLeg.distanceKm * 10) / 10;
+              blk.travelMin = Math.max(1, Math.round(rLeg.durationMin || (rLeg.durationSeconds / 60) || 5));
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Re-anchor timing across all days
     let startMin = b.startTime ? itineraryEngine.parseMinutes(b.startTime) : itineraryEngine.parseMinutes(days[0].blocks?.[0]?.start || "08:00");
-    let totalKm = 0;
+    let fallbackTotalKm = 0;
 
     for (let d = 0; d < days.length; d++) {
       const day = days[d];
@@ -293,11 +395,11 @@ router.post("/recalculate-itinerary", async (req, res) => {
         blk.sequence = i;
 
         if (blk.type === "travel" || blk.type === "return") {
-          const travelDur = Math.max(1, Number(blk.travelMin) || Math.round((Number(blk.distanceKm) || 15) / 50 * 60));
+          const travelDur = Math.max(1, Number(blk.travelMin) || Math.round(((Number(blk.distanceKm) || 15) / 50) * 60));
           blk.start = itineraryEngine.formatMinutes(cur);
           blk.end = itineraryEngine.formatMinutes(cur + travelDur);
           cur += travelDur;
-          totalKm += Number(blk.distanceKm) || 0;
+          fallbackTotalKm += Number(blk.distanceKm) || 0;
         } else if (blk.type === "start") {
           blk.start = itineraryEngine.formatMinutes(cur);
           blk.end = itineraryEngine.formatMinutes(cur);
@@ -310,29 +412,41 @@ router.post("/recalculate-itinerary", async (req, res) => {
       }
     }
 
-    const rates = priceService.getRates();
-    const eff = Number(b.fuelEfficiency) || 15;
-    const tollGuess = Math.round(totalKm * rates.tollPerKm);
-    const budget = estimateBudget({
-      driveKm: Math.round(totalKm),
-      localTransportKm: 0,
-      transportLegs: [],
-      ticketRates: rates.ticketRates,
-      estimatedDays: days.length,
-      vehicle: { efficiencyKmPerLiter: eff },
-      toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
-      options: {
-        travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
-        fuelPricePerLiter: rates.fuel.petrolPerLiter,
-        foodPerDay: rates.foodPerDay,
-        stayPerNight: rates.stayPerNight,
-      },
-    });
+    const authoritativeDistanceKm = routeCalc?.route?.distanceKm ?? (Math.round(fallbackTotalKm * 10) / 10);
+    const authoritativeDurationMin = routeCalc?.route?.durationMin ?? (Math.round((fallbackTotalKm / 50) * 60));
+
+    // Fallback budget if routeCalc failed
+    let budget = routeCalc?.budget;
+    if (!budget) {
+      const rates = priceService.getRates();
+      const eff = Number(b.fuelEfficiency) || 15;
+      const tollGuess = Math.round(authoritativeDistanceKm * rates.tollPerKm);
+      budget = estimateBudget({
+        distanceKm: Math.round(authoritativeDistanceKm),
+        driveKm: Math.round(authoritativeDistanceKm),
+        localTransportKm: 0,
+        transportLegs: [],
+        ticketRates: rates.ticketRates,
+        estimatedDays: days.length,
+        vehicle: { efficiencyKmPerLiter: eff },
+        toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+        options: {
+          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          fuelPricePerLiter: rates.fuel.petrolPerLiter,
+          foodPerDay: rates.foodPerDay,
+          stayPerNight: rates.stayPerNight,
+        },
+      });
+    }
 
     res.json({
       days,
-      totalDistanceKm: Math.round(totalKm * 10) / 10,
+      route: routeCalc?.route || null,
+      navigationRoute: routeCalc?.navigationRoute || null,
+      totalDistanceKm: authoritativeDistanceKm,
+      totalDurationMin: authoritativeDurationMin,
       budget,
+      routeVersion: nextRouteVersion,
       status: b.isConfirmed ? "CONFIRMED" : "DRAFT",
     });
   } catch (err) {

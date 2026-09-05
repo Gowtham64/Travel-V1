@@ -303,6 +303,8 @@ class TimelineBlock {
   final int sequence;
   final bool isFuelStop;
   bool isConfirmed;
+  final String placeId;
+  int stayDuration;
 
   TimelineBlock({
     this.id = '',
@@ -330,9 +332,13 @@ class TimelineBlock {
     this.sequence = 0,
     this.isFuelStop = false,
     this.isConfirmed = false,
-  });
+    this.placeId = '',
+    int? stayDuration,
+  }) : stayDuration = stayDuration ?? durationMin;
 
-  factory TimelineBlock.fromJson(Map<String, dynamic> j) => TimelineBlock(
+  factory TimelineBlock.fromJson(Map<String, dynamic> j) {
+    final dMin = (j['durationMin'] as num?)?.toInt() ?? 0;
+    return TimelineBlock(
         id: (j['id'] ?? '').toString(),
         start: (j['start'] ?? '').toString(),
         end: (j['end'] ?? '').toString(),
@@ -345,7 +351,7 @@ class TimelineBlock {
         city: (j['city'] ?? '').toString(),
         state: (j['state'] ?? '').toString(),
         country: (j['country'] ?? 'India').toString(),
-        durationMin: (j['durationMin'] as num?)?.toInt() ?? 0,
+        durationMin: dMin,
         travelMin: (j['travelMin'] as num?)?.toInt() ?? 0,
         distanceKm: (j['distanceKm'] as num?)?.toDouble() ?? 0,
         breakType: (j['breakType'] ?? '').toString(),
@@ -361,7 +367,10 @@ class TimelineBlock {
         sequence: (j['sequence'] as num?)?.toInt() ?? 0,
         isFuelStop: j['isFuelStop'] == true || j['type'] == 'fuel',
         isConfirmed: j['isConfirmed'] == true,
+        placeId: (j['placeId'] ?? '').toString(),
+        stayDuration: (j['stayDuration'] as num?)?.toInt() ?? dMin,
       );
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -389,6 +398,8 @@ class TimelineBlock {
         'sequence': sequence,
         'isFuelStop': isFuelStop,
         'isConfirmed': isConfirmed,
+        'placeId': placeId,
+        'stayDuration': stayDuration,
       };
 }
 
@@ -1266,6 +1277,150 @@ class CanonicalRouteLeg {
     'distanceMeters': distanceMeters,
     'durationSeconds': durationSeconds,
     'steps': steps.map((s) => s.toJson()).toList(),
+  };
+}
+
+/// Authoritative Route Information from the backend routing engine.
+class RouteInfo {
+  final int distanceMeters;
+  final double distanceKm;
+  final int durationSeconds;
+  final int durationMin;
+  final List<GeoPoint> coordinates;
+  final Map<String, dynamic>? geometry;
+  final List<CanonicalRouteLeg> legs;
+  final List<CanonicalRouteStep> steps;
+  final List<String> maneuvers;
+  final bool avoidedMotorways;
+  final String provider;
+
+  const RouteInfo({
+    required this.distanceMeters,
+    required this.distanceKm,
+    required this.durationSeconds,
+    required this.durationMin,
+    required this.coordinates,
+    this.geometry,
+    this.legs = const [],
+    this.steps = const [],
+    this.maneuvers = const [],
+    this.avoidedMotorways = false,
+    this.provider = 'authoritative',
+  });
+
+  factory RouteInfo.fromJson(Map<String, dynamic> json) {
+    final distM = (json['distanceMeters'] as num?)?.toInt() ??
+        (((json['distanceKm'] as num?)?.toDouble() ?? 0.0) * 1000).round();
+    final distKm = (json['distanceKm'] as num?)?.toDouble() ?? (distM / 1000.0);
+    final durSec = (json['durationSeconds'] as num?)?.toInt() ??
+        (((json['durationMin'] as num?)?.toInt() ?? 0) * 60);
+    final durMin = (json['durationMin'] as num?)?.toInt() ?? (durSec / 60).round();
+
+    final coords = (json['coordinates'] as List? ?? [])
+        .map((e) => GeoPoint.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+
+    final legs = (json['legs'] as List? ?? [])
+        .map((e) => CanonicalRouteLeg.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+
+    final steps = (json['steps'] as List? ?? [])
+        .map((e) => CanonicalRouteStep.fromJson((e as Map).cast<String, dynamic>()))
+        .toList();
+
+    final maneuvers = (json['maneuvers'] as List? ?? [])
+        .map((e) => e.toString())
+        .toList();
+
+    return RouteInfo(
+      distanceMeters: distM,
+      distanceKm: distKm,
+      durationSeconds: durSec,
+      durationMin: durMin,
+      coordinates: coords,
+      geometry: json['geometry'] != null ? (json['geometry'] as Map).cast<String, dynamic>() : null,
+      legs: legs,
+      steps: steps,
+      maneuvers: maneuvers,
+      avoidedMotorways: json['avoidedMotorways'] == true,
+      provider: json['provider']?.toString() ?? 'authoritative',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'distanceMeters': distanceMeters,
+    'distanceKm': distanceKm,
+    'durationSeconds': durationSeconds,
+    'durationMin': durationMin,
+    'coordinates': coordinates.map((c) => c.toJson()).toList(),
+    if (geometry != null) 'geometry': geometry,
+    'legs': legs.map((l) => l.toJson()).toList(),
+    'steps': steps.map((s) => s.toJson()).toList(),
+    'maneuvers': maneuvers,
+    'avoidedMotorways': avoidedMotorways,
+    'provider': provider,
+  };
+
+  String get formattedDistance => TripPlan.formatDistance(distanceKm, distMeters: distanceMeters);
+}
+
+/// Authoritative Navigation Route contract containing all stops as waypoints.
+class NavigationRoute {
+  final GeoPoint origin;
+  final GeoPoint destination;
+  final List<GeoPoint> waypoints;
+  final double distanceKm;
+  final int distanceMeters;
+  final int durationMin;
+  final int durationSeconds;
+  final List<GeoPoint> coordinates;
+  final Map<String, dynamic>? geometry;
+
+  const NavigationRoute({
+    required this.origin,
+    required this.destination,
+    required this.waypoints,
+    required this.distanceKm,
+    required this.distanceMeters,
+    required this.durationMin,
+    required this.durationSeconds,
+    required this.coordinates,
+    this.geometry,
+  });
+
+  factory NavigationRoute.fromJson(Map<String, dynamic> json) {
+    final distKm = (json['distanceKm'] as num?)?.toDouble() ?? 0.0;
+    final distM = (json['distanceMeters'] as num?)?.toInt() ?? (distKm * 1000).round();
+    final durMin = (json['durationMin'] as num?)?.toInt() ?? 0;
+    final durSec = (json['durationSeconds'] as num?)?.toInt() ?? (durMin * 60);
+
+    return NavigationRoute(
+      origin: GeoPoint.fromJson((json['origin'] as Map).cast<String, dynamic>()),
+      destination: GeoPoint.fromJson((json['destination'] as Map).cast<String, dynamic>()),
+      waypoints: (json['waypoints'] as List? ?? [])
+          .map((e) => GeoPoint.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(),
+      distanceKm: distKm,
+      distanceMeters: distM,
+      durationMin: durMin,
+      durationSeconds: durSec,
+      coordinates: (json['coordinates'] as List? ?? [])
+          .map((e) => GeoPoint.fromJson((e as Map).cast<String, dynamic>()))
+          .toList(),
+      geometry: json['geometry'] != null ? (json['geometry'] as Map).cast<String, dynamic>() : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'origin': origin.toJson(),
+    'destination': destination.toJson(),
+    'waypoints': waypoints.map((w) => w.toJson()).toList(),
+    'distanceKm': distanceKm,
+    'distanceMeters': distanceMeters,
+    'durationMin': durationMin,
+    'durationSeconds': durationSeconds,
+    'coordinates': coordinates.map((c) => c.toJson()).toList(),
+    if (geometry != null) 'geometry': geometry,
   };
 }
 

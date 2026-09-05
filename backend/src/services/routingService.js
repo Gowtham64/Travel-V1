@@ -600,4 +600,5 @@ module.exports = {
   prepareRoutePoints,
   haversineMeters,
   haversineKm,
+  toPoint,
 };

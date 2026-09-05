@@ -53,6 +53,12 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   bool _isConfirmed = false;
   bool _navLoading = false;
   double? _totalRouteKm;
+  RouteInfo? _currentRoute;
+  NavigationRoute? _navigationRoute;
+  int _routeVersion = 1;
+  bool _isCalculatingRoute = false;
+  String? _routeStatusMessage;
+  Timer? _statusMessageTimer;
 
   DateTime? _startDate;
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
@@ -108,6 +114,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   @override
   void dispose() {
     _acDebounce?.cancel();
+    _statusMessageTimer?.cancel();
     _destCtrl.dispose();
     _startLocCtrl.dispose();
     _placesCtrl.dispose();
@@ -270,19 +277,25 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         }
       }
 
-      double totalKm = 0;
-      for (final d in res.days) {
-        for (final b in d.blocks) {
-          totalKm += (b.distanceKm > 0 ? b.distanceKm : 0);
+      double totalKm = res.route?.distanceKm ?? 0;
+      if (totalKm <= 0) {
+        for (final d in res.days) {
+          for (final b in d.blocks) {
+            totalKm += (b.distanceKm > 0 ? b.distanceKm : 0);
+          }
         }
       }
 
       setState(() {
         _itinerary = res.days;
         _budget = res.budget;
+        _currentRoute = res.route;
+        _navigationRoute = res.navigationRoute;
+        _routeVersion = res.routeVersion ?? 1;
         _splitCount = _travellers; // default: split among travellers
         _isConfirmed = false;
         _totalRouteKm = totalKm > 0 ? totalKm : null;
+        _routeStatusMessage = null;
         _searchRadiusKm = res.searchRadiusKm ?? _searchRadiusKm;
         _placesFoundCount = res.placesFoundCount;
         _canExpandSearch = res.canExpandSearch ?? false;
@@ -446,21 +459,188 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   void _removeStop(SmartDay day, TimelineBlock block) {
+    final blockName = block.title.isNotEmpty ? block.title : block.place;
     setState(() {
       day.blocks.remove(block);
       _reanchorDayTiming(day);
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Removed "${block.title.isNotEmpty ? block.title : block.place}"'),
-        action: SnackBarAction(
-          label: 'RECALCULATE',
-          textColor: AppColors.accentLight,
-          onPressed: _recalculateItinerary,
-        ),
-        duration: const Duration(seconds: 4),
+        content: Text('Removed "$blockName". Recalculating route...'),
+        duration: const Duration(seconds: 2),
       ),
     );
+    _recalculateItinerary();
+  }
+
+  void _moveStop(SmartDay day, int index, int direction) {
+    final targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= day.blocks.length) return;
+    if (day.blocks[index].type == 'start' || day.blocks[index].type == 'return') return;
+    if (day.blocks[targetIndex].type == 'start' || day.blocks[targetIndex].type == 'return') return;
+    setState(() {
+      final item = day.blocks.removeAt(index);
+      day.blocks.insert(targetIndex, item);
+      _reanchorDayTiming(day);
+    });
+    _recalculateItinerary();
+  }
+
+  Future<void> _promptAddStop(SmartDay day) async {
+    final placeCtrl = TextEditingController();
+    List<Map<String, dynamic>> suggestions = [];
+    Timer? debounce;
+    bool isSearching = false;
+
+    final selected = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E293B),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: Row(
+              children: [
+                const Icon(Icons.add_location_alt_rounded, color: AppColors.accentLight, size: 22),
+                const SizedBox(width: 8),
+                Text('Add Place to Day ${day.day}',
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: placeCtrl,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Search place, temple, or attraction...',
+                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.08),
+                      prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+                      suffixIcon: isSearching
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: Padding(
+                                padding: EdgeInsets.all(12),
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentLight),
+                              ))
+                          : null,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    onChanged: (val) {
+                      debounce?.cancel();
+                      if (val.trim().length < 2) {
+                        setDlgState(() => suggestions = []);
+                        return;
+                      }
+                      debounce = Timer(const Duration(milliseconds: 350), () async {
+                        setDlgState(() => isSearching = true);
+                        try {
+                          final res = await _api.autocompletePlaces(val.trim());
+                          if (ctx.mounted) {
+                            setDlgState(() {
+                              suggestions = res;
+                              isSearching = false;
+                            });
+                          }
+                        } catch (_) {
+                          if (ctx.mounted) setDlgState(() => isSearching = false);
+                        }
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  if (suggestions.isNotEmpty)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: suggestions.length,
+                        separatorBuilder: (_, __) =>
+                            Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
+                        itemBuilder: (_, idx) {
+                          final s = suggestions[idx];
+                          final name = s['name'] as String? ?? '';
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.location_on_outlined, color: AppColors.accentLight, size: 18),
+                            title: Text(name,
+                                style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                            onTap: () => Navigator.of(ctx).pop(s),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: Text('Cancel', style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accentLight,
+                  foregroundColor: Colors.black,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  final text = placeCtrl.text.trim();
+                  if (text.isNotEmpty) {
+                    Navigator.of(ctx).pop({'name': text});
+                  }
+                },
+                child: const Text('Add Stop', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    debounce?.cancel();
+
+    if (selected != null) {
+      final name = (selected['name'] as String?)?.trim() ?? '';
+      if (name.isEmpty) return;
+      double? lat = (selected['lat'] as num?)?.toDouble();
+      double? lng = (selected['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) {
+        try {
+          final geo = await _api.geocode(name);
+          lat = geo?.lat;
+          lng = geo?.lng;
+        } catch (_) {}
+      }
+      final newBlock = TimelineBlock(
+        start: '12:00',
+        end: '13:00',
+        type: 'activity',
+        title: name,
+        place: name,
+        reason: 'Added by user',
+        durationMin: 60,
+        lat: lat,
+        lng: lng,
+      );
+      int insertIdx = day.blocks.length;
+      if (day.blocks.isNotEmpty &&
+          (day.blocks.last.type == 'return' || day.blocks.last.type == 'checkin')) {
+        insertIdx = day.blocks.length - 1;
+      }
+      setState(() {
+        day.blocks.insert(insertIdx, newBlock);
+        _reanchorDayTiming(day);
+      });
+      _recalculateItinerary();
+    }
   }
 
   void _reanchorDayTiming(SmartDay day) {
@@ -481,7 +661,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   Future<void> _recalculateItinerary() async {
-    setState(() => _loading = true);
+    setState(() {
+      _isCalculatingRoute = true;
+      _routeStatusMessage = 'Calculating route...';
+    });
     try {
       final res = await _api.recalculateSmartItinerary(
         days: _itinerary,
@@ -497,12 +680,30 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         setState(() {
           _itinerary = res.days;
           if (res.budget != null) _budget = res.budget;
+          _currentRoute = res.route ?? _currentRoute;
+          _navigationRoute = res.navigationRoute ?? _navigationRoute;
+          _routeVersion = res.routeVersion ?? (_routeVersion + 1);
+          _totalRouteKm = res.route?.distanceKm ?? res.totalDistanceKm ?? _totalRouteKm;
+          _routeStatusMessage = 'Route updated';
+        });
+        _statusMessageTimer?.cancel();
+        _statusMessageTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _routeStatusMessage = null);
         });
       }
     } catch (e) {
       debugPrint('Recalculate error: $e');
+      if (mounted) {
+        setState(() {
+          _routeStatusMessage = 'Failed to update route';
+        });
+        _statusMessageTimer?.cancel();
+        _statusMessageTimer = Timer(const Duration(seconds: 4), () {
+          if (mounted) setState(() => _routeStatusMessage = null);
+        });
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _isCalculatingRoute = false);
     }
   }
 
@@ -573,77 +774,97 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       final dest = _destCtrl.text.trim();
       final start = _startLocCtrl.text.trim();
 
-      // 1. Resolve start location coordinate
-      GeoPoint? startCoord;
-      if (start.isNotEmpty) {
-        try {
-          startCoord = await _api.geocode(start);
-        } catch (_) {}
-      }
-      if (startCoord == null) {
-        try {
-          final pos = await _currentPosition();
-          startCoord = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: start.isNotEmpty ? start : 'My Location');
-        } catch (_) {}
-      }
-
-      // 2. Resolve destination coordinate
-      GeoPoint? destCoord;
-      if (dest.isNotEmpty) {
-        try {
-          destCoord = await _api.geocode(dest);
-        } catch (_) {}
-      }
-
-      // 3. Extract verified itinerary stops (chronological order)
-      final allStops = <GeoPoint>[];
-      for (final d in _itinerary) {
-        for (final b in d.blocks) {
-          if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
-            final pt = GeoPoint(
-              lat: b.lat!,
-              lng: b.lng!,
-              name: b.place.isNotEmpty ? b.place : b.title,
-            );
-            if (allStops.any((s) => _haversineKm(s.lat, s.lng, pt.lat, pt.lng) < 0.1)) continue;
-            allStops.add(pt);
-          }
-        }
-      }
-
-      // 4. Assemble route chain: start -> waypoints -> end
+      // Assemble route chain: start -> waypoints -> end
       GeoPoint finalStart;
       GeoPoint finalEnd;
       final waypoints = <GeoPoint>[];
 
-      if (startCoord != null) {
-        finalStart = startCoord;
-        if (destCoord != null) {
-          for (final s in allStops) {
-            if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.2 &&
-                _haversineKm(destCoord.lat, destCoord.lng, s.lat, s.lng) > 0.2) {
-              waypoints.add(s);
+      if (_navigationRoute != null &&
+          _navigationRoute!.origin != null &&
+          _navigationRoute!.destination != null) {
+        final orig = _navigationRoute!.origin!;
+        final destObj = _navigationRoute!.destination!;
+        finalStart = GeoPoint(
+          lat: orig.lat,
+          lng: orig.lng,
+          name: (orig.name?.isNotEmpty == true) ? orig.name! : (start.isNotEmpty ? start : 'Start'),
+        );
+        finalEnd = GeoPoint(
+          lat: destObj.lat,
+          lng: destObj.lng,
+          name: (destObj.name?.isNotEmpty == true) ? destObj.name! : (dest.isNotEmpty ? dest : 'Destination'),
+        );
+        for (final wp in _navigationRoute!.waypoints) {
+          waypoints.add(GeoPoint(
+            lat: wp.lat,
+            lng: wp.lng,
+            name: wp.name ?? '',
+          ));
+        }
+      } else {
+        // Fallback: Resolve start & destination and extract stops
+        GeoPoint? startCoord;
+        if (start.isNotEmpty) {
+          try {
+            startCoord = await _api.geocode(start);
+          } catch (_) {}
+        }
+        if (startCoord == null) {
+          try {
+            final pos = await _currentPosition();
+            startCoord = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: start.isNotEmpty ? start : 'My Location');
+          } catch (_) {}
+        }
+
+        GeoPoint? destCoord;
+        if (dest.isNotEmpty) {
+          try {
+            destCoord = await _api.geocode(dest);
+          } catch (_) {}
+        }
+
+        final allStops = <GeoPoint>[];
+        for (final d in _itinerary) {
+          for (final b in d.blocks) {
+            if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
+              allStops.add(GeoPoint(
+                lat: b.lat!,
+                lng: b.lng!,
+                name: b.place.isNotEmpty ? b.place : b.title,
+              ));
             }
           }
-          finalEnd = destCoord;
-        } else if (allStops.isNotEmpty) {
-          waypoints.addAll(allStops.sublist(0, allStops.length - 1));
-          finalEnd = allStops.last;
-        } else {
-          finalEnd = finalStart;
         }
-      } else if (allStops.length >= 2) {
-        finalStart = allStops.first;
-        waypoints.addAll(allStops.sublist(1, allStops.length - 1));
-        finalEnd = allStops.last;
-      } else if (allStops.length == 1) {
-        finalStart = allStops.first;
-        finalEnd = destCoord ?? allStops.first;
-      } else {
-        throw Exception('No valid stops or destination found to navigate.');
+
+        if (startCoord != null) {
+          finalStart = startCoord;
+          if (destCoord != null) {
+            for (final s in allStops) {
+              if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.2 &&
+                  _haversineKm(destCoord.lat, destCoord.lng, s.lat, s.lng) > 0.2) {
+                waypoints.add(s);
+              }
+            }
+            finalEnd = destCoord;
+          } else if (allStops.isNotEmpty) {
+            waypoints.addAll(allStops.sublist(0, allStops.length - 1));
+            finalEnd = allStops.last;
+          } else {
+            finalEnd = finalStart;
+          }
+        } else if (allStops.length >= 2) {
+          finalStart = allStops.first;
+          waypoints.addAll(allStops.sublist(1, allStops.length - 1));
+          finalEnd = allStops.last;
+        } else if (allStops.length == 1) {
+          finalStart = allStops.first;
+          finalEnd = destCoord ?? allStops.first;
+        } else {
+          throw Exception('No valid stops or destination found to navigate.');
+        }
       }
 
-      final clampedWaypoints = waypoints.length > 20 ? waypoints.sublist(0, 20) : waypoints;
+      final clampedWaypoints = waypoints.length > 23 ? waypoints.sublist(0, 23) : waypoints;
 
       final vehicle = Vehicle(
         type: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
@@ -1864,6 +2085,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       // Draft / Confirmed Status Banner
       _tripStatusBanner(),
       const SizedBox(height: 14),
+      if (_isCalculatingRoute || _routeStatusMessage != null) ...[
+        _routeCalculationBanner(),
+        const SizedBox(height: 14),
+      ],
       if (_showInsufficientPlacesWarning) ...[
         _insufficientPlacesBanner(),
         const SizedBox(height: 14),
@@ -2035,6 +2260,70 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               child: const Text('CONFIRM', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _routeCalculationBanner() {
+    final isUpdating = _isCalculatingRoute;
+    final isSuccess = _routeStatusMessage == 'Route updated';
+    final color = isUpdating
+        ? const Color(0xFF38BDF8)
+        : (isSuccess ? const Color(0xFF10B981) : Colors.orangeAccent);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 1.2),
+      ),
+      child: Row(
+        children: [
+          if (isUpdating)
+            const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF38BDF8)),
+            )
+          else
+            Icon(
+              isSuccess ? Icons.check_circle_rounded : Icons.info_outline_rounded,
+              color: color,
+              size: 18,
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isUpdating
+                  ? 'Calculating route with live road network...'
+                  : (isSuccess
+                      ? 'Route updated (v$_routeVersion • ${_totalRouteKm != null ? "${_totalRouteKm!.toStringAsFixed(0)} km" : "Road synced"})'
+                      : (_routeStatusMessage ?? 'Route status ready')),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniReorderBtn(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Icon(icon, size: 12, color: Colors.white70),
       ),
     );
   }
@@ -2345,6 +2634,30 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             ]),
             const SizedBox(height: 12),
             for (int i = 0; i < day.blocks.length; i++) _blockRow(day, day.blocks[i], i == day.blocks.length - 1),
+            if (!_isConfirmed) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => _promptAddStop(day),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentLight.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.25)),
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_location_alt_rounded, size: 15, color: AppColors.accentLight),
+                      SizedBox(width: 6),
+                      Text('+ Add Place to Day',
+                          style: TextStyle(color: AppColors.accentLight, fontSize: 12, fontWeight: FontWeight.w700)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -2679,7 +2992,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                             _miniDurationBtn('+15m', () => _adjustDuration(day, b, 15)),
                             const SizedBox(width: 8),
                           ],
-                          if (b.type != 'start' && b.type != 'return')
+                          if (b.type != 'start' && b.type != 'return') ...[
+                            _miniReorderBtn(Icons.arrow_upward_rounded, () => _moveStop(day, day.blocks.indexOf(b), -1)),
+                            const SizedBox(width: 4),
+                            _miniReorderBtn(Icons.arrow_downward_rounded, () => _moveStop(day, day.blocks.indexOf(b), 1)),
+                            const SizedBox(width: 8),
                             InkWell(
                               onTap: () => _removeStop(day, b),
                               borderRadius: BorderRadius.circular(6),
@@ -2700,6 +3017,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                                 ),
                               ),
                             ),
+                          ],
                           if (b.openingHours.isNotEmpty) ...[
                             const Spacer(),
                             Row(

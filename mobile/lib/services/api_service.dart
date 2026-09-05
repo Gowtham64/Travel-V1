@@ -1182,7 +1182,11 @@ class ApiService {
   Future<({
     List<SmartDay> days,
     TripBudget? budget,
+    RouteInfo? route,
+    NavigationRoute? navigationRoute,
+    int routeVersion,
     double? totalDistanceKm,
+    int? totalDurationMin,
     String? tripType,
     int? searchRadiusKm,
     int? placesFoundCount,
@@ -1254,7 +1258,15 @@ class ApiService {
         final budget = body['budget'] != null
             ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
             : null;
-        final totalDist = (body['totalDistanceKm'] as num?)?.toDouble();
+        final route = body['route'] != null
+            ? RouteInfo.fromJson((body['route'] as Map).cast<String, dynamic>())
+            : null;
+        final navRoute = body['navigationRoute'] != null
+            ? NavigationRoute.fromJson((body['navigationRoute'] as Map).cast<String, dynamic>())
+            : null;
+        final routeVersion = (body['routeVersion'] as num?)?.toInt() ?? 1;
+        final totalDist = route?.distanceKm ?? (body['totalDistanceKm'] as num?)?.toDouble();
+        final totalDur = route?.durationMin ?? (body['totalDurationMin'] as num?)?.toInt();
         final resTripType = body['tripType']?.toString() ?? 'around';
         final resSearchRadius = (body['searchRadiusKm'] as num?)?.toInt();
         final resPlacesCount = (body['placesFoundCount'] as num?)?.toInt();
@@ -1265,7 +1277,11 @@ class ApiService {
           return (
             days: days,
             budget: budget,
+            route: route,
+            navigationRoute: navRoute,
+            routeVersion: routeVersion,
             totalDistanceKm: totalDist,
+            totalDurationMin: totalDur,
             tripType: resTripType,
             searchRadiusKm: resSearchRadius,
             placesFoundCount: resPlacesCount,
@@ -1293,7 +1309,11 @@ class ApiService {
     return (
       days: fb.days,
       budget: fb.budget,
+      route: null,
+      navigationRoute: null,
+      routeVersion: 1,
       totalDistanceKm: null,
+      totalDurationMin: null,
       tripType: 'around',
       searchRadiusKm: searchRadiusKm,
       placesFoundCount: fb.days.fold(0, (sum, d) => sum + d.blocks.where((b) => b.type == 'activity').length),
@@ -1303,7 +1323,15 @@ class ApiService {
   }
 
   /// Recalculate itinerary on edits (stop removal, reordering, duration adjustment, start time shift).
-  Future<({List<SmartDay> days, TripBudget? budget, double totalDistanceKm})?> recalculateSmartItinerary({
+  Future<({
+    List<SmartDay> days,
+    TripBudget? budget,
+    RouteInfo? route,
+    NavigationRoute? navigationRoute,
+    double totalDistanceKm,
+    int totalDurationMin,
+    int routeVersion,
+  })?> recalculateSmartItinerary({
     required List<SmartDay> days,
     String? startTime,
     String? tripType,
@@ -1313,6 +1341,7 @@ class ApiService {
     double? tankCapacity,
     double? fuelEfficiency,
     int travellers = 1,
+    int routeVersion = 1,
     bool isConfirmed = false,
   }) async {
     try {
@@ -1330,10 +1359,11 @@ class ApiService {
               if (tankCapacity != null) 'tankCapacity': tankCapacity,
               if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
               'travellers': travellers,
+              'routeVersion': routeVersion,
               'isConfirmed': isConfirmed,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1343,11 +1373,87 @@ class ApiService {
         final budget = body['budget'] != null
             ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
             : null;
-        final totalDist = (body['totalDistanceKm'] as num?)?.toDouble() ?? 0.0;
-        return (days: newDays, budget: budget, totalDistanceKm: totalDist);
+        final route = body['route'] != null
+            ? RouteInfo.fromJson((body['route'] as Map).cast<String, dynamic>())
+            : null;
+        final navRoute = body['navigationRoute'] != null
+            ? NavigationRoute.fromJson((body['navigationRoute'] as Map).cast<String, dynamic>())
+            : null;
+        final totalDist = route?.distanceKm ?? ((body['totalDistanceKm'] as num?)?.toDouble() ?? 0.0);
+        final totalDur = route?.durationMin ?? ((body['totalDurationMin'] as num?)?.toInt() ?? 0);
+        final rVer = (body['routeVersion'] as num?)?.toInt() ?? (routeVersion + 1);
+
+        return (
+          days: newDays,
+          budget: budget,
+          route: route,
+          navigationRoute: navRoute,
+          totalDistanceKm: totalDist,
+          totalDurationMin: totalDur,
+          routeVersion: rVer,
+        );
       }
     } catch (_) {}
     return null;
+  }
+
+  /// Authoritative single source of truth for trip route calculation.
+  Future<({
+    RouteInfo route,
+    NavigationRoute navigationRoute,
+    TripBudget? budget,
+    int routeVersion,
+  })> calculateTripRoute({
+    required GeoPoint origin,
+    required GeoPoint destination,
+    List<TimelineBlock> stops = const [],
+    Vehicle? vehicle,
+    String tripType = 'around',
+    int durationDays = 1,
+    int travellers = 1,
+    int routeVersion = 1,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/api/trip/calculate-route'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'origin': origin.toJson(),
+            'destination': destination.toJson(),
+            'stops': stops.map((s) => s.toJson()).toList(),
+            'vehicle': vehicle != null
+                ? {
+                    'type': vehicle.type,
+                    'efficiencyKmPerLiter': vehicle.efficiencyKmPerLiter,
+                    'tankCapacityLiters': vehicle.tankCapacityLiters,
+                    'currentFuelLiters': vehicle.currentFuelLiters,
+                    'fuelType': vehicle.fuelType,
+                  }
+                : {},
+            'tripType': tripType,
+            'durationDays': durationDays,
+            'travellers': travellers,
+            'routeVersion': routeVersion,
+          }),
+        )
+        .timeout(const Duration(seconds: 25));
+
+    if (response.statusCode != 200) {
+      throw ApiException('Route calculation failed (${response.statusCode}): ${response.body}');
+    }
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final route = RouteInfo.fromJson((body['route'] as Map).cast<String, dynamic>());
+    final navRoute = NavigationRoute.fromJson((body['navigationRoute'] as Map).cast<String, dynamic>());
+    final budget = body['budget'] != null ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>()) : null;
+    final rVersion = (body['routeVersion'] as num?)?.toInt() ?? (routeVersion + 1);
+
+    return (
+      route: route,
+      navigationRoute: navRoute,
+      budget: budget,
+      routeVersion: rVersion,
+    );
   }
 
 
