@@ -1053,6 +1053,26 @@ class TripBudget {
       perDay: (json['perDay'] as num?)?.toInt() ?? 0,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'currency': currency,
+    'days': days,
+    'nights': nights,
+    'travellers': travellers,
+    'international': international,
+    'total': total,
+    'perDay': perDay,
+    'breakdown': {
+      'fuel': fuel,
+      'tolls': tolls,
+      'transport': transport,
+      'localTransport': localTransport,
+      'food': food,
+      'stay': stay,
+      'buffer': buffer,
+      'other': other,
+    },
+  };
 }
 
 class DepartureAdvice {

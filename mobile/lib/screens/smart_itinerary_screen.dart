@@ -55,6 +55,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   double? _totalRouteKm;
   RouteInfo? _currentRoute;
   NavigationRoute? _navigationRoute;
+  TripPlan? _authoritativeTripPlan;
   int _routeVersion = 1;
   bool _isCalculatingRoute = false;
   String? _routeStatusMessage;
@@ -277,24 +278,18 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         }
       }
 
-      double totalKm = res.route?.distanceKm ?? 0;
-      if (totalKm <= 0) {
-        for (final d in res.days) {
-          for (final b in d.blocks) {
-            totalKm += (b.distanceKm > 0 ? b.distanceKm : 0);
-          }
-        }
-      }
+      final double? totalKm = res.route?.distanceKm ?? (res.totalDistanceKm != null && res.totalDistanceKm! > 0 ? res.totalDistanceKm : null);
 
       setState(() {
         _itinerary = res.days;
         _budget = res.budget;
         _currentRoute = res.route;
         _navigationRoute = res.navigationRoute;
-        _routeVersion = res.routeVersion ?? 1;
+        _authoritativeTripPlan = res.tripPlan;
+        _routeVersion = res.routeVersion;
         _splitCount = _travellers; // default: split among travellers
         _isConfirmed = false;
-        _totalRouteKm = totalKm > 0 ? totalKm : null;
+        _totalRouteKm = totalKm;
         _routeStatusMessage = null;
         _searchRadiusKm = res.searchRadiusKm ?? _searchRadiusKm;
         _placesFoundCount = res.placesFoundCount;
@@ -615,8 +610,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       if (lat == null || lng == null) {
         try {
           final geo = await _api.geocode(name);
-          lat = geo?.lat;
-          lng = geo?.lng;
+          lat = geo.lat;
+          lng = geo.lng;
         } catch (_) {}
       }
       final newBlock = TimelineBlock(
@@ -664,6 +659,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     setState(() {
       _isCalculatingRoute = true;
       _routeStatusMessage = 'Calculating route...';
+      _totalRouteKm = null; // Invalidate stale distance immediately
+      _currentRoute = null;
+      _navigationRoute = null;
+      _authoritativeTripPlan = null;
     });
     try {
       final res = await _api.recalculateSmartItinerary(
@@ -680,10 +679,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         setState(() {
           _itinerary = res.days;
           if (res.budget != null) _budget = res.budget;
-          _currentRoute = res.route ?? _currentRoute;
-          _navigationRoute = res.navigationRoute ?? _navigationRoute;
-          _routeVersion = res.routeVersion ?? (_routeVersion + 1);
-          _totalRouteKm = res.route?.distanceKm ?? res.totalDistanceKm ?? _totalRouteKm;
+          _currentRoute = res.route;
+          _navigationRoute = res.navigationRoute;
+          _authoritativeTripPlan = res.tripPlan;
+          _routeVersion = res.routeVersion;
+          _totalRouteKm = res.route?.distanceKm ?? (res.totalDistanceKm > 0 ? res.totalDistanceKm : null);
           _routeStatusMessage = 'Route updated';
         });
         _statusMessageTimer?.cancel();
@@ -779,11 +779,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       GeoPoint finalEnd;
       final waypoints = <GeoPoint>[];
 
-      if (_navigationRoute != null &&
-          _navigationRoute!.origin != null &&
-          _navigationRoute!.destination != null) {
-        final orig = _navigationRoute!.origin!;
-        final destObj = _navigationRoute!.destination!;
+      if (_navigationRoute != null) {
+        final orig = _navigationRoute!.origin;
+        final destObj = _navigationRoute!.destination;
         finalStart = GeoPoint(
           lat: orig.lat,
           lng: orig.lng,
@@ -827,11 +825,16 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         for (final d in _itinerary) {
           for (final b in d.blocks) {
             if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
-              allStops.add(GeoPoint(
-                lat: b.lat!,
-                lng: b.lng!,
-                name: b.place.isNotEmpty ? b.place : b.title,
-              ));
+              if (b.type == 'activity' || b.type == 'fuel' || b.type == 'attraction' || b.type == 'destination' || b.categories.contains('destination_center')) {
+                final isDup = allStops.any((s) => _haversineKm(s.lat, s.lng, b.lat!, b.lng!) < 0.1);
+                if (!isDup) {
+                  allStops.add(GeoPoint(
+                    lat: b.lat!,
+                    lng: b.lng!,
+                    name: b.place.isNotEmpty ? b.place : b.title,
+                  ));
+                }
+              }
             }
           }
         }
@@ -873,12 +876,70 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         currentFuelLiters: double.tryParse(_currentFuelCtrl.text.trim()) ?? _vehicle?.tankCapacity ?? 45.0,
       );
 
-      final plan = await _api.planTrip(
-        start: finalStart,
-        end: finalEnd,
-        waypoints: clampedWaypoints,
-        vehicle: vehicle,
-      );
+      // Consume authoritative TripPlan directly to guarantee zero distance/route discrepancy
+      TripPlan plan;
+      if (_authoritativeTripPlan != null) {
+        plan = _authoritativeTripPlan!;
+      } else if (_currentRoute != null) {
+        final totalDist = _currentRoute!.distanceKm;
+        final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+        final fuelLit = totalDist / eff;
+        final fuelCost = _budget?.fuel ?? 0;
+        final tollCost = _budget?.tolls ?? 0;
+        final planJson = <String, dynamic>{
+          'route': {
+            'distanceKm': totalDist,
+            'distanceMeters': _currentRoute!.distanceMeters,
+            'durationMin': _currentRoute!.durationMin,
+            'durationSeconds': _currentRoute!.durationSeconds,
+            'coordinates': _currentRoute!.coordinates.map((c) => c.toJson()).toList(),
+            'avoidedMotorways': _currentRoute!.avoidedMotorways,
+            'legs': _currentRoute!.legs.map((l) => l.toJson()).toList(),
+            'steps': _currentRoute!.steps.map((s) => s.toJson()).toList(),
+            'maneuvers': _currentRoute!.maneuvers,
+            if (_currentRoute!.geometry != null) 'geometry': _currentRoute!.geometry,
+            'provider': _currentRoute!.provider,
+          },
+          'estimatedDays': _days,
+          'fuel': {
+            'needsRefuel': false,
+            'totalDistanceKm': totalDist,
+            'refuelStops': <Map<String, dynamic>>[],
+          },
+          'fuelEstimate': {
+            'requiredLiters': fuelLit,
+            'estimatedFuelCost': fuelCost,
+            'fuelType': vehicle.fuelType,
+            'refuelStopsCount': 0,
+            'totalCost': fuelCost.toDouble(),
+            'vehicleEfficiency': eff,
+          },
+          'toll': {
+            'hasTolls': tollCost > 0,
+            'fastagTollCost': tollCost.toDouble(),
+            'totalTollCost': tollCost.toDouble(),
+            'currency': 'INR',
+          },
+          'budget': _budget?.toJson() ?? {
+            'fuel': fuelCost,
+            'tolls': tollCost,
+            'food': 0,
+            'stay': 0,
+            'activities': 0,
+            'total': fuelCost + tollCost,
+          },
+          'places': <String, dynamic>{},
+          'navigationWaypoints': clampedWaypoints.map((w) => w.toJson()).toList(),
+        };
+        plan = TripPlan.fromJson(planJson);
+      } else {
+        plan = await _api.planTrip(
+          start: finalStart,
+          end: finalEnd,
+          waypoints: clampedWaypoints,
+          vehicle: vehicle,
+        );
+      }
 
       if (!mounted) return;
 

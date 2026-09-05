@@ -1184,6 +1184,7 @@ class ApiService {
     TripBudget? budget,
     RouteInfo? route,
     NavigationRoute? navigationRoute,
+    TripPlan? tripPlan,
     int routeVersion,
     double? totalDistanceKm,
     int? totalDurationMin,
@@ -1264,6 +1265,9 @@ class ApiService {
         final navRoute = body['navigationRoute'] != null
             ? NavigationRoute.fromJson((body['navigationRoute'] as Map).cast<String, dynamic>())
             : null;
+        final tripPlan = body['tripPlan'] != null
+            ? TripPlan.fromJson((body['tripPlan'] as Map).cast<String, dynamic>())
+            : null;
         final routeVersion = (body['routeVersion'] as num?)?.toInt() ?? 1;
         final totalDist = route?.distanceKm ?? (body['totalDistanceKm'] as num?)?.toDouble();
         final totalDur = route?.durationMin ?? (body['totalDurationMin'] as num?)?.toInt();
@@ -1279,6 +1283,7 @@ class ApiService {
             budget: budget,
             route: route,
             navigationRoute: navRoute,
+            tripPlan: tripPlan,
             routeVersion: routeVersion,
             totalDistanceKm: totalDist,
             totalDurationMin: totalDur,
@@ -1311,6 +1316,7 @@ class ApiService {
       budget: fb.budget,
       route: null,
       navigationRoute: null,
+      tripPlan: null,
       routeVersion: 1,
       totalDistanceKm: null,
       totalDurationMin: null,
@@ -1328,6 +1334,7 @@ class ApiService {
     TripBudget? budget,
     RouteInfo? route,
     NavigationRoute? navigationRoute,
+    TripPlan? tripPlan,
     double totalDistanceKm,
     int totalDurationMin,
     int routeVersion,
@@ -1379,6 +1386,9 @@ class ApiService {
         final navRoute = body['navigationRoute'] != null
             ? NavigationRoute.fromJson((body['navigationRoute'] as Map).cast<String, dynamic>())
             : null;
+        final tripPlan = body['tripPlan'] != null
+            ? TripPlan.fromJson((body['tripPlan'] as Map).cast<String, dynamic>())
+            : null;
         final totalDist = route?.distanceKm ?? ((body['totalDistanceKm'] as num?)?.toDouble() ?? 0.0);
         final totalDur = route?.durationMin ?? ((body['totalDurationMin'] as num?)?.toInt() ?? 0);
         final rVer = (body['routeVersion'] as num?)?.toInt() ?? (routeVersion + 1);
@@ -1388,6 +1398,7 @@ class ApiService {
           budget: budget,
           route: route,
           navigationRoute: navRoute,
+          tripPlan: tripPlan,
           totalDistanceKm: totalDist,
           totalDurationMin: totalDur,
           routeVersion: rVer,

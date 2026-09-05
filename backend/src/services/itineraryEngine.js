@@ -133,9 +133,11 @@ async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null)
   if (!query) return null;
 
   const qLower = query.toLowerCase();
-  // 1. Instant check for major cities
+  // 1. Instant check for major cities with word-boundary matching
   for (const [key, cityInfo] of Object.entries(MAJOR_CITIES)) {
-    if (qLower === key || qLower.startsWith(key) || qLower.includes(key)) {
+    const isExact = qLower === key;
+    const isWordMatch = new RegExp(`(^|[\\s,.-])${key}([\\s,.-]|$)`, "i").test(qLower);
+    if (isExact || isWordMatch) {
       return {
         lat: cityInfo.lat,
         lng: cityInfo.lng,
@@ -148,10 +150,11 @@ async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null)
     }
   }
 
-  // 2. Check curated places first for exact or fuzzy match
-  const curatedMatch = curatedPlaces.find(
-    (p) => p.name.toLowerCase() === qLower || qLower.includes(p.name.toLowerCase()) || p.name.toLowerCase().includes(qLower)
-  );
+  // 2. Check curated places first for exact or high-confidence match
+  const curatedMatch = curatedPlaces.find((p) => {
+    const pLower = p.name.toLowerCase();
+    return pLower === qLower || (qLower.length >= 6 && pLower.startsWith(qLower));
+  });
 
   if (curatedMatch) {
     return {
@@ -955,20 +958,26 @@ async function planItinerary(params = {}) {
     const extractedStops = [];
     for (const d of generatedDays) {
       for (const b of d.blocks) {
-        if (b.type !== "start" && b.type !== "return" && b.type !== "travel" && b.lat && b.lng) {
-          extractedStops.push({
-            id: b.id,
-            name: b.place || b.title,
-            lat: b.lat,
-            lng: b.lng,
-            address: b.address || b.place || b.title,
-            type: b.type,
-            sequence: extractedStops.length + 1,
-            durationMin: b.durationMin,
-            stayDuration: b.durationMin,
-            category: b.category,
-            reason: b.reason,
-          });
+        if (
+          b.lat && b.lng &&
+          (b.type === "activity" || b.type === "fuel" || b.type === "attraction" || b.isDestinationAnchor)
+        ) {
+          const isDup = extractedStops.some((prev) => haversineDistanceKm(prev, b) < 0.1);
+          if (!isDup) {
+            extractedStops.push({
+              id: b.id,
+              name: b.place || b.title,
+              lat: b.lat,
+              lng: b.lng,
+              address: b.address || b.place || b.title,
+              type: b.type,
+              sequence: extractedStops.length + 1,
+              durationMin: b.durationMin,
+              stayDuration: b.durationMin,
+              category: b.category,
+              reason: b.reason,
+            });
+          }
         }
       }
     }
@@ -1044,6 +1053,7 @@ async function planItinerary(params = {}) {
     route: authoritativeRouteResult?.route || null,
     budget: authoritativeRouteResult?.budget || null,
     navigationRoute: authoritativeRouteResult?.navigationRoute || null,
+    tripPlan: authoritativeRouteResult?.tripPlan || null,
     routeVersion: 1,
     isConfirmed: false,
     status: "DRAFT",

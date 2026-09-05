@@ -301,6 +301,62 @@ async function calculateTripRoute({
       coordinates: routeResult.coordinates || [],
       geometry: routeResult.geometry,
     },
+    tripPlan: {
+      route: {
+        distanceKm,
+        distanceMeters,
+        durationMin,
+        durationSeconds,
+        coordinates: routeResult.coordinates || [],
+        geometry: routeResult.geometry || {
+          type: "LineString",
+          coordinates: (routeResult.coordinates || []).map((c) => [c.lng, c.lat]),
+        },
+        legs: routeResult.legs || [],
+        steps: routeResult.steps || [],
+        maneuvers: routeResult.maneuvers || [],
+        avoidedMotorways: Boolean(routeResult.avoidedMotorways),
+        provider: routeResult.provider || "authoritative",
+      },
+      estimatedDays: Math.max(1, Number(durationDays) || 1),
+      fuel: {
+        needsRefuel: false,
+        totalDistanceKm: distanceKm,
+        refuelStops: [],
+      },
+      fuelEstimate: {
+        requiredLiters: Math.round((distanceKm / efficiency) * 10) / 10,
+        estimatedFuelCost: budget?.fuel ?? budget?.breakdown?.fuel ?? 0,
+        fuelType: vehicle.fuelType || "petrol",
+        refuelStopsCount: 0,
+      },
+      toll: toll || {
+        hasTolls: (budget?.tolls ?? 0) > 0,
+        fastagTollCost: budget?.tolls ?? 0,
+        totalTollCost: budget?.tolls ?? 0,
+      },
+      weather: {
+        current: { temp: 28, condition: "Clear", humidity: 60 },
+        forecast: [],
+      },
+      departureAdvice: {
+        advice: "Good time to travel. Drive safely!",
+        bestDepartureTime: "06:00 AM",
+      },
+      restStops: [],
+      itinerary: [],
+      budget: {
+        fuel: budget?.fuel ?? budget?.breakdown?.fuel ?? 0,
+        tolls: budget?.tolls ?? budget?.breakdown?.tolls ?? 0,
+        food: budget?.food ?? budget?.breakdown?.food ?? 0,
+        stay: budget?.stay ?? budget?.breakdown?.stay ?? 0,
+        activities: budget?.activities ?? budget?.breakdown?.activities ?? 500,
+        total: budget?.total ?? 0,
+        breakdown: budget?.breakdown || budget,
+      },
+      places: {},
+      navigationWaypoints: navigationWaypoints,
+    },
     routeVersion: Number(routeVersion) || 1,
   };
 

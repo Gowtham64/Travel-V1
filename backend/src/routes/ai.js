@@ -256,6 +256,7 @@ router.post("/smart-itinerary", async (req, res) => {
       budget: planResult.budget || budget,
       route: planResult.route || null,
       navigationRoute: planResult.navigationRoute || null,
+      tripPlan: planResult.tripPlan || null,
       routeVersion: planResult.routeVersion || 1,
       tripType: planResult.tripType || "around",
       startPoint: planResult.startPoint,
@@ -294,12 +295,12 @@ router.post("/recalculate-itinerary", async (req, res) => {
     // Check provided explicit strings or points
     if (b.origin || b.startLocation) {
       try {
-        startPoint = await geocode(b.origin || b.startLocation, "");
+        startPoint = await itineraryEngine.resolveLocation(b.origin || b.startLocation, "Origin");
       } catch (_) {}
     }
     if (b.destination) {
       try {
-        destPoint = await geocode(b.destination, "");
+        destPoint = await itineraryEngine.resolveLocation(b.destination, "Destination", startPoint);
       } catch (_) {}
     }
 
@@ -310,22 +311,33 @@ router.post("/recalculate-itinerary", async (req, res) => {
         if (!startPoint && blk.type === "start" && blk.lat && blk.lng) {
           startPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
         }
-        if (blk.type !== "start" && blk.type !== "return" && blk.type !== "travel" && blk.lat && blk.lng) {
-          intermediateStops.push({
-            id: blk.id,
-            name: blk.place || blk.title,
-            lat: blk.lat,
-            lng: blk.lng,
-            address: blk.address || blk.place || blk.title,
-            type: blk.type,
-            sequence: intermediateStops.length + 1,
-            durationMin: blk.durationMin,
-            stayDuration: blk.durationMin,
-            category: blk.category,
-            reason: blk.reason,
+        if (!destPoint && blk.isDestinationAnchor && blk.lat && blk.lng) {
+          destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+        }
+        // Only extract actual stopovers for routing (not meals/rest/coffee sharing coords)
+        if (
+          blk.lat && blk.lng &&
+          (blk.type === "activity" || blk.type === "fuel" || blk.type === "attraction" || blk.isDestinationAnchor)
+        ) {
+          const isDup = intermediateStops.some((prev) => {
+            const dLat = (prev.lat - blk.lat) * 111;
+            const dLng = (prev.lng - blk.lng) * 111 * Math.cos((blk.lat * Math.PI) / 180);
+            return Math.sqrt(dLat * dLat + dLng * dLng) < 0.1;
           });
-          if (!destPoint) {
-            destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+          if (!isDup) {
+            intermediateStops.push({
+              id: blk.id,
+              name: blk.place || blk.title,
+              lat: blk.lat,
+              lng: blk.lng,
+              address: blk.address || blk.place || blk.title,
+              type: blk.type,
+              sequence: intermediateStops.length + 1,
+              durationMin: blk.durationMin,
+              stayDuration: blk.durationMin,
+              category: blk.category,
+              reason: blk.reason,
+            });
           }
         }
       }
@@ -335,7 +347,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
       startPoint = { lat: intermediateStops[0].lat, lng: intermediateStops[0].lng, name: intermediateStops[0].name };
     }
     if (!destPoint) {
-      destPoint = startPoint;
+      destPoint = intermediateStops.length > 0 ? intermediateStops[intermediateStops.length - 1] : startPoint;
     }
 
     // 2. Authoritative Route Calculation
@@ -443,6 +455,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
       days,
       route: routeCalc?.route || null,
       navigationRoute: routeCalc?.navigationRoute || null,
+      tripPlan: routeCalc?.tripPlan || null,
       totalDistanceKm: authoritativeDistanceKm,
       totalDurationMin: authoritativeDurationMin,
       budget,

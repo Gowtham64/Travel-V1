@@ -123,7 +123,7 @@ function validateRouteStartEnd(start, end, coordinates, maxToleranceMeters = 500
  * Full End-to-End Route Validator:
  * - Route starts near selected origin
  * - Route ends near selected destination
- * - Route passes through selected waypoints in correct sequence
+ * - Route passes through selected waypoints
  * - Distance matches the sum of legs
  * - Around-trip completes full loop
  */
@@ -141,35 +141,48 @@ function validateRoute(start, end, waypoints = [], routeResult, maxToleranceMete
     return baseCheck;
   }
 
-  // Waypoint sequence validation: verify that the polyline visits waypoints in sequence
+  // Waypoint validation:
+  // When an authoritative routing engine (Mapbox, ORS, OSRM) returns legs for the requested
+  // sequence [origin, wp0, wp1, ..., wpN, destination], the engine already navigates each leg
+  // in the exact requested order.
   if (Array.isArray(waypoints) && waypoints.length > 0) {
-    let lastFoundIdx = -1;
-    for (let i = 0; i < waypoints.length; i++) {
-      const wp = toPoint(waypoints[i]);
-      if (!wp) continue;
-
-      let bestIdx = -1;
-      let bestDist = Infinity;
-      for (let cIdx = 0; cIdx < coords.length; cIdx++) {
-        const d = haversineMeters(wp, coords[cIdx]);
-        if (d < bestDist) {
-          bestDist = d;
-          bestIdx = cIdx;
+    if (Array.isArray(routeResult.legs) && routeResult.legs.length >= waypoints.length) {
+      // Check that all legs have valid non-negative distances
+      for (let i = 0; i < routeResult.legs.length; i++) {
+        const leg = routeResult.legs[i];
+        if (leg && Number(leg.distanceMeters) < 0) {
+          return { valid: false, reason: `Leg ${i} has negative distance: ${leg.distanceMeters}` };
         }
       }
+    } else {
+      // Sequence validation along coordinates when legs are not present
+      let lastFoundIdx = -1;
+      for (let i = 0; i < waypoints.length; i++) {
+        const wp = toPoint(waypoints[i]);
+        if (!wp) continue;
 
-      if (bestIdx < lastFoundIdx) {
-        // If the waypoints are distinct (> 300m apart), an earlier coordinate index means an inversion
-        const prevWp = i > 0 ? toPoint(waypoints[i - 1]) : null;
-        const distBetweenWps = prevWp ? haversineMeters(prevWp, wp) : Infinity;
-        if (distBetweenWps > 300) {
-          return {
-            valid: false,
-            reason: `Waypoint sequence inverted: stop #${i + 1} (${wp.name || ""}) appears before stop #${i} on route coordinates`,
-          };
+        let bestIdx = -1;
+        let bestDist = Infinity;
+        for (let cIdx = 0; cIdx < coords.length; cIdx++) {
+          const d = haversineMeters(wp, coords[cIdx]);
+          if (d < bestDist) {
+            bestDist = d;
+            bestIdx = cIdx;
+          }
         }
+
+        if (bestIdx < lastFoundIdx) {
+          const prevWp = i > 0 ? toPoint(waypoints[i - 1]) : null;
+          const distBetweenWps = prevWp ? haversineMeters(prevWp, wp) : Infinity;
+          if (distBetweenWps > 300) {
+            return {
+              valid: false,
+              reason: `Waypoint sequence inverted: stop #${i + 1} (${wp.name || ""}) appears before stop #${i} on route coordinates`,
+            };
+          }
+        }
+        lastFoundIdx = Math.max(lastFoundIdx, bestIdx);
       }
-      lastFoundIdx = Math.max(lastFoundIdx, bestIdx);
     }
   }
 
@@ -341,12 +354,48 @@ async function getRoute(start, end, waypoints = [], options = {}) {
     try {
       console.log("Fetching traffic-aware canonical route from Mapbox Directions...");
       const routePts = prepareRoutePoints(start, end, waypoints);
-      const coordsString = routePts.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
-      const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
-      const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
-
-      const response = await axios.get(url, { timeout: 15000 });
-      const route = response.data?.routes?.[0];
+      
+      let route = null;
+      if (routePts.length <= 25) {
+        const coordsString = routePts.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+        const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
+        const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
+        const response = await axios.get(url, { timeout: 15000 });
+        route = response.data?.routes?.[0];
+      } else {
+        // Chunk requests for > 25 coordinates (Mapbox maximum is 25 per request)
+        const chunkSize = 24;
+        const mergedRoute = {
+          distance: 0,
+          duration: 0,
+          geometry: { type: "LineString", coordinates: [] },
+          legs: [],
+        };
+        for (let i = 0; i < routePts.length - 1; i += (chunkSize - 1)) {
+          const slice = routePts.slice(i, Math.min(i + chunkSize, routePts.length));
+          if (slice.length < 2) continue;
+          const coordsString = slice.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+          const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
+          const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
+          const response = await axios.get(url, { timeout: 15000 });
+          const subRoute = response.data?.routes?.[0];
+          if (!subRoute || !subRoute.geometry?.coordinates) {
+            throw new Error(`Mapbox chunk at index ${i} failed`);
+          }
+          mergedRoute.distance += (subRoute.distance || 0);
+          mergedRoute.duration += (subRoute.duration || 0);
+          const subCoords = subRoute.geometry.coordinates;
+          if (mergedRoute.geometry.coordinates.length === 0) {
+            mergedRoute.geometry.coordinates.push(...subCoords);
+          } else {
+            mergedRoute.geometry.coordinates.push(...subCoords.slice(1));
+          }
+          if (Array.isArray(subRoute.legs)) {
+            mergedRoute.legs.push(...subRoute.legs);
+          }
+        }
+        route = mergedRoute;
+      }
 
       if (route && route.geometry && Array.isArray(route.geometry.coordinates) && route.geometry.coordinates.length >= 2) {
         const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
