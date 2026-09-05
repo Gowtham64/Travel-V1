@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/app/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+
+  <!-- Google Analytics (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-F8JKP99Q44"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    // send_page_view:false — the Flutter SPA sends page_view on route changes
+    // itself (see the pushState/replaceState hook below), so we avoid double-
+    // counting the initial load.
+    gtag('config', 'G-F8JKP99Q44', { send_page_view: true });
+    // Track in-app navigations (Flutter router uses history pushState) as GA
+    // page_views so you see which screens are used, not just the first load.
+    (function () {
+      function trackPage() {
+        gtag('event', 'page_view', {
+          page_path: location.pathname + location.hash,
+          page_location: location.href,
+          page_title: document.title,
+        });
+      }
+      ['pushState', 'replaceState'].forEach(function (m) {
+        var orig = history[m];
+        history[m] = function () {
+          var r = orig.apply(this, arguments);
+          trackPage();
+          return r;
+        };
+      });
+      window.addEventListener('popstate', trackPage);
+      window.addEventListener('hashchange', trackPage);
+    })();
+  </script>
+  <!-- Force the browser to revalidate this HTML so inline map JS updates land. -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="description" content="Voyplan — plan the whole road trip: route, stops, tolls, fuel, weather, and live navigation.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Voyplan">
+  <meta name="theme-color" content="#2E75B6">
+  <!-- Favicon & Touch Icons -->
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48x48.png"/>
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png"/>
+  <link rel="icon" type="image/png" sizes="512x512" href="favicon.png"/>
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+
+  <title>Voyplan</title>
+  <link rel="manifest" href="manifest.json">
+  <style>
+    @keyframes ripple {
+      0% {
+        transform: scale(0.6);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.8);
+        opacity: 0;
+      }
+    }
+    .pulsing-ring {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2.5px solid #2E75B6;
+      background-color: rgba(46, 117, 182, 0.25);
+      animation: ripple 1.2s infinite ease-out;
+      pointer-events: none;
+      left: 0px;
+      top: 0px;
+    }
+    .vehicle-emoji-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      font-size: 24px;
+      line-height: 1;
+    }
+    @keyframes wobble-bounce {
+      0% { transform: translateY(0px) rotate(0deg); }
+      25% { transform: translateY(-3px) rotate(-3deg); }
+      50% { transform: translateY(0px) rotate(0deg); }
+      75% { transform: translateY(-3px) rotate(3deg); }
+      100% { transform: translateY(0px) rotate(0deg); }
+    }
+    .driving-wobble {
+      animation: wobble-bounce 0.4s infinite linear;
+      transform-origin: center bottom;
+    }
+  </style>
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css" rel="stylesheet" />
+  <!-- SunCalc: real sun/moon position and moon phase for the globe -->
+  <script src="https://cdn.jsdelivr.net/npm/suncalc@1.9.0/suncalc.min.js"></script>
+  <!-- Three.js: renders a real 3D vehicle (built from primitives at real-world
+       metre dimensions) on the Mapbox v3 map via a native custom layer. -->
+  <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+  <!-- GLTFLoader + DRACOLoader: load real (incl. Draco-compressed) .glb vehicle
+       models into the Three.js custom layer. -->
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+  <script>
+    // Hidden build marker (not displayed) — lets a curl/automated check confirm
+    // which index.html build the CDN is serving. The quoted token is stamped by
+    // deploy_web.sh.
+    window.__BUILD_NO = '1788598942';
+    window.DRACO_DECODER_PATH = 'https://unpkg.com/three@0.128.0/examples/js/libs/draco/gltf/';
+    // Real 3D vehicle models per type (glTF-Binary, CORS-enabled, verified to
+    // render via the Three.js custom layer). A sports car for car/SUV, the
+    // Cesium truck for large vehicles. `null` → procedural box mesh (motorcycle).
+    const FERRARI = 'https://raw.githubusercontent.com/mrdoob/three.js/r128/examples/models/gltf/ferrari.glb';
+    const TRUCK   = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb';
+    // `null` → built procedurally (two-wheelers: motorcycle = bike, scooter =
+    // step-through) so no external model dependency for bikes/scooters.
+    window.VEHICLE_MODEL_GLB = {
+      car: FERRARI, suv: FERRARI, motorcycle: null, scooter: null,
+      bus: TRUCK, rv: TRUCK, truck2axle: TRUCK, truck3axle: TRUCK
+    };
+    // Per-type render exaggeration (model metres × factor) so each reads at the
+    // right relative size at nav zoom. Two-wheelers use a larger factor because
+    // their base mesh is physically small.
+    window.VEHICLE_MODEL_SCALE = {
+      car: 14, suv: 16.5, motorcycle: 7, scooter: 7,
+      bus: 7.5, rv: 6.5, truck2axle: 6.5, truck3axle: 8
+    };
+    // Per-model yaw correction (radians) so the nose points along travel. Ferrari
+    // and the truck use different forward axes; tuned by on-map screenshot test.
+    window.VEHICLE_MODEL_YAW = {
+      car: 0, suv: 0, motorcycle: 0, scooter: 0,
+      bus: 0, rv: 0, truck2axle: 0, truck3axle: 0
+    };
+  </script>
+  <script>
+    // Approximate real-world size (metres) + colour per vehicle type. The model
+    // is built at these dimensions and scaled via meterInMercatorCoordinateUnits,
+    // so it is always the correct physical size (then exaggerated for visibility).
+    window.VEHICLE_3D_SPECS = {
+      car:        { len: 4.4, wid: 1.9, hgt: 1.5, color: 0x2E75B6 },
+      suv:        { len: 4.8, wid: 2.0, hgt: 1.8, color: 0x1B5E20 },
+      motorcycle: { len: 2.1, wid: 0.8, hgt: 1.2, color: 0xB71C1C },
+      bus:        { len: 11.0, wid: 2.5, hgt: 3.2, color: 0xF9A825 },
+      rv:         { len: 7.0, wid: 2.4, hgt: 3.0, color: 0xECEFF1 },
+      truck2axle: { len: 8.0, wid: 2.5, hgt: 3.2, color: 0x455A64 },
+      truck3axle: { len: 12.0, wid: 2.6, hgt: 3.4, color: 0x37474F },
+    };
+    function getVehicle3DSpec(type) {
+      return window.VEHICLE_3D_SPECS[(type || '').toLowerCase()] || window.VEHICLE_3D_SPECS.car;
+    }
+  </script>
+  <script>
+    function getVehicleEmoji(type) {
+      switch ((type || '').toLowerCase()) {
+        case 'car': return '🚗';
+        case 'suv': return '🚙';
+        case 'motorcycle': return '🏍️';
+        case 'bus': return '🚌';
+        case 'rv': return '🚐';
+        case 'truck2axle': return '🚚';
+        case 'truck3axle': return '🚛';
+        default: return '🚗';
+      }
+    }
+
+    function getVehicleMarkerHTML(type) {
+      return `
+        <div class="nav-symbol-container" style="width: 52px; height: 52px; position: relative; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <div class="pulsing-ring" style="position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid #0EA5E9; background-color: rgba(14, 165, 233, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none;"></div>
+          <div class="nav-puck-disc" style="position: relative; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; border: 2.5px solid #0EA5E9; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45), 0 2px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="display: block; transform: rotate(0deg); transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);">
+              <path d="M12 2.5L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2.5Z" fill="#0EA5E9" stroke="#0284C7" stroke-width="1.2" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+      `;
+    }
+
+    // ---- Trip Planner preview globe (Earth in space) ----
+    window.initPlannerGlobe = function(containerId, accessToken) {
+      mapboxgl.accessToken = accessToken || 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+      const map = new mapboxgl.Map({
+        container: containerId,
+        style: 'mapbox://styles/mapbox/standard',
+        projection: 'globe',
+        center: [78.9629, 22.0],
+        zoom: 1.4,
+        pitch: 0,
+        bearing: 0,
+        antialias: true,
+        interactive: false // decorative preview: no scroll-zoom / drag hijacking
+      });
+      window.plannerGlobe = map;
+      window.plannerGlobeSpin = true;
+      window.plannerGlobeMarker = null;
+
+      map.on('style.load', () => {
+        // Offset the center right so the globe is centered in the visible area
+        // (the floating control panel covers the left ~460px).
+        try { map.setPadding({ top: 0, right: 0, bottom: 0, left: 460 }); } catch (e) {}
+        // Apply real-time sun/moon lighting + sky bodies, refresh each minute.
+        window.updatePlannerCelestial();
+        if (window.__celestialTimer) clearInterval(window.__celestialTimer);
+        window.__celestialTimer = setInterval(window.updatePlannerCelestial, 60000);
+      });
+
+      // Gentle continuous rotation while idle (stops on interaction / fly-in).
+      function spinGlobe() {
+        if (!window.plannerGlobe || !window.plannerGlobeSpin) return;
+        if (map.getZoom() > 5) return;
+        const c = map.getCenter();
+        c.lng -= 3.0;
+        map.easeTo({ center: c, duration: 1000, easing: (n) => n });
+      }
+      map.on('moveend', () => {
+        if (window.plannerGlobeSpin) setTimeout(spinGlobe, 5);
+      });
+      const stopSpin = () => { window.plannerGlobeSpin = false; };
+      map.on('mousedown', stopSpin);
+      map.on('touchstart', stopSpin);
+      map.on('wheel', stopSpin);
+      setTimeout(spinGlobe, 1200);
+    };
+
+    // Fly the preview globe down from space to a chosen start location.
+    window.plannerGlobeFlyTo = function(lng, lat) {
+      const map = window.plannerGlobe;
+      if (!map) return;
+      window.plannerGlobeSpin = false;
+      if (window.plannerGlobeMarker) window.plannerGlobeMarker.remove();
+      window.plannerGlobeMarker = new mapboxgl.Marker({ color: '#2ecc71' })
+        .setLngLat([lng, lat])
+        .addTo(map);
+      map.flyTo({
+        center: [lng, lat],
+        zoom: 11,
+        pitch: 45,
+        bearing: 0,
+        duration: 4200,
+        curve: 1.7,
+        essential: true
+      });
+      // Immediately apply the day/night effect for the destination, and again
+      // once the camera settles there.
+      window.updatePlannerCelestial(lat, lng);
+      map.once('moveend', () => window.updatePlannerCelestial(lat, lng));
+    };
+
+    // Apply real-time sun/moon: day-night lighting on the globe, a sun sprite
+    // while the sun is up, and a moon sprite drawn with its real current phase.
+    window.updatePlannerCelestial = function(atLat, atLng) {
+      const map = window.plannerGlobe;
+      if (!map || typeof SunCalc === 'undefined') return;
+
+      // Use the place currently in view (or an explicit target during a fly-in)
+      // so the day/night effect matches real local time at THAT location.
+      // While idle at globe zoom the view is spinning, so anchor to a fixed
+      // reference point instead of the moving center to avoid flip-flopping.
+      const c = map.getCenter();
+      let lat, lng;
+      if (typeof atLat === 'number') {
+        lat = atLat; lng = atLng;
+      } else if (map.getZoom() < 5) {
+        lat = 22.0; lng = 78.9629; // India anchor for the idle globe
+      } else {
+        lat = c.lat; lng = c.lng;
+      }
+      const now = new Date();
+      const sun = SunCalc.getPosition(now, lat, lng);
+      const sunAlt = sun.altitude * 180 / Math.PI;      // degrees above horizon at that place
+      // Sun-based local morning/evening (independent of the browser timezone).
+      const times = SunCalc.getTimes(now, lat, lng);
+      const beforeNoon = now < times.solarNoon;
+
+      // Time-of-day preset + starfield strength for the real sun altitude there.
+      let preset, star, space;
+      if (sunAlt > 6) { preset = 'day'; star = 0.1; space = 'rgb(22, 28, 58)'; }
+      else if (sunAlt > -6) { preset = beforeNoon ? 'dawn' : 'dusk'; star = 0.55; space = 'rgb(12, 14, 34)'; }
+      else { preset = 'night'; star = 0.95; space = 'rgb(6, 8, 20)'; }
+
+      try {
+        map.setConfigProperty('basemap', 'lightPreset', preset);
+      } catch (e) { console.warn('lightPreset failed', e); }
+      try {
+        map.setFog({
+          'color': 'rgb(186, 210, 235)',
+          'high-color': 'rgb(36, 92, 223)',
+          'horizon-blend': 0.02,
+          'space-color': space,
+          'star-intensity': star
+        });
+      } catch (e) {}
+
+      // Sky overlay with the sun sprite (created once, updated after).
+      const el = map.getContainer();
+      let layer = el.querySelector('.pg-sky');
+      if (!layer) {
+        layer = document.createElement('div');
+        layer.className = 'pg-sky';
+        layer.style.cssText = 'position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:3;';
+        const sunEl = document.createElement('div'); sunEl.className = 'pg-sun'; layer.appendChild(sunEl);
+        el.appendChild(layer);
+      }
+      const sunEl = layer.querySelector('.pg-sun');
+
+      // Sun — visible while up (with soft twilight fade near the horizon).
+      const sunUp = sunAlt > -2;
+      sunEl.style.cssText =
+        'position:absolute; right:15%; top:11%; width:96px; height:96px; border-radius:50%;' +
+        'background: radial-gradient(circle at 50% 50%, #fff7d8 0%, #ffd257 46%, rgba(255,180,60,0) 72%);' +
+        'filter: drop-shadow(0 0 34px rgba(255,205,90,0.85));' +
+        'opacity:' + (sunUp ? 1 : 0) + '; transition:opacity 1.5s;';
+    };
+
+    window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType, fuelStopsJson) {
+      const routePoints = JSON.parse(routeJson);
+      const waypoints = JSON.parse(waypointsJson);
+      const pois = JSON.parse(poisJson);
+      const fuelStops = fuelStopsJson ? JSON.parse(fuelStopsJson) : [];
+
+      window.currentRoutePoints = routePoints;
+      window.mapboxMarkers = [];
+      window.fuelStopMarkers = [];
+      window.animatedRouteCoords = [];
+
+      mapboxgl.accessToken = accessToken || 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+
+      const map = new mapboxgl.Map({
+        container: containerId,
+        style: styleUrl,
+        // Mercator (not globe) so the custom 3D vehicle layer renders correctly.
+        projection: 'mercator',
+        center: routePoints.length > 0 ? routePoints[0] : [78.9629, 20.5937],
+        zoom: routePoints.length > 0 ? 13.5 : 5,
+        pitch: 55,
+        bearing: -18,
+        antialias: true
+      });
+
+      // Track the map by container so it can be torn down when the Flutter
+      // widget is disposed — otherwise each preview leaks a live map + render
+      // loop, and several running at once make the animation stutter.
+      window.__maps = window.__maps || {};
+      // Remove any prior map that was left in this same container.
+      if (window.__maps[containerId]) {
+        try { window.__maps[containerId].remove(); } catch (e) {}
+      }
+      window.__maps[containerId] = map;
+
+      map.on('style.load', () => {
+        // Bright day lighting to match the cinematic reference navigation view.
+        try { map.setConfigProperty('basemap', 'lightPreset', 'day'); } catch (e) {}
+
+        // Atmospheric depth: a light sky + horizon haze so the 3D scene reads
+        // with real distance falloff (a subtle but genuine 3D effect).
+        try {
+          map.setFog({
+            'range': [1.0, 12.0],
+            'color': 'rgb(220, 232, 245)',
+            'high-color': 'rgb(150, 190, 235)',
+            'horizon-blend': 0.12,
+            'space-color': 'rgb(190, 215, 240)',
+            'star-intensity': 0.0
+          });
+        } catch (e) {}
+
+        // The Mapbox Standard style already ships 3D buildings + terrain, so the
+        // manual layers below are only needed on classic styles. Guard them so
+        // they degrade gracefully on Standard (where 'composite' isn't exposed).
+        // NOTE: no exaggerated DEM terrain here. The 3D vehicle model is placed
+        // at altitude 0 (sea level); with terrain on, high-elevation cities like
+        // Bangalore (~920m × 1.8 exaggeration) push the ground far above the car,
+        // burying it underground. Flat ground keeps the vehicle on the surface.
+        // (Mapbox Standard still renders 3D buildings without a DEM.)
+        try { map.setTerrain(null); } catch (e) {}
+
+        try {
+          const layers = map.getStyle().layers;
+          const labelLayerId = layers.find(
+            (layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']
+          )?.id;
+          if (map.getSource('composite')) {
+            map.addLayer(
+              {
+                'id': 'add-3d-buildings',
+                'source': 'composite',
+                'source-layer': 'building',
+                'filter': ['==', 'extrude', 'true'],
+                'type': 'fill-extrusion',
+                'minzoom': 14,
+                'paint': {
+                  'fill-extrusion-color': '#d6dae2',
+                  'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'height']],
+                  'fill-extrusion-base': ['interpolate', ['linear'], ['zoom'], 14, 0, 15.05, ['get', 'min_height']],
+                  'fill-extrusion-opacity': 0.85
+                }
+              },
+              labelLayerId
+            );
+          }
+        } catch (e) {}
+        // Navigation symbol is displayed via the map marker
+      });
+
+      // Add route polyline
+      map.on('load', () => {
+        // Gentle intro: ease from the overview down to the route start.
+        if (routePoints.length > 0 && !window.__navIntroDone) {
+          window.__navIntroDone = true;
+          setTimeout(() => {
+            map.flyTo({
+              center: routePoints[0],
+              zoom: 15,
+              pitch: 60,
+              bearing: -18,
+              duration: 3200,
+              essential: true,
+              curve: 1.5
+            });
+          }, 600);
+        }
+
+        map.addSource('route', {
+          'type': 'geojson',
+          'data': {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': routePoints
+            }
+          }
+        });
+
+        // White casing beneath, so the route reads as a highlighted lane.
+        // slot:'top' keeps it above the Standard style's own road layers.
+        map.addLayer({
+          'id': 'route-casing',
+          'type': 'line',
+          'source': 'route',
+          'slot': 'top',
+          'layout': { 'line-join': 'round', 'line-cap': 'round' },
+          'paint': {
+            'line-color': '#ffffff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 7, 17, 18],
+            'line-opacity': 0.95
+          }
+        });
+
+        map.addLayer({
+          'id': 'route-line',
+          'type': 'line',
+          'source': 'route',
+          'slot': 'top',
+          'layout': {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          'paint': {
+            'line-color': '#1a73e8',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 10, 5, 17, 12],
+            'line-opacity': 1.0
+          }
+        });
+
+        // Traveled route behind (grayed out)
+        map.addSource('traveled', {
+          'type': 'geojson',
+          'data': {
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': []
+            }
+          }
+        });
+
+        map.addLayer({
+          'id': 'traveled-line',
+          'type': 'line',
+          'source': 'traveled',
+          'layout': {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          'paint': {
+            'line-color': '#a0a0a0',
+            'line-width': 5,
+            'line-opacity': 0.5
+          }
+        });
+      });
+
+      // Start Marker (always on map)
+      if (routePoints.length > 0) {
+        new mapboxgl.Marker({ color: '#2ecc71' })
+          .setLngLat(routePoints[0])
+          .setPopup(new mapboxgl.Popup().setHTML(`<h4>Start Location</h4>`))
+          .addTo(map);
+      }
+
+      // End Destination Marker (shows dynamically when reached)
+      if (routePoints.length > 1) {
+        const endMarker = new mapboxgl.Marker({ color: '#e74c3c' })
+          .setLngLat(routePoints[routePoints.length - 1])
+          .setPopup(new mapboxgl.Popup().setHTML(`<h4>End Destination</h4>`));
+        endMarker.closestRouteIdx = routePoints.length - 2;
+        window.mapboxMarkers.push(endMarker);
+      }
+
+      // Waypoints (show dynamically as vehicle passes)
+      waypoints.forEach((wp, index) => {
+        // Find closest route index
+        let closestIdx = 0;
+        let minDist = Infinity;
+        routePoints.forEach((p, rIdx) => {
+          const dist = Math.pow(p[0] - wp.lng, 2) + Math.pow(p[1] - wp.lat, 2);
+          if (dist < minDist) {
+            minDist = dist;
+            closestIdx = rIdx;
+          }
+        });
+
+        const marker = new mapboxgl.Marker({ color: '#2E75B6' })
+          .setLngLat([wp.lng, wp.lat])
+          .setPopup(new mapboxgl.Popup().setHTML(`<h4>Stop ${index + 1}</h4><p>${wp.name || ''}</p>`));
+        marker.closestRouteIdx = closestIdx;
+        window.mapboxMarkers.push(marker);
+      });
+
+      // POI Markers
+      pois.forEach((poi) => {
+        const el = document.createElement('div');
+        el.className = 'poi-marker';
+        el.style.backgroundColor = getPoiColor(poi.category);
+        el.style.width = '12px';
+        el.style.height = '12px';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+        el.style.cursor = 'pointer';
+
+        const popupHTML = `
+          <div style="font-family: sans-serif; padding: 4px;">
+            <h4 style="margin: 0 0 6px 0; color: #333;">${poi.name}</h4>
+            <p style="margin: 0 0 8px 0; font-size: 11px; color: #666;">${poi.address || 'Address not loaded'}</p>
+            <button onclick="window.addWaypointFrom3D('${poi.name.replace(/'/g, "\\'")}', ${poi.lat}, ${poi.lng})" 
+                    style="background: #2E75B6; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-weight: bold; width: 100%;">
+              Add Stop
+            </button>
+          </div>
+        `;
+
+        new mapboxgl.Marker(el)
+          .setLngLat([poi.lng, poi.lat])
+          .setPopup(new mapboxgl.Popup({ offset: 10 }).setHTML(popupHTML))
+          .addTo(map);
+      });
+
+      // Automatically generated Fuel Stop Markers (always visible on navigation map)
+      window.__renderFuelStopMarkers = function(stops) {
+        if (!stops || !Array.isArray(stops)) return;
+        if (window.fuelStopMarkers) {
+          window.fuelStopMarkers.forEach(m => m.remove());
+        }
+        window.fuelStopMarkers = [];
+        const seenIds = new Set();
+
+        stops.forEach((stop, index) => {
+          const lat = Number(stop.lat ?? stop.latitude);
+          const lng = Number(stop.lng ?? stop.longitude);
+          if (isNaN(lat) || isNaN(lng)) return;
+
+          const stopKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+          if (seenIds.has(stopKey)) return;
+          seenIds.add(stopKey);
+
+          console.log(`[FUEL] Marker rendered: ${stop.name || 'Fuel Station'} (${lat}, ${lng})`);
+
+          const el = document.createElement('div');
+          el.className = 'fuel-stop-marker';
+          el.style.width = '38px';
+          el.style.height = '38px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = '#f59e0b'; // Vibrant Amber
+          el.style.border = '3px solid #ffffff';
+          el.style.boxShadow = '0 0 16px rgba(245, 158, 11, 0.8), 0 4px 10px rgba(0,0,0,0.4)';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.style.fontSize = '20px';
+          el.style.zIndex = '15';
+          el.innerHTML = '⛽';
+
+          const reqLiters = stop.refillLiters ?? stop.estimatedFuelRequired;
+          const topUpText = reqLiters ? `Top-up: <b>~${Number(reqLiters).toFixed(1)} L</b>` : 'Refuel Stop';
+          const costText = stop.estimatedCost ? ` · <b>${stop.currencySymbol || '₹'}${Math.round(stop.estimatedCost)}</b>` : '';
+
+          const popupHTML = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 6px; min-width: 190px;">
+              <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 13px; color: #d97706; margin-bottom: 4px;">
+                <span>⛽</span> <span>Fuel Station</span>
+              </div>
+              <div style="font-weight: 700; font-size: 13px; color: #111; margin-bottom: 4px;">${stop.name || 'Fuel Station'}</div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">Fuel Type: <b style="text-transform: capitalize;">${stop.fuelType || 'petrol'}</b></div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">${topUpText}${costText}</div>
+              ${stop.distanceFromStartKm ? `<div style="font-size: 11px; color: #666; margin-bottom: 2px;">Route progression: <b>${Number(stop.distanceFromStartKm).toFixed(1)} km</b></div>` : ''}
+              ${stop.offRouteKm && Number(stop.offRouteKm) >= 0.1 ? `<div style="font-size: 11px; color: #666; margin-bottom: 4px;">Detour: <b>${Number(stop.offRouteKm).toFixed(1)} km off route</b></div>` : ''}
+              <div style="margin-top: 6px; padding: 4px 8px; background: #ecfdf5; border: 1px solid #10b981; border-radius: 4px; font-size: 11px; color: #059669; font-weight: 600; text-align: center;">
+                ✓ Active Navigation Waypoint
+              </div>
+            </div>
+          `;
+
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([lng, lat])
+            .setPopup(new mapboxgl.Popup({ offset: 20 }).setHTML(popupHTML))
+            .addTo(map);
+
+          window.fuelStopMarkers.push(marker);
+        });
+      };
+
+      // Initial rendering of fuel stops
+      window.__renderFuelStopMarkers(fuelStops);
+
+      function getPoiColor(category) {
+        switch (category) {
+          case 'fuel': return '#FF9800';
+          case 'hotel': return '#9C27B0';
+          case 'restaurant': return '#795548';
+          case 'attraction': return '#009688';
+          case 'hills': return '#4CAF50';
+          case 'temple': return '#FF5722';
+          case 'lake': return '#2196F3';
+          case 'river': return '#03A9F4';
+          case 'viewpoint': return '#3F51B5';
+          default: return '#9E9E9E';
+        }
+      }
+      function spawnSmokeParticle(parentEl) {
+        const particle = document.createElement('div');
+        particle.style.position = 'absolute';
+        particle.style.width = '4px';
+        particle.style.height = '4px';
+        particle.style.borderRadius = '50%';
+        particle.style.backgroundColor = 'rgba(180, 180, 180, 0.7)';
+        particle.style.left = '26px'; // positioned near rear exhaust
+        particle.style.top = '22px';
+        particle.style.pointerEvents = 'none';
+        particle.style.transition = 'all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1)';
+        
+        parentEl.appendChild(particle);
+        
+        const vx = 12 + Math.random() * 12;
+        const vy = 4 + Math.random() * 8;
+        const finalSize = 10 + Math.random() * 8;
+        
+        setTimeout(() => {
+          particle.style.transform = `translate(${vx}px, ${vy}px)`;
+          particle.style.width = finalSize + 'px';
+          particle.style.height = finalSize + 'px';
+          particle.style.opacity = '0';
+        }, 20);
+        
+        setTimeout(() => {
+          particle.remove();
+        }, 500);
+      }
+
+      // Create navigation symbol marker (hidden initially at 0, 0)
+      const navEl = document.createElement('div');
+      navEl.id = 'vehicle-marker';
+      navEl.style.width = '48px';
+      navEl.style.height = '48px';
+      navEl.style.position = 'relative';
+      navEl.style.transition = 'transform 0.1s linear';
+      navEl.innerHTML = getVehicleMarkerHTML(vehicleType);
+
+      // Sits upright facing camera and turns accurately with the heading
+      const vehicleMarker = new mapboxgl.Marker({
+        element: navEl,
+        rotationAlignment: 'map',
+        pitchAlignment: 'viewport'
+      })
+      .setLngLat([0, 0])
+      .addTo(map);
+
+      // Track user gesture on map for camera exploration mode
+      window.mapboxUserExploring = false;
+      const notifyExplore = () => {
+        window.mapboxUserExploring = true;
+        if (typeof window.onMapbox3DUserExplore === 'function') {
+          window.onMapbox3DUserExplore();
+        }
+      };
+      map.on('dragstart', notifyExplore);
+      map.on('rotatestart', notifyExplore);
+      map.on('pitchstart', notifyExplore);
+      map.on('zoomstart', (e) => {
+        if (e.originalEvent) notifyExplore();
+      });
+
+      if (window.smokeInterval) {
+        clearInterval(window.smokeInterval);
+        window.smokeInterval = null;
+      }
+
+      window.currentVehicleMarker = vehicleMarker;
+      window.currentMapInstance = map;
+      window.currentVehicleType = vehicleType;
+    };
+
+    // Builds a simple but real 3D vehicle (body + cabin + wheels) from Three.js
+    // primitives in Mapbox's native orientation: X = width, Y = length (travel),
+    // Z = up. Built Z-up so no axis-swap rotation is needed in the render matrix.
+    function buildVehicleMesh(spec) {
+      const group = new THREE.Group();
+      const paint = new THREE.MeshStandardMaterial({ color: spec.color, metalness: 0.3, roughness: 0.5 });
+      const glass = new THREE.MeshStandardMaterial({ color: 0x9fd3e8, metalness: 0.1, roughness: 0.2 });
+      const tyre = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.9 });
+
+      const bodyH = spec.hgt * 0.55;
+      const r = spec.hgt * 0.16;
+      const body = new THREE.Mesh(new THREE.BoxGeometry(spec.wid, spec.len, bodyH), paint);
+      body.position.z = r + bodyH / 2;
+      group.add(body);
+
+      const cabin = new THREE.Mesh(
+        new THREE.BoxGeometry(spec.wid * 0.9, spec.len * 0.5, spec.hgt * 0.4), glass);
+      cabin.position.set(0, -spec.len * 0.05, r + bodyH + spec.hgt * 0.2);
+      group.add(cabin);
+
+      const wheelGeo = new THREE.CylinderGeometry(r, r, spec.wid * 0.15, 16);
+      const xs = [spec.wid / 2 - 0.05, -spec.wid / 2 + 0.05];
+      const ys = [spec.len * 0.32, -spec.len * 0.32];
+      for (const x of xs) for (const y of ys) {
+        const w = new THREE.Mesh(wheelGeo, tyre);
+        w.rotation.z = Math.PI / 2; // cylinder axis Y -> X, so the axle spans the width
+        w.position.set(x, y, r);
+        group.add(w);
+      }
+      return group;
+    }
+
+    // Builds a recognizable two-wheeler (bike or scooter) from Three.js
+    // primitives, Z-up with length along +Y (travel), so the render matrix
+    // treats it like the box car (no axis-swap needed).
+    function buildTwoWheeler(kind) {
+      const scooter = kind === 'scooter';
+      const group = new THREE.Group();
+      const paint = new THREE.MeshStandardMaterial({ color: scooter ? 0x1E88E5 : 0xC62828, metalness: 0.4, roughness: 0.45 });
+      const dark  = new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 0.85 });
+      const metal = new THREE.MeshStandardMaterial({ color: 0x9099a3, metalness: 0.85, roughness: 0.3 });
+      const seatM = new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.7 });
+
+      const wheelR = scooter ? 0.30 : 0.38;
+      const wheelW = 0.14;
+      const base = scooter ? 1.15 : 1.4; // axle-to-axle distance (along Y)
+      const wheelGeo = new THREE.CylinderGeometry(wheelR, wheelR, wheelW, 22);
+      const hubGeo = new THREE.CylinderGeometry(wheelR * 0.34, wheelR * 0.34, wheelW + 0.02, 12);
+      const addWheel = (y) => {
+        const w = new THREE.Mesh(wheelGeo, dark); w.rotation.z = Math.PI / 2; w.position.set(0, y, wheelR); group.add(w);
+        const h = new THREE.Mesh(hubGeo, metal);  h.rotation.z = Math.PI / 2; h.position.set(0, y, wheelR); group.add(h);
+      };
+      addWheel(base / 2);   // front
+      addWheel(-base / 2);  // rear
+
+      const box = (w, l, h, mat, y, z, rx) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, l, h), mat);
+        m.position.set(0, y, z); if (rx) m.rotation.x = rx; group.add(m); return m;
+      };
+      const cyl = (r, len, mat, y, z, axis, rx) => {
+        const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat);
+        if (axis === 'x') m.rotation.z = Math.PI / 2;
+        if (rx) m.rotation.x = rx;
+        m.position.set(0, y, z); group.add(m); return m;
+      };
+
+      if (scooter) {
+        box(0.34, 0.72, 0.10, paint, -0.02, wheelR * 0.7);          // floorboard deck
+        box(0.38, 0.66, 0.46, paint, -0.42, wheelR + 0.30);          // rear body/engine cowl
+        box(0.36, 0.16, 0.62, paint, 0.44, wheelR + 0.38);           // front leg-shield apron
+        box(0.36, 0.52, 0.12, seatM, -0.34, wheelR + 0.58);          // seat
+        cyl(0.045, 0.62, metal, 0.5, wheelR + 0.62, 'y', -0.18);     // handlebar post
+        cyl(0.028, 0.5, dark, 0.5, wheelR + 0.9, 'x');               // handlebar
+      } else {
+        cyl(0.07, base * 0.92, metal, 0.0, wheelR + 0.34, 'y');      // frame beam
+        box(0.30, 0.5, 0.28, paint, 0.16, wheelR + 0.5);             // fuel tank
+        box(0.32, 0.42, 0.36, dark, -0.04, wheelR + 0.12);           // engine block
+        box(0.26, 0.6, 0.12, seatM, -0.36, wheelR + 0.52);           // seat
+        cyl(0.04, 0.72, metal, base / 2 - 0.05, wheelR + 0.34, 'y', 0.32); // front fork
+        cyl(0.028, 0.56, dark, base / 2 + 0.06, wheelR + 0.64, 'x');       // handlebar
+      }
+      return group;
+    }
+
+    // Native Mapbox-v3 custom layer that renders the 3D vehicle. Position and
+    // heading are read each frame from window.vehicleState.
+    window.addVehicle3DModelLayer = function(map, vehicleType) {
+      if (typeof THREE === 'undefined') {
+        console.warn('Three.js not loaded — keeping 2D marker');
+        return;
+      }
+      if (map.getLayer('vehicle-3d-model')) return;
+      const type = (vehicleType || 'car').toLowerCase();
+      const spec = getVehicle3DSpec(type);
+      // Per-type exaggeration (model metres × factor) so the vehicle reads at the
+      // right relative size at nav zoom without engulfing the close chase camera.
+      const EXAGGERATION = (window.VEHICLE_MODEL_SCALE || {})[type] || 7;
+      // Per-model yaw correction so the nose points along travel.
+      const YAW = (window.VEHICLE_MODEL_YAW || {})[type] || 0;
+      // `undefined` (type missing from map) → default car; explicit `null` (e.g.
+      // motorcycle) → procedural mesh.
+      const glbMap = window.VEHICLE_MODEL_GLB || {};
+      const glbUrl = (type in glbMap) ? glbMap[type] : glbMap.car;
+      window.vehicleState = { lng: 0, lat: 0, bearingRad: 0, visible: false };
+      console.log('[3D vehicle] adding custom layer', type, glbUrl, '×' + EXAGGERATION);
+
+      const hideSprite = () => {
+        const wob = document.querySelector('#vehicle-marker .driving-wobble');
+        if (wob) wob.style.display = 'none';
+      };
+
+      const layer = {
+        id: 'vehicle-3d-model',
+        type: 'custom',
+        renderingMode: '3d',
+        onAdd: function (m, gl) {
+          try {
+            this.camera = new THREE.Camera();
+            this.scene = new THREE.Scene();
+            const d1 = new THREE.DirectionalLight(0xffffff, 1.0); d1.position.set(50, -70, 100).normalize(); this.scene.add(d1);
+            const d2 = new THREE.DirectionalLight(0xffffff, 0.6); d2.position.set(-50, 70, 60).normalize(); this.scene.add(d2);
+            this.scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+            this.map = m;
+            this.renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true });
+            this.renderer.autoClear = false;
+            this.isGlb = false;
+            this.model = null;
+
+            const useProcedural = () => {
+              this.model = (type === 'scooter' || type === 'motorcycle')
+                  ? buildTwoWheeler(type === 'scooter' ? 'scooter' : 'bike')
+                  : buildVehicleMesh(spec);
+              this.isGlb = false;
+              this.scene.add(this.model);
+              hideSprite();
+              console.log('[3D vehicle] using procedural mesh', type);
+            };
+
+            // Primary path (proven in model_test.html): load a real glb model,
+            // with Draco support for compressed models (e.g. the Ferrari car).
+            // Any failure — no loader, network, parse — falls back to the
+            // procedural box mesh so a 3D vehicle ALWAYS renders.
+            if (glbUrl && typeof THREE.GLTFLoader === 'function') {
+              try {
+                const loader = new THREE.GLTFLoader();
+                if (typeof THREE.DRACOLoader === 'function') {
+                  const draco = new THREE.DRACOLoader();
+                  draco.setDecoderPath(window.DRACO_DECODER_PATH);
+                  loader.setDRACOLoader(draco);
+                }
+                loader.load(
+                  glbUrl,
+                  (g) => {
+                    this.model = g.scene;
+                    this.isGlb = true;
+                    this.scene.add(this.model);
+                    hideSprite();
+                    console.log('[3D vehicle] glb model loaded ✓', type);
+                    if (this.map) this.map.triggerRepaint();
+                  },
+                  undefined,
+                  (err) => { console.warn('[3D vehicle] glb load failed, falling back', err); useProcedural(); }
+                );
+              } catch (e) { console.warn('[3D vehicle] loader threw, falling back', e); useProcedural(); }
+            } else {
+              useProcedural();
+            }
+            console.log('[3D vehicle] onAdd OK — renderer ready');
+          } catch (e) {
+            console.error('[3D vehicle] onAdd failed:', e);
+          }
+        },
+        render: function (gl, matrix) {
+          const s = window.vehicleState;
+          if (!s || !s.visible || !this.model || !this.renderer) {
+            if (this.map) this.map.triggerRepaint();
+            return;
+          }
+          if (!this._loggedRender) {
+            this._loggedRender = true;
+            console.log('[3D vehicle] first render at', s.lng, s.lat, 'glb=', this.isGlb);
+          }
+          const merc = mapboxgl.MercatorCoordinate.fromLngLat([s.lng, s.lat], 0);
+          const scale = merc.meterInMercatorCoordinateUnits() * EXAGGERATION;
+          // Heading: rotate about Z by travel bearing. Dart passes bearing in rad
+          // (0 = N, clockwise), so negate to match Three.js CCW-positive Z. YAW is
+          // a per-model correction so the nose points along travel.
+          const rotZ = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0, 0, 1), -s.bearingRad + YAW);
+          let l = new THREE.Matrix4()
+            .makeTranslation(merc.x, merc.y, merc.z)
+            .scale(new THREE.Vector3(scale, -scale, scale))
+            .multiply(rotZ);
+          // glTF models are authored Y-up; tip them into Mapbox's Z-up frame
+          // (procedural mesh is already built Z-up, so it skips this).
+          if (this.isGlb) {
+            const rotX = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1, 0, 0), Math.PI / 2);
+            l = l.multiply(rotX);
+          }
+          this.camera.projectionMatrix = new THREE.Matrix4().fromArray(matrix).multiply(l);
+          this.renderer.resetState();
+          this.renderer.render(this.scene, this.camera);
+          this.map.triggerRepaint();
+        }
+      };
+      map.addLayer(layer);
+    };
+
+    window.update3DVehiclePosition = function(lng, lat, rotationRad, speedModifier, customZoom) {
+      if (lng === 0 && lat === 0) return;
+      // Feed the real 3D model layer.
+      if (window.vehicleState) {
+        window.vehicleState.lng = lng;
+        window.vehicleState.lat = lat;
+        window.vehicleState.bearingRad = rotationRad;
+        window.vehicleState.visible = true;
+        if (window.currentMapInstance) window.currentMapInstance.triggerRepaint();
+      }
+
+      if (window.currentVehicleMarker && window.currentMapInstance) {
+        const map = window.currentMapInstance;
+        const position = [lng, lat];
+        const rotationDeg = rotationRad * (180 / Math.PI);
+        window.currentVehicleMarker.setLngLat(position);
+        window.currentVehicleMarker.setRotation(rotationDeg);
+
+        let closestIdx = 0;
+        let minDist = Infinity;
+        if (window.currentRoutePoints) {
+          window.currentRoutePoints.forEach((p, rIdx) => {
+            const dist = Math.pow(p[0] - lng, 2) + Math.pow(p[1] - lat, 2);
+            if (dist < minDist) {
+              minDist = dist;
+              closestIdx = rIdx;
+            }
+          });
+        }
+
+        const traveledCoords = window.currentRoutePoints
+          ? window.currentRoutePoints.slice(0, closestIdx + 1)
+          : [];
+        traveledCoords.push(position);
+
+        const remainingCoords = window.currentRoutePoints
+          ? window.currentRoutePoints.slice(closestIdx)
+          : [];
+        remainingCoords.unshift(position);
+
+        // Clear markers when starting fresh
+        if (closestIdx === 0) {
+          if (window.mapboxMarkers) {
+            window.mapboxMarkers.forEach(m => m.remove());
+          }
+        }
+
+        // Update active route line (remaining path ahead)
+        const activeSource = map.getSource('route');
+        if (activeSource) {
+          activeSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': remainingCoords
+            }
+          });
+        }
+
+        // Update traveled route line (path behind)
+        const traveledSource = map.getSource('traveled');
+        if (traveledSource) {
+          traveledSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': traveledCoords
+            }
+          });
+        }
+
+        // Pop up markers dynamically as vehicle passes
+        if (window.mapboxMarkers) {
+          window.mapboxMarkers.forEach(marker => {
+            if (closestIdx >= marker.closestRouteIdx) {
+              if (!marker.getElement().parentElement) {
+                marker.addTo(map);
+                const el = marker.getElement();
+                el.style.transform = 'scale(0)';
+                el.style.transition = 'transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                setTimeout(() => {
+                  el.style.transform = 'scale(1)';
+                }, 50);
+              }
+            } else {
+              if (marker.getElement().parentElement) {
+                marker.remove();
+              }
+            }
+          });
+        }
+        
+        const motionDeg = rotationRad * (180 / Math.PI);
+        const speed = speedModifier || 1.0;
+        if (!window.cameraTickCounter) window.cameraTickCounter = 0;
+        window.cameraTickCounter++;
+
+        // Steady "chase camera" like Google Maps / the reference clip: fixed tilt,
+        // bearing locked to the direction of travel, car framed in the lower third
+        // with the road ahead. A gentle orbit only when parked at a stop.
+        let pitchVal = 66;   // low, cinematic 3D tilt (reference look)
+        let zoomVal = 17.4;  // pulled back so the exaggerated 3D vehicle is framed
+                             // in view rather than engulfing the close camera
+        let targetBearing = motionDeg;
+
+        if (speed === 0.0) {
+          // Slow scenic orbit while stopped at a waypoint/toll/destination.
+          pitchVal = 58;
+          zoomVal = customZoom || 17.4;
+          targetBearing = motionDeg + ((window.cameraTickCounter * 0.35) % 360);
+        }
+
+        // Smooth, shortest-path bearing interpolation to avoid snapping on turns.
+        const currentBearing = map.getBearing() || 0;
+        let diff = (targetBearing - currentBearing) % 360;
+        if (diff < -180) diff += 360;
+        if (diff > 180) diff -= 360;
+        const bearingVal = (currentBearing + diff * 0.14) % 360;
+
+        // Only follow vehicle camera when not manually exploring
+        if (!window.mapboxUserExploring) {
+          // Push the focal point down so the car sits low and the road ahead fills
+          // the frame (padding.top reserves space, moving the centered car lower).
+          const h = map.getContainer().clientHeight || 600;
+          const w = map.getContainer().clientWidth || 1200;
+          // Offset right past the floating panel on wide screens so the car and
+          // the road ahead sit in the open, visible part of the map.
+          const leftPad = w > 900 ? 300 : 0;
+          map.jumpTo({
+            center: position,
+            zoom: zoomVal,
+            pitch: pitchVal,
+            bearing: bearingVal,
+            padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+          });
+        }
+      }
+    };
+
+    window.recenterMapbox3D = function(lng, lat, bearingDeg) {
+      window.mapboxUserExploring = false;
+      if (window.currentMapInstance) {
+        const map = window.currentMapInstance;
+        const h = map.getContainer().clientHeight || 600;
+        const w = map.getContainer().clientWidth || 1200;
+        const leftPad = w > 900 ? 300 : 0;
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 17.2,
+          pitch: 66,
+          bearing: bearingDeg || 0,
+          duration: 1200,
+          essential: true,
+          padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+        });
+      }
+    };
+
+    // Tear down a map when its Flutter widget is disposed, stopping its render
+    // loop so old previews don't keep thrashing the GPU behind the new one.
+    window.removeMapbox3D = function(containerId) {
+      const m = window.__maps && window.__maps[containerId];
+      if (m) {
+        try { m.remove(); } catch (e) {}
+        delete window.__maps[containerId];
+      }
+    };
+
+    window.update3DRouteGeometry = function(routeJson) {
+      try {
+        const newRoutePoints = JSON.parse(routeJson);
+        window.currentRoutePoints = newRoutePoints;
+        if (window.currentMapInstance) {
+          const map = window.currentMapInstance;
+          const activeSource = map.getSource('route');
+          if (activeSource) {
+            activeSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': newRoutePoints
+              }
+            });
+          }
+          const traveledSource = map.getSource('traveled');
+          if (traveledSource) {
+            traveledSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': []
+              }
+            });
+          }
+          if (map.triggerRepaint) map.triggerRepaint();
+        }
+      } catch (e) {
+        console.error('Failed to update 3D route geometry:', e);
+      }
+    };
+
+    window.update3DFuelStops = function(fuelStopsJson) {
+      try {
+        const stops = typeof fuelStopsJson === 'string' ? JSON.parse(fuelStopsJson) : fuelStopsJson;
+        if (typeof window.__renderFuelStopMarkers === 'function') {
+          window.__renderFuelStopMarkers(stops);
+        }
+      } catch (e) {
+        console.error('Failed to update 3D fuel stops:', e);
+      }
+    };
+
+    window.hide3DVehicle = function() {
+      if (window.vehicleState) {
+        window.vehicleState.visible = false;
+        if (window.currentMapInstance) window.currentMapInstance.triggerRepaint();
+      }
+      if (window.currentVehicleMarker) {
+        window.currentVehicleMarker.setLngLat([0, 0]);
+      }
+      window.animatedRouteCoords = [];
+      
+      // Restore all markers to the map immediately
+      if (window.mapboxMarkers && window.currentMapInstance) {
+        const map = window.currentMapInstance;
+        window.mapboxMarkers.forEach(marker => {
+          marker.addTo(map);
+          const el = marker.getElement();
+          el.style.transform = 'scale(1)';
+          el.style.transition = 'none';
+        });
+      }
+      
+      // Restore full route line
+      if (window.currentMapInstance) {
+        const map = window.currentMapInstance;
+        const activeSource = map.getSource('route');
+        if (activeSource && window.currentRoutePoints) {
+          activeSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': window.currentRoutePoints
+            }
+          });
+        }
+        const traveledSource = map.getSource('traveled');
+        if (traveledSource) {
+          traveledSource.setData({
+            'type': 'Feature',
+            'properties': {},
+            'geometry': {
+              'type': 'LineString',
+              'coordinates': []
+            }
+          });
+        }
+      }
+    };
+  </script>
+
+  <script>
+    // Register a lightweight, network-first service worker. It makes the app an
+    // installable PWA (users can "Install / Add to Home Screen" from the site)
+    // WITHOUT the stale-cache problem: it always fetches from the network first
+    // and only falls back to cache when offline.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('pwa_sw.js').catch(function () {});
+      });
+    }
+  </script>
+</head>
+<body>
+  <!--
+    You can customize the "flutter_bootstrap.js?v=1788598942" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js?v=1788598942" async></script>
+
+  <!-- Install-app affordance: a floating button that appears when the browser
+       says the app is installable, plus an iOS "Add to Home Screen" hint. -->
+  <script>
+    (function () {
+      var deferredPrompt = null, btn = null;
+      function makeBtn() {
+        if (btn) return btn;
+        btn = document.createElement('button');
+        btn.type = 'button';
+        btn.style.cssText =
+          'position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:2147483647;' +
+          'padding:12px 22px;border:none;border-radius:999px;cursor:pointer;' +
+          'font:600 15px -apple-system,system-ui,sans-serif;color:#fff;' +
+          'background:linear-gradient(90deg,#2E75B6,#60A5FA);' +
+          'box-shadow:0 8px 26px rgba(0,0,0,0.4);display:none;';
+        document.body.appendChild(btn);
+        return btn;
+      }
+      function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
+      function standalone() {
+        return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      }
+      // Chromium/Android/desktop: real install prompt.
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredPrompt = e;
+        var b = makeBtn();
+        b.textContent = '⬇  Install App';
+        b.onclick = async function () {
+          if (!deferredPrompt) return;
+          deferredPrompt.prompt();
+          await deferredPrompt.userChoice;
+          deferredPrompt = null;
+          b.style.display = 'none';
+        };
+        b.style.display = 'block';
+      });
+      window.addEventListener('appinstalled', function () { if (btn) btn.style.display = 'none'; });
+      // iOS Safari has no beforeinstallprompt — guide the manual gesture.
+      window.addEventListener('load', function () {
+        if (isIos() && !standalone()) {
+          var b = makeBtn();
+          b.textContent = '⬇  Install: Share → Add to Home Screen';
+          b.onclick = function () { b.style.display = 'none'; };
+          setTimeout(function () { b.style.display = 'block'; }, 2500);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1686 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Google Search Console ownership verification (for OAuth homepage verification) -->
+    <meta name="google-site-verification" content="mB3kyKS54jOgaa9VSpPoDGlTnTdC4RpJB-zwRixM8Tg">
+
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F8JKP99Q44"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-F8JKP99Q44');
+    </script>
+
+    <!-- SEO Meta Tags -->
+    <title>Voyplan — Plan the trip, not the chaos</title>
+    <meta name="description"
+        content="A cinematic road-trip planner: intelligent routing, live GPS navigation, real-time weather, full trip budgets, and point-of-interest discovery — in one beautiful app.">
+    <meta name="keywords"
+        content="travel planner, itinerary builder, road trip planner, live navigation, flutter, dart, portfolio project">
+    <meta name="author" content="Gowtham">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://voyplan.in/">
+    <meta property="og:title" content="Voyplan — Plan the trip, not the chaos">
+    <meta property="og:description"
+        content="A cinematic road-trip planner with intelligent routing, live navigation, weather, and budgets.">
+    <meta property="og:image" content="https://voyplan.in/preview.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://voyplan.in/">
+    <meta property="twitter:title" content="Voyplan — Plan the trip, not the chaos">
+    <meta property="twitter:description"
+        content="A cinematic road-trip planner with intelligent routing, live navigation, weather, and budgets.">
+    <meta property="twitter:image" content="https://voyplan.in/preview.png">
+
+    <!-- Favicon & Touch Icons (Google Search + Modern Browsers + iOS) -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48x48.png">
+    <link rel="icon" type="image/png" sizes="96x96" href="/favicon-96x96.png">
+    <link rel="icon" type="image/png" sizes="144x144" href="/favicon-144x144.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/favicon-512x512.png">
+    <link rel="shortcut icon" href="/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- iOS Web App Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Voyplan">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+
+    <!-- Supabase JS SDK for the landing-page login card -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        :root {
+            --bg: #05070a;
+            --bg-2: #0a0f14;
+            --ink: #f6f4ee;
+            --muted: rgba(246, 244, 238, 0.62);
+            --faint: rgba(246, 244, 238, 0.10);
+            --line: rgba(246, 244, 238, 0.12);
+            --teal: #2dd4bf;
+            --teal-deep: #0f766e;
+            --coral: #ff7a4d;
+            --gold: #f5c563;
+            --font-heading: 'Fraunces', serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 6rem;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--ink);
+            font-family: var(--font-body);
+            line-height: 1.65;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body.modal-open {
+            overflow: hidden;
+        }
+
+        /* Cinematic film grain over everything */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            pointer-events: none;
+            opacity: 0.05;
+            mix-blend-mode: overlay;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        .container {
+            max-width: 1180px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        h1,
+        h2,
+        h3 {
+            font-family: var(--font-heading);
+            font-weight: 600;
+            line-height: 1.08;
+            letter-spacing: -0.01em;
+        }
+
+        .eyebrow {
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.32em;
+            font-size: 0.72rem;
+            color: var(--teal);
+            margin-bottom: 1.4rem;
+        }
+
+        /* ─────────────  HEADER  ───────────── */
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 1000;
+            transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+            border-bottom: 1px solid transparent;
+        }
+
+        header.scrolled {
+            background-color: rgba(5, 7, 10, 0.84);
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
+            border-bottom-color: var(--line);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        header nav {
+            padding: 1.15rem 0;
+            transition: padding 0.3s ease;
+        }
+
+        header.scrolled nav {
+            padding: 0.8rem 0;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-family: var(--font-heading);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--ink);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            letter-spacing: -0.02em;
+        }
+
+        .logo .logo-mark {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            display: block;
+            box-shadow: 0 4px 14px rgba(52, 226, 203, 0.28);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.92rem;
+            font-weight: 500;
+            transition: color 0.25s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--ink);
+        }
+
+        .nav-links .nav-cta a {
+            color: var(--ink);
+            border: 1px solid var(--line);
+            padding: 0.55rem 1.3rem;
+            border-radius: 100px;
+            transition: all 0.25s ease;
+        }
+
+        .nav-links .nav-cta a:hover {
+            background: var(--ink);
+            color: var(--bg);
+            border-color: var(--ink);
+        }
+
+        /* ─────────────  HERO  ───────────── */
+        #hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            padding: 8rem 0 4rem;
+        }
+
+        .hero-bg {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        .hero-bg .slide {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            animation: kenburns 27s infinite;
+            will-change: opacity, transform;
+        }
+
+        .hero-bg .slide:nth-child(1) {
+            background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2400');
+            animation-delay: 0s;
+        }
+
+        .hero-bg .slide:nth-child(2) {
+            background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2400');
+            animation-delay: 9s;
+        }
+
+        .hero-bg .slide:nth-child(3) {
+            background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2400');
+            animation-delay: 18s;
+        }
+
+        @keyframes kenburns {
+            0% {
+                opacity: 0;
+                transform: scale(1.06);
+            }
+
+            7% {
+                opacity: 1;
+            }
+
+            30% {
+                opacity: 1;
+                transform: scale(1.16);
+            }
+
+            37% {
+                opacity: 0;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.16);
+            }
+        }
+
+        .hero-scrim {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            background:
+                radial-gradient(120% 90% at 20% 30%, rgba(5, 7, 10, 0.25), transparent 60%),
+                linear-gradient(180deg, rgba(5, 7, 10, 0.55) 0%, rgba(5, 7, 10, 0.35) 40%, rgba(5, 7, 10, 0.78) 100%),
+                linear-gradient(90deg, rgba(5, 7, 10, 0.85) 0%, rgba(5, 7, 10, 0.25) 55%, rgba(5, 7, 10, 0.55) 100%);
+        }
+
+        .hero-inner {
+            position: relative;
+            z-index: 2;
+            display: grid;
+            grid-template-columns: 1.15fr 0.85fr;
+            align-items: center;
+            gap: 3.5rem;
+            width: 100%;
+        }
+
+        .hero-copy h1 {
+            font-size: clamp(2.8rem, 6.2vw, 5.2rem);
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 4px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .hero-copy h1 .accent {
+            font-style: italic;
+            font-weight: 400;
+            background: linear-gradient(100deg, var(--teal), var(--gold) 60%, var(--coral));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-copy p.lead {
+            font-size: 1.2rem;
+            max-width: 500px;
+            color: rgba(255, 255, 255, 0.86);
+            margin-bottom: 2.2rem;
+            text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
+        }
+
+        .hero-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.7rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 0.75rem;
+            margin-top: 1.8rem;
+            align-items: stretch;
+        }
+        /* All three buttons share one row with equal width */
+        .hero-actions .hero-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            justify-content: center;
+            box-sizing: border-box;
+            white-space: nowrap;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
+        }
+        @media (max-width: 720px) {
+            .hero-actions {
+                flex-wrap: wrap;
+            }
+            .hero-actions .hero-btn {
+                flex: 1 1 100%;
+                padding: 0.85rem 1.6rem;
+                font-size: 0.98rem;
+            }
+        }
+
+        .hero-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.85rem 1.6rem;
+            border-radius: 100px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.98rem;
+            transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.2s ease;
+        }
+
+        .hero-btn svg {
+            width: 19px;
+            height: 19px;
+        }
+
+        .hero-btn.primary {
+            background: linear-gradient(100deg, var(--teal), var(--teal-deep));
+            color: #04211d;
+            box-shadow: 0 10px 30px rgba(45, 212, 191, 0.3);
+        }
+
+        .hero-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 40px rgba(45, 212, 191, 0.42);
+        }
+
+        .hero-btn.ghost {
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .hero-btn.ghost:hover {
+            transform: translateY(-2px);
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        /* Official Apple App Store & Google Play Store Badges */
+        .app-store-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 1.35rem;
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            border-radius: 14px;
+            text-decoration: none;
+            transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
+        }
+
+        .app-store-badge:hover {
+            transform: translateY(-2px);
+            border-color: #ffffff;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+        }
+
+        .app-store-badge svg {
+            width: 22px;
+            height: 22px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .app-store-badge .badge-text {
+            display: flex;
+            flex-direction: column;
+            text-align: left;
+            line-height: 1.15;
+        }
+
+        .app-store-badge .sub-text {
+            font-size: 0.62rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        .app-store-badge .main-text {
+            font-size: 1.02rem;
+            font-weight: 700;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+            color: #ffffff;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.92);
+        }
+
+        .chip svg {
+            width: 15px;
+            height: 15px;
+            color: var(--teal);
+        }
+
+        /* Word-by-word hero reveal */
+        .word {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(28px);
+            animation: wordUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes wordUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Scroll cue */
+        .scroll-cue {
+            position: absolute;
+            left: 50%;
+            bottom: 2rem;
+            transform: translateX(-50%);
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: rgba(255, 255, 255, 0.55);
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+        }
+
+        .scroll-cue .mouse {
+            width: 22px;
+            height: 36px;
+            border: 1.5px solid rgba(255, 255, 255, 0.5);
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .scroll-cue .mouse::after {
+            content: "";
+            position: absolute;
+            top: 6px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 3px;
+            height: 7px;
+            border-radius: 3px;
+            background: #fff;
+            animation: scrollDot 1.8s infinite;
+        }
+
+        @keyframes scrollDot {
+            0% {
+                opacity: 0;
+                top: 6px;
+            }
+
+            40% {
+                opacity: 1;
+            }
+
+            80% {
+                opacity: 0;
+                top: 16px;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        /* ─────────────  GLASS AUTH CARD  ───────────── */
+        .auth-card {
+            width: 100%;
+            max-width: 420px;
+            margin-left: auto;
+            background: rgba(255, 255, 255, 0.09);
+            backdrop-filter: blur(26px) saturate(140%);
+            -webkit-backdrop-filter: blur(26px) saturate(140%);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 26px;
+            padding: 2.4rem 2rem;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+        }
+
+        .auth-card h2 {
+            font-family: var(--font-heading);
+            color: #fff;
+            font-size: 2rem;
+            text-align: center;
+            margin-bottom: 0.35rem;
+        }
+
+        .auth-sub {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 1.7rem;
+            font-size: 0.98rem;
+        }
+
+        .auth-field {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            padding: 0 1rem;
+            margin-bottom: 0.9rem;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .auth-field:focus-within {
+            border-color: var(--teal);
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .auth-field svg {
+            width: 20px;
+            height: 20px;
+            color: rgba(255, 255, 255, 0.72);
+            flex-shrink: 0;
+        }
+
+        .auth-field input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: var(--font-body);
+            font-size: 1.02rem;
+            padding: 0.95rem 0;
+        }
+
+        .auth-field input::placeholder {
+            color: rgba(255, 255, 255, 0.68);
+        }
+
+        .auth-field input:-webkit-autofill,
+        .auth-field input:-webkit-autofill:focus {
+            -webkit-text-fill-color: #fff;
+            transition: background-color 9999s ease-in-out 0s;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 1rem;
+            margin-top: 0.4rem;
+            background: linear-gradient(100deg, var(--teal), var(--teal-deep));
+            color: #04211d;
+            border: none;
+            border-radius: 14px;
+            font-family: var(--font-body);
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.25s ease, filter 0.2s ease;
+            box-shadow: 0 10px 30px rgba(45, 212, 191, 0.28);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.06);
+            box-shadow: 0 16px 40px rgba(45, 212, 191, 0.38);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .auth-toggle {
+            display: block;
+            width: 100%;
+            text-align: center;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.85);
+            font-family: var(--font-body);
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin: 1.1rem 0 0.25rem;
+            cursor: pointer;
+        }
+
+        .auth-toggle span {
+            color: var(--teal);
+        }
+
+        .auth-divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.8rem;
+            margin: 1.2rem 0;
+        }
+
+        .auth-divider::before,
+        .auth-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .btn-google {
+            width: 100%;
+            padding: 0.9rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            border-radius: 14px;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-google:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .auth-msg {
+            min-height: 1.2rem;
+            text-align: center;
+            font-size: 0.9rem;
+            margin-top: 0.6rem;
+        }
+
+        .auth-msg.error {
+            color: #ffb4a8;
+        }
+
+        .auth-msg.success {
+            color: #b7f5c8;
+        }
+
+        .auth-guest {
+            display: block;
+            text-align: center;
+            margin-top: 0.8rem;
+            color: rgba(255, 255, 255, 0.72);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s ease;
+        }
+
+        .auth-guest:hover {
+            color: #fff;
+        }
+
+        .hide {
+            display: none !important;
+        }
+
+        /* ─────────────  MARQUEE  ───────────── */
+        .marquee {
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            padding: 1.5rem 0;
+            overflow: hidden;
+            background: var(--bg-2);
+        }
+
+        .marquee-track {
+            display: flex;
+            gap: 3rem;
+            white-space: nowrap;
+            width: max-content;
+            animation: marquee 38s linear infinite;
+        }
+
+        .marquee-track span {
+            font-family: var(--font-heading);
+            font-size: 1.5rem;
+            font-style: italic;
+            color: var(--muted);
+            display: inline-flex;
+            align-items: center;
+            gap: 3rem;
+        }
+
+        .marquee-track span::after {
+            content: "◆";
+            font-size: 0.6rem;
+            color: var(--teal);
+            font-style: normal;
+        }
+
+        @keyframes marquee {
+            to {
+                transform: translateX(-50%);
+            }
+        }
+
+        /* ─────────────  SECTIONS  ───────────── */
+        section.block {
+            padding: 7rem 0;
+            position: relative;
+        }
+
+        .section-head {
+            max-width: 640px;
+            margin-bottom: 3.5rem;
+        }
+
+        .section-head.center {
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+        }
+
+        .section-head h2 {
+            font-size: clamp(2rem, 4.5vw, 3.2rem);
+            margin-bottom: 1rem;
+        }
+
+        .section-head p {
+            color: var(--muted);
+            font-size: 1.1rem;
+        }
+
+        /* Features */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.4rem;
+        }
+
+        .feature-card {
+            position: relative;
+            padding: 2rem;
+            border-radius: 20px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+            border: 1px solid var(--line);
+            overflow: hidden;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease;
+        }
+
+        .feature-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 0%), rgba(45, 212, 191, 0.14), transparent 40%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(45, 212, 191, 0.4);
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-card .icon {
+            font-size: 1.8rem;
+            width: 56px;
+            height: 56px;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            background: rgba(45, 212, 191, 0.1);
+            border: 1px solid rgba(45, 212, 191, 0.2);
+            margin-bottom: 1.3rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .feature-card p {
+            color: var(--muted);
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        /* Experience / preview */
+        #preview {
+            background: var(--bg-2);
+        }
+
+        .exp-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.4rem;
+        }
+
+        .exp-card {
+            border-radius: 20px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            aspect-ratio: 4 / 3;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            padding: 1.6rem;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .exp-card::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 30%, rgba(5, 7, 10, 0.88));
+        }
+
+        .exp-card:hover {
+            transform: scale(1.02);
+        }
+
+        .exp-card .cap {
+            position: relative;
+            z-index: 1;
+        }
+
+        .exp-card .cap .k {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--teal);
+        }
+
+        .exp-card .cap h3 {
+            font-size: 1.4rem;
+            color: #fff;
+            margin-top: 0.3rem;
+        }
+
+        .exp-a {
+            background-image: linear-gradient(135deg, rgba(15, 118, 110, 0.6), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=1600');
+        }
+
+        .exp-b {
+            background-image: linear-gradient(135deg, rgba(245, 197, 99, 0.45), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=1600');
+        }
+
+        .exp-c {
+            background-image: linear-gradient(135deg, rgba(255, 122, 77, 0.5), rgba(5, 7, 10, 0.2)), url('https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3?q=80&w=1600');
+        }
+
+        /* Tech stack */
+        .tech-stack-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0.8rem;
+            list-style: none;
+        }
+
+        .tech-stack-list li {
+            padding: 0.6rem 1.4rem;
+            border-radius: 100px;
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--muted);
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.03);
+            transition: all 0.25s ease;
+        }
+
+        .tech-stack-list li:hover {
+            color: var(--ink);
+            border-color: var(--teal);
+            background: rgba(45, 212, 191, 0.08);
+        }
+
+        /* CTA band */
+        .cta-band {
+            text-align: center;
+            border-radius: 28px;
+            padding: 4.5rem 2rem;
+            background:
+                radial-gradient(120% 140% at 50% 0%, rgba(45, 212, 191, 0.16), transparent 60%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
+            border: 1px solid var(--line);
+        }
+
+        .cta-band h2 {
+            font-size: clamp(2rem, 5vw, 3.4rem);
+            margin-bottom: 1rem;
+        }
+
+        .cta-band p {
+            color: var(--muted);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-cta {
+            display: inline-block;
+            padding: 1rem 2.6rem;
+            background: var(--ink);
+            color: var(--bg);
+            border-radius: 100px;
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 0.2s ease, box-shadow 0.3s ease;
+        }
+
+        .cta-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            justify-content: center;
+        }
+        .cta-actions .btn-cta {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.55rem;
+            min-width: 240px;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        .footer-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .footer-links a {
+            color: var(--muted);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+        .footer-links a:hover {
+            color: var(--ink);
+        }
+
+        .btn-cta.ghost {
+            background: transparent;
+            color: var(--ink);
+            border: 1px solid var(--line);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .btn-cta.ghost:hover {
+            border-color: var(--teal);
+            box-shadow: 0 16px 40px rgba(45, 212, 191, 0.18);
+        }
+
+        .btn-cta.ghost svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .cta-note {
+            margin-top: 1.25rem;
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+
+        .btn-cta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 40px rgba(246, 244, 238, 0.18);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 4rem 0 3rem;
+            border-top: 1px solid var(--line);
+            margin-top: 5rem;
+        }
+
+        .social-links a {
+            color: var(--muted);
+            margin: 0 0.75rem;
+            display: inline-flex;
+            transition: color 0.3s ease, transform 0.3s ease;
+        }
+
+        .social-links a:hover {
+            color: var(--teal);
+            transform: translateY(-2px);
+        }
+
+        footer p {
+            margin-top: 1.2rem;
+            font-size: 0.88rem;
+            color: var(--muted);
+        }
+
+        /* Scroll reveal */
+        .reveal {
+            opacity: 0;
+            transform: translateY(34px);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ─────────────  RESPONSIVE  ───────────── */
+        @media (max-width: 940px) {
+            #hero {
+                padding: 7rem 0 3.5rem;
+            }
+
+            .hero-inner {
+                grid-template-columns: 1fr;
+                gap: 2.5rem;
+            }
+
+            .auth-card {
+                margin: 0 auto;
+            }
+
+            .nav-links li:not(.nav-cta) {
+                display: none;
+            }
+
+            .scroll-cue {
+                display: none;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.001s !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.001s !important;
+            }
+
+            .hero-bg .slide:nth-child(1) {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header id="main-header">
+        <nav class="container">
+            <a href="#" class="logo"><img class="logo-mark" src="favicon.svg" alt="Voyplan logo" width="32" height="32">Voyplan</a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#preview">Experience</a></li>
+                <li><a href="#get-app">Get the App</a></li>
+                <li class="nav-cta"><a href="#hero">Sign In</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="hero">
+            <div class="hero-bg" id="hero-bg">
+                <div class="slide"></div>
+                <div class="slide"></div>
+                <div class="slide"></div>
+            </div>
+            <div class="hero-scrim"></div>
+
+            <div class="container">
+                <div class="hero-inner">
+                    <div class="hero-copy">
+                        <div class="eyebrow word" style="animation-delay:.05s">The cinematic road-trip planner</div>
+                        <h1>
+                            <span class="word" style="animation-delay:.15s">Plan</span>
+                            <span class="word" style="animation-delay:.25s">the</span>
+                            <span class="word" style="animation-delay:.35s">trip,</span>
+                            <br>
+                            <span class="word accent" style="animation-delay:.5s">not the chaos.</span>
+                        </h1>
+                        <p class="lead word" style="animation-delay:.7s">
+                            Intelligent routing, live GPS navigation, real-time weather, full trip
+                            budgets, and point-of-interest discovery — playing out like a movie of
+                            your journey.
+                        </p>
+                        <div class="hero-chips word" style="animation-delay:.85s">
+                            <span class="chip">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 2a10 10 0 1 0 10 10"></path>
+                                    <path d="M12 8v4l3 2"></path>
+                                </svg>
+                                Live navigation
+                            </span>
+                            <span class="chip">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path>
+                                    <path d="M9 3v15M15 6v15"></path>
+                                </svg>
+                                3D cinematic playback
+                            </span>
+                            <span class="chip">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path>
+                                    <path d="M8 19v1M12 19v2M16 19v1"></path>
+                                </svg>
+                                Route weather
+                            </span>
+                        </div>
+                        <div class="hero-actions word" style="animation-delay:.95s">
+                            <a class="hero-btn primary"
+                                href="https://voyplan.in/app/?guest=true">Launch web app &rarr;</a>
+
+                            <a class="hero-btn ghost"
+                                href="Voyplan.apk"
+                                title="Download the Android APK">
+                                <svg viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/>
+                                </svg>
+                                Download for Android
+                            </a>
+
+                            <a class="hero-btn ghost" href="ios-install.html"
+                                title="How to install the iPhone app (step-by-step)">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 16v-4M12 8h.01"></path>
+                                </svg>
+                                iPhone install guide
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="auth-card">
+                        <h2 id="auth-title">Welcome Back</h2>
+                        <p class="auth-sub" id="auth-subtitle">Log in to continue exploring</p>
+
+                        <!-- Name field (sign-up only) -->
+                        <div class="auth-field hide" id="name-field">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <input type="text" id="auth-name" placeholder="Full Name" autocomplete="name">
+                        </div>
+
+                        <div class="auth-field">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            <input type="text" id="auth-identifier" placeholder="Email or Phone Number"
+                                autocomplete="username">
+                        </div>
+
+                        <div class="auth-field">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            <input type="password" id="auth-password" placeholder="Password"
+                                autocomplete="current-password">
+                        </div>
+
+                        <button class="btn-primary" id="auth-submit">Log In</button>
+
+                        <button class="auth-toggle" id="auth-toggle">Need an account? <span>Sign Up</span></button>
+
+                        <div class="auth-divider">OR</div>
+
+                        <button class="btn-google" id="auth-google">
+                            <svg width="18" height="18" viewBox="0 0 48 48">
+                                <path fill="#FFC107"
+                                    d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z">
+                                </path>
+                                <path fill="#FF3D00"
+                                    d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z">
+                                </path>
+                                <path fill="#4CAF50"
+                                    d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z">
+                                </path>
+                                <path fill="#1976D2"
+                                    d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z">
+                                </path>
+                            </svg>
+                            Sign in with Google
+                        </button>
+
+                        <div class="auth-msg" id="auth-msg"></div>
+
+                        <a class="auth-guest" href="https://voyplan.in/app/?guest=true">Continue as
+                            guest &rarr;</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scroll-cue">
+                <div class="mouse"></div>
+                <span>Scroll</span>
+            </div>
+        </section>
+
+        <!-- Marquee -->
+        <div class="marquee" aria-hidden="true">
+            <div class="marquee-track">
+                <span>Coastal highways</span><span>Mountain passes</span><span>Desert crossings</span>
+                <span>City to city</span><span>Weekend escapes</span><span>Epic road trips</span>
+                <span>Coastal highways</span><span>Mountain passes</span><span>Desert crossings</span>
+                <span>City to city</span><span>Weekend escapes</span><span>Epic road trips</span>
+            </div>
+        </div>
+
+        <!-- Features -->
+        <section id="features" class="block">
+            <div class="container">
+                <div class="section-head reveal">
+                    <div class="eyebrow">What's inside</div>
+                    <h2>Everything a journey needs, in one frame.</h2>
+                    <p>From the first search to the final destination, every step is planned,
+                        priced, and beautifully visualized.</p>
+                </div>
+                <div class="features-grid">
+                    <div class="feature-card reveal">
+                        <div class="icon">🗺️</div>
+                        <h3>Intelligent Routing</h3>
+                        <p>Optimized multi-stop routes computed on real-world road networks, with reorderable waypoints.
+                        </p>
+                    </div>
+                    <div class="feature-card reveal">
+                        <div class="icon">🧭</div>
+                        <h3>Live GPS Navigation</h3>
+                        <p>Start a trip and follow your real location in real time — speed, heading, remaining distance
+                            and ETA.</p>
+                    </div>
+                    <div class="feature-card reveal">
+                        <div class="icon">⛽</div>
+                        <h3>Tolls &amp; Fuel Costs</h3>
+                        <p>FASTag and cash toll estimates plus fuel cost calculated for your exact vehicle profile.</p>
+                    </div>
+                    <div class="feature-card reveal">
+                        <div class="icon">🏞️</div>
+                        <h3>Discover Places</h3>
+                        <p>Restaurants, hotels, fuel, EV charging, temples, viewpoints and attractions right along your
+                            route.</p>
+                    </div>
+                    <div class="feature-card reveal">
+                        <div class="icon">🎬</div>
+                        <h3>3D Cinematic Playback</h3>
+                        <p>Preview the whole route as an aerial fly-through, or watch a full simulated drive with
+                            stopovers.</p>
+                    </div>
+                    <div class="feature-card reveal">
+                        <div class="icon">🌦️</div>
+                        <h3>Route Weather</h3>
+                        <p>Real-time weather along the way and a suggested best departure time for a smoother trip.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Experience / preview -->
+        <section id="preview" class="block">
+            <div class="container">
+                <div class="section-head center reveal">
+                    <div class="eyebrow">The experience</div>
+                    <h2>A trip that plays like a film.</h2>
+                    <p>Plan it, price it, then press play — and watch your journey unfold.</p>
+                </div>
+                <div class="exp-grid">
+                    <div class="exp-card exp-a reveal">
+                        <div class="cap">
+                            <div class="k">01 · Plan</div>
+                            <h3>Set your route &amp; stops</h3>
+                        </div>
+                    </div>
+                    <div class="exp-card exp-b reveal">
+                        <div class="cap">
+                            <div class="k">02 · Discover</div>
+                            <h3>Find places along the way</h3>
+                        </div>
+                    </div>
+                    <div class="exp-card exp-c reveal">
+                        <div class="cap">
+                            <div class="k">03 · Drive</div>
+                            <h3>Preview &amp; navigate live</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- CTA -->
+        <section id="get-app" class="block">
+            <div class="container">
+                <div class="cta-band reveal">
+                    <div class="eyebrow" style="justify-content:center">Ready when you are</div>
+                    <h2>Your next road trip starts here.</h2>
+                    <p>Sign in above, or jump straight in and explore.</p>
+                    <div class="cta-actions">
+                        <a class="btn-cta" href="https://voyplan.in/app/?guest=true">Launch web app
+                            &rarr;</a>
+
+                        <a class="btn-cta ghost"
+                            href="Voyplan.apk"
+                            title="Download the Android APK">
+                            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                <path
+                                    d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396" />
+                            </svg>
+                            Download for Android
+                        </a>
+
+                        <a class="btn-cta ghost" href="ios-install.html"
+                            title="How to install the iPhone app (step-by-step)">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M12 16v-4M12 8h.01"></path>
+                            </svg>
+                            iPhone install guide
+                        </a>
+                    </div>
+                    <p class="cta-note">
+                        Runs in any browser (incl. iPhone). Android users can install the APK directly —
+                        enable “Install from unknown sources” when prompted. iPhone users: follow the
+                        <strong>iPhone install guide</strong>, or open the web app and tap
+                        <strong>Share&nbsp;→&nbsp;Add&nbsp;to&nbsp;Home&nbsp;Screen</strong>.
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <div class="social-links reveal">
+                <a href="https://www.linkedin.com/in/gowtham-ec/" target="_blank" rel="noopener noreferrer"
+                    aria-label="LinkedIn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
+                        <rect x="2" y="9" width="4" height="12"></rect>
+                        <circle cx="4" cy="4" r="2"></circle>
+                    </svg>
+                </a>
+            </div>
+            <div class="footer-links reveal">
+                <a href="privacy.html">Privacy Policy</a>
+                <span aria-hidden="true">·</span>
+                <a href="terms.html">Terms &amp; Conditions</a>
+            </div>
+            <p class="reveal">&copy; 2026 Voyplan. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Smooth Scroll for Nav Links ---
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const targetId = this.getAttribute('href');
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }
+                });
+            });
+
+            // --- Header Scroll Effect ---
+            const header = document.getElementById('main-header');
+            window.addEventListener('scroll', () => {
+                if (window.scrollY > 50) {
+                    header.classList.add('scrolled');
+                } else {
+                    header.classList.remove('scrolled');
+                }
+            });
+
+            // --- Scroll Reveal Animation (staggered within a group) ---
+            const revealObserver = new IntersectionObserver((entries, observer) => {
+                entries.forEach((entry, i) => {
+                    if (entry.isIntersecting) {
+                        const siblings = Array.from(entry.target.parentElement.children).filter(c => c.classList.contains('reveal'));
+                        const idx = siblings.indexOf(entry.target);
+                        entry.target.style.transitionDelay = (idx > 0 ? idx * 0.09 : 0) + 's';
+                        entry.target.classList.add('visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { root: null, threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+            document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+            // --- Hero parallax on pointer move ---
+            const heroBg = document.getElementById('hero-bg');
+            const hero = document.getElementById('hero');
+            if (heroBg && hero && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                hero.addEventListener('mousemove', (e) => {
+                    const r = hero.getBoundingClientRect();
+                    const x = (e.clientX / r.width - 0.5) * 18;
+                    const y = (e.clientY / r.height - 0.5) * 18;
+                    heroBg.style.transform = `translate(${-x}px, ${-y}px) scale(1.06)`;
+                });
+                hero.addEventListener('mouseleave', () => { heroBg.style.transform = ''; });
+            }
+
+            // --- Feature card spotlight follows the cursor ---
+            document.querySelectorAll('.feature-card').forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const r = card.getBoundingClientRect();
+                    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+                    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+                });
+            });
+
+            initAuth();
+        });
+
+        // ── Landing-page login card ──────────────────────────────────────────
+        const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
+        const APP_URL = 'https://voyplan.in/app/';
+
+        function initAuth() {
+            if (!window.supabase) {
+                console.error('Supabase SDK failed to load');
+                return;
+            }
+            const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+            const els = {
+                title: document.getElementById('auth-title'),
+                subtitle: document.getElementById('auth-subtitle'),
+                nameField: document.getElementById('name-field'),
+                name: document.getElementById('auth-name'),
+                identifier: document.getElementById('auth-identifier'),
+                password: document.getElementById('auth-password'),
+                submit: document.getElementById('auth-submit'),
+                toggle: document.getElementById('auth-toggle'),
+                google: document.getElementById('auth-google'),
+                msg: document.getElementById('auth-msg'),
+            };
+
+            let isSignUp = false;
+
+            function setMsg(text, kind) {
+                els.msg.textContent = text || '';
+                els.msg.className = 'auth-msg' + (kind ? ' ' + kind : '');
+            }
+
+            function setBusy(busy, label) {
+                els.submit.disabled = busy;
+                els.google.disabled = busy;
+                els.submit.textContent = busy ? (label || 'Please wait…') : (isSignUp ? 'Sign Up' : 'Log In');
+            }
+
+            function renderMode() {
+                els.title.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+                els.subtitle.textContent = isSignUp ? 'Sign up to start exploring' : 'Log in to continue exploring';
+                els.submit.textContent = isSignUp ? 'Sign Up' : 'Log In';
+                els.toggle.innerHTML = isSignUp
+                    ? 'Already have an account? <span>Log In</span>'
+                    : 'Need an account? <span>Sign Up</span>';
+                els.nameField.classList.toggle('hide', !isSignUp);
+                els.password.setAttribute('autocomplete', isSignUp ? 'new-password' : 'current-password');
+                setMsg('');
+            }
+
+            // An identifier is treated as an email if it contains "@", otherwise as a phone number.
+            function buildCredentials(identifier, password) {
+                const id = identifier.trim();
+                if (id.includes('@')) return { email: id, password };
+                // Normalise Indian phone numbers to E.164 when no country code is given.
+                let phone = id.replace(/[\s-]/g, '');
+                if (!phone.startsWith('+')) {
+                    phone = phone.length === 10 ? '+91' + phone : '+' + phone;
+                }
+                return { phone, password };
+            }
+
+            // On success we hand the session to the Flutter app via the URL fragment,
+            // which the app reads and restores so the user lands in already signed-in.
+            function goToApp(session) {
+                if (session && session.refresh_token) {
+                    window.location.href = APP_URL + '#sb_refresh=' + encodeURIComponent(session.refresh_token);
+                } else {
+                    window.location.href = APP_URL;
+                }
+            }
+
+            els.toggle.addEventListener('click', () => {
+                isSignUp = !isSignUp;
+                renderMode();
+            });
+
+            els.submit.addEventListener('click', async () => {
+                const identifier = els.identifier.value.trim();
+                const password = els.password.value;
+                if (!identifier || !password) {
+                    setMsg('Please enter your credentials.', 'error');
+                    return;
+                }
+                const creds = buildCredentials(identifier, password);
+                setBusy(true);
+                setMsg('');
+                try {
+                    if (isSignUp) {
+                        const { data, error } = await sb.auth.signUp({
+                            ...creds,
+                            options: { data: { full_name: els.name.value.trim() } },
+                        });
+                        if (error) throw error;
+                        if (data.session) {
+                            setMsg('Account created! Redirecting…', 'success');
+                            goToApp(data.session);
+                        } else {
+                            // Email confirmation is enabled on the project.
+                            setMsg('Check your email to confirm your account, then log in.', 'success');
+                            isSignUp = false;
+                            renderMode();
+                        }
+                    } else {
+                        const { data, error } = await sb.auth.signInWithPassword(creds);
+                        if (error) throw error;
+                        setMsg('Welcome! Redirecting…', 'success');
+                        goToApp(data.session);
+                    }
+                } catch (err) {
+                    setMsg(err.message || 'Something went wrong. Please try again.', 'error');
+                    setBusy(false);
+                }
+            });
+
+            // Enter key submits.
+            [els.identifier, els.password, els.name].forEach(input => {
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') els.submit.click();
+                });
+            });
+
+            // Google OAuth redirects straight into the app (an allow-listed redirect URL);
+            // supabase_flutter picks up the returning session automatically.
+            els.google.addEventListener('click', async () => {
+                setBusy(true, 'Opening Google…');
+                try {
+                    const { error } = await sb.auth.signInWithOAuth({
+                        provider: 'google',
+                        options: { redirectTo: APP_URL },
+                    });
+                    if (error) throw error;
+                } catch (err) {
+                    setMsg(err.message || 'Google sign-in failed.', 'error');
+                    setBusy(false);
+                }
+            });
+
+            // If the user already has a valid session on this origin, skip the form.
+            sb.auth.getSession().then(({ data }) => {
+                if (data && data.session) {
+                    setMsg('Already signed in — redirecting…', 'success');
+                    goToApp(data.session);
+                }
+            });
+
+            renderMode();
+        }
+    </script>
+
+</body>
+
+</html>

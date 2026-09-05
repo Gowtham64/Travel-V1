@@ -1,0 +1,23 @@
+{
+  "name": "Voyplan — Trip Planner",
+  "short_name": "Voyplan",
+  "description": "Plan the trip, not the chaos. Intelligent routing, navigation, weather, and budget planning.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#05070a",
+  "theme_color": "#05070a",
+  "icons": [
+    {
+      "src": "favicon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
