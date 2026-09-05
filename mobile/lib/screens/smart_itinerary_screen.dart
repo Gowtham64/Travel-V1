@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -18,6 +19,7 @@ import '../data/temple_database.dart';
 import '../services/trip_reminder_service.dart';
 import '../utils/trip_date_time.dart';
 import 'day_planner_screen.dart';
+import 'trip_screen.dart';
 
 /// AI-powered smart trip planner: pick a start date/time + destination and the
 /// AI builds a realistic, time-blocked day-by-day itinerary with automatic
@@ -49,6 +51,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   int? _placesFoundCount;
   bool _canExpandSearch = false;
   bool _isConfirmed = false;
+  bool _navLoading = false;
   double? _totalRouteKm;
 
   DateTime? _startDate;
@@ -344,7 +347,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           id: '${DateTime.now().microsecondsSinceEpoch}_${i}_$j',
           text: b.title,
           time: TripDateTime.to12Hour(b.start),
-          note: b.reason,
+          note: b.reason.isNotEmpty ? b.reason : (b.place.isNotEmpty ? b.place : ''),
+          lat: b.lat,
+          lng: b.lng,
           category: _blockToCategory(b.type),
         ));
       }
@@ -373,15 +378,17 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       }
     }
 
-    if (startCoord != null) {
+    if (waypoints.isNotEmpty) {
+      endCoord = waypoints.last;
+    } else {
       endCoord = startCoord;
     }
 
     startCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
-    endCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
+    endCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: dest.isNotEmpty ? dest : 'Destination');
     
     // 1. Save locally to TripExtrasStore
-    await TripExtrasStore(tripKey).saveDays(planDays, name: '$dest (AI plan)');
+    await TripExtrasStore(tripKey).saveDays(planDays, name: start.isNotEmpty ? '$start to $dest' : '$dest (AI plan)');
 
     // 2. Save to TripHistoryService (automatically syncs to local cache & Supabase)
     final historyItem = TripHistoryItem(
@@ -526,16 +533,168 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     );
   }
 
-  /// Save and open the day-by-day planner to start following the trip.
-  Future<void> _start() async {
+  double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+    const r = 6371.0;
+    double toRad(double d) => d * math.pi / 180.0;
+    final dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(toRad(lat1)) * math.cos(toRad(lat2)) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  }
+
+  /// Save and open the day-by-day planner to view/edit the trip checklist.
+  Future<void> _openDayPlanner() async {
     if (!AuthGuard.ensure(context, action: 'save & start trips')) return;
     setState(() => _isConfirmed = true);
     final tripKey = await _persistPlan();
     if (!mounted) return;
     final dest = _destCtrl.text.trim();
+    final start = _startLocCtrl.text.trim();
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => DayPlannerScreen(tripKey: tripKey, tripName: '$dest (AI plan)'),
+      builder: (_) => DayPlannerScreen(
+        tripKey: tripKey,
+        tripName: start.isNotEmpty ? '$start to $dest' : '$dest (AI plan)',
+      ),
     ));
+  }
+
+  Future<void> _start() => _openDayPlanner();
+
+  /// Start full turn-by-turn driving navigation directly from the AI itinerary.
+  Future<void> _startNavigation() async {
+    if (!AuthGuard.ensure(context, action: 'start navigation')) return;
+    if (_itinerary.isEmpty) return;
+    setState(() => _navLoading = true);
+
+    try {
+      await _persistPlan();
+      setState(() => _isConfirmed = true);
+
+      final dest = _destCtrl.text.trim();
+      final start = _startLocCtrl.text.trim();
+
+      // 1. Resolve start location coordinate
+      GeoPoint? startCoord;
+      if (start.isNotEmpty) {
+        try {
+          startCoord = await _api.geocode(start);
+        } catch (_) {}
+      }
+      if (startCoord == null) {
+        try {
+          final pos = await _currentPosition();
+          startCoord = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: start.isNotEmpty ? start : 'My Location');
+        } catch (_) {}
+      }
+
+      // 2. Resolve destination coordinate
+      GeoPoint? destCoord;
+      if (dest.isNotEmpty) {
+        try {
+          destCoord = await _api.geocode(dest);
+        } catch (_) {}
+      }
+
+      // 3. Extract verified itinerary stops (chronological order)
+      final allStops = <GeoPoint>[];
+      for (final d in _itinerary) {
+        for (final b in d.blocks) {
+          if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
+            final pt = GeoPoint(
+              lat: b.lat!,
+              lng: b.lng!,
+              name: b.place.isNotEmpty ? b.place : b.title,
+            );
+            if (allStops.any((s) => _haversineKm(s.lat, s.lng, pt.lat, pt.lng) < 0.1)) continue;
+            allStops.add(pt);
+          }
+        }
+      }
+
+      // 4. Assemble route chain: start -> waypoints -> end
+      GeoPoint finalStart;
+      GeoPoint finalEnd;
+      final waypoints = <GeoPoint>[];
+
+      if (startCoord != null) {
+        finalStart = startCoord;
+        if (destCoord != null) {
+          for (final s in allStops) {
+            if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.2 &&
+                _haversineKm(destCoord.lat, destCoord.lng, s.lat, s.lng) > 0.2) {
+              waypoints.add(s);
+            }
+          }
+          finalEnd = destCoord;
+        } else if (allStops.isNotEmpty) {
+          waypoints.addAll(allStops.sublist(0, allStops.length - 1));
+          finalEnd = allStops.last;
+        } else {
+          finalEnd = finalStart;
+        }
+      } else if (allStops.length >= 2) {
+        finalStart = allStops.first;
+        waypoints.addAll(allStops.sublist(1, allStops.length - 1));
+        finalEnd = allStops.last;
+      } else if (allStops.length == 1) {
+        finalStart = allStops.first;
+        finalEnd = destCoord ?? allStops.first;
+      } else {
+        throw Exception('No valid stops or destination found to navigate.');
+      }
+
+      final clampedWaypoints = waypoints.length > 20 ? waypoints.sublist(0, 20) : waypoints;
+
+      final vehicle = Vehicle(
+        type: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
+        efficiencyKmPerLiter: double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage ?? 15.0,
+        tankCapacityLiters: _vehicle?.tankCapacity ?? 45.0,
+        currentFuelLiters: double.tryParse(_currentFuelCtrl.text.trim()) ?? _vehicle?.tankCapacity ?? 45.0,
+      );
+
+      final plan = await _api.planTrip(
+        start: finalStart,
+        end: finalEnd,
+        waypoints: clampedWaypoints,
+        vehicle: vehicle,
+      );
+
+      if (!mounted) return;
+
+      final savedItinerary = <Map<String, dynamic>>[];
+      for (final d in _itinerary) {
+        for (final b in d.blocks) {
+          savedItinerary.add(b.toJson());
+        }
+      }
+
+      final tripStart = _startDate != null
+          ? DateTime(_startDate!.year, _startDate!.month, _startDate!.day, _startTime.hour, _startTime.minute)
+          : DateTime.now();
+
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => TripScreen(
+          plan: plan,
+          startAddress: finalStart.name ?? (start.isNotEmpty ? start : 'Start'),
+          endAddress: finalEnd.name ?? (dest.isNotEmpty ? dest : 'Destination'),
+          vehicleType: vehicle.type,
+          poiCategories: const ['restaurant', 'attraction', 'hotel', 'fuel', 'ev', 'viewpoint'],
+          start: finalStart,
+          end: finalEnd,
+          waypoints: clampedWaypoints,
+          vehicle: vehicle,
+          initialTripStart: tripStart,
+          savedItinerary: savedItinerary,
+        ),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to start navigation: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _navLoading = false);
+    }
   }
 
   String _blockToCategory(String type) {
@@ -1730,7 +1889,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           label: const Text('Regenerate', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
           style: OutlinedButton.styleFrom(
             side: BorderSide(color: AppColors.accentLight.withValues(alpha: 0.5)),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 15),
           ),
         ),
         const SizedBox(width: 8),
@@ -1738,26 +1897,47 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           child: OutlinedButton.icon(
             onPressed: _save,
             icon: const Icon(Icons.bookmark_add_rounded, size: 18, color: Colors.white),
-            label: const Text('Save', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
+            label: const Text('Save', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
             style: OutlinedButton.styleFrom(
               side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 15),
             ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
-          flex: 2,
-          child: AccentButton(
-            onPressed: _start,
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(_isConfirmed ? Icons.navigation_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 22),
-              const SizedBox(width: 4),
-              Text(_isConfirmed ? 'START NAVIGATION' : 'CONFIRM & START', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
-            ]),
+          child: OutlinedButton.icon(
+            onPressed: _openDayPlanner,
+            icon: const Icon(Icons.calendar_month_rounded, size: 18, color: Color(0xFF60A5FA)),
+            label: const Text('Day Plan', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: Color(0xFF38BDF8), width: 1.2),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+            ),
           ),
         ),
       ]),
+      const SizedBox(height: 10),
+      SizedBox(
+        width: double.infinity,
+        child: AccentButton(
+          onPressed: _navLoading ? null : _startNavigation,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            if (_navLoading)
+              const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            else
+              const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
+            const SizedBox(width: 8),
+            Text(
+              _navLoading ? 'CALCULATING ROUTE & STARTING…' : 'START NAVIGATION',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+            ),
+          ]),
+        ),
+      ),
     ];
   }
 

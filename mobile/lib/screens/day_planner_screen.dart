@@ -1007,6 +1007,22 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         }
       }
 
+      // If no stops located from items, fall back to journey endpoints
+      if (stops.isEmpty) {
+        if (ctx.from.isNotEmpty) {
+          try {
+            final startGp = await _api.geocode(ctx.from);
+            stops.add(startGp);
+          } catch (_) {}
+        }
+        if (ctx.to.isNotEmpty) {
+          try {
+            final endGp = await _api.geocode(ctx.to);
+            stops.add(endGp);
+          } catch (_) {}
+        }
+      }
+
       // If we only located 1 stop, try using journey origin (ctx.from) or destination (ctx.to)
       if (stops.length == 1) {
         if (ctx.from.isNotEmpty && stops.first.name != ctx.from) {

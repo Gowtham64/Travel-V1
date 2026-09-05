@@ -286,7 +286,52 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         ],
     );
     if (widget.embedded) return ColoredBox(color: _bg, child: scroll);
-    return Scaffold(backgroundColor: _bg, body: scroll);
+    return Scaffold(
+      backgroundColor: _bg,
+      body: scroll,
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+        decoration: const BoxDecoration(
+          color: _surface,
+          border: Border(top: BorderSide(color: _hairline)),
+        ),
+        child: ElevatedButton.icon(
+          onPressed: () {
+            Navigator.of(context).push(MaterialPageRoute(
+              builder: (_) => TripScreen(
+                plan: widget.plan,
+                startAddress: widget.startAddress,
+                endAddress: widget.endAddress,
+                vehicleType: widget.vehicleType,
+                poiCategories: const ['restaurant', 'attraction', 'hotel', 'fuel', 'ev', 'viewpoint'],
+                start: widget.start,
+                end: widget.end,
+                waypoints: widget.waypoints,
+                vehicle: widget.vehicle ??
+                    Vehicle(
+                      type: widget.vehicleType,
+                      efficiencyKmPerLiter: 15,
+                      tankCapacityLiters: 45,
+                      currentFuelLiters: 45,
+                    ),
+                initialTripStart: _tripStart,
+                savedItinerary: _generated?.map((d) => d.toJson()).toList() ?? widget.initialItinerary,
+              ),
+            ));
+          },
+          icon: const Icon(Icons.navigation_rounded, color: Colors.white, size: 22),
+          label: const Text(
+            'START NAVIGATION',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.5, color: Colors.white),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _brand,
+            padding: const EdgeInsets.symmetric(vertical: 15),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Compact save/share row shown at the top when the itinerary is embedded in

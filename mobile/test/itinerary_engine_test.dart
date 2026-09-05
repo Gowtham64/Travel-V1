@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app/models/trip_models.dart';
+import 'package:travel_app/models/trip_extras.dart';
 import 'package:travel_app/utils/trip_date_time.dart';
 
 void main() {
@@ -387,6 +388,94 @@ void main() {
       expect(endCoord!.name, 'Chennai');
       expect(endCoord!.lat, 13.0827);
       expect(waypoints.any((w) => (w.name ?? '').contains('Madurai')), true);
+    });
+  });
+
+  group('PlanItem Coordinate Grounding & Direct Navigation', () {
+    test('TimelineBlock conversion to PlanItem preserves lat and lng coordinates', () {
+      final block = TimelineBlock(
+        start: '09:00',
+        end: '10:30',
+        type: 'activity',
+        title: 'Silathoranam (Natural Rock Arch)',
+        place: 'Silathoranam',
+        lat: 13.6800,
+        lng: 79.3500,
+        reason: 'Rare geological formation in Tirumala hills',
+      );
+
+      final item = PlanItem(
+        id: 'item_1',
+        text: block.title,
+        time: TripDateTime.to12Hour(block.start),
+        note: block.reason.isNotEmpty ? block.reason : (block.place.isNotEmpty ? block.place : ''),
+        lat: block.lat,
+        lng: block.lng,
+        category: 'place',
+      );
+
+      expect(item.hasCoords, true);
+      expect(item.lat, 13.6800);
+      expect(item.lng, 79.3500);
+      expect(item.text, 'Silathoranam (Natural Rock Arch)');
+      expect(item.note, 'Rare geological formation in Tirumala hills');
+
+      final json = item.toJson();
+      expect(json['lat'], 13.6800);
+      expect(json['lng'], 79.3500);
+
+      final restored = PlanItem.fromJson(json);
+      expect(restored.hasCoords, true);
+      expect(restored.lat, 13.6800);
+      expect(restored.lng, 79.3500);
+    });
+
+    test('Itinerary waypoints extraction retains distinct GPS points for navigation', () {
+      final blocks = [
+        TimelineBlock(
+          start: '07:00',
+          end: '08:30',
+          type: 'activity',
+          title: 'Sri Venkateswara Swamy Temple',
+          place: 'Tirumala',
+          lat: 13.6833,
+          lng: 79.3472,
+        ),
+        TimelineBlock(
+          start: '09:00',
+          end: '10:00',
+          type: 'activity',
+          title: 'Silathoranam',
+          place: 'Tirumala',
+          lat: 13.6800,
+          lng: 79.3500,
+        ),
+        TimelineBlock(
+          start: '10:30',
+          end: '11:30',
+          type: 'activity',
+          title: 'Srivari Padalu',
+          place: 'Tirumala',
+          lat: 13.6920,
+          lng: 79.3410,
+        ),
+      ];
+
+      final waypoints = <GeoPoint>[];
+      for (final b in blocks) {
+        if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
+          waypoints.add(GeoPoint(
+            lat: b.lat!,
+            lng: b.lng!,
+            name: b.place.isNotEmpty ? b.place : b.title,
+          ));
+        }
+      }
+
+      expect(waypoints.length, 3);
+      expect(waypoints[0].name, 'Tirumala');
+      expect(waypoints[1].lat, 13.6800);
+      expect(waypoints[2].lng, 79.3410);
     });
   });
 }
