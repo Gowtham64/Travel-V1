@@ -270,4 +270,166 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
     expect(optimized[1].name).toContain("Srirangapatna");
     expect(optimized[2].name).toContain("Mysore Palace");
   });
+
+  // TEST 10: Tirumala Destination Hard Geo-Fence Test
+  test("TEST 10: Destination Tirumala produces ONLY Tirumala/Tirupati area places and rejects Bangalore/Hyderabad places", async () => {
+    const result = await itineraryEngine.planItinerary({
+      startLocation: "Bengaluru",
+      destination: "Tirumala",
+      tripType: "around",
+      durationDays: 2,
+      selectedCategories: ["temples"],
+      searchRadiusKm: 25,
+    });
+
+    expect(result).toBeDefined();
+    expect(result.tripType).toBe("around");
+
+    const activities = [];
+    for (const d of result.days) {
+      for (const b of d.blocks) {
+        if (b.type === "activity") {
+          activities.push(b);
+        }
+      }
+    }
+
+    expect(activities.length).toBeGreaterThan(0);
+
+    for (const act of activities) {
+      // Must have valid placeId
+      expect(act.placeId).toBeDefined();
+      expect(typeof act.placeId).toBe("string");
+
+      const name = (act.place || act.title || "").toLowerCase();
+      const city = (act.city || "").toLowerCase();
+
+      // STRICT NEGATIVE ASSERTIONS: Must NEVER contain Bangalore, Hyderabad, Vijayawada, or Chennai
+      expect(name).not.toContain("bengaluru");
+      expect(name).not.toContain("bangalore");
+      expect(name).not.toContain("hyderabad");
+      expect(name).not.toContain("vijayawada");
+      expect(city).not.toContain("bengaluru");
+      expect(city).not.toContain("bangalore");
+      expect(city).not.toContain("hyderabad");
+
+      // Geographic proximity assertion: Must be within 25 km of Tirumala (lat 13.6833, lng 79.3473)
+      const distToTirumala = Math.hypot(act.lat - 13.6833, act.lng - 79.3473) * 111;
+      expect(distToTirumala).toBeLessThanOrEqual(25);
+    }
+  });
+
+  // TEST 11: Invented place without valid placeId is rejected by Quality Gate
+  test("TEST 11: Stop with missing or unrecognized placeId fails quality gate validation", () => {
+    const mockDays = [
+      {
+        day: 1,
+        blocks: [
+          { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          {
+            type: "activity",
+            title: "Visit Imaginary Sacred Temple",
+            place: "Imaginary Sacred Temple",
+            placeId: "fake_invented_place_9999", // Not in candidateMap
+            start: "10:00 AM",
+            end: "11:00 AM",
+            lat: 13.6833,
+            lng: 79.3473,
+          },
+          { type: "return", place: "Bengaluru", start: "05:00 PM", end: "09:00 PM", lat: 12.9716, lng: 77.5946 },
+        ],
+      },
+    ];
+
+    const candidateMap = new Map([
+      ["pl_tirumala_venkateswara", { placeId: "pl_tirumala_venkateswara", name: "Lord Venkateswara Temple" }],
+    ]);
+
+    expect(() => {
+      itineraryEngine.validateItineraryQuality({
+        days: mockDays,
+        startLocation: { lat: 12.9716, lng: 77.5946 },
+        destination: { lat: 13.6833, lng: 79.3473 },
+        isAroundTrip: true,
+        startMinutes: 480,
+        candidateMap,
+        searchRadiusKm: 25,
+      });
+    }).toThrow(/Unrecognized placeId/);
+  });
+
+  // TEST 12: Stop with null coordinates is rejected by Quality Gate
+  test("TEST 12: Stop with missing coordinates is rejected", () => {
+    const mockDays = [
+      {
+        day: 1,
+        blocks: [
+          { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          {
+            type: "activity",
+            title: "Visit Temple",
+            placeId: "pl_tirumala_venkateswara",
+            start: "10:00 AM",
+            end: "11:00 AM",
+            lat: null, // Invalid coordinates
+            lng: null,
+          },
+          { type: "return", place: "Bengaluru", start: "05:00 PM", end: "09:00 PM", lat: 12.9716, lng: 77.5946 },
+        ],
+      },
+    ];
+
+    const candidateMap = new Map([
+      ["pl_tirumala_venkateswara", { placeId: "pl_tirumala_venkateswara" }],
+    ]);
+
+    expect(() => {
+      itineraryEngine.validateItineraryQuality({
+        days: mockDays,
+        startLocation: { lat: 12.9716, lng: 77.5946 },
+        destination: { lat: 13.6833, lng: 79.3473 },
+        isAroundTrip: true,
+        startMinutes: 480,
+        candidateMap,
+      });
+    }).toThrow(/Missing coordinates/);
+  });
+
+  // TEST 13: Stop 250 km away is rejected by Quality Gate
+  test("TEST 13: Place 250 km away outside searchRadius and corridor is rejected", () => {
+    const mockDays = [
+      {
+        day: 1,
+        blocks: [
+          { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          {
+            type: "activity",
+            title: "Visit Charminar Hyderabad",
+            placeId: "pl_hyderabad_charminar",
+            start: "10:00 AM",
+            end: "11:00 AM",
+            lat: 17.3616, // Hyderabad - 500 km away
+            lng: 78.4747,
+          },
+          { type: "return", place: "Bengaluru", start: "05:00 PM", end: "09:00 PM", lat: 12.9716, lng: 77.5946 },
+        ],
+      },
+    ];
+
+    const candidateMap = new Map([
+      ["pl_hyderabad_charminar", { placeId: "pl_hyderabad_charminar" }],
+    ]);
+
+    expect(() => {
+      itineraryEngine.validateItineraryQuality({
+        days: mockDays,
+        startLocation: { lat: 12.9716, lng: 77.5946 },
+        destination: { lat: 13.6833, lng: 79.3473 },
+        isAroundTrip: true,
+        startMinutes: 480,
+        candidateMap,
+        searchRadiusKm: 25,
+      });
+    }).toThrow(/outside destination and route bounds/);
+  });
 });

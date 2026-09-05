@@ -4,6 +4,7 @@ const { geocodeAddress } = require("./geocodeService");
 const { geocode, route: osrmRoute } = require("./itineraryGeo");
 const { findPOIsInArea } = require("./orsPoiService");
 const FuelRangeService = require("./fuelRangeService");
+const { rankCandidatesWithAI } = require("./aiService");
 const curatedPlaces = require("../data/curatedPlaces.json");
 
 /**
@@ -310,7 +311,7 @@ function optimizeStopSequence({ start, end, stops, isAroundTrip }) {
 
 /**
  * Filter and score candidate places against user category constraints.
- * Enforces destination anchoring and corridor detour limits.
+ * Enforces destination anchoring, origin city exclusion, and corridor detour limits.
  */
 function filterAndScoreCandidates({
   candidates,
@@ -326,6 +327,8 @@ function filterAndScoreCandidates({
     selectedCategories.map((c) => c.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"))
   );
   const hasCategoryFilter = selectedSet.size > 0;
+  const directDist = haversineDistanceKm(baseAxisStart, baseAxisEnd);
+  const isLocalTrip = directDist <= 30;
 
   const valid = [];
   for (const c of candidates) {
@@ -360,56 +363,73 @@ function filterAndScoreCandidates({
     // 2. Destination Relevance & Corridor Detour Check
     const distToDest = haversineDistanceKm(baseAxisEnd, c);
     const distToStart = haversineDistanceKm(baseAxisStart, c);
-    const directDist = haversineDistanceKm(baseAxisStart, baseAxisEnd);
 
     const isNearDest = distToDest <= searchRadiusKm;
-    const isNearStart = directDist <= 30 && distToStart <= searchRadiusKm;
+    const isNearStart = isLocalTrip && distToStart <= searchRadiusKm;
 
-    // Highway Corridor Detour Check
-    // Place must be geographically between start and destination with minimal detour (<= 20 km)
+    // Highway Corridor Detour Check:
+    // Stops along the corridor must be genuine midway transit stops:
+    // - Not in the starting origin city (distToStart > 30 km for long-distance trips)
+    // - Between start and destination (distToStart <= directDist * 1.05 && distToDest <= directDist * 1.05)
+    // - Minimal detour off the direct route (corridorDetour <= 15 km)
     const corridorDetour = distToStart + distToDest - directDist;
     const isAlongCorridor =
-      directDist > 30 &&
-      distToStart <= directDist * 1.08 &&
-      distToDest <= directDist * 1.08 &&
-      corridorDetour <= 20;
+      !isLocalTrip &&
+      directDist > 50 &&
+      distToStart > 30 &&
+      distToDest > searchRadiusKm &&
+      distToStart <= directDist * 1.05 &&
+      distToDest <= directDist * 1.05 &&
+      corridorDetour <= 15;
 
     // Reject places from unrelated regions!
     if (!isNearDest && !isNearStart && !isAlongCorridor && !c.isUserSpecified && !c.isDestinationAnchor) {
       continue;
     }
 
-    // Score: Destination-proximate places get highest priority boost, then corridor stops
+    // Score: Destination itself / Destination-proximate places get highest priority boost, then corridor stops
     let locScore = 0;
-    if (isNearDest) {
-      locScore = 150 - distToDest; // Closer to destination center = higher rank
+    if (c.isDestinationAnchor) {
+      locScore = 1000;
+    } else if (isNearDest) {
+      locScore = 500 - distToDest * 2.0; // Closer to destination center = higher rank
     } else if (isAlongCorridor) {
-      locScore = 80 - corridorDetour * 2.0; // Minimal detour on highway corridor
+      locScore = 200 - corridorDetour * 5.0; // Minimal detour on highway corridor
     } else {
-      locScore = 40;
+      locScore = 50;
     }
 
     const totalScore = priorityScore + locScore + (c.rating ? c.rating * 5 : 20);
+    const placeId = c.placeId || `pl_${Math.round(c.lat * 10000)}_${Math.round(c.lng * 10000)}`;
 
     valid.push({
       ...c,
+      placeId,
+      latitude: c.lat,
+      longitude: c.lng,
+      destinationDistanceKm: Math.round(distToDest * 10) / 10,
       distanceFromDestKm: Math.round(distToDest * 10) / 10,
       detourKm: Math.round(corridorDetour * 10) / 10,
       score: totalScore,
     });
   }
 
-  // Sort by score descending and deduplicate by distance < 250m or identical name
+  // Sort by score descending and deduplicate by placeId and coordinates
   valid.sort((a, b) => b.score - a.score);
 
   const deduplicated = [];
+  const seenPlaceIds = new Set();
   for (const p of valid) {
+    if (seenPlaceIds.has(p.placeId)) continue;
     const isDup = deduplicated.some(
       (existing) =>
         haversineDistanceKm(existing, p) < 0.25 ||
         existing.name.toLowerCase().trim() === p.name.toLowerCase().trim()
     );
-    if (!isDup) deduplicated.push(p);
+    if (!isDup) {
+      seenPlaceIds.add(p.placeId);
+      deduplicated.push(p);
+    }
   }
 
   return deduplicated;
@@ -478,6 +498,7 @@ async function planItinerary(params = {}) {
 
   // Step 3: Discover Candidate Places
   const rawCandidates = [];
+  const isLocalTrip = directDist <= 30;
 
   // A. User-specified places take top priority
   for (const p of places) {
@@ -486,6 +507,7 @@ async function planItinerary(params = {}) {
     if (resolved) {
       rawCandidates.push({
         ...resolved,
+        placeId: resolved.placeId || `user_${Math.round(resolved.lat * 10000)}_${Math.round(resolved.lng * 10000)}`,
         isUserSpecified: true,
         category: resolved.category || "famous_places",
         source: "user_specified",
@@ -498,13 +520,16 @@ async function planItinerary(params = {}) {
     const distToDest = haversineDistanceKm(destPt, cp);
     const distToStart = haversineDistanceKm(startPt, cp);
     const isNearDest = distToDest <= searchRadius;
-    const isNearStart = directDist <= 30 && distToStart <= searchRadius;
+    const isNearStart = isLocalTrip && distToStart <= searchRadius;
     const corridorDetour = distToStart + distToDest - directDist;
     const isAlongCorridor =
-      directDist > 30 &&
-      distToStart <= directDist * 1.08 &&
-      distToDest <= directDist * 1.08 &&
-      corridorDetour <= 20;
+      !isLocalTrip &&
+      directDist > 50 &&
+      distToStart > 30 &&
+      distToDest > searchRadius &&
+      distToStart <= directDist * 1.05 &&
+      distToDest <= directDist * 1.05 &&
+      corridorDetour <= 15;
 
     if (isNearDest || isNearStart || isAlongCorridor) {
       rawCandidates.push({
@@ -536,9 +561,12 @@ async function planItinerary(params = {}) {
     );
     if (!hasDestAnchor) {
       rawCandidates.push({
+        placeId: `pl_dest_anchor_${Math.round(destPt.lat * 1000)}_${Math.round(destPt.lng * 1000)}`,
         name: destPt.name,
         lat: destPt.lat,
         lng: destPt.lng,
+        latitude: destPt.lat,
+        longitude: destPt.lng,
         address: destPt.address || destPt.name,
         city: destPt.city || destPt.name,
         state: destPt.state || "",
@@ -565,10 +593,40 @@ async function planItinerary(params = {}) {
     searchRadiusKm: searchRadius,
   });
 
+  const candidateMap = new Map(filteredPlaces.map((c) => [c.placeId, c]));
+
   // Limit stops per day based on pace and duration
   const stopsPerDay = mode === "packed" ? 5 : mode === "relaxed" ? 3 : 4;
   const maxStops = Math.max(1, Math.min(filteredPlaces.length, totalDays * stopsPerDay));
-  let candidateStops = filteredPlaces.slice(0, maxStops);
+
+  // AI selection & ranking from strictly validated candidates only
+  let candidateStops = [];
+  try {
+    const aiStops = await rankCandidatesWithAI({
+      candidates: filteredPlaces,
+      destination: destPt.name,
+      maxStops,
+      preferences,
+    });
+    for (const s of aiStops) {
+      const match = candidateMap.get(s.placeId);
+      if (match && !candidateStops.some((existing) => existing.placeId === match.placeId)) {
+        candidateStops.push(match);
+      }
+    }
+  } catch (_) {}
+
+  // If AI selection produced fewer than maxStops or was offline, complete with top-ranked candidates
+  if (candidateStops.length === 0) {
+    candidateStops = filteredPlaces.slice(0, maxStops);
+  } else if (candidateStops.length < maxStops) {
+    for (const p of filteredPlaces) {
+      if (candidateStops.length >= maxStops) break;
+      if (!candidateStops.some((s) => s.placeId === p.placeId)) {
+        candidateStops.push(p);
+      }
+    }
+  }
 
   // If destination is distinct from start, ensure destination anchor or top destination stop is included
   if (directDist > 15) {
@@ -578,6 +636,25 @@ async function planItinerary(params = {}) {
       if (topDestPlace) candidateStops.push(topDestPlace);
     }
   }
+
+  // Step 4.5: HARD VALIDATION - Drop any stop that fails candidate verification
+  candidateStops = candidateStops.filter((stop) => {
+    // 1. Must have placeId and exist in candidateMap
+    if (!stop.placeId || !candidateMap.has(stop.placeId)) return false;
+    // 2. Must have valid finite coordinates
+    if (!Number.isFinite(stop.lat) || !Number.isFinite(stop.lng) || stop.lat === 0) return false;
+    // 3. Geographic boundary check
+    const distToDest = haversineDistanceKm(destPt, stop);
+    const distToStart = haversineDistanceKm(startPt, stop);
+    const corridorDetour = distToStart + distToDest - directDist;
+    const inDestRadius = distToDest <= searchRadius;
+    const inLocalRadius = isLocalTrip && distToStart <= searchRadius;
+    const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadius && corridorDetour <= 20;
+    if (!inDestRadius && !inLocalRadius && !inCorridor && !stop.isUserSpecified && !stop.isDestinationAnchor) {
+      return false;
+    }
+    return true;
+  });
 
   // Step 5: Stop Order Optimization (Minimize Backtracking)
   const orderedStops = optimizeStopSequence({
@@ -729,6 +806,7 @@ async function planItinerary(params = {}) {
       const actEnd = currentMin + visitDur;
       blocks.push({
         id: `d${dayNumber}_stop_${sIdx}`,
+        placeId: stop.placeId,
         day: dayNumber,
         sequence: blocks.length,
         type: "activity",
@@ -738,6 +816,9 @@ async function planItinerary(params = {}) {
         categories: stop.categories || [stop.category || "attraction"],
         lat: stop.lat,
         lng: stop.lng,
+        latitude: stop.lat,
+        longitude: stop.lng,
+        destinationDistanceKm: stop.destinationDistanceKm,
         address: stop.address || stop.name,
         city: stop.city || "",
         state: stop.state || "",
@@ -874,6 +955,9 @@ async function planItinerary(params = {}) {
     destination: destPt,
     isAroundTrip,
     startMinutes,
+    candidateMap,
+    searchRadiusKm: searchRadius,
+    selectedCategories,
   });
 
   return {
@@ -900,7 +984,16 @@ async function planItinerary(params = {}) {
 /**
  * 17-Point Automated Itinerary Quality Gate
  */
-function validateItineraryQuality({ days, startLocation, destination, isAroundTrip, startMinutes }) {
+function validateItineraryQuality({
+  days,
+  startLocation,
+  destination,
+  isAroundTrip,
+  startMinutes,
+  candidateMap,
+  searchRadiusKm = 25,
+  selectedCategories = [],
+}) {
   if (!Array.isArray(days) || days.length === 0) {
     throw new Error("Quality Gate Failed: No days produced");
   }
@@ -926,7 +1019,10 @@ function validateItineraryQuality({ days, startLocation, destination, isAroundTr
     }
   }
 
-  // Check Non-overlapping and sequential timeline
+  const directDist = haversineDistanceKm(startLocation, destination);
+  const isLocalTrip = directDist <= 30;
+
+  // Check Non-overlapping and sequential timeline & place validity
   for (const day of days) {
     let prevEnd = -1;
     for (const b of day.blocks) {
@@ -941,6 +1037,29 @@ function validateItineraryQuality({ days, startLocation, destination, isAroundTr
       if (b.type === "activity" || b.type === "start" || b.type === "return") {
         if (!Number.isFinite(b.lat) || !Number.isFinite(b.lng) || b.lat === 0) {
           throw new Error(`Quality Gate Failed: Missing coordinates for block ${b.title}`);
+        }
+      }
+
+      // Hard Validation Check for activity blocks
+      if (b.type === "activity") {
+        if (!b.placeId) {
+          throw new Error(`Quality Gate Failed: Missing placeId for block "${b.title}"`);
+        }
+        if (candidateMap && !candidateMap.has(b.placeId)) {
+          throw new Error(`Quality Gate Failed: Unrecognized placeId "${b.placeId}" for block "${b.title}"`);
+        }
+        // Geographic constraint check
+        const distToDest = haversineDistanceKm(destination, b);
+        const distToStart = haversineDistanceKm(startLocation, b);
+        const corridorDetour = distToStart + distToDest - directDist;
+        const inDestRadius = distToDest <= searchRadiusKm;
+        const inLocalRadius = isLocalTrip && distToStart <= searchRadiusKm;
+        const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadiusKm && corridorDetour <= 20;
+
+        if (!inDestRadius && !inLocalRadius && !inCorridor && !b.isDestinationAnchor && !b.isUserSpecified) {
+          throw new Error(
+            `Quality Gate Failed: Block "${b.title}" is outside destination and route bounds (distToDest: ${distToDest.toFixed(1)}km, searchRadius: ${searchRadiusKm}km).`
+          );
         }
       }
     }

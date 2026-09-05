@@ -165,11 +165,14 @@ async function findPOIsInArea(center, categories = [], radiusKm = 25) {
                   seenKeys.add(key);
                   const addrParts = [p.street, city, p.state].filter(Boolean);
                   const addr = addrParts.length > 0 ? addrParts.join(", ") : `${name}, ${city}`;
-                  const isTemple = category === "temple" || /temple|swamy|kovil|gudi|mandir/i.test(name);
+                  const placeId = p.osm_id ? `osm_${p.osm_type || 'p'}_${p.osm_id}` : `osm_${lat.toFixed(4)}_${lng.toFixed(4)}`;
                   results.push({
+                    placeId,
                     name,
                     lat,
                     lng,
+                    latitude: lat,
+                    longitude: lng,
                     address: addr,
                     city,
                     state: p.state || "",
@@ -177,6 +180,7 @@ async function findPOIsInArea(center, categories = [], radiusKm = 25) {
                     category: isTemple ? "temples" : category,
                     categories: [isTemple ? "temples" : category, "famous_places"],
                     rating: isTemple ? 4.8 : 4.5,
+                    destinationDistanceKm: Math.round(d * 10) / 10,
                     distanceFromDestKm: Math.round(d * 10) / 10,
                     source: "osm_photon",
                   });

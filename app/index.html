@@ -14,10 +14,43 @@
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
   -->
-  <base href="/Travel-V1/app/">
+  <base href="/app/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+
+  <!-- Google Analytics (GA4) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-F8JKP99Q44"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    // send_page_view:false — the Flutter SPA sends page_view on route changes
+    // itself (see the pushState/replaceState hook below), so we avoid double-
+    // counting the initial load.
+    gtag('config', 'G-F8JKP99Q44', { send_page_view: true });
+    // Track in-app navigations (Flutter router uses history pushState) as GA
+    // page_views so you see which screens are used, not just the first load.
+    (function () {
+      function trackPage() {
+        gtag('event', 'page_view', {
+          page_path: location.pathname + location.hash,
+          page_location: location.href,
+          page_title: document.title,
+        });
+      }
+      ['pushState', 'replaceState'].forEach(function (m) {
+        var orig = history[m];
+        history[m] = function () {
+          var r = orig.apply(this, arguments);
+          trackPage();
+          return r;
+        };
+      });
+      window.addEventListener('popstate', trackPage);
+      window.addEventListener('hashchange', trackPage);
+    })();
+  </script>
   <!-- Force the browser to revalidate this HTML so inline map JS updates land. -->
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
@@ -32,11 +65,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Voyplan">
   <meta name="theme-color" content="#2E75B6">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <!-- Favicon -->
+  <!-- Favicon & Touch Icons -->
+  <link rel="icon" href="favicon.ico" sizes="any">
   <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48x48.png"/>
+  <link rel="icon" type="image/png" sizes="96x96" href="favicon-96x96.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192x192.png"/>
+  <link rel="icon" type="image/png" sizes="512x512" href="favicon.png"/>
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
   <title>Voyplan</title>
   <link rel="manifest" href="manifest.json">
@@ -159,11 +196,11 @@
 
     function getVehicleMarkerHTML(type) {
       return `
-        <div class="nav-symbol-container" style="width: 48px; height: 48px; position: relative; display: flex; align-items: center; justify-content: center;">
-          <div class="pulsing-ring" style="position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 2.5px solid #2E75B6; background-color: rgba(46, 117, 182, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none; left: 2px; top: 2px;"></div>
-          <div class="nav-puck-disc" style="position: relative; width: 34px; height: 34px; border-radius: 50%; background: #ffffff; border: 2.5px solid #2E75B6; box-shadow: 0 4px 12px rgba(46, 117, 182, 0.35), 0 2px 6px rgba(0,0,0,0.25); display: flex; align-items: center; justify-content: center;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" style="display: block;">
-              <path d="M12 2L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2Z" fill="#2E75B6" stroke="#1D4ED8" stroke-width="1.2" stroke-linejoin="round"/>
+        <div class="nav-symbol-container" style="width: 52px; height: 52px; position: relative; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <div class="pulsing-ring" style="position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid #0EA5E9; background-color: rgba(14, 165, 233, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none;"></div>
+          <div class="nav-puck-disc" style="position: relative; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; border: 2.5px solid #0EA5E9; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45), 0 2px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="display: block; transform: rotate(0deg); transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);">
+              <path d="M12 2.5L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2.5Z" fill="#0EA5E9" stroke="#0284C7" stroke-width="1.2" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
@@ -306,13 +343,15 @@
         'opacity:' + (sunUp ? 1 : 0) + '; transition:opacity 1.5s;';
     };
 
-    window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType) {
+    window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType, fuelStopsJson) {
       const routePoints = JSON.parse(routeJson);
       const waypoints = JSON.parse(waypointsJson);
       const pois = JSON.parse(poisJson);
+      const fuelStops = fuelStopsJson ? JSON.parse(fuelStopsJson) : [];
 
       window.currentRoutePoints = routePoints;
       window.mapboxMarkers = [];
+      window.fuelStopMarkers = [];
       window.animatedRouteCoords = [];
 
       mapboxgl.accessToken = accessToken || 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
@@ -549,6 +588,74 @@
           .addTo(map);
       });
 
+      // Automatically generated Fuel Stop Markers (always visible on navigation map)
+      window.__renderFuelStopMarkers = function(stops) {
+        if (!stops || !Array.isArray(stops)) return;
+        if (window.fuelStopMarkers) {
+          window.fuelStopMarkers.forEach(m => m.remove());
+        }
+        window.fuelStopMarkers = [];
+        const seenIds = new Set();
+
+        stops.forEach((stop, index) => {
+          const lat = Number(stop.lat ?? stop.latitude);
+          const lng = Number(stop.lng ?? stop.longitude);
+          if (isNaN(lat) || isNaN(lng)) return;
+
+          const stopKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+          if (seenIds.has(stopKey)) return;
+          seenIds.add(stopKey);
+
+          console.log(`[FUEL] Marker rendered: ${stop.name || 'Fuel Station'} (${lat}, ${lng})`);
+
+          const el = document.createElement('div');
+          el.className = 'fuel-stop-marker';
+          el.style.width = '38px';
+          el.style.height = '38px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = '#f59e0b'; // Vibrant Amber
+          el.style.border = '3px solid #ffffff';
+          el.style.boxShadow = '0 0 16px rgba(245, 158, 11, 0.8), 0 4px 10px rgba(0,0,0,0.4)';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.style.fontSize = '20px';
+          el.style.zIndex = '15';
+          el.innerHTML = '⛽';
+
+          const reqLiters = stop.refillLiters ?? stop.estimatedFuelRequired;
+          const topUpText = reqLiters ? `Top-up: <b>~${Number(reqLiters).toFixed(1)} L</b>` : 'Refuel Stop';
+          const costText = stop.estimatedCost ? ` · <b>${stop.currencySymbol || '₹'}${Math.round(stop.estimatedCost)}</b>` : '';
+
+          const popupHTML = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 6px; min-width: 190px;">
+              <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 13px; color: #d97706; margin-bottom: 4px;">
+                <span>⛽</span> <span>Fuel Station</span>
+              </div>
+              <div style="font-weight: 700; font-size: 13px; color: #111; margin-bottom: 4px;">${stop.name || 'Fuel Station'}</div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">Fuel Type: <b style="text-transform: capitalize;">${stop.fuelType || 'petrol'}</b></div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">${topUpText}${costText}</div>
+              ${stop.distanceFromStartKm ? `<div style="font-size: 11px; color: #666; margin-bottom: 2px;">Route progression: <b>${Number(stop.distanceFromStartKm).toFixed(1)} km</b></div>` : ''}
+              ${stop.offRouteKm && Number(stop.offRouteKm) >= 0.1 ? `<div style="font-size: 11px; color: #666; margin-bottom: 4px;">Detour: <b>${Number(stop.offRouteKm).toFixed(1)} km off route</b></div>` : ''}
+              <div style="margin-top: 6px; padding: 4px 8px; background: #ecfdf5; border: 1px solid #10b981; border-radius: 4px; font-size: 11px; color: #059669; font-weight: 600; text-align: center;">
+                ✓ Active Navigation Waypoint
+              </div>
+            </div>
+          `;
+
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([lng, lat])
+            .setPopup(new mapboxgl.Popup({ offset: 20 }).setHTML(popupHTML))
+            .addTo(map);
+
+          window.fuelStopMarkers.push(marker);
+        });
+      };
+
+      // Initial rendering of fuel stops
+      window.__renderFuelStopMarkers(fuelStops);
+
       function getPoiColor(category) {
         switch (category) {
           case 'fuel': return '#FF9800';
@@ -602,14 +709,29 @@
       navEl.style.transition = 'transform 0.1s linear';
       navEl.innerHTML = getVehicleMarkerHTML(vehicleType);
 
-      // Sits flat on the road and turns with the heading
+      // Sits upright facing camera and turns accurately with the heading
       const vehicleMarker = new mapboxgl.Marker({
         element: navEl,
         rotationAlignment: 'map',
-        pitchAlignment: 'map'
+        pitchAlignment: 'viewport'
       })
       .setLngLat([0, 0])
       .addTo(map);
+
+      // Track user gesture on map for camera exploration mode
+      window.mapboxUserExploring = false;
+      const notifyExplore = () => {
+        window.mapboxUserExploring = true;
+        if (typeof window.onMapbox3DUserExplore === 'function') {
+          window.onMapbox3DUserExplore();
+        }
+      };
+      map.on('dragstart', notifyExplore);
+      map.on('rotatestart', notifyExplore);
+      map.on('pitchstart', notifyExplore);
+      map.on('zoomstart', (e) => {
+        if (e.originalEvent) notifyExplore();
+      });
 
       if (window.smokeInterval) {
         clearInterval(window.smokeInterval);
@@ -949,18 +1071,40 @@
         if (diff > 180) diff -= 360;
         const bearingVal = (currentBearing + diff * 0.14) % 360;
 
-        // Push the focal point down so the car sits low and the road ahead fills
-        // the frame (padding.top reserves space, moving the centered car lower).
+        // Only follow vehicle camera when not manually exploring
+        if (!window.mapboxUserExploring) {
+          // Push the focal point down so the car sits low and the road ahead fills
+          // the frame (padding.top reserves space, moving the centered car lower).
+          const h = map.getContainer().clientHeight || 600;
+          const w = map.getContainer().clientWidth || 1200;
+          // Offset right past the floating panel on wide screens so the car and
+          // the road ahead sit in the open, visible part of the map.
+          const leftPad = w > 900 ? 300 : 0;
+          map.jumpTo({
+            center: position,
+            zoom: zoomVal,
+            pitch: pitchVal,
+            bearing: bearingVal,
+            padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+          });
+        }
+      }
+    };
+
+    window.recenterMapbox3D = function(lng, lat, bearingDeg) {
+      window.mapboxUserExploring = false;
+      if (window.currentMapInstance) {
+        const map = window.currentMapInstance;
         const h = map.getContainer().clientHeight || 600;
         const w = map.getContainer().clientWidth || 1200;
-        // Offset right past the floating panel on wide screens so the car and
-        // the road ahead sit in the open, visible part of the map.
         const leftPad = w > 900 ? 300 : 0;
-        map.jumpTo({
-          center: position,
-          zoom: zoomVal,
-          pitch: pitchVal,
-          bearing: bearingVal,
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 17.2,
+          pitch: 66,
+          bearing: bearingDeg || 0,
+          duration: 1200,
+          essential: true,
           padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
         });
       }
@@ -973,6 +1117,52 @@
       if (m) {
         try { m.remove(); } catch (e) {}
         delete window.__maps[containerId];
+      }
+    };
+
+    window.update3DRouteGeometry = function(routeJson) {
+      try {
+        const newRoutePoints = JSON.parse(routeJson);
+        window.currentRoutePoints = newRoutePoints;
+        if (window.currentMapInstance) {
+          const map = window.currentMapInstance;
+          const activeSource = map.getSource('route');
+          if (activeSource) {
+            activeSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': newRoutePoints
+              }
+            });
+          }
+          const traveledSource = map.getSource('traveled');
+          if (traveledSource) {
+            traveledSource.setData({
+              'type': 'Feature',
+              'properties': {},
+              'geometry': {
+                'type': 'LineString',
+                'coordinates': []
+              }
+            });
+          }
+          if (map.triggerRepaint) map.triggerRepaint();
+        }
+      } catch (e) {
+        console.error('Failed to update 3D route geometry:', e);
+      }
+    };
+
+    window.update3DFuelStops = function(fuelStopsJson) {
+      try {
+        const stops = typeof fuelStopsJson === 'string' ? JSON.parse(fuelStopsJson) : fuelStopsJson;
+        if (typeof window.__renderFuelStopMarkers === 'function') {
+          window.__renderFuelStopMarkers(stops);
+        }
+      } catch (e) {
+        console.error('Failed to update 3D fuel stops:', e);
       }
     };
 

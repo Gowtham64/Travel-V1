@@ -1398,6 +1398,43 @@ function buildFallbackSmartItinerary({
   return days;
 }
 
+/**
+ * Selects and ranks places from a strictly validated candidate list using AI.
+ * The AI is strictly constrained to only choose from the provided placeIds.
+ */
+async function rankCandidatesWithAI({ candidates = [], destination = "", maxStops = 6, preferences = "" }) {
+  if (!candidates.length) return [];
+  const system =
+    "You are VoyPlan's itinerary organizer. You are NOT allowed to invent, introduce, or recommend any place that is not present in the supplied validated candidate-place dataset. " +
+    "You may only select and organize places from the provided candidate list. " +
+    "The destination and geographic filtering rules are HARD CONSTRAINTS and cannot be overridden.";
+
+  const simplified = candidates.slice(0, 25).map((c) => ({
+    placeId: c.placeId,
+    name: c.name,
+    category: c.category,
+    destinationDistanceKm: c.destinationDistanceKm,
+    detourKm: c.detourKm,
+    visitDurationMin: c.visitDurationMin,
+  }));
+
+  const prompt =
+    `Destination: "${destination}". ` +
+    (preferences ? `User preferences: ${preferences}. ` : "") +
+    `Select up to ${maxStops} best places from this validated candidate list ONLY. ` +
+    `CRITICAL: Return a JSON object with "selectedStops": [ { "placeId": "<placeId>", "reason": "<brief rationale>" } ]. ` +
+    `Candidates: ${JSON.stringify(simplified)}`;
+
+  try {
+    const text = await generate(prompt, { system, json: true, maxTokens: 1000 });
+    const parsed = JSON.parse(text);
+    const stops = Array.isArray(parsed) ? parsed : Array.isArray(parsed.selectedStops) ? parsed.selectedStops : Array.isArray(parsed.stops) ? parsed.stops : [];
+    return stops.map((s) => (typeof s === "string" ? { placeId: s } : { placeId: String(s.placeId || ""), reason: s.reason || "" })).filter((s) => s.placeId);
+  } catch (_) {
+    return [];
+  }
+}
+
 module.exports = {
   recommendStops,
   searchPlaces,
@@ -1406,6 +1443,7 @@ module.exports = {
   buildItinerary,
   smartItinerary,
   buildFallbackSmartItinerary,
+  rankCandidatesWithAI,
   parseMinutes,
   formatMin,
   format24h,
