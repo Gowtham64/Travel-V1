@@ -277,6 +277,34 @@ class Trek {
 }
 
 /// One time block in the smart AI itinerary timeline.
+/// Safe extractor for location and place names.
+/// Guaranteed to NEVER return or render "[object Object]".
+class LocationHelper {
+  static String cleanString(dynamic val, [String fallback = '']) {
+    if (val == null) return fallback;
+    if (val is String) {
+      final s = val.trim();
+      if (s.isEmpty || s == '[object Object]') return fallback;
+      if (s.contains('[object Object]')) {
+        final replaced = s.replaceAll('[object Object]', fallback.isNotEmpty ? fallback : 'Location').trim();
+        return replaced.isNotEmpty ? replaced : fallback;
+      }
+      return s;
+    }
+    if (val is Map) {
+      final n = val['name'] ?? val['title'] ?? val['place'] ?? val['address'] ?? val['city'];
+      if (n != null) {
+        return cleanString(n, fallback);
+      }
+    }
+    return fallback;
+  }
+
+  static String getName(dynamic loc, [String fallback = 'Location unavailable']) {
+    return cleanString(loc, fallback);
+  }
+}
+
 class TimelineBlock {
   final String id;
   String start;
@@ -305,6 +333,9 @@ class TimelineBlock {
   bool isConfirmed;
   final String placeId;
   int stayDuration;
+  final bool isDestination;
+  final bool isLocked;
+  final bool isUserSelected;
 
   TimelineBlock({
     this.id = '',
@@ -334,41 +365,52 @@ class TimelineBlock {
     this.isConfirmed = false,
     this.placeId = '',
     int? stayDuration,
+    this.isDestination = false,
+    this.isLocked = false,
+    this.isUserSelected = false,
   }) : stayDuration = stayDuration ?? durationMin;
 
   factory TimelineBlock.fromJson(Map<String, dynamic> j) {
     final dMin = (j['durationMin'] as num?)?.toInt() ?? 0;
+    final rawTitle = LocationHelper.cleanString(j['title']);
+    final rawPlace = LocationHelper.cleanString(j['place']);
+    final effectiveTitle = rawTitle.isNotEmpty ? rawTitle : (rawPlace.isNotEmpty ? rawPlace : 'Stop');
+    final effectivePlace = rawPlace.isNotEmpty ? rawPlace : effectiveTitle;
+
     return TimelineBlock(
         id: (j['id'] ?? '').toString(),
         start: (j['start'] ?? '').toString(),
         end: (j['end'] ?? '').toString(),
         type: (j['type'] ?? 'activity').toString(),
-        title: (j['title'] ?? '').toString(),
-        place: (j['place'] ?? '').toString(),
+        title: effectiveTitle,
+        place: effectivePlace,
         lat: (j['lat'] as num?)?.toDouble() ?? (j['latitude'] as num?)?.toDouble(),
         lng: (j['lng'] as num?)?.toDouble() ?? (j['longitude'] as num?)?.toDouble(),
-        address: (j['address'] ?? '').toString(),
-        city: (j['city'] ?? '').toString(),
-        state: (j['state'] ?? '').toString(),
-        country: (j['country'] ?? 'India').toString(),
+        address: LocationHelper.cleanString(j['address'], effectivePlace),
+        city: LocationHelper.cleanString(j['city']),
+        state: LocationHelper.cleanString(j['state']),
+        country: LocationHelper.cleanString(j['country'], 'India'),
         durationMin: dMin,
         travelMin: (j['travelMin'] as num?)?.toInt() ?? 0,
         distanceKm: (j['distanceKm'] as num?)?.toDouble() ?? 0,
         breakType: (j['breakType'] ?? '').toString(),
-        reason: (j['reason'] ?? '').toString(),
+        reason: LocationHelper.cleanString(j['reason']),
         travelMode: (j['travelMode'] ?? '').toString(),
         categories: (j['categories'] as List? ?? [])
-            .map((e) => e.toString())
+            .map((e) => LocationHelper.cleanString(e))
             .where((s) => s.isNotEmpty)
             .toList(),
-        whyIncluded: (j['whyIncluded'] ?? '').toString(),
-        openingHours: (j['openingHours'] ?? '').toString(),
+        whyIncluded: LocationHelper.cleanString(j['whyIncluded']),
+        openingHours: LocationHelper.cleanString(j['openingHours']),
         day: (j['day'] as num?)?.toInt() ?? 1,
         sequence: (j['sequence'] as num?)?.toInt() ?? 0,
         isFuelStop: j['isFuelStop'] == true || j['type'] == 'fuel',
         isConfirmed: j['isConfirmed'] == true,
-        placeId: (j['placeId'] ?? '').toString(),
+        placeId: LocationHelper.cleanString(j['placeId']),
         stayDuration: (j['stayDuration'] as num?)?.toInt() ?? dMin,
+        isDestination: j['isDestination'] == true || j['type'] == 'destination',
+        isLocked: j['isLocked'] == true || j['isDestination'] == true || j['type'] == 'destination',
+        isUserSelected: j['isUserSelected'] == true || j['userSelected'] == true,
       );
   }
 
@@ -400,6 +442,9 @@ class TimelineBlock {
         'isConfirmed': isConfirmed,
         'placeId': placeId,
         'stayDuration': stayDuration,
+        'isDestination': isDestination,
+        'isLocked': isLocked,
+        'isUserSelected': isUserSelected,
       };
 }
 
@@ -447,8 +492,8 @@ class SmartDay {
 
   factory SmartDay.fromJson(Map<String, dynamic> j) => SmartDay(
         day: (j['day'] as num?)?.toInt() ?? 1,
-        date: (j['date'] ?? '').toString(),
-        title: (j['title'] ?? '').toString(),
+        date: LocationHelper.cleanString(j['date']),
+        title: LocationHelper.cleanString(j['title']),
         blocks: (j['blocks'] as List? ?? [])
             .map((e) => TimelineBlock.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),

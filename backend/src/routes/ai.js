@@ -31,11 +31,13 @@ function toPlaceString(v) {
   if (typeof v === "object") {
     const lat = v.lat ?? v.latitude;
     const lng = v.lng ?? v.lon ?? v.longitude;
-    if (v.name) return String(v.name);
-    if (lat != null && lng != null) return `${lat},${lng}`;
+    const name = v.name ? (typeof v.name === "object" ? (v.name.name || v.name.title || "") : String(v.name)) : "";
+    if (name && name !== "[object Object]") return name;
+    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) return `${lat},${lng}`;
     return "";
   }
-  return String(v);
+  const s = String(v).trim();
+  return s === "[object Object]" ? "" : s;
 }
 
 function handleError(res, err) {
@@ -161,6 +163,37 @@ router.post("/itinerary", async (req, res) => {
 
 const itineraryEngine = require("../services/itineraryEngine");
 
+function cleanObjectStrings(obj) {
+  if (obj == null) return obj;
+  if (typeof obj === "string") {
+    if (obj === "[object Object]") return "";
+    if (obj.includes("[object Object]")) {
+      return obj.replace(/\[object Object\]/g, "").trim();
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanObjectStrings);
+  }
+  if (typeof obj === "object") {
+    const res = {};
+    for (const [k, v] of Object.entries(obj)) {
+      res[k] = cleanObjectStrings(v);
+    }
+    return res;
+  }
+  return obj;
+}
+
+function normalizeLocationInput(loc) {
+  if (!loc) return "";
+  if (typeof loc === "object") {
+    return itineraryEngine.normalizeCanonicalLocation(loc);
+  }
+  const clean = itineraryEngine.extractLocationName(loc, "");
+  return clean || String(loc).trim();
+}
+
 // Smart, time-blocked itinerary with automatic breaks + per-block reasons.
 router.post("/smart-itinerary", async (req, res) => {
   const b = req.body || {};
@@ -168,8 +201,8 @@ router.post("/smart-itinerary", async (req, res) => {
     return res.status(400).json({ error: "destination or startLocation is required" });
   }
   try {
-    const startLocation = b.startLocation ? String(b.startLocation) : (b.destination ? String(b.destination) : "");
-    const destination = b.destination ? String(b.destination) : startLocation;
+    const startLocation = normalizeLocationInput(b.startLocation) || normalizeLocationInput(b.destination);
+    const destination = normalizeLocationInput(b.destination) || startLocation;
     let resolvedDate = b.startDate ? String(b.startDate) : "";
     let resolvedTime = b.startTime ? String(b.startTime) : "";
     if (b.startDateTime && (!resolvedDate || !resolvedTime)) {
@@ -179,7 +212,7 @@ router.post("/smart-itinerary", async (req, res) => {
     }
     if (!resolvedTime) resolvedTime = "08:00";
 
-    const tripType = "around"; // Smart AI Planner supports AROUND TRIP only
+    const tripType = (b.tripType === "one_way" || b.tripType === "oneway") ? "one_way" : "around";
     const searchRadiusKm = Number(b.searchRadiusKm) > 0 ? Number(b.searchRadiusKm) : 25;
     const durationDays = Math.max(1, Math.min(Number(b.durationDays) || 1, 14));
     const vehicleType = String(b.vehicleType || "car").toLowerCase();
@@ -191,7 +224,7 @@ router.post("/smart-itinerary", async (req, res) => {
     const planResult = await itineraryEngine.planItinerary({
       startLocation,
       destination,
-      tripType: "around",
+      tripType,
       startDate: resolvedDate,
       startTime: resolvedTime,
       startDateTime: b.startDateTime ? String(b.startDateTime) : "",
@@ -251,7 +284,7 @@ router.post("/smart-itinerary", async (req, res) => {
       console.error("Itinerary budget estimate skipped:", err.message);
     }
 
-    res.json({
+    res.json(cleanObjectStrings({
       days,
       budget: planResult.budget || budget,
       route: planResult.route || null,
@@ -269,7 +302,7 @@ router.post("/smart-itinerary", async (req, res) => {
       totalDistanceKm: planResult.totalDistanceKm,
       totalDurationMin: planResult.totalDurationMin,
       status: "DRAFT",
-    });
+    }));
   } catch (err) {
     handleError(res, err);
   }
@@ -295,12 +328,12 @@ router.post("/recalculate-itinerary", async (req, res) => {
     // Check provided explicit strings or points
     if (b.origin || b.startLocation) {
       try {
-        startPoint = await itineraryEngine.resolveLocation(b.origin || b.startLocation, "Origin");
+        startPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.origin || b.startLocation), "Origin");
       } catch (_) {}
     }
     if (b.destination) {
       try {
-        destPoint = await itineraryEngine.resolveLocation(b.destination, "Destination", startPoint);
+        destPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.destination), "Destination", startPoint);
       } catch (_) {}
     }
 
@@ -311,8 +344,8 @@ router.post("/recalculate-itinerary", async (req, res) => {
         if (!startPoint && blk.type === "start" && blk.lat && blk.lng) {
           startPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
         }
-        if (!destPoint && blk.isDestinationAnchor && blk.lat && blk.lng) {
-          destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+        if (!destPoint && (blk.isDestination || blk.isDestinationAnchor) && blk.lat && blk.lng) {
+          destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address, placeId: blk.placeId };
         }
         // Only extract actual stopovers for routing (not meals/rest/coffee sharing coords)
         if (
@@ -451,7 +484,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
       });
     }
 
-    res.json({
+    res.json(cleanObjectStrings({
       days,
       route: routeCalc?.route || null,
       navigationRoute: routeCalc?.navigationRoute || null,
@@ -461,7 +494,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
       budget,
       routeVersion: nextRouteVersion,
       status: b.isConfirmed ? "CONFIRMED" : "DRAFT",
-    });
+    }));
   } catch (err) {
     handleError(res, err);
   }

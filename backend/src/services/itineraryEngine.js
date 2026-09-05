@@ -4,7 +4,7 @@ const { geocodeAddress } = require("./geocodeService");
 const { geocode, route: osrmRoute } = require("./itineraryGeo");
 const { findPOIsInArea } = require("./orsPoiService");
 const FuelRangeService = require("./fuelRangeService");
-const { rankCandidatesWithAI } = require("./aiService");
+const { rankCandidatesWithAI, getBestCuratedVenue } = require("./aiService");
 const curatedPlaces = require("../data/curatedPlaces.json");
 const { calculateTripRoute } = require("./routeCalculationService");
 
@@ -109,31 +109,165 @@ const MAJOR_CITIES = {
 };
 
 /**
+ * Safely extracts a clean string name from any location representation.
+ * Under NO circumstances does this return "[object Object]".
+ */
+function extractLocationName(loc, fallback = "") {
+  if (!loc) return fallback;
+  if (typeof loc === "string") {
+    const trimmed = loc.trim();
+    if (!trimmed || trimmed === "[object Object]" || trimmed.includes("[object Object]")) {
+      return fallback;
+    }
+    return trimmed;
+  }
+  if (typeof loc === "object") {
+    // 1. Direct name
+    if (loc.name) {
+      const n = extractLocationName(loc.name, "");
+      if (n) return n;
+    }
+    // 2. Title
+    if (loc.title) {
+      const t = extractLocationName(loc.title, "");
+      if (t) return t;
+    }
+    // 3. Nested location or place
+    if (loc.location) {
+      const l = extractLocationName(loc.location, "");
+      if (l) return l;
+    }
+    if (loc.place) {
+      const p = extractLocationName(loc.place, "");
+      if (p) return p;
+    }
+    // 4. City
+    if (loc.city) {
+      const c = extractLocationName(loc.city, "");
+      if (c) return c;
+    }
+    // 5. Address (first segment)
+    if (loc.address) {
+      const a = extractLocationName(loc.address, "");
+      if (a) return a.split(",")[0].trim();
+    }
+  }
+  return fallback;
+}
+
+/**
+ * Standardizes any location into the Canonical Location Model:
+ * {
+ *   id: string,
+ *   name: string,
+ *   placeId: string,
+ *   address: string,
+ *   latitude: number,
+ *   longitude: number,
+ *   lat: number,
+ *   lng: number,
+ *   city: string,
+ *   state: string,
+ *   country: string,
+ *   type: string,
+ *   locked: boolean,
+ *   userSelected: boolean
+ * }
+ */
+function normalizeCanonicalLocation(loc, defaultName = "Stop") {
+  if (!loc) return null;
+  const name = extractLocationName(loc, defaultName);
+  let lat = null;
+  let lng = null;
+  let placeId = "";
+  let address = name;
+  let city = "";
+  let state = "";
+  let country = "India";
+  let type = "place";
+  let locked = false;
+  let userSelected = false;
+
+  if (typeof loc === "object") {
+    const rawLat = Number(loc.latitude ?? loc.lat);
+    const rawLng = Number(loc.longitude ?? loc.lng ?? loc.lon);
+    if (Number.isFinite(rawLat) && Number.isFinite(rawLng) && (rawLat !== 0 || rawLng !== 0)) {
+      lat = rawLat;
+      lng = rawLng;
+    }
+    placeId = String(loc.placeId || loc.id || "");
+    if (loc.address) address = extractLocationName(loc.address, name);
+    if (loc.city) city = extractLocationName(loc.city, "");
+    if (loc.state) state = extractLocationName(loc.state, "");
+    if (loc.country) country = extractLocationName(loc.country, "India");
+    if (loc.type) type = String(loc.type);
+    locked = loc.locked === true;
+    userSelected = loc.userSelected !== false;
+  }
+
+  const resolvedPlaceId = placeId || `pl_${name.toLowerCase().replace(/[^a-z0-9]/g, "_")}_${Math.round((lat || 0) * 1000)}`;
+
+  return {
+    id: resolvedPlaceId,
+    name,
+    placeId: resolvedPlaceId,
+    address: address || name,
+    latitude: lat,
+    longitude: lng,
+    lat,
+    lng,
+    city: city || name,
+    state: state || "",
+    country: country || "India",
+    type,
+    locked,
+    userSelected,
+  };
+}
+
+/**
  * Robust geocoding for a place name, optionally focused around a reference point.
+ * Guarantees never to query or return "[object Object]".
  */
 async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null) {
   if (!nameOrCoord) return null;
+
+  // 1. If it's already an object with finite coordinates and a valid name:
   if (typeof nameOrCoord === "object") {
     const lat = Number(nameOrCoord.lat ?? nameOrCoord.latitude);
     const lng = Number(nameOrCoord.lng ?? nameOrCoord.longitude ?? nameOrCoord.lon);
+    const pName = extractLocationName(nameOrCoord, fallbackName);
+
     if (Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0) {
+      const placeId = nameOrCoord.placeId || `pl_${pName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.round(lat * 1000)}_${Math.round(lng * 1000)}`;
       return {
         lat,
         lng,
-        name: nameOrCoord.name || fallbackName,
-        address: nameOrCoord.address || nameOrCoord.name || fallbackName,
-        city: nameOrCoord.city || "",
-        state: nameOrCoord.state || "",
-        country: nameOrCoord.country || "India",
+        latitude: lat,
+        longitude: lng,
+        placeId,
+        id: placeId,
+        name: pName,
+        address: extractLocationName(nameOrCoord.address, pName),
+        city: extractLocationName(nameOrCoord.city, pName),
+        state: extractLocationName(nameOrCoord.state, ""),
+        country: extractLocationName(nameOrCoord.country, "India"),
+        type: nameOrCoord.type || "place",
+        locked: nameOrCoord.locked === true,
+        userSelected: nameOrCoord.userSelected !== false,
       };
     }
   }
 
-  const query = String(nameOrCoord).trim();
-  if (!query) return null;
+  // 2. Extract a safe text query. NEVER String(nameOrCoord) directly if it evaluates to "[object Object]"
+  const query = extractLocationName(nameOrCoord, "");
+  if (!query || query === "[object Object]" || query.includes("[object Object]")) {
+    return null;
+  }
 
   const qLower = query.toLowerCase();
-  // 1. Instant check for major cities with word-boundary matching
+
+  // 3. Instant check for major cities with word-boundary matching
   for (const [key, cityInfo] of Object.entries(MAJOR_CITIES)) {
     const isExact = qLower === key;
     const isWordMatch = new RegExp(`(^|[\\s,.-])${key}([\\s,.-]|$)`, "i").test(qLower);
@@ -141,16 +275,23 @@ async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null)
       return {
         lat: cityInfo.lat,
         lng: cityInfo.lng,
+        latitude: cityInfo.lat,
+        longitude: cityInfo.lng,
+        placeId: `city_${key}`,
+        id: `city_${key}`,
         name: cityInfo.name,
         address: `${cityInfo.name}, ${cityInfo.state}`,
         city: cityInfo.city,
         state: cityInfo.state,
         country: cityInfo.country,
+        type: "city",
+        locked: true,
+        userSelected: true,
       };
     }
   }
 
-  // 2. Check curated places first for exact or high-confidence match
+  // 4. Check curated places first for exact or high-confidence match
   const curatedMatch = curatedPlaces.find((p) => {
     const pLower = p.name.toLowerCase();
     return pLower === qLower || (qLower.length >= 6 && pLower.startsWith(qLower));
@@ -160,6 +301,10 @@ async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null)
     return {
       lat: curatedMatch.lat,
       lng: curatedMatch.lng,
+      latitude: curatedMatch.lat,
+      longitude: curatedMatch.lng,
+      placeId: curatedMatch.id || `curated_${curatedMatch.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      id: curatedMatch.id || `curated_${curatedMatch.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
       name: curatedMatch.name,
       address: `${curatedMatch.name}, ${curatedMatch.city}, ${curatedMatch.state}`,
       city: curatedMatch.city,
@@ -169,36 +314,47 @@ async function resolveLocation(nameOrCoord, fallbackName = "Stop", focus = null)
       categories: curatedMatch.categories,
       openingHours: curatedMatch.openingHours,
       visitDurationMin: curatedMatch.visitDurationMin,
+      type: "attraction",
     };
   }
 
-  // Geocode via ORS / Mapbox
+  // 5. Geocode via ORS / Mapbox with clean text query
   try {
     const geo = focus ? await geocode(query, "", focus) : null;
-    if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) {
+    if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng) && (geo.lat !== 0 || geo.lng !== 0)) {
       return {
         lat: geo.lat,
         lng: geo.lng,
+        latitude: geo.lat,
+        longitude: geo.lng,
+        placeId: `geo_${Math.round(geo.lat * 1000)}_${Math.round(geo.lng * 1000)}`,
+        id: `geo_${Math.round(geo.lat * 1000)}_${Math.round(geo.lng * 1000)}`,
         name: query,
         address: query,
         city: "",
         state: "",
         country: "India",
+        type: "place",
       };
     }
   } catch (_) {}
 
   try {
     const addr = await geocodeAddress(query);
-    if (addr && Number.isFinite(addr.lat) && Number.isFinite(addr.lng)) {
+    if (addr && Number.isFinite(addr.lat) && Number.isFinite(addr.lng) && (addr.lat !== 0 || addr.lng !== 0)) {
       return {
         lat: addr.lat,
         lng: addr.lng,
+        latitude: addr.lat,
+        longitude: addr.lng,
+        placeId: `addr_${Math.round(addr.lat * 1000)}_${Math.round(addr.lng * 1000)}`,
+        id: `addr_${Math.round(addr.lat * 1000)}_${Math.round(addr.lng * 1000)}`,
         name: query,
         address: addr.displayName || query,
         city: "",
         state: "",
         country: "India",
+        type: "place",
       };
     }
   } catch (_) {}
@@ -476,38 +632,65 @@ async function planItinerary(params = {}) {
     searchRadiusKm = 25,
   } = params;
 
-  if (!startLocation && !destination) {
-    throw new Error("Start location or destination is required.");
+  if (!destination) {
+    throw new Error("We couldn't identify the selected destination. Please select the destination again.");
   }
 
-  // Smart AI Planner enforces Around Trip exclusively
-  const isAroundTrip = true;
-  const searchRadius = Math.max(5, Math.min(Number(searchRadiusKm) || 25, 100));
+  // Step 1 & 2: Pre-Flight Destination Validation & Hard Locking (Requirements #1, #2, #3, #9, #12)
+  const destPt = await resolveLocation(destination, "Trip Destination");
+  if (!destPt || !Number.isFinite(destPt.lat) || !Number.isFinite(destPt.lng) || (destPt.lat === 0 && destPt.lng === 0)) {
+    throw new Error("We couldn't identify the selected destination. Please select the destination again.");
+  }
 
+  const startPt = await resolveLocation(startLocation || destPt, "Trip Origin");
+  if (!startPt || !Number.isFinite(startPt.lat) || !Number.isFinite(startPt.lng) || (startPt.lat === 0 && startPt.lng === 0)) {
+    throw new Error("We couldn't identify the starting location. Please select the starting point again.");
+  }
+
+  // Hard Destination Lock (Requirements #3 & #12)
+  const lockedDestination = Object.freeze({
+    name: destPt.name,
+    lat: destPt.lat,
+    lng: destPt.lng,
+    latitude: destPt.lat,
+    longitude: destPt.lng,
+    placeId: destPt.placeId || `dest_${destPt.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Math.round(destPt.lat * 1000)}_${Math.round(destPt.lng * 1000)}`,
+    address: destPt.address || destPt.name,
+    city: destPt.city || destPt.name,
+    state: destPt.state || "",
+    country: destPt.country || "India",
+    type: "destination",
+    locked: true,
+    userSelected: true,
+  });
+
+  const isAroundTrip = String(tripType).toLowerCase() !== "one_way";
+  const searchRadius = Math.max(5, Math.min(Number(searchRadiusKm) || 25, 100));
   const totalDays = Math.max(1, Math.min(Number(durationDays) || 1, 14));
   const startMinutes = parseMinutes(startTime);
-  const startLocationStr = startLocation || destination;
-  const destinationStr = destination || startLocationStr;
 
-  // Step 2: Geocode Origin & Destination
-  const startPt = await resolveLocation(startLocationStr, "Trip Origin");
-  if (!startPt) {
-    throw new Error(`Could not resolve coordinates for start location: "${startLocationStr}"`);
-  }
+  // Step 3: Pre-Route Corridor Calculation (Requirement #5)
+  const baseCorridorRoute = await routeBetweenPoints(startPt, lockedDestination);
+  const directDist = haversineDistanceKm(startPt, lockedDestination);
+  const maxCorridorDetourKm = Math.min(25, Math.max(8, directDist * 0.15));
 
-  let destPt = await resolveLocation(destinationStr, "Trip Destination", startPt);
-  if (!destPt) destPt = { ...startPt };
+  // Diagnostic Logging (Requirement #24)
+  console.log(`[SMART PLANNER] ==========================================`);
+  console.log(`[SMART PLANNER] USER DESTINATION:        ${lockedDestination.name}`);
+  console.log(`[SMART PLANNER] DESTINATION PLACE ID:    ${lockedDestination.placeId}`);
+  console.log(`[SMART PLANNER] ORIGIN:                  ${startPt.name}`);
+  console.log(`[SMART PLANNER] DIRECT DISTANCE:         ${directDist.toFixed(1)} km`);
+  console.log(`[SMART PLANNER] BASELINE ROAD DISTANCE:  ${baseCorridorRoute.distanceKm.toFixed(1)} km`);
+  console.log(`[SMART PLANNER] TRIP TYPE:               ${isAroundTrip ? 'Around / Round Trip' : 'One-Way'}`);
 
-  const directDist = haversineDistanceKm(startPt, destPt);
-
-  // Step 3: Discover Candidate Places
+  // Step 4: Discover Candidate Places & Filter Against Route Corridor (Requirement #6 & #7)
   const rawCandidates = [];
   const isLocalTrip = directDist <= 30;
 
   // A. User-specified places take top priority
   for (const p of places) {
     if (!p) continue;
-    const resolved = await resolveLocation(p, String(p), destPt || startPt);
+    const resolved = await resolveLocation(p, String(p), lockedDestination);
     if (resolved) {
       rawCandidates.push({
         ...resolved,
@@ -519,9 +702,9 @@ async function planItinerary(params = {}) {
     }
   }
 
-  // B. Search curated database near destination or along practical corridor
+  // B. Curated database matching strictly near destination or along practical corridor
   for (const cp of curatedPlaces) {
-    const distToDest = haversineDistanceKm(destPt, cp);
+    const distToDest = haversineDistanceKm(lockedDestination, cp);
     const distToStart = haversineDistanceKm(startPt, cp);
     const isNearDest = distToDest <= searchRadius;
     const isNearStart = isLocalTrip && distToStart <= searchRadius;
@@ -533,7 +716,7 @@ async function planItinerary(params = {}) {
       distToDest > searchRadius &&
       distToStart <= directDist * 1.05 &&
       distToDest <= directDist * 1.05 &&
-      corridorDetour <= 15;
+      corridorDetour <= maxCorridorDetourKm;
 
     if (isNearDest || isNearStart || isAlongCorridor) {
       rawCandidates.push({
@@ -545,12 +728,12 @@ async function planItinerary(params = {}) {
     }
   }
 
-  // C. Dynamic live POI search around destination via Photon (OSM)
+  // C. Dynamic live POI search strictly around locked destination
   try {
     const photonCats = selectedCategories.length > 0
       ? selectedCategories.map((c) => c.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"))
       : ["temple", "attraction", "viewpoint"];
-    const osmPlaces = await findPOIsInArea(destPt, photonCats, searchRadius);
+    const osmPlaces = await findPOIsInArea(lockedDestination, photonCats, searchRadius);
     for (const op of osmPlaces) {
       rawCandidates.push(op);
     }
@@ -558,42 +741,13 @@ async function planItinerary(params = {}) {
     console.warn("Photon live POI discovery skipped:", err.message);
   }
 
-  // D. Guarantee Destination Visit (Section 11 & 13)
-  if (directDist > 15) {
-    const hasDestAnchor = rawCandidates.some(
-      (c) => haversineDistanceKm(c, destPt) < 3.0
-    );
-    if (!hasDestAnchor) {
-      rawCandidates.push({
-        placeId: `pl_dest_anchor_${Math.round(destPt.lat * 1000)}_${Math.round(destPt.lng * 1000)}`,
-        name: destPt.name,
-        lat: destPt.lat,
-        lng: destPt.lng,
-        latitude: destPt.lat,
-        longitude: destPt.lng,
-        address: destPt.address || destPt.name,
-        city: destPt.city || destPt.name,
-        state: destPt.state || "",
-        country: destPt.country || "India",
-        category: "destination_center",
-        categories: ["destination_center", "famous_places", "monuments_landmarks"],
-        visitDurationMin: 60,
-        rating: 4.8,
-        isDestinationAnchor: true,
-        isUserSpecified: true,
-        description: `Explore central ${destPt.name}`,
-        source: "destination_anchor",
-      });
-    }
-  }
-
-  // Step 4: Filter by category & score
+  // Step 4: Filter & Score candidates against category & corridor detour
   const filteredPlaces = filterAndScoreCandidates({
     candidates: rawCandidates,
     selectedCategories,
     categoryPriorities,
     baseAxisStart: startPt,
-    baseAxisEnd: destPt,
+    baseAxisEnd: lockedDestination,
     searchRadiusKm: searchRadius,
   });
 
@@ -608,7 +762,8 @@ async function planItinerary(params = {}) {
   try {
     const aiStops = await rankCandidatesWithAI({
       candidates: filteredPlaces,
-      destination: destPt.name,
+      destination: lockedDestination,
+      origin: startPt,
       maxStops,
       preferences,
     });
@@ -620,7 +775,7 @@ async function planItinerary(params = {}) {
     }
   } catch (_) {}
 
-  // If AI selection produced fewer than maxStops or was offline, complete with top-ranked candidates
+  // Complete with top-ranked candidates if needed
   if (candidateStops.length === 0) {
     candidateStops = filteredPlaces.slice(0, maxStops);
   } else if (candidateStops.length < maxStops) {
@@ -632,39 +787,41 @@ async function planItinerary(params = {}) {
     }
   }
 
-  // If destination is distinct from start, ensure destination anchor or top destination stop is included
-  if (directDist > 15) {
-    const hasDestStop = candidateStops.some((s) => haversineDistanceKm(s, destPt) <= searchRadius);
-    if (!hasDestStop && filteredPlaces.length > 0) {
-      const topDestPlace = filteredPlaces.find((s) => haversineDistanceKm(s, destPt) <= searchRadius);
-      if (topDestPlace) candidateStops.push(topDestPlace);
-    }
-  }
-
-  // Step 4.5: HARD VALIDATION - Drop any stop that fails candidate verification
+  // Hard stop validation: Drop any stop that fails geographic bounds or candidateMap
   candidateStops = candidateStops.filter((stop) => {
-    // 1. Must have placeId and exist in candidateMap
     if (!stop.placeId || !candidateMap.has(stop.placeId)) return false;
-    // 2. Must have valid finite coordinates
     if (!Number.isFinite(stop.lat) || !Number.isFinite(stop.lng) || stop.lat === 0) return false;
-    // 3. Geographic boundary check
-    const distToDest = haversineDistanceKm(destPt, stop);
+    const distToDest = haversineDistanceKm(lockedDestination, stop);
     const distToStart = haversineDistanceKm(startPt, stop);
     const corridorDetour = distToStart + distToDest - directDist;
     const inDestRadius = distToDest <= searchRadius;
     const inLocalRadius = isLocalTrip && distToStart <= searchRadius;
-    const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadius && corridorDetour <= 20;
-    if (!inDestRadius && !inLocalRadius && !inCorridor && !stop.isUserSpecified && !stop.isDestinationAnchor) {
-      return false;
-    }
-    return true;
+    const inCorridor = !isLocalTrip && distToStart > 25 && distToDest > searchRadius && corridorDetour <= maxCorridorDetourKm;
+    return inDestRadius || inLocalRadius || inCorridor || stop.isUserSpecified;
   });
 
-  // Step 5: Stop Order Optimization (Minimize Backtracking)
-  const orderedStops = optimizeStopSequence({
-    start: startPt,
-    end: startPt,
-    stops: candidateStops,
+  // Step 5: Stop Partitioning (Transit Corridor vs Destination Area)
+  // Ensures destination arrival happens on Day 1
+  const midwayOutboundStops = [];
+  const destAreaStops = [];
+
+  for (const s of candidateStops) {
+    const dDest = haversineDistanceKm(lockedDestination, s);
+    if (dDest <= searchRadius || isLocalTrip) {
+      destAreaStops.push(s);
+    } else {
+      midwayOutboundStops.push(s);
+    }
+  }
+
+  // Sort midway outbound stops by increasing distance from start
+  midwayOutboundStops.sort((a, b) => haversineDistanceKm(startPt, a) - haversineDistanceKm(startPt, b));
+
+  // Optimize destination area stops to minimize local travel
+  const optimizedDestStops = optimizeStopSequence({
+    start: lockedDestination,
+    end: lockedDestination,
+    stops: destAreaStops,
     isAroundTrip: true,
   });
 
@@ -673,11 +830,24 @@ async function planItinerary(params = {}) {
   const tankCapacity = Number(vehicle.tankCapacityLiters) > 0 ? Number(vehicle.tankCapacityLiters) : (vehicle.type === "bike" ? 13 : 45);
   const currentFuel = Number(vehicle.currentFuelLiters) > 0 ? Number(vehicle.currentFuelLiters) : tankCapacity * 0.7;
 
-  // Partition stops across available days
+  // Distribute destination sights across days
+  // Day 1 gets outbound midway stops + Destination Arrival + some dest sights
   const dayBuckets = [];
-  const stopsPerBucket = Math.ceil(orderedStops.length / totalDays);
-  for (let d = 0; d < totalDays; d++) {
-    dayBuckets.push(orderedStops.slice(d * stopsPerBucket, (d + 1) * stopsPerBucket));
+  const remainingDestStops = [...optimizedDestStops];
+
+  if (totalDays === 1) {
+    dayBuckets.push([...midwayOutboundStops, ...remainingDestStops]);
+  } else {
+    // Multi-day trip: Day 1 takes all midway outbound stops + up to 2 initial dest sights
+    const day1DestSights = remainingDestStops.splice(0, Math.min(2, Math.ceil(remainingDestStops.length / totalDays)));
+    dayBuckets.push([...midwayOutboundStops, ...day1DestSights]);
+
+    // Subsequent days share remaining destination sights
+    const daysRemaining = totalDays - 1;
+    const perDay = Math.ceil(remainingDestStops.length / daysRemaining) || 1;
+    for (let d = 1; d < totalDays; d++) {
+      dayBuckets.push(remainingDestStops.splice(0, perDay));
+    }
   }
 
   const generatedDays = [];
@@ -691,8 +861,7 @@ async function planItinerary(params = {}) {
     const isLastDay = dayNumber === totalDays;
     const dayStops = dayBuckets[dIdx] || [];
 
-    // Day 1 starts at exact user start time. Subsequent days start at 08:30 AM
-    let currentMin = isFirstDay ? startMinutes : 510; // 08:30 AM
+    let currentMin = isFirstDay ? startMinutes : 510; // Day 1: User start time; Subsequent: 08:30 AM
     const blocks = [];
     let prevLoc = isFirstDay ? startPt : lastDayEndLocation;
 
@@ -721,16 +890,71 @@ async function planItinerary(params = {}) {
     let lunchAdded = false;
     let teaAdded = false;
     let dinnerAdded = false;
+    let destArrivalAdded = !isFirstDay; // Already at destination for Day 2+
 
-    // Route through each stop of the day
+    // Route through stops of the day
     for (let sIdx = 0; sIdx < dayStops.length; sIdx++) {
       const stop = dayStops[sIdx];
-      const leg = await routeBetweenPoints(prevLoc, stop);
+      const isStopInDestArea = haversineDistanceKm(lockedDestination, stop) <= searchRadius;
 
-      // Check fuel requirement before long travel leg
+      // On Day 1, if transitioning from midway to destination area, insert Destination Arrival Block
+      if (isFirstDay && !destArrivalAdded && isStopInDestArea) {
+        const destLeg = await routeBetweenPoints(prevLoc, lockedDestination);
+        blocks.push({
+          id: `d1_travel_to_dest`,
+          day: 1,
+          sequence: blocks.length,
+          type: "travel",
+          title: `Drive to Destination: ${lockedDestination.name}`,
+          place: lockedDestination.name,
+          travelMode: "drive",
+          lat: lockedDestination.lat,
+          lng: lockedDestination.lng,
+          start: formatMinutes(currentMin),
+          end: formatMinutes(currentMin + destLeg.travelMin),
+          durationMin: 0,
+          travelMin: destLeg.travelMin,
+          distanceKm: destLeg.distanceKm,
+          reason: `Road journey to primary destination (${destLeg.distanceKm} km)`,
+        });
+        currentMin += destLeg.travelMin;
+        cumulativeTripKm += destLeg.distanceKm;
+
+        blocks.push({
+          id: `d1_dest_arrival`,
+          day: 1,
+          sequence: blocks.length,
+          type: "destination",
+          title: `Arrive at Destination: ${lockedDestination.name}`,
+          place: lockedDestination.name,
+          category: "destination",
+          lat: lockedDestination.lat,
+          lng: lockedDestination.lng,
+          latitude: lockedDestination.lat,
+          longitude: lockedDestination.lng,
+          address: lockedDestination.address || lockedDestination.name,
+          city: lockedDestination.city || "",
+          state: lockedDestination.state || "",
+          country: lockedDestination.country || "India",
+          start: formatMinutes(currentMin),
+          end: formatMinutes(currentMin + 30),
+          durationMin: 30,
+          travelMin: 0,
+          distanceKm: 0,
+          placeId: lockedDestination.placeId,
+          isDestination: true,
+          isLocked: true,
+          userSelected: true,
+          reason: `Primary travel destination (${lockedDestination.name})`,
+        });
+        currentMin += 30;
+        prevLoc = lockedDestination;
+        destArrivalAdded = true;
+      }
+
+      const leg = await routeBetweenPoints(prevLoc, stop);
       const fuelNeeded = leg.distanceKm / efficiency;
       if (remainingFuelLiters < fuelNeeded + 3 && leg.distanceKm > 15) {
-        // Insert Fuel Stop
         const refuelLiters = Math.round((tankCapacity - remainingFuelLiters) * 10) / 10;
         blocks.push({
           id: `d${dayNumber}_fuel_${sIdx}`,
@@ -779,8 +1003,7 @@ async function planItinerary(params = {}) {
       cumulativeTripKm += leg.distanceKm;
       remainingFuelLiters = Math.max(0, remainingFuelLiters - fuelNeeded);
 
-      // Meal / Break checks
-      // Lunch Window: 12:30 PM (750m) - 1:45 PM (825m)
+      // Lunch window: 12:30 PM (750m) - 1:45 PM (825m)
       if (!lunchAdded && currentMin >= 750 && currentMin <= 850) {
         blocks.push({
           id: `d${dayNumber}_meal_lunch`,
@@ -798,13 +1021,13 @@ async function planItinerary(params = {}) {
           durationMin: 50,
           travelMin: 0,
           distanceKm: 0,
-          reason: "Midday meal and refreshment along route",
+          reason: "Midday meal and refreshment",
         });
         currentMin += 50;
         lunchAdded = true;
       }
 
-      // Activity / Sightseeing Block
+      // Activity Block
       const visitDur = stop.visitDurationMin || CATEGORY_DURATIONS[stop.category] || CATEGORY_DURATIONS.default;
       const actStart = currentMin;
       const actEnd = currentMin + visitDur;
@@ -833,13 +1056,13 @@ async function planItinerary(params = {}) {
         travelMin: 0,
         distanceKm: 0,
         openingHours: stop.openingHours || "Open standard hours",
-        whyIncluded: `Matched preferred category: ${stop.category || "attraction"}.`,
+        whyIncluded: `Attraction in ${lockedDestination.name} area.`,
         reason: stop.description || "Sightseeing and exploration",
       });
       currentMin = actEnd;
       prevLoc = stop;
 
-      // Tea Break Window: 4:45 PM (1005m) - 5:30 PM (1050m)
+      // Tea break window: 4:45 PM (1005m) - 5:30 PM (1050m)
       if (!teaAdded && currentMin >= 1005 && currentMin <= 1065) {
         blocks.push({
           id: `d${dayNumber}_tea`,
@@ -863,13 +1086,43 @@ async function planItinerary(params = {}) {
         teaAdded = true;
       }
 
-      // Stop adding more activities if approaching evening bed time (> 21:00 / 1260m)
-      if (currentMin >= 1260 && sIdx < dayStops.length - 1) {
-        break;
-      }
+      if (currentMin >= 1260 && sIdx < dayStops.length - 1) break;
     }
 
-    // Dinner Window: 7:45 PM (1185m) - 9:00 PM (1260m)
+    // If Day 1 had no midway stops, ensure Destination Arrival Block is explicitly added
+    if (isFirstDay && !destArrivalAdded) {
+      blocks.push({
+        id: `d1_dest_arrival`,
+        day: 1,
+        sequence: blocks.length,
+        type: "destination",
+        title: `Arrive at Destination: ${lockedDestination.name}`,
+        place: lockedDestination.name,
+        category: "destination",
+        lat: lockedDestination.lat,
+        lng: lockedDestination.lng,
+        latitude: lockedDestination.lat,
+        longitude: lockedDestination.lng,
+        address: lockedDestination.address || lockedDestination.name,
+        city: lockedDestination.city || "",
+        state: lockedDestination.state || "",
+        country: lockedDestination.country || "India",
+        start: formatMinutes(currentMin),
+        end: formatMinutes(currentMin + 30),
+        durationMin: 30,
+        travelMin: 0,
+        distanceKm: 0,
+        placeId: lockedDestination.placeId,
+        isDestination: true,
+        isLocked: true,
+        userSelected: true,
+        reason: `Primary travel destination (${lockedDestination.name})`,
+      });
+      currentMin += 30;
+      prevLoc = lockedDestination;
+    }
+
+    // Dinner Window
     if (!dinnerAdded && currentMin >= 1170) {
       blocks.push({
         id: `d${dayNumber}_meal_dinner`,
@@ -878,7 +1131,7 @@ async function planItinerary(params = {}) {
         type: "meal",
         breakType: "dinner",
         title: "Dinner",
-        place: `Restaurant near ${prevLoc.name}`,
+        place: `Restaurant in ${lockedDestination.name}`,
         category: "restaurant",
         lat: prevLoc.lat,
         lng: prevLoc.lng,
@@ -887,59 +1140,87 @@ async function planItinerary(params = {}) {
         durationMin: 55,
         travelMin: 0,
         distanceKm: 0,
-        reason: "Evening dinner",
+        reason: `Evening dinner in ${lockedDestination.name}`,
       });
       currentMin += 55;
       dinnerAdded = true;
     }
 
-    // Final leg of the day
+    // Day conclusion: Final Return vs Overnight Stay vs One-Way Finish
     if (isLastDay) {
-      // Return Leg to Destination (One-Way) or Start (Around Trip)
-      const finalDest = isAroundTrip ? startPt : destPt;
-      const returnLeg = await routeBetweenPoints(prevLoc, finalDest);
-      const retStart = currentMin;
-      const retEnd = currentMin + returnLeg.travelMin;
-
-      blocks.push({
-        id: `d${dayNumber}_final_return`,
-        day: dayNumber,
-        sequence: blocks.length,
-        type: isAroundTrip ? "return" : "travel",
-        title: isAroundTrip ? `Return to Origin (${finalDest.name})` : `Arrive at Destination (${finalDest.name})`,
-        place: finalDest.name,
-        travelMode: "drive",
-        lat: finalDest.lat,
-        lng: finalDest.lng,
-        address: finalDest.address || finalDest.name,
-        start: formatMinutes(retStart),
-        end: formatMinutes(retEnd),
-        durationMin: 0,
-        travelMin: returnLeg.travelMin,
-        distanceKm: returnLeg.distanceKm,
-        reason: isAroundTrip ? "Around trip circuit return" : "Final destination arrival",
-      });
-      currentMin = retEnd;
-      cumulativeTripKm += returnLeg.distanceKm;
+      if (isAroundTrip) {
+        // Return Leg to Origin
+        const returnLeg = await routeBetweenPoints(prevLoc, startPt);
+        blocks.push({
+          id: `d${dayNumber}_final_return`,
+          day: dayNumber,
+          sequence: blocks.length,
+          type: "return",
+          title: `Return to Origin (${startPt.name})`,
+          place: startPt.name,
+          travelMode: "drive",
+          lat: startPt.lat,
+          lng: startPt.lng,
+          address: startPt.address || startPt.name,
+          start: formatMinutes(currentMin),
+          end: formatMinutes(currentMin + returnLeg.travelMin),
+          durationMin: 0,
+          travelMin: returnLeg.travelMin,
+          distanceKm: returnLeg.distanceKm,
+          reason: `Return journey to origin (${returnLeg.distanceKm} km)`,
+        });
+        currentMin += returnLeg.travelMin;
+        cumulativeTripKm += returnLeg.distanceKm;
+      } else {
+        // One-Way trip finishes at Destination
+        blocks.push({
+          id: `d${dayNumber}_final_completion`,
+          day: dayNumber,
+          sequence: blocks.length,
+          type: "destination",
+          title: `Trip Completed at ${lockedDestination.name}`,
+          place: lockedDestination.name,
+          lat: lockedDestination.lat,
+          lng: lockedDestination.lng,
+          address: lockedDestination.address || lockedDestination.name,
+          start: formatMinutes(currentMin),
+          end: formatMinutes(currentMin),
+          durationMin: 0,
+          travelMin: 0,
+          distanceKm: 0,
+          isDestination: true,
+          isLocked: true,
+          reason: `Journey successfully completed at ${lockedDestination.name}`,
+        });
+      }
     } else {
-      // Overnight stay / Hotel check-in
+      // Overnight stay at Destination
+      const hotel = typeof getBestCuratedVenue === "function" ? getBestCuratedVenue(lockedDestination.name, "hotel") : null;
+      const hotelName = hotel && hotel.name ? hotel.name : `Comfort Stay in ${lockedDestination.name}`;
+      const hotelAddress = hotel && hotel.city ? `${hotelName}, ${hotel.city}` : `Hotel in ${lockedDestination.name}`;
+
       blocks.push({
         id: `d${dayNumber}_hotel`,
         day: dayNumber,
         sequence: blocks.length,
         type: "checkin",
-        title: `Overnight Stay near ${prevLoc.name}`,
-        place: `Hotel / Resort near ${prevLoc.name}`,
+        title: `Overnight Stay: ${hotelName}`,
+        place: hotelName,
         category: "hotel",
         lat: prevLoc.lat,
         lng: prevLoc.lng,
-        address: `Hotel near ${prevLoc.name}`,
+        latitude: prevLoc.lat,
+        longitude: prevLoc.lng,
+        address: hotelAddress,
+        city: lockedDestination.city || lockedDestination.name,
+        state: lockedDestination.state || "",
+        country: lockedDestination.country || "India",
         start: formatMinutes(currentMin),
         end: formatMinutes(Math.min(currentMin + 60, 1439)),
         durationMin: 60,
         travelMin: 0,
         distanceKm: 0,
-        reason: "Night rest and recharge for Day " + (dayNumber + 1),
+        reason: hotel && hotel.specialty ? `Night rest: ${hotel.specialty}` : `Night rest in ${lockedDestination.name} for Day ${dayNumber + 1}`,
       });
       lastDayEndLocation = prevLoc;
     }
@@ -947,12 +1228,12 @@ async function planItinerary(params = {}) {
     generatedDays.push({
       day: dayNumber,
       date: startDate || `Day ${dayNumber}`,
-      title: `Day ${dayNumber}: ${isFirstDay ? "Departure & Exploration" : isLastDay ? "Final Sights & Return" : "Full Day Sightseeing"}`,
+      title: `Day ${dayNumber}: ${isFirstDay ? `Travel to & Explore ${lockedDestination.name}` : isLastDay ? (isAroundTrip ? `Final Sights in ${lockedDestination.name} & Return` : `Explore ${lockedDestination.name}`) : `Full Day in ${lockedDestination.name}`}`,
       blocks,
     });
   }
 
-  // Step 6.5: Calculate Authoritative Unified Multi-Stop Route & Budget
+  // Step 6.5: Authoritative Multi-Stop Road Routing & Strict Budget
   let authoritativeRouteResult = null;
   try {
     const extractedStops = [];
@@ -960,7 +1241,8 @@ async function planItinerary(params = {}) {
       for (const b of d.blocks) {
         if (
           b.lat && b.lng &&
-          (b.type === "activity" || b.type === "fuel" || b.type === "attraction" || b.isDestinationAnchor)
+          (b.type === "activity" || b.type === "fuel" || b.type === "attraction") &&
+          !b.isDestination
         ) {
           const isDup = extractedStops.some((prev) => haversineDistanceKm(prev, b) < 0.1);
           if (!isDup) {
@@ -984,7 +1266,7 @@ async function planItinerary(params = {}) {
 
     authoritativeRouteResult = await calculateTripRoute({
       origin: startPt,
-      destination: destPt,
+      destination: lockedDestination,
       stops: extractedStops,
       vehicle: {
         type: vehicle.type || "car",
@@ -1001,7 +1283,6 @@ async function planItinerary(params = {}) {
     if (authoritativeRouteResult && authoritativeRouteResult.route) {
       cumulativeTripKm = authoritativeRouteResult.route.distanceKm;
 
-      // Synchronize travel block distances and durations from authoritative route legs if available
       const legs = authoritativeRouteResult.route.legs || [];
       if (legs.length > 0) {
         let legIdx = 0;
@@ -1018,15 +1299,20 @@ async function planItinerary(params = {}) {
         }
       }
     }
+
+    console.log(`[SMART PLANNER] GENERATED STOPS:         ${extractedStops.length} stop(s)`);
+    console.log(`[SMART PLANNER] FINAL ROUTE DESTINATION: ${lockedDestination.name} (${lockedDestination.lat}, ${lockedDestination.lng})`);
+    console.log(`[SMART PLANNER] FINAL NAVIGATION DEST:   ${lockedDestination.name}`);
+    console.log(`[SMART PLANNER] ==========================================`);
   } catch (err) {
     console.warn("[ITINERARY ENGINE] Authoritative route calculation fallback:", err.message);
   }
 
-  // Step 7: Automated Quality Gate Verification
+  // Step 7: Automated Quality Gate Verification (Requirement #27)
   validateItineraryQuality({
     days: generatedDays,
     startLocation: startPt,
-    destination: destPt,
+    destination: lockedDestination,
     isAroundTrip,
     startMinutes,
     candidateMap,
@@ -1038,10 +1324,10 @@ async function planItinerary(params = {}) {
     days: generatedDays,
     tripType: isAroundTrip ? "around" : "one_way",
     startPoint: startPt,
-    endPoint: startPt,
-    destinationPoint: destPt,
+    endPoint: isAroundTrip ? startPt : lockedDestination,
+    destinationPoint: lockedDestination,
     searchRadiusKm: searchRadius,
-    placesFoundCount: candidateStops.filter((s) => !s.isDestinationAnchor).length,
+    placesFoundCount: candidateStops.length,
     canExpandSearch: searchRadius < 100,
     nextSearchRadiusKm: searchRadius < 50 ? 50 : 100,
     totalDistanceKm: authoritativeRouteResult ? authoritativeRouteResult.route.distanceKm : Math.round(cumulativeTripKm * 10) / 10,
@@ -1051,10 +1337,10 @@ async function planItinerary(params = {}) {
       return acc + (last >= first ? last - first : 1440 - first + last);
     }, 0),
     route: authoritativeRouteResult?.route || null,
-    budget: authoritativeRouteResult?.budget || null,
     navigationRoute: authoritativeRouteResult?.navigationRoute || null,
     tripPlan: authoritativeRouteResult?.tripPlan || null,
-    routeVersion: 1,
+    routeVersion: authoritativeRouteResult?.routeVersion || 1,
+    budget: authoritativeRouteResult?.budget || null,
     isConfirmed: false,
     status: "DRAFT",
   };
@@ -1077,6 +1363,14 @@ function validateItineraryQuality({
     throw new Error("Quality Gate Failed: No days produced");
   }
 
+  // Guarantee NO [object Object] anywhere in locations or blocks
+  if (destination.name && destination.name.includes("[object Object]")) {
+    throw new Error("Quality Gate Failed: Destination name contains [object Object]");
+  }
+  if (startLocation.name && startLocation.name.includes("[object Object]")) {
+    throw new Error("Quality Gate Failed: Start location name contains [object Object]");
+  }
+
   const day1 = days[0];
   if (!day1.blocks || day1.blocks.length < 2) {
     throw new Error("Quality Gate Failed: Day 1 has insufficient timeline blocks");
@@ -1089,22 +1383,48 @@ function validateItineraryQuality({
     throw new Error(`Quality Gate Failed: Start time mismatch. Expected ${formatMinutes(startMinutes)}, got ${firstBlock.start}`);
   }
 
-  // Check End Location
+  // Check Destination Arrival on Day 1
+  const day1DestArrival = day1.blocks.find((b) => b.isDestination === true || b.id === "d1_dest_arrival");
+  if (!day1DestArrival) {
+    throw new Error(`Quality Gate Failed: Day 1 does not contain arrival at destination (${destination.name}).`);
+  }
+
+  // Check End Location based on Trip Type
   const lastDay = days[days.length - 1];
   const lastBlock = lastDay.blocks[lastDay.blocks.length - 1];
   if (isAroundTrip) {
     if (haversineDistanceKm(lastBlock, startLocation) > 5) {
       throw new Error("Quality Gate Failed: Around Trip did not return to start location origin.");
     }
+  } else {
+    // One-Way Trip must terminate at the destination
+    if (!lastBlock.isDestination && haversineDistanceKm(lastBlock, destination) > 5) {
+      throw new Error(`Quality Gate Failed: One-Way Trip did not end at destination (${destination.name}).`);
+    }
   }
 
   const directDist = haversineDistanceKm(startLocation, destination);
   const isLocalTrip = directDist <= 30;
 
+  // Forbidden cities check if destination is Tirumala or nearby
+  const destLower = (destination.name || "").toLowerCase();
+  const isTirumalaDest = destLower.includes("tirumala");
+  const forbiddenTirumalaKeywords = ["chennai", "pondicherry", "mysore", "mysuru", "hyderabad", "madurai", "coimbatore", "kodaikanal", "ooty"];
+
   // Check Non-overlapping and sequential timeline & place validity
   for (const day of days) {
+    if (day.title && day.title.includes("[object Object]")) {
+      throw new Error(`Quality Gate Failed: Day ${day.day} title contains [object Object]`);
+    }
     let prevEnd = -1;
     for (const b of day.blocks) {
+      if (b.title && b.title.includes("[object Object]")) {
+        throw new Error(`Quality Gate Failed: Block title "${b.title}" contains [object Object]`);
+      }
+      if (b.place && b.place.includes("[object Object]")) {
+        throw new Error(`Quality Gate Failed: Block place "${b.place}" contains [object Object]`);
+      }
+
       const bStart = parseMinutes(b.start);
       const bEnd = parseMinutes(b.end);
       if (prevEnd !== -1 && bStart < prevEnd - 1) {
@@ -1113,9 +1433,19 @@ function validateItineraryQuality({
       prevEnd = bEnd;
 
       // Coordinate check
-      if (b.type === "activity" || b.type === "start" || b.type === "return") {
+      if (b.type === "activity" || b.type === "start" || b.type === "return" || b.type === "destination") {
         if (!Number.isFinite(b.lat) || !Number.isFinite(b.lng) || b.lat === 0) {
           throw new Error(`Quality Gate Failed: Missing coordinates for block ${b.title}`);
+        }
+      }
+
+      // Check forbidden distant cities
+      if (isTirumalaDest && (b.type === "activity" || b.type === "travel")) {
+        const placeStr = `${b.title} ${b.place || ""} ${b.address || ""} ${b.city || ""}`.toLowerCase();
+        for (const kw of forbiddenTirumalaKeywords) {
+          if (placeStr.includes(kw) && !destLower.includes(kw)) {
+            throw new Error(`Quality Gate Failed: Block "${b.title}" contains forbidden city "${kw}" unrelated to ${destination.name}.`);
+          }
         }
       }
 
@@ -1156,6 +1486,8 @@ module.exports = {
   filterAndScoreCandidates,
   routeBetweenPoints,
   resolveLocation,
+  extractLocationName,
+  normalizeCanonicalLocation,
   validateItineraryQuality,
   CATEGORY_DURATIONS,
 };

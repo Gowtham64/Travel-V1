@@ -45,7 +45,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   final _currentFuelCtrl = TextEditingController(text: '30');
   final _mileageCtrl = TextEditingController(text: '15');
 
-  static const String _tripType = 'around'; // Smart AI Planner supports Around Trip only
+  String _tripType = 'around'; // 'around' (Round Trip) or 'one_way' (One-Way Trip)
   int _searchRadiusKm = 25;
   int? _nextSearchRadiusKm;
   int? _placesFoundCount;
@@ -92,6 +92,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   Timer? _acDebounce;
   List<Map<String, dynamic>> _destSuggestions = [];
   List<Map<String, dynamic>> _startSuggestions = [];
+  Map<String, dynamic>? _selectedDestinationPlace;
+  Map<String, dynamic>? _selectedOriginPlace;
 
   bool _loading = false;
   String? _error;
@@ -237,9 +239,34 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         categoryPrioritiesMapped[cat.label] = entry.value;
       }
 
+      final destPayload = _selectedDestinationPlace != null
+          ? {
+              'name': LocationHelper.cleanString(_selectedDestinationPlace!['name'], dest),
+              'latitude': _selectedDestinationPlace!['lat'] ?? _selectedDestinationPlace!['latitude'],
+              'longitude': _selectedDestinationPlace!['lng'] ?? _selectedDestinationPlace!['longitude'],
+              'placeId': _selectedDestinationPlace!['placeId'] ?? _selectedDestinationPlace!['id'] ?? '',
+              'type': 'destination',
+              'locked': true,
+              'userSelected': true,
+            }
+          : dest;
+
+      final originText = _startLocCtrl.text.trim();
+      final originPayload = _selectedOriginPlace != null
+          ? {
+              'name': LocationHelper.cleanString(_selectedOriginPlace!['name'], originText),
+              'latitude': _selectedOriginPlace!['lat'] ?? _selectedOriginPlace!['latitude'],
+              'longitude': _selectedOriginPlace!['lng'] ?? _selectedOriginPlace!['longitude'],
+              'placeId': _selectedOriginPlace!['placeId'] ?? _selectedOriginPlace!['id'] ?? '',
+              'type': 'origin',
+              'locked': true,
+              'userSelected': true,
+            }
+          : originText;
+
       final res = await _api.aiSmartItinerary(
-        destination: dest,
-        startLocation: _startLocCtrl.text.trim(),
+        destination: destPayload,
+        startLocation: originPayload,
         places: places,
         startDate: _startDate == null ? '' : _fmtDate(_startDate),
         startTime: TripDateTime.to24Hour(_startTime.hour, _startTime.minute),
@@ -254,7 +281,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         currentFuel: double.tryParse(_currentFuelCtrl.text.trim()),
         tankCapacity: _vehicle?.tankCapacity,
         vehicleType: _transportMode,
-        tripType: 'around',
+        tripType: _tripType,
         selectedCategories: selectedCategoryLabels,
         categoryPriorities: categoryPrioritiesMapped,
         customPreferences: _customPrefCtrl.text.trim(),
@@ -454,6 +481,15 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   void _removeStop(SmartDay day, TimelineBlock block) {
+    if (block.isDestination || block.isLocked || block.type == 'destination' || block.type == 'start' || block.type == 'return') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The primary destination cannot be removed.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
+    }
     final blockName = block.title.isNotEmpty ? block.title : block.place;
     setState(() {
       day.blocks.remove(block);
@@ -471,8 +507,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   void _moveStop(SmartDay day, int index, int direction) {
     final targetIndex = index + direction;
     if (targetIndex < 0 || targetIndex >= day.blocks.length) return;
-    if (day.blocks[index].type == 'start' || day.blocks[index].type == 'return') return;
-    if (day.blocks[targetIndex].type == 'start' || day.blocks[targetIndex].type == 'return') return;
+    final cur = day.blocks[index];
+    final tgt = day.blocks[targetIndex];
+    if (cur.type == 'start' || cur.type == 'return' || cur.isDestination || cur.isLocked || cur.type == 'destination') return;
+    if (tgt.type == 'start' || tgt.type == 'return' || tgt.isDestination || tgt.isLocked || tgt.type == 'destination') return;
     setState(() {
       final item = day.blocks.removeAt(index);
       day.blocks.insert(targetIndex, item);
@@ -669,8 +707,23 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         days: _itinerary,
         startTime: TripDateTime.to24Hour(_startTime.hour, _startTime.minute),
         tripType: _tripType,
-        origin: _startLocCtrl.text.trim(),
-        destination: _destCtrl.text.trim(),
+        origin: _selectedOriginPlace != null
+            ? {
+                'name': LocationHelper.cleanString(_selectedOriginPlace!['name'], _startLocCtrl.text.trim()),
+                'latitude': _selectedOriginPlace!['lat'] ?? _selectedOriginPlace!['latitude'],
+                'longitude': _selectedOriginPlace!['lng'] ?? _selectedOriginPlace!['longitude'],
+                'placeId': _selectedOriginPlace!['placeId'] ?? _selectedOriginPlace!['id'] ?? '',
+              }
+            : _startLocCtrl.text.trim(),
+        destination: _selectedDestinationPlace != null
+            ? {
+                'name': LocationHelper.cleanString(_selectedDestinationPlace!['name'], _destCtrl.text.trim()),
+                'latitude': _selectedDestinationPlace!['lat'] ?? _selectedDestinationPlace!['latitude'],
+                'longitude': _selectedDestinationPlace!['lng'] ?? _selectedDestinationPlace!['longitude'],
+                'placeId': _selectedDestinationPlace!['placeId'] ?? _selectedDestinationPlace!['id'] ?? '',
+                'locked': true,
+              }
+            : _destCtrl.text.trim(),
         currentFuel: double.tryParse(_currentFuelCtrl.text.trim()),
         tankCapacity: _vehicle?.tankCapacity,
         fuelEfficiency: double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage,
@@ -1106,6 +1159,15 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   void _onPlaceQuery(String query, bool isDest) {
     _acDebounce?.cancel();
     final q = query.trim();
+    if (isDest) {
+      if (_selectedDestinationPlace != null && _selectedDestinationPlace!['name'] != q) {
+        _selectedDestinationPlace = null;
+      }
+    } else {
+      if (_selectedOriginPlace != null && _selectedOriginPlace!['name'] != q) {
+        _selectedOriginPlace = null;
+      }
+    }
     if (q.isEmpty) {
       setState(() {
         if (isDest) {
@@ -1228,6 +1290,14 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         _startLocCtrl.text = (address == null || address.trim().isEmpty)
             ? '${pos.latitude.toStringAsFixed(5)}, ${pos.longitude.toStringAsFixed(5)}'
             : address;
+        _selectedOriginPlace = {
+          'name': _startLocCtrl.text,
+          'latitude': pos.latitude,
+          'longitude': pos.longitude,
+          'lat': pos.latitude,
+          'lng': pos.longitude,
+          'address': address ?? '',
+        };
         _startSuggestions = [];
       });
     } catch (e) {
@@ -1368,8 +1438,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                       setState(() {
                         c.text = s['name'] as String;
                         if (isDest) {
+                          _selectedDestinationPlace = Map<String, dynamic>.from(s);
                           _destSuggestions = [];
                         } else {
+                          _selectedOriginPlace = Map<String, dynamic>.from(s);
                           _startSuggestions = [];
                         }
                       });
@@ -1474,6 +1546,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                   final tmp = _startLocCtrl.text;
                   _startLocCtrl.text = _destCtrl.text;
                   _destCtrl.text = tmp;
+                  final tmpPlace = _selectedOriginPlace;
+                  _selectedOriginPlace = _selectedDestinationPlace;
+                  _selectedDestinationPlace = tmpPlace;
                 });
               },
               child: Container(
@@ -1639,32 +1714,74 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   Widget _tripTypeBadge() {
+    final isRound = _tripType == 'around';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppColors.accentLight.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.3)),
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.sync_rounded, color: AppColors.accentLight, size: 18),
-          SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Around Trip (Circuit)',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+            child: InkWell(
+              onTap: () => setState(() => _tripType = 'around'),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: isRound ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: isRound ? Border.all(color: AppColors.accentLight.withValues(alpha: 0.6)) : null,
                 ),
-                SizedBox(height: 2),
-                Text(
-                  'Plans destination-based sights and returns to your starting origin',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.sync_rounded, color: isRound ? AppColors.accentLight : Colors.white60, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Round Trip',
+                      style: TextStyle(
+                        color: isRound ? Colors.white : Colors.white60,
+                        fontWeight: isRound ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: InkWell(
+              onTap: () => setState(() => _tripType = 'one_way'),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+                decoration: BoxDecoration(
+                  color: !isRound ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: !isRound ? Border.all(color: AppColors.accentLight.withValues(alpha: 0.6)) : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.arrow_forward_rounded, color: !isRound ? AppColors.accentLight : Colors.white60, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'One-Way Trip',
+                      style: TextStyle(
+                        color: !isRound ? Colors.white : Colors.white60,
+                        fontWeight: !isRound ? FontWeight.bold : FontWeight.normal,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
@@ -2686,7 +2803,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(day.title.isEmpty ? '' : day.title,
+                child: Text(LocationHelper.cleanString(day.title, 'Day ${day.day}'),
                     maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w700)),
               ),
@@ -2784,10 +2901,12 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     } else {
       if (b.durationMin > 0) meta.add('${b.durationMin} min');
     }
+    final displayPlace = LocationHelper.cleanString(b.place);
+    final displayTitle = LocationHelper.cleanString(b.title);
     final isActivity = b.type == 'activity';
     final bool allowTempleRecognition = _selectedCategoryIds.isEmpty || _selectedCategoryIds.contains('temples');
-    final temple = (isActivity && allowTempleRecognition && (b.categories.contains('Temples & Religious Places') || b.title.toLowerCase().contains('temple') || b.title.toLowerCase().contains('darshan')))
-        ? TempleDatabase.findTemple(b.title.isNotEmpty ? b.title : b.place)
+    final temple = (isActivity && allowTempleRecognition && (b.categories.contains('Temples & Religious Places') || displayTitle.toLowerCase().contains('temple') || displayTitle.toLowerCase().contains('darshan')))
+        ? TempleDatabase.findTemple(displayTitle.isNotEmpty ? displayTitle : displayPlace)
         : null;
     final isTemple = isActivity && temple != null;
 
@@ -2834,7 +2953,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                     Row(children: [
                       Expanded(
                         child: Text(
-                          b.title.isNotEmpty ? b.title : (temple != null ? 'Darshan at ${temple.canonicalName}' : b.place),
+                          LocationHelper.cleanString(
+                            b.title.isNotEmpty ? b.title : (temple != null ? 'Darshan at ${temple.canonicalName}' : b.place),
+                            'Destination Stop',
+                          ),
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: isTemple ? 14.5 : 14,
@@ -2937,7 +3059,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                               fontWeight: isTemple ? FontWeight.w700 : FontWeight.w500,
                             )),
                       ),
-                    if (b.place.isNotEmpty && b.place != b.title)
+                    if (displayPlace.isNotEmpty && displayPlace != displayTitle)
                       Padding(
                         padding: const EdgeInsets.only(top: 2),
                         child: Row(
@@ -2946,7 +3068,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                             const SizedBox(width: 3),
                             Expanded(
                               child: Text(
-                                b.place,
+                                displayPlace,
                                 style: TextStyle(color: Colors.white.withValues(alpha: 0.55), fontSize: 11),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -3043,7 +3165,28 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                           ],
                         ),
                       ),
-                    if (!_isConfirmed && (b.type == 'activity' || b.type == 'shopping' || b.type == 'meal' || b.type == 'coffee' || b.type == 'fuel')) ...[
+                    if (b.isDestination || b.isLocked || b.type == 'destination') ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.4)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.lock_rounded, size: 12, color: Color(0xFFF59E0B)),
+                            SizedBox(width: 4),
+                            Text(
+                              'Primary Destination (Locked)',
+                              style: TextStyle(color: Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ] else if (!_isConfirmed && (b.type == 'activity' || b.type == 'shopping' || b.type == 'meal' || b.type == 'coffee' || b.type == 'fuel')) ...[
                       const SizedBox(height: 6),
                       Row(
                         children: [

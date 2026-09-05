@@ -385,8 +385,8 @@ void main() {
       }
 
       expect(startCoord!.name, 'Chennai');
-      expect(endCoord!.name, 'Chennai');
-      expect(endCoord!.lat, 13.0827);
+      expect(endCoord?.name, 'Chennai');
+      expect(endCoord?.lat, 13.0827);
       expect(waypoints.any((w) => (w.name ?? '').contains('Madurai')), true);
     });
   });

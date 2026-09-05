@@ -512,6 +512,21 @@ async function generateWithRetry(prompt, opts, tries = 3) {
   throw lastErr;
 }
 
+function cleanCityName(str) {
+  if (!str) return "Destination";
+  let raw = "";
+  if (typeof str === "object") {
+    raw = str.name || str.title || str.city || str.address || "Destination";
+  } else {
+    raw = String(str).trim();
+  }
+  if (!raw || raw === "[object Object]" || raw.includes("[object Object]")) {
+    return "Destination";
+  }
+  const first = raw.split(',')[0].trim();
+  return first.replace(/\s*\([^)]*\)/g, '').trim() || first;
+}
+
 /**
  * Generate a realistic, time-blocked day-by-day itinerary with automatic
  * meal/rest breaks, travel time and per-block reasoning.
@@ -570,20 +585,11 @@ async function smartItinerary({
       `3. For every activity stop, populate "categories": [list of matched categories] and "whyIncluded": "Explanation of why this place matches user category preferences along the route."\n` +
       `4. Balance categories across the ${total} days following a logical sequence (Start -> Stop 1 -> Stop 2 -> Lunch -> Stop 3 -> Stay) without backtracking.\n`;
   }
-
-  function cleanCityName(str) {
-    if (!str) return "Destination";
-    const raw = str.split(',')[0].trim();
-    return raw.replace(/\s*\([^)]*\)/g, '').trim() || raw;
-  }
   const cleanCity = cleanCityName(destination);
-  const parenMatch = destination ? destination.match(/\(([^)]+)\)/) : null;
+  const destStr = typeof destination === "string" ? destination : (destination?.name || cleanCity);
+  const parenMatch = destStr ? destStr.match(/\(([^)]+)\)/) : null;
   const parenAlias = parenMatch ? parenMatch[1].toLowerCase().trim() : "";
   const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter((s) => s && s.length >= 3);
-  if (searchTerms.some((s) => s.includes("tirumala") || s.includes("tirupati"))) {
-    if (!searchTerms.includes("tirumala")) searchTerms.push("tirumala");
-    if (!searchTerms.includes("tirupati")) searchTerms.push("tirupati");
-  }
 
   let verifiedCandidates = [];
   try {
@@ -865,14 +871,20 @@ const CURATED_VENUES = {
 };
 
 function getBestCuratedVenue(dest, type) {
-  const d = (dest || "").toLowerCase();
+  let cleanCity = "Local";
+  if (typeof dest === "object" && dest) {
+    cleanCity = dest.city || dest.name || "Local";
+  } else if (typeof dest === "string" && dest && dest !== "[object Object]") {
+    const raw = dest.split(',')[0].trim();
+    cleanCity = raw.replace(/\s*\([^)]*\)/g, '').trim() || raw;
+  }
+  const d = cleanCity.toLowerCase();
   if (d.includes("tirupati") || d.includes("tirumala")) {
     return CURATED_VENUES.tirupati[type] || CURATED_VENUES.tirupati.lunch;
   }
   if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya") || d.includes("srirangapatna")) {
     return CURATED_VENUES.mysuru[type] || CURATED_VENUES.mysuru.lunch;
   }
-  const cleanCity = dest ? dest.split(',')[0].trim() : 'Local';
   return {
     name: `${cleanCity} Traditional ${type === 'hotel' ? 'Comfort Stay & Suites' : type === 'coffee' ? 'Filter Coffee & Refreshment Lounge' : 'Regional Dining Restaurant'}`,
     city: cleanCity,
@@ -927,21 +939,15 @@ function buildFallbackSmartItinerary({
   customPreferences = "",
 }) {
   const total = Math.max(1, Math.min(Number(durationDays) || 1, 14));
-  const destName = destination || "Destination";
-  const startName = startLocation || "Home";
+  const destName = (typeof destination === "object" ? destination?.name : String(destination || "")) || "Destination";
+  const startName = (typeof startLocation === "object" ? startLocation?.name : String(startLocation || "")) || "Home";
   const days = [];
 
-  function cleanCityName(str) {
-    if (!str) return "Destination";
-    const raw = str.split(',')[0].trim();
-    return raw.replace(/\s*\([^)]*\)/g, '').trim() || raw;
-  }
-
-  const cleanCity = cleanCityName(destination);
-  const text = `${destination} ${preferences} ${customPreferences} ${places.join(" ")}`.toLowerCase();
+  const cleanCity = cleanCityName(destName);
+  const text = `${destName} ${preferences} ${customPreferences} ${places.join(" ")}`.toLowerCase();
 
   // Extract search terms including aliases inside parentheses e.g. "Mangaluru (Mangalore)" -> "mangaluru", "mangalore"
-  const parenMatch = destination ? destination.match(/\(([^)]+)\)/) : null;
+  const parenMatch = typeof destName === "string" ? destName.match(/\(([^)]+)\)/) : null;
   const parenAlias = parenMatch ? parenMatch[1].toLowerCase().trim() : "";
   const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter((s) => s && s.length >= 3);
   if (searchTerms.some((s) => s.includes("tirumala") || s.includes("tirupati"))) {
@@ -1517,15 +1523,18 @@ function buildFallbackSmartItinerary({
 }
 
 /**
- * Selects and ranks places from a strictly validated candidate list using AI.
- * The AI is strictly constrained to only choose from the provided placeIds.
+ * Rank candidate places with AI, strictly enforcing the locked destination.
  */
-async function rankCandidatesWithAI({ candidates = [], destination = "", maxStops = 6, preferences = "" }) {
+async function rankCandidatesWithAI({ candidates = [], destination = "", origin = "", maxStops = 6, preferences = "" }) {
   if (!candidates.length) return [];
+  const destName = typeof destination === "object" ? destination.name : String(destination || "");
+  const destId = typeof destination === "object" ? (destination.placeId || "") : "";
+  const origName = typeof origin === "object" ? origin.name : String(origin || "");
+
   const system =
     "You are VoyPlan's itinerary organizer. You are NOT allowed to invent, introduce, or recommend any place that is not present in the supplied validated candidate-place dataset. " +
     "You may only select and organize places from the provided candidate list. " +
-    "The destination and geographic filtering rules are HARD CONSTRAINTS and cannot be overridden.";
+    `The destination "${destName}" is LOCKED and CANNOT be changed, substituted, or overridden.`;
 
   const simplified = candidates.slice(0, 25).map((c) => ({
     placeId: c.placeId,
@@ -1537,15 +1546,27 @@ async function rankCandidatesWithAI({ candidates = [], destination = "", maxStop
   }));
 
   const prompt =
-    `Destination: "${destination}". ` +
+    `Origin: "${origName}". Locked Destination: "${destName}" (Place ID: "${destId}"). ` +
     (preferences ? `User preferences: ${preferences}. ` : "") +
     `Select up to ${maxStops} best places from this validated candidate list ONLY. ` +
-    `CRITICAL: Return a JSON object with "selectedStops": [ { "placeId": "<placeId>", "reason": "<brief rationale>" } ]. ` +
+    `CRITICAL: Return a JSON object with: ` +
+    `"destination": { "name": "${destName}", "placeId": "${destId}", "locked": true }, ` +
+    `"selectedStops": [ { "placeId": "<placeId>", "reason": "<brief rationale>" } ]. ` +
     `Candidates: ${JSON.stringify(simplified)}`;
 
   try {
     const text = await generate(prompt, { system, json: true, maxTokens: 1000 });
     const parsed = JSON.parse(text);
+
+    // Destination Integrity Check (Requirement #14)
+    if (parsed.destination && parsed.destination.name) {
+      const returnedName = String(parsed.destination.name).toLowerCase().trim();
+      const expectedName = destName.toLowerCase().trim();
+      if (!returnedName.includes(expectedName) && !expectedName.includes(returnedName)) {
+        console.warn(`[AI SERVICE] Destination mismatch in AI response! Expected "${destName}", got "${parsed.destination.name}". Re-anchoring to locked destination.`);
+      }
+    }
+
     const stops = Array.isArray(parsed) ? parsed : Array.isArray(parsed.selectedStops) ? parsed.selectedStops : Array.isArray(parsed.stops) ? parsed.stops : [];
     return stops.map((s) => (typeof s === "string" ? { placeId: s } : { placeId: String(s.placeId || ""), reason: s.reason || "" })).filter((s) => s.placeId);
   } catch (_) {
@@ -1571,6 +1592,8 @@ module.exports = {
   AiConfigError,
   PROVIDER,
   ACTIVE_MODEL,
+  getBestCuratedVenue,
+  cleanCityName,
 };
 
 
