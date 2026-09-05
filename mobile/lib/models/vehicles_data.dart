@@ -21,6 +21,7 @@ class VehicleModel {
   final int? modelYear;
   final bool isUserMileageOverride;
   final double? userCustomMileage;
+  final double? userCustomFuel;
   final String source;
   final String dataVersion;
 
@@ -47,6 +48,7 @@ class VehicleModel {
     this.modelYear,
     this.isUserMileageOverride = false,
     this.userCustomMileage,
+    this.userCustomFuel,
     this.source = 'CarDekho',
     this.dataVersion = '2026.3.1',
   });
@@ -93,6 +95,7 @@ class VehicleModel {
     int? modelYear,
     bool? isUserMileageOverride,
     double? userCustomMileage,
+    double? userCustomFuel,
     String? source,
     String? dataVersion,
   }) {
@@ -119,6 +122,7 @@ class VehicleModel {
       modelYear: modelYear ?? this.modelYear,
       isUserMileageOverride: isUserMileageOverride ?? this.isUserMileageOverride,
       userCustomMileage: userCustomMileage ?? this.userCustomMileage,
+      userCustomFuel: userCustomFuel ?? this.userCustomFuel,
       source: source ?? this.source,
       dataVersion: dataVersion ?? this.dataVersion,
     );
@@ -164,6 +168,7 @@ class VehicleModel {
       modelYear: (json['modelYear'] as num?)?.toInt() ?? 2026,
       isUserMileageOverride: json['isUserMileageOverride'] as bool? ?? false,
       userCustomMileage: (json['userCustomMileage'] as num?)?.toDouble(),
+      userCustomFuel: (json['userCustomFuel'] as num?)?.toDouble(),
       source: json['source'] as String? ?? 'CarDekho',
       dataVersion: json['dataVersion'] as String? ?? '2026.3.1',
     );
@@ -192,6 +197,7 @@ class VehicleModel {
         'modelYear': modelYear,
         'isUserMileageOverride': isUserMileageOverride,
         'userCustomMileage': userCustomMileage,
+        'userCustomFuel': userCustomFuel,
         'source': source,
         'dataVersion': dataVersion,
       };

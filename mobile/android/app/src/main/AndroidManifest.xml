@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Live trip-progress notification (Android 13+ requires runtime grant). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Travel gallery: read the device photo library (Android 13+ uses the
          granular media permission; older versions use READ_EXTERNAL_STORAGE). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
@@ -19,6 +21,11 @@
          (setSurfaceCallback); without it the app crashes on open with a
          SecurityException for androidx.car.app.ACCESS_SURFACE. -->
     <uses-permission android:name="androidx.car.app.ACCESS_SURFACE" />
+
+    <!-- Prevent Google Play from filtering devices without dedicated GPS hardware or camera -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:label="@string/app_name"
@@ -43,6 +50,11 @@
             <intent-filter>
                 <action android:name="androidx.car.app.CarAppService" />
                 <category android:name="androidx.car.app.category.NAVIGATION" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="androidx.car.app.action.NAVIGATE" />
+                <category android:name="androidx.car.app.category.NAVIGATION" />
+                <data android:scheme="geo" />
             </intent-filter>
         </service>
 
@@ -78,6 +90,11 @@
                     android:host="login-callback"/>
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".TripAlarmReceiver"
+            android:exported="false" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

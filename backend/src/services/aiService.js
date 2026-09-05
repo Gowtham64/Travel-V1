@@ -272,6 +272,65 @@ function safeParseItinerary(text, maxDays) {
   }
 }
 
+function parseMinutes(t) {
+  const clean = String(t || "").trim().toLowerCase();
+  if (!clean) return 480; // default 08:00 AM
+  const hasPm = clean.includes("pm") || clean.includes("p.m");
+  const hasAm = clean.includes("am") || clean.includes("a.m");
+
+  const match = clean.match(/(\d{1,2})(?::(\d{1,2}))?/);
+  if (match) {
+    const parsedH = parseInt(match[1], 10);
+    let h = isNaN(parsedH) ? 8 : parsedH;
+    const parsedM = match[2] ? parseInt(match[2], 10) : 0;
+    const m = isNaN(parsedM) ? 0 : parsedM;
+    if (hasPm) {
+      if (h < 12) h += 12;
+    } else if (hasAm) {
+      if (h === 12) h = 0;
+    }
+    const clampedH = Math.max(0, Math.min(h, 23));
+    const clampedM = Math.max(0, Math.min(m, 59));
+    return clampedH * 60 + clampedM;
+  }
+  return 480;
+}
+
+function formatMin(totalMin) {
+  const norm = ((totalMin % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const h24 = Math.floor(norm / 60);
+  const m = norm % 60;
+  const ampm = h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+}
+
+function format24h(totalMin) {
+  const norm = ((totalMin % (24 * 60)) + (24 * 60)) % (24 * 60);
+  const h24 = Math.floor(norm / 60);
+  const m = norm % 60;
+  return `${String(h24).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
+function validateAndReanchorItinerary(days, targetStartMin) {
+  if (!Array.isArray(days) || !days.length) return days;
+  const day1 = days[0];
+  if (!day1.activities || !day1.activities.length) return days;
+  
+  const firstAct = day1.activities[0];
+  const firstActMin = parseMinutes(firstAct.time);
+  if (Math.abs(firstActMin - targetStartMin) > 15) {
+    let cur = targetStartMin;
+    for (const a of day1.activities) {
+      a.time = formatMin(cur);
+      const h24 = Math.floor(cur / 60) % 24;
+      a.part = h24 < 12 ? "Morning" : (h24 < 17 ? "Afternoon" : (h24 < 21 ? "Evening" : "Night"));
+      cur += 90;
+    }
+  }
+  return days;
+}
+
 /** Generates a structured, day-by-day activity itinerary. */
 async function buildItinerary({ start, end, days = 1, waypoints = [], travellers = 1, purpose = "", startDate = "", startTime = "", weather = "" }) {
   const via = waypoints.length ? ` via ${waypoints.join(", ")}` : "";
@@ -280,22 +339,30 @@ async function buildItinerary({ start, end, days = 1, waypoints = [], travellers
       `windows, and prefer indoor options (museums, temples, cafes, malls) when rain is likely or it is very hot. ` +
       `If a day looks wet, say so briefly in that day's title. `
     : "";
+
+  const startMin = parseMinutes(startTime);
+  const canonical12h = formatMin(startMin);
+  const canonical24h = format24h(startMin);
+  const h24 = Math.floor(startMin / 60) % 24;
+  const startPart = h24 < 12 ? "Morning" : (h24 < 17 ? "Afternoon" : (h24 < 21 ? "Evening" : "Night"));
+
   const prompt =
     `Create a practical, realistic day-by-day travel itinerary for a road trip from "${start}" to "${end}"${via}, ` +
     `lasting ${days} day(s) for ${travellers} traveller(s)${purpose ? ` (${purpose} trip)` : ""}` +
-    `${startDate ? `, starting ${startDate}` : ""}${startTime ? ` at about ${startTime}` : ""}. ` +
-    `Begin the first day's first activity at roughly the given start time. ` +
+    `${startDate ? `, starting ${startDate}` : ""}. ` +
+    `CRITICAL TIME REQUIREMENT: Day 1 MUST start at exactly ${canonical12h} (${canonical24h}). NEVER convert PM to AM. Do not schedule Day 1 before ${canonical12h}. ` +
     weatherLine +
     `For each day give 3 to 5 activities spread across Morning, Afternoon, Evening and Night. ` +
     `Prefer real, well-known sights, food stops and experiences on or near the route. Keep each note short ` +
     `(max ~12 words). Respond ONLY as JSON: ` +
-    `{"days":[{"day":1,"title":"","activities":[{"part":"Morning","time":"09:00","title":"","note":""}]}]} ` +
+    `{"days":[{"day":1,"title":"","activities":[{"part":"${startPart}","time":"${canonical24h}","title":"","note":""}]}]} ` +
     `— no prose, no markdown.`;
   const text = await generate(prompt, {
     system: "You are an expert, India-aware road-trip planner. Only suggest real places. Adapt the plan to the weather. Output strict JSON.",
     json: true,
   });
-  return safeParseItinerary(text, days);
+  const parsed = safeParseItinerary(text, days);
+  return validateAndReanchorItinerary(parsed, startMin);
 }
 
 /** Diagnostic: models this provider/key can use. */
@@ -368,6 +435,25 @@ function safeParseSmart(text) {
   return [];
 }
 
+function validateAndReanchorSmart(days, targetStartMin) {
+  if (!Array.isArray(days) || !days.length) return days;
+  const day1 = days[0];
+  if (!day1.blocks || !day1.blocks.length) return days;
+  
+  const firstBlockStart = day1.blocks[0].start;
+  const firstBlockMin = parseMinutes(firstBlockStart);
+  if (Math.abs(firstBlockMin - targetStartMin) > 15) {
+    let cur = targetStartMin;
+    for (const b of day1.blocks) {
+      const dur = Math.max(15, b.durationMin || (b.travelMin || 30));
+      b.start = formatMin(cur);
+      b.end = formatMin(cur + dur);
+      cur += dur;
+    }
+  }
+  return days;
+}
+
 // Shared planning rules, reused by every batch prompt.
 const ITINERARY_RULES =
   `Think carefully about the REAL geographic location of each named place. Use only real, ` +
@@ -389,11 +475,13 @@ const ITINERARY_RULES =
   `For meal blocks set breakType to breakfast|lunch|dinner. ` +
   `For activity blocks, ALWAYS include "categories": ["CategoryName", ...] matching the user's selected preferences, and "whyIncluded": "Clear explanation of why this place matches the user's category preference and route."`;
 
-const ITINERARY_JSON_HINT =
-  `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"08:00",` +
-  `"end":"08:30","type":"meal","title":"Breakfast","place":"","durationMin":30,"travelMin":0,` +
-  `"distanceKm":0,"breakType":"breakfast","reason":"","travelMode":"","categories":[],"whyIncluded":""}]}]} — travel blocks set ` +
-  `travelMode; activity blocks set categories and whyIncluded; no prose, no markdown.`;
+function getItineraryJsonHint(start24h = "08:00") {
+  return `Respond ONLY as JSON: {"days":[{"day":1,"date":"","title":"","blocks":[{"start":"${start24h}",` +
+    `"end":"","type":"travel","title":"","place":"","durationMin":30,"travelMin":30,` +
+    `"distanceKm":15,"breakType":"","reason":"","travelMode":"drive","categories":[],"whyIncluded":""}]}]} — travel blocks set ` +
+    `travelMode; activity blocks set categories and whyIncluded; no prose, no markdown.`;
+}
+const ITINERARY_JSON_HINT = getItineraryJsonHint("08:00");
 
 const ITINERARY_SYSTEM =
   "You are an expert, meticulous, world-aware travel planner with strong geographic knowledge. " +
@@ -481,6 +569,10 @@ async function smartItinerary({
       `4. Balance categories across the ${total} days following a logical sequence (Start -> Stop 1 -> Stop 2 -> Lunch -> Stop 3 -> Stay) without backtracking.\n`;
   }
 
+  const startMin = parseMinutes(startTime);
+  const canonical12h = formatMin(startMin);
+  const canonical24h = format24h(startMin);
+
   // Build the prompt for one batch of days [from..to] of a `total`-day round trip.
   function batchPrompt(from, to) {
     const isFirst = from === 1;
@@ -489,7 +581,7 @@ async function smartItinerary({
     const dayWord = count === 1 ? `day ${from}` : `days ${from}–${to}`;
     let ctx =
       `You are planning a ${total}-day trip to "${destination}"${homeLine}, which starts on ` +
-      `${startDate || "day 1"} at ${startTime}. Produce ONLY ${dayWord} of ${total}, as ${count} ` +
+      `${startDate || "day 1"} at ${canonical12h} (${canonical24h}). CRITICAL TIME REQUIREMENT: Day 1 MUST start at exactly ${canonical12h} (${canonical24h}). NEVER convert PM to AM. Produce ONLY ${dayWord} of ${total}, as ${count} ` +
       `day object(s) numbered exactly ${from}${count > 1 ? `..${to}` : ""}. `;
     if (startLocation && isFirst) {
       ctx +=
@@ -504,7 +596,7 @@ async function smartItinerary({
         `the traveller ALL THE WAY BACK to "${startLocation}" (realistic mode, distance & time). `;
     }
     if (isLast && (endDate || endTime)) ctx += `The trip should end around ${endDate} ${endTime}. `;
-    return ctx + placeLine + prefLine + paceLine + directiveLine + categoryConstraintLine + ITINERARY_RULES + " " + ITINERARY_JSON_HINT;
+    return ctx + placeLine + prefLine + paceLine + directiveLine + categoryConstraintLine + ITINERARY_RULES + " " + getItineraryJsonHint(isFirst ? canonical24h : "08:00");
   }
 
   const MODELS =
@@ -522,7 +614,7 @@ async function smartItinerary({
         reasoningEffort: m && m.includes("gpt-oss") ? "low" : undefined,
         maxTokens: 7000,
       });
-      days = safeParseSmart(text);
+      days = validateAndReanchorSmart(safeParseSmart(text), startMin);
       if (days.length) break;
     } catch (err) {
       lastErr = err;
@@ -923,32 +1015,6 @@ function buildFallbackSmartItinerary({
 
   const totalDriveMin = Math.round((estimatedKm / 55.0) * 60);
 
-  function parseMinutes(t) {
-    const clean = String(t || "").trim().toLowerCase();
-    if (!clean) return 480;
-    const isPm = clean.includes("pm");
-    const isAm = clean.includes("am");
-    const numStr = clean.replace(/[^0-9:]/g, "");
-    const parts = numStr.split(":");
-    if (parts.length > 0) {
-      let h = parseInt(parts[0], 10) || 8;
-      const m = parts.length > 1 ? parseInt(parts[1], 10) || 0 : 0;
-      if (isPm && h < 12) h += 12;
-      if (isAm && h === 12) h = 0;
-      return h * 60 + m;
-    }
-    return 480;
-  }
-
-  function formatMin(totalMin) {
-    const norm = totalMin % (24 * 60);
-    const h24 = Math.floor(norm / 60);
-    const m = norm % 60;
-    const ampm = h24 >= 12 ? "PM" : "AM";
-    const h12 = h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24;
-    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
-  }
-
   const coffeeHighway = getBestCuratedVenue(destName, "coffee");
   const breakfastVenue = getBestCuratedVenue(destName, "breakfast");
   const lunchVenue = getBestCuratedVenue(destName, "lunch");
@@ -1319,8 +1385,36 @@ function buildFallbackSmartItinerary({
     });
   }
 
+  // Ensure blocks have both .start and .time for compatibility
+  for (const d of days) {
+    if (Array.isArray(d.blocks)) {
+      for (const b of d.blocks) {
+        if (!b.time && b.start) b.time = b.start;
+      }
+    }
+  }
+  days.days = days;
+
   return days;
 }
 
-module.exports = { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL };
+module.exports = {
+  recommendStops,
+  searchPlaces,
+  travelOptions,
+  ask,
+  buildItinerary,
+  smartItinerary,
+  buildFallbackSmartItinerary,
+  parseMinutes,
+  formatMin,
+  format24h,
+  validateAndReanchorItinerary,
+  validateAndReanchorSmart,
+  listModels,
+  AiConfigError,
+  PROVIDER,
+  ACTIVE_MODEL,
+};
+
 

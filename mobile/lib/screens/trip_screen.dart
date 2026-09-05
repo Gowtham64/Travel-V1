@@ -28,6 +28,9 @@ import 'itinerary_screen.dart';
 import 'trip_workspace_screen.dart';
 import 'trip_history_screen.dart';
 import '../services/trip_history_service.dart';
+import '../models/trip_expense_models.dart';
+import '../services/trip_expense_service.dart';
+import '../widgets/trip_expense_dialogs.dart';
 
 enum NavCameraMode {
   follow,
@@ -140,6 +143,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   
   late TripPlan _currentPlan;
   late List<GeoPoint> _currentWaypoints;
+  late Vehicle _currentVehicle;
+  final Set<String> _announcedFuelStops = {};
+  String? _upcomingFuelNotice;
+
   // How many ways to split the trip cost (cost-split feature).
   late int _splitCount;
   // Planned trip start (date + time). Drives weather/departure advice and the
@@ -155,8 +162,31 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     )..forward();
     _currentPlan = widget.plan;
     _currentWaypoints = List.from(widget.waypoints);
+    _currentVehicle = widget.vehicle;
     if (widget.initialTripStart != null) _tripStart = widget.initialTripStart!;
     _splitCount = widget.travellers < 1 ? 1 : widget.travellers;
+
+    // Initialize unified trip expense & tracking service
+    final tripId = 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}';
+    final bool isRound = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+    TripExpenseService.instance.initTrip(
+      tripId: tripId,
+      plan: _currentPlan,
+      vehicle: _currentVehicle,
+      startAddress: widget.startAddress,
+      endAddress: widget.endAddress,
+      isRoundTrip: isRound,
+      confirmedWaypoints: _currentWaypoints,
+    );
+
+    // Log calculated fuel stops for live navigation verification
+    if (_currentPlan.fuel.refuelStops.isNotEmpty) {
+      debugPrint('[FUEL] Stop calculated: ${_currentPlan.fuel.refuelStops.length} stop(s)');
+      for (final fs in _currentPlan.fuel.refuelStops) {
+        debugPrint('[FUEL] Marker coordinates: lat=${fs.lat}, lng=${fs.lng}, name=${fs.name}');
+      }
+    }
     bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
     if (hasAllCategories) {
       for (final cat in widget.poiCategories) {
@@ -348,7 +378,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     sb.writeln('🚗 Road Trip Plan!');
     sb.writeln('From: ${widget.startAddress}');
     sb.writeln('To: ${widget.endAddress}');
-    sb.writeln('Distance: ${_currentPlan.distanceKm.toStringAsFixed(0)} km');
+    sb.writeln('Distance: ${_currentPlan.formattedDistance}');
     sb.writeln('Duration: ${hours}h ${minutes}m');
     sb.writeln('Vehicle: ${widget.vehicleType.toUpperCase()}');
     if (_pois.isNotEmpty) {
@@ -417,9 +447,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       double minDetour = double.infinity;
       
       double _dist(GeoPoint p1, GeoPoint p2) {
-        final dx = p1.lng - p2.lng;
-        final dy = p1.lat - p2.lat;
-        return sqrt(dx * dx + dy * dy);
+        return const Distance().as(LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
       }
 
       for (int i = 0; i < routeNodes.length - 1; i++) {
@@ -617,6 +645,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             start: widget.start,
             end: widget.end,
             waypoints: _currentWaypoints,
+            fuelStops: _currentPlan.fuel.refuelStops,
             useSatellite: true,
             vehicleType: widget.modelSubtype ?? widget.vehicle.type,
             animatedVehiclePosition: _animatedVehiclePosition != null
@@ -891,48 +920,82 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Live navigation status pill with green theme and stop indicator
+  /// Live navigation status pill with green theme, stop indicator, and upcoming fuel alerts
   Widget _buildStatusPill() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFF10B981).withOpacity(0.18),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: const BoxDecoration(
-                color: Color(0xFF10B981),
-                shape: BoxShape.circle,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.18),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
             ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Live navigation · following your GPS',
-                style: TextStyle(
-                  color: Color(0xFF10B981),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
+            child: Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Live navigation · following your GPS',
+                    style: TextStyle(
+                      color: Color(0xFF10B981),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(Icons.stop_rounded, color: Colors.white, size: 14),
+                ),
+              ],
             ),
+          ),
+          if (_upcomingFuelNotice != null) ...[
+            const SizedBox(height: 6),
             Container(
-              padding: const EdgeInsets.all(4),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFEF4444),
-                borderRadius: BorderRadius.circular(6),
+                color: const Color(0xFFF59E0B).withOpacity(0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.6)),
               ),
-              child: const Icon(Icons.stop_rounded, color: Colors.white, size: 14),
+              child: Row(
+                children: [
+                  const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 16),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _upcomingFuelNotice!,
+                      style: const TextStyle(
+                        color: Color(0xFFF59E0B),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -1891,6 +1954,72 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ));
     }
 
+    // Dedicated Fuel Station Markers for all automatically generated and calculated fuel stops
+    final seenFuelCoords = <String>{};
+    for (int fi = 0; fi < _currentPlan.fuel.refuelStops.length; fi++) {
+      final fs = _currentPlan.fuel.refuelStops[fi];
+      final coordKey = '${fs.lat.toStringAsFixed(5)},${fs.lng.toStringAsFixed(5)}';
+      if (seenFuelCoords.contains(coordKey)) continue;
+      seenFuelCoords.add(coordKey);
+
+      final stopKey = fs.id.isNotEmpty ? fs.id : 'fuel_${fs.lat}_${fs.lng}';
+      final isVisited = _visitedStops.contains(stopKey);
+      final fuelPoint = LatLng(fs.lat, fs.lng);
+
+      markers.add(Marker(
+        point: fuelPoint,
+        width: 150,
+        height: 70,
+        child: GestureDetector(
+          onTap: () => _showFuelStopDetailsSheet(fs),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                decoration: BoxDecoration(
+                  color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+                ),
+                child: Text(
+                  '⛽ ${fs.name}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.6),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                  border: Border.all(
+                    color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                    width: 2.5,
+                  ),
+                ),
+                child: Center(
+                  child: isVisited
+                      ? const Icon(Icons.check, color: Color(0xFF10B981), size: 18)
+                      : const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ));
+    }
+
     // Animated navigation symbol marker with pulsing aura and directional arrow
     if (_animatedVehiclePosition != null) {
       markers.add(Marker(
@@ -1938,6 +2067,122 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     return markers;
+  }
+
+  void _showFuelStopDetailsSheet(RefuelStop fs) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        final symbol = fs.currencySymbol.isNotEmpty ? fs.currencySymbol : '₹';
+        final price = (fs.pricePerUnit != null && fs.pricePerUnit! > 0) ? '$symbol${fs.pricePerUnit!.toStringAsFixed(2)}/L' : 'Market Price';
+        final cost = (fs.estimatedCost != null && fs.estimatedCost! > 0) ? '$symbol${fs.estimatedCost!.toStringAsFixed(0)}' : 'N/A';
+        final liters = (fs.refillLiters != null && fs.refillLiters! > 0) ? '${fs.refillLiters!.toStringAsFixed(1)} L' : 'Full Tank';
+        final offRoute = fs.distanceFromRoute > 0 ? '${fs.distanceFromRoute.toStringAsFixed(1)} km off-route' : 'On Route';
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withOpacity(0.2),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFFF59E0B), width: 2),
+                    ),
+                    child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 24),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          fs.name,
+                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '⛽ Designated Navigation Fuel Stop · $offRoute',
+                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _fuelInfoItem('Fuel Type', fs.fuelType.toUpperCase(), Icons.ev_station),
+                    _fuelInfoItem('Top-up', liters, Icons.water_drop_outlined),
+                    _fuelInfoItem('Unit Price', price, Icons.tag),
+                    _fuelInfoItem('Est. Cost', cost, Icons.account_balance_wallet_outlined),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.check_rounded, color: Colors.white),
+                  label: const Text('Continue Navigation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF59E0B),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _fuelInfoItem(String label, String value, IconData icon) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white60, size: 18),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+      ],
+    );
   }
 
   Marker _pin(LatLng point, IconData icon, Color color, {VoidCallback? onTap, String? label}) {
@@ -2070,6 +2315,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _voice.reset();
     _voice.speak('Starting navigation. Drive safely.', force: true);
 
+    // Log fuel stops passed to live navigation session
+    if (_currentPlan.fuel.refuelStops.isNotEmpty) {
+      for (final fs in _currentPlan.fuel.refuelStops) {
+        debugPrint('[FUEL] Stop passed to navigation: name=${fs.name}, lat=${fs.lat}, lng=${fs.lng}, refill=${fs.refillLiters}L, cost=${fs.estimatedCost}');
+      }
+    }
+
     // Initial fix: verify proximity to route start and reroute dynamically if needed
     try {
       final first = await Geolocator.getCurrentPosition(
@@ -2177,11 +2429,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return !_visitedStops.contains(wp.name) && dist > 0.003;
       }).toList();
 
+      debugPrint('[FUEL] Reroute requested with vehicle fuel: ${_currentVehicle.currentFuelLiters}L');
       final newPlan = await _api.planTrip(
         start: currentStart,
         end: widget.end,
         waypoints: remainingWaypoints,
-        vehicle: widget.vehicle,
+        vehicle: _currentVehicle,
         dailyDrivingHours: 7,
         travellers: widget.travellers,
       );
@@ -2195,6 +2448,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _consecutiveOffRouteFixes = 0;
         _isRerouting = false;
       });
+      debugPrint('[FUEL] Reroute completed. New fuel stops: ${_currentPlan.fuel.refuelStops.length}');
 
       if (_lastRawPos != null) {
         _onLivePosition(_lastRawPos!);
@@ -2345,6 +2599,123 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       }
     }
 
+    // 6B. Fuel Stop Approach & Arrival Detection (within 75m)
+    String? currentFuelNotice;
+    for (final fs in _currentPlan.fuel.refuelStops) {
+      final stopKey = fs.id.isNotEmpty ? fs.id : 'fuel_${fs.lat}_${fs.lng}';
+      if (_visitedStops.contains(stopKey)) continue;
+
+      final fuelLatLng = LatLng(fs.lat, fs.lng);
+      final distMeters = _distance.as(LengthUnit.Meter, here, fuelLatLng);
+
+      // Approaching notice within 3.5 km
+      if (distMeters <= 3500) {
+        final distKmStr = (distMeters / 1000.0).toStringAsFixed(1);
+        final refillStr = fs.refillLiters != null ? ' (Refuel: ${fs.refillLiters!.toStringAsFixed(0)}L)' : '';
+        currentFuelNotice = '⛽ ${fs.name} in $distKmStr km$refillStr';
+
+        // Voice alert at ~2km
+        if (distMeters <= 2000 && !_announcedFuelStops.contains(stopKey)) {
+          _announcedFuelStops.add(stopKey);
+          _voice.speak('Fuel stop ahead: ${fs.name} in $distKmStr kilometers.');
+        }
+      }
+
+      // Arrival detection at fuel pump (within 75m)
+      if (distMeters <= 75.0) {
+        _visitedStops.add(stopKey);
+        _announcedFuelStops.add(stopKey);
+        _voice.speak('Arriving at fuel station: ${fs.name}. Refuel recommended.', force: true);
+
+        // Record refuel into TripExpenseService
+        final defaultPrice = _currentPlan.fuelEstimate?.pricePerUnit ?? 102.50;
+        final refillLiters = fs.refillLiters ?? 25.0;
+        TripExpenseService.instance.recordRefuel(
+          stationName: fs.name,
+          location: fs.name,
+          fuelType: _currentVehicle.fuelType,
+          litres: refillLiters,
+          pricePerLitre: defaultPrice,
+        );
+
+        // Reset vehicle fuel level to full tank
+        _currentVehicle = _currentVehicle.copyWith(
+          currentFuelLiters: _currentVehicle.tankCapacityLiters,
+        );
+        debugPrint('[FUEL] Vehicle tank refueled at ${fs.name} to ${_currentVehicle.tankCapacityLiters}L');
+
+        final refuelLabel = fs.refillLiters != null ? '⛽ Refueled (${fs.refillLiters!.toStringAsFixed(1)} L)' : '⛽ Refueled';
+        setState(() {
+          _activeStopHighlight = PlaceOfInterest(
+            id: 888,
+            name: fs.name,
+            lat: fs.lat,
+            lng: fs.lng,
+            address: refuelLabel,
+          );
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.local_gas_station_rounded, color: Colors.white),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text('⛽ Arrived at ${fs.name}! Tank refueled to ${_currentVehicle.tankCapacityLiters.toStringAsFixed(0)}L.'),
+                  ),
+                ],
+              ),
+              action: SnackBarAction(
+                label: 'Edit Reading',
+                textColor: Colors.white,
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (_) => QuickRefuelArrivalDialog(
+                      fuelStop: fs,
+                      defaultPricePerLiter: defaultPrice,
+                    ),
+                  );
+                },
+              ),
+              backgroundColor: const Color(0xFFF59E0B),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    }
+
+    // 6C. Toll Plaza Approach & Passing Detection (Live Navigation)
+    final tolls = _currentPlan.toll?.tolls ?? [];
+    for (final plaza in tolls) {
+      final plazaKey = 'toll_${plaza.id}';
+      if (_visitedStops.contains(plazaKey)) continue;
+      final plazaDistMeters = (plaza.distanceAlongRouteKm - (_tripProgressPercent * _currentPlan.distanceKm)).abs() * 1000.0;
+      if (plazaDistMeters <= 1500 && !_announcedFuelStops.contains('ann_$plazaKey')) {
+        _announcedFuelStops.add('ann_$plazaKey');
+        _voice.speak('Toll plaza ahead: ${plaza.name}. Fast tag amount: ${plaza.amount.toStringAsFixed(0)} rupees.');
+      }
+      if (plazaDistMeters <= 120) {
+        _visitedStops.add(plazaKey);
+        TripExpenseService.instance.recordTollPayment(
+          tollPlazaId: plaza.id,
+          tollPlazaName: plaza.name,
+          actualAmount: plaza.amount,
+          estimatedAmount: plaza.amount,
+          paymentMethod: 'FASTag',
+        );
+      }
+    }
+
+    if (_upcomingFuelNotice != currentFuelNotice) {
+      setState(() {
+        _upcomingFuelNotice = currentFuelNotice;
+      });
+    }
+
     // 7. Destination Arrival Detection
     final destDist = _getDistance(here, LatLng(widget.end.lat, widget.end.lng));
     if (destDist < 0.0012 && !_visitedStops.contains('live_arrival')) {
@@ -2362,8 +2733,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('🎉 You have arrived at your destination! Trip saved to history.')),
+          SnackBar(
+            content: const Text('🎉 You have arrived at your destination! Trip saved to history.'),
+            action: SnackBarAction(
+              label: 'View Report',
+              textColor: Colors.amberAccent,
+              onPressed: _showFinalExpenseReportDialog,
+            ),
+            duration: const Duration(seconds: 8),
+          ),
         );
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) _showFinalExpenseReportDialog();
+        });
       }
     }
   }
@@ -2606,9 +2988,33 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       final double progressPercent = (currentDistance / totalDistance).clamp(0.0, 1.0);
 
-      // Automatic fuel-station stop near the midpoint — pulls up and refuels with
-      // the fuel-pump animation ('fuel' category shows _buildFuelAnimation).
-      if (progressPercent >= 0.49 && progressPercent <= 0.52 &&
+      // Automatic fuel-station stop for calculated refuel stops along route
+      if (_currentPlan.fuel.refuelStops.isNotEmpty) {
+        for (final fs in _currentPlan.fuel.refuelStops) {
+          final stopId = fs.id.isNotEmpty ? fs.id : "fuel_${fs.lat}_${fs.lng}";
+          final fuelLatLng = LatLng(fs.lat, fs.lng);
+          final dist = _getDistance(currentLatLng, fuelLatLng);
+          if (dist < 0.0035 && !_visitedStops.contains(stopId)) {
+            _visitedStops.add(stopId);
+            _currentVehicle = _currentVehicle.copyWith(
+              currentFuelLiters: _currentVehicle.tankCapacityLiters,
+            );
+            setState(() {
+              _activeStopHighlight = PlaceOfInterest(
+                id: DateTime.now().millisecondsSinceEpoch,
+                name: fs.name,
+                lat: fs.lat,
+                lng: fs.lng,
+                address: fs.refillLiters != null ? "Designated Fuel Stop (${fs.refillLiters!.toStringAsFixed(1)} L)" : "Designated Fuel Stop",
+              );
+              _pauseTicksRemaining = stopPause;
+              _currentSpeedModifier = 0.0;
+              _isSlowingDown = true;
+            });
+            return;
+          }
+        }
+      } else if (progressPercent >= 0.49 && progressPercent <= 0.52 &&
           !_visitedStops.contains("fuel_stop")) {
         _visitedStops.add("fuel_stop");
         setState(() {
@@ -2772,6 +3178,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     });
     CarPlatformChannel.setNavigationState(isNavigating: false); // clear the car screen
     TripNotificationService.instance.end(); // clear the live trip notification
+
+    final wasCompleted = _visitedStops.contains("destination_arrival") || _visitedStops.contains("live_arrival");
+    if (wasCompleted && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _showFinalExpenseReportDialog();
+      });
+    }
   }
 
   /// Preview + Start buttons for the animated journey. Preview is a fast aerial
@@ -2875,19 +3288,47 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   // ─────────────────────────  Trip toolkit  ─────────────────────────
   // Fuel-stop planner, per-traveller cost split, and itinerary export.
 
-  /// Fuel cost is computed from a location-aware per-litre price (based on the
-  /// trip's start region) × litres needed, so the estimate reflects where you
-  /// are. Tolls come from the backend toll estimate.
+  /// Fuel cost is computed from authoritative fuel estimate or location-aware per-litre price
   ({double fuel, double toll, String symbol, double perLiter, String region}) _tripCosts() {
     final t = _currentPlan.toll;
+    final fuelEst = _currentPlan.fuelEstimate;
     final fp = fuelPriceFor(widget.start.name ?? widget.startAddress);
     final eff = widget.vehicle.efficiencyKmPerLiter > 0 ? widget.vehicle.efficiencyKmPerLiter : 15.0;
     final litres = _currentPlan.distanceKm / eff;
-    final fuel = litres * fp.perLiter;
+
+    final double fuel = fuelEst != null
+        ? (fuelEst.estimatedCost > 0 ? fuelEst.estimatedCost : fuelEst.totalCost)
+        : (litres * fp.perLiter);
+    final double perLiter = fuelEst != null && fuelEst.pricePerUnit > 0 ? fuelEst.pricePerUnit : fp.perLiter;
+    final String symbol = fuelEst?.currencySymbol ?? fp.symbol;
+    final String region = (fuelEst?.applicableLocation.isNotEmpty ?? false) ? fuelEst!.applicableLocation : fp.region;
+
     final toll = (t == null || !t.hasTolls)
         ? 0.0
         : (t.fastagTollCost ?? t.minTollCost ?? 0.0);
-    return (fuel: fuel, toll: toll, symbol: fp.symbol, perLiter: fp.perLiter, region: fp.region);
+    return (fuel: fuel, toll: toll, symbol: symbol, perLiter: perLiter, region: region);
+  }
+
+  void _showFinalExpenseReportDialog() {
+    final report = TripExpenseService.instance.generateFinalReport();
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => TripExpenseReportDialog(report: report),
+    );
+  }
+
+  void _showExpenseDashboardSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => LiveExpenseDashboardSheet(
+        onExpenseAdded: () {
+          if (mounted) setState(() {});
+        },
+      ),
+    );
   }
 
   /// Computes where along the route the tank would run low, using the entered
@@ -2896,7 +3337,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     // Prefer the backend plan, which snaps each refuel stop to a real fuel
     // station the vehicle can actually reach on the fuel it will have left.
     final plan = _currentPlan.fuel;
-    if (plan.refuelStops.any((s) => s.isRealStation) || plan.unreachable) {
+    if (plan.refuelStops.isNotEmpty || plan.unreachable) {
       // When the backend flags the route as unreachable it is authoritative —
       // surface only its (possibly empty) real stops plus the warning banner,
       // never geometric markers that would contradict "no station in range".
@@ -2904,11 +3345,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         final off = (s.offRouteKm != null && s.offRouteKm! >= 0.1)
             ? ' (~${s.offRouteKm!.toStringAsFixed(0)} km off route)'
             : '';
-        final arrival = (s.fuelOnArrivalLiters != null)
-            ? ' · ~${s.fuelOnArrivalLiters!.toStringAsFixed(1)} L left on arrival'
+        final refill = (s.refillLiters != null && s.refillLiters! > 0)
+            ? ' · Top-up ~${s.refillLiters!.toStringAsFixed(1)} L (${s.currencySymbol}${s.estimatedCost?.toStringAsFixed(0) ?? ''})'
             : '';
-        final label = s.isRealStation ? s.name : 'Fuel station';
-        return (km: s.distanceFromStartKm, near: '$label$off$arrival');
+        final arrival = (s.fuelOnArrivalLiters != null)
+            ? ' · ~${s.fuelOnArrivalLiters!.toStringAsFixed(1)} L on arrival'
+            : '';
+        final label = s.name.isNotEmpty ? s.name : 'Fuel station';
+        return (km: s.distanceFromStartKm, near: '$label$off$refill$arrival');
       }).toList();
     }
 
@@ -3305,6 +3749,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       end: widget.end,
       waypoints: _currentWaypoints,
       routeCoordinates: _currentPlan.coordinates,
+      fuelStops: _currentPlan.fuel.refuelStops,
+      destinationName: widget.endAddress,
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
     
@@ -3330,15 +3776,31 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final bool isRoundTrip = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
         (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
     final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
-    final toll = _currentPlan.toll?.fastagTollCost ?? 0.0;
-    final v = widget.vehicle;
-    final double litres = v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0.0;
-    final double fuel = _currentPlan.toll?.fuelCost ?? (litres * 102.0);
-    final double total = toll + fuel;
+    final costs = _tripCosts();
+    final report = TripExpenseService.instance.generateFinalReport();
+
+    final double toll = report.actualTollTotal > 0 ? report.actualTollTotal : (costs.toll > 0 ? costs.toll : report.estimatedTollTotal);
+    final double fuel = report.actualFuelCost > 0 ? report.actualFuelCost : (costs.fuel > 0 ? costs.fuel : report.estimatedFuelCost);
+    final double total = (report.totalActual > 0 ? report.totalActual : (toll + fuel));
+
+    final tollPlazasList = (_currentPlan.toll?.tolls ?? []).map((t) => {
+      'id': t.id,
+      'name': t.name,
+      'amount': t.amount,
+      'highway': t.highway,
+    }).toList();
+
+    final placesList = _currentWaypoints.map((w) => {
+      'name': w.name ?? 'Waypoint',
+      'lat': w.lat,
+      'lng': w.lng,
+    }).toList();
 
     TripHistoryService.instance.saveTrip(
       TripHistoryItem(
-        id: 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
+        id: TripExpenseService.instance.currentTripId.isNotEmpty 
+            ? TripExpenseService.instance.currentTripId 
+            : 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
         title: '${widget.startAddress} → ${widget.endAddress}',
         startAddress: widget.startAddress,
         endAddress: widget.endAddress,
@@ -3352,6 +3814,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         completedAt: DateTime.now(),
         isRoundTrip: isRoundTrip,
         totalStopsCount: stops.length,
+        tollPlazas: tollPlazasList,
+        places: placesList,
       ),
     );
   }
@@ -3659,6 +4123,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     final items = <Widget>[
       _buildLayersButton(),
+      _navCircle(Icons.receipt_long_rounded, _showExpenseDashboardSheet, bg: const Color(0xFFF59E0B)),
       _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
       _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
           () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
@@ -3698,6 +4163,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFF59E0B)),
+                  title: const Text('Trip Expenses & Budget', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Track fuel, tolls, meals & generate report', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showExpenseDashboardSheet();
+                  },
                 ),
                 ListTile(
                   leading: const Icon(Icons.pin_drop_rounded, color: Color(0xFF0EA5E9)),
@@ -4588,6 +5062,21 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   ),
                 ],
               ),
+              SizedBox(height: isMobile ? 10 : 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF10B981),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                  label: const Text('View Final Expense Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  onPressed: _showFinalExpenseReportDialog,
+                ),
+              ),
             ],
           ),
         );
@@ -5064,7 +5553,7 @@ class _SummaryCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: _stat('${plan.distanceKm.toStringAsFixed(0)} km', 'Distance', CrossAxisAlignment.center)),
+                    Expanded(child: _stat(plan.formattedDistance, 'Distance', CrossAxisAlignment.center)),
                     Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),
                     Expanded(child: _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center)),
                     Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),

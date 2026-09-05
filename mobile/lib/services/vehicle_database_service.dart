@@ -1,8 +1,39 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/app_config.dart';
 import '../models/vehicles_data.dart';
+
+/// Persisted vehicle settings (Fuel in tank & Mileage)
+class VehicleSettings {
+  final String vehicleId;
+  final double currentFuel;
+  final double mileage;
+  final String fuelType;
+
+  const VehicleSettings({
+    required this.vehicleId,
+    required this.currentFuel,
+    required this.mileage,
+    required this.fuelType,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'vehicleId': vehicleId,
+    'currentFuel': currentFuel,
+    'mileage': mileage,
+    'fuelType': fuelType,
+  };
+
+  factory VehicleSettings.fromJson(Map<String, dynamic> json) => VehicleSettings(
+    vehicleId: json['vehicleId'] as String? ?? '',
+    currentFuel: (json['currentFuel'] as num?)?.toDouble() ?? 0.0,
+    mileage: (json['mileage'] as num?)?.toDouble() ?? 15.0,
+    fuelType: json['fuelType'] as String? ?? 'petrol',
+  );
+}
 
 /// Vehicle Brand entity
 class VehicleBrand {
@@ -73,9 +104,10 @@ class VehicleDatabaseService {
   VehicleDatabaseService._();
   static final VehicleDatabaseService instance = VehicleDatabaseService._();
 
+  static const String _prefPrefix = 'voyplan_vehicle_settings_';
+  final Map<String, VehicleSettings> _savedSettings = {};
+
   final List<VehicleBrand> _cachedBrands = [];
-  final Map<String, List<VehicleModelSummary>> _cachedModels = {};
-  final Map<String, List<VehicleModel>> _cachedVariants = {};
   final List<VehicleModel> _extendedVehicles = [];
 
   bool _initialized = false;
@@ -84,6 +116,7 @@ class VehicleDatabaseService {
   Future<void> init() async {
     if (_initialized) return;
     _populateLocalCatalog();
+    await _loadSavedSettings();
     _initialized = true;
 
     // Background asynchronous refresh from backend
@@ -91,6 +124,59 @@ class VehicleDatabaseService {
       debugPrint('Background vehicle brand fetch notice: $e');
       return <VehicleBrand>[];
     });
+  }
+
+  /// Synchronous retrieval of saved settings for a vehicle
+  VehicleSettings? getVehicleSettings(String vehicleId) {
+    return _savedSettings[vehicleId];
+  }
+
+  /// Persist vehicle settings (current fuel, mileage, fuelType) locally
+  Future<void> saveVehicleSettings({
+    required String vehicleId,
+    required double currentFuel,
+    required double mileage,
+    required String fuelType,
+  }) async {
+    final settings = VehicleSettings(
+      vehicleId: vehicleId,
+      currentFuel: currentFuel,
+      mileage: mileage,
+      fuelType: fuelType,
+    );
+    _savedSettings[vehicleId] = settings;
+
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('$_prefPrefix$vehicleId', jsonEncode(settings.toJson()));
+      final savedIds = prefs.getStringList('voyplan_saved_vehicle_ids') ?? [];
+      if (!savedIds.contains(vehicleId)) {
+        savedIds.add(vehicleId);
+        await prefs.setStringList('voyplan_saved_vehicle_ids', savedIds);
+      }
+    } catch (e) {
+      debugPrint('Error saving vehicle settings to SharedPreferences: $e');
+    }
+  }
+
+  Future<void> _loadSavedSettings() async {
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      final prefs = await SharedPreferences.getInstance();
+      final savedIds = prefs.getStringList('voyplan_saved_vehicle_ids') ?? [];
+      for (final id in savedIds) {
+        final jsonStr = prefs.getString('$_prefPrefix$id');
+        if (jsonStr != null && jsonStr.isNotEmpty) {
+          try {
+            final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+            _savedSettings[id] = VehicleSettings.fromJson(data);
+          } catch (_) {}
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading saved vehicle settings: $e');
+    }
   }
 
   void _populateLocalCatalog() {

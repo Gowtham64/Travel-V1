@@ -49,8 +49,8 @@ flutter run --dart-define=MAPBOX_TOKEN=pk.your_token
   Builds `mobile/` for web into `/app`, copies `web/` to the site root, and
   force-pushes the `gh-pages` branch.
 - **Backend** → Render, auto-deploys on push to `main`.
-- **Android APK** → built with `flutter build apk --release` and uploaded to the
-  GitHub **Releases** (`android-latest`); the site links to the latest release.
+- **Android APK** → built with `flutter build apk --release` and published as
+  `Voyplan.apk` at the website root.
 
 ## License
 

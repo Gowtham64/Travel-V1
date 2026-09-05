@@ -14,6 +14,7 @@ import '../data/venue_database.dart';
 import '../data/attraction_database.dart';
 import 'toll_calculation_service.dart';
 import 'fuel_price_service.dart';
+import '../utils/trip_date_time.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -348,14 +349,15 @@ class ApiService {
       uri,
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'start': {'lat': start.lat, 'lng': start.lng},
-        'end': {'lat': end.lat, 'lng': end.lng},
+        'start': {'lat': start.lat, 'lng': start.lng, 'name': start.name},
+        'end': {'lat': end.lat, 'lng': end.lng, 'name': end.name},
         'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
         'vehicle': {
           'type': vehicle.type,
           'efficiencyKmPerLiter': vehicle.efficiencyKmPerLiter,
           'tankCapacityLiters': vehicle.tankCapacityLiters,
           'currentFuelLiters': vehicle.currentFuelLiters,
+          'fuelType': vehicle.fuelType,
         },
         'dailyDrivingHours': dailyDrivingHours,
         'travellers': travellers,
@@ -373,12 +375,11 @@ class ApiService {
 
     var plan = TripPlan.fromJson(jsonDecode(response.body) as Map<String, dynamic>);
     
-    // If the plan returned straight-line or sparse points (< 25 points for > 3 km),
-    // enhance immediately with high-resolution Mapbox or OSRM road geometry!
-    if (plan.coordinates.length < 25 && plan.distanceKm > 3.0) {
-      final roadCoords = await _fetchRoadCoordinates(start: start, end: end, waypoints: waypoints);
-      if (roadCoords.length > 25) {
-        plan = plan.copyWith(coordinates: roadCoords);
+    final fuelStops = plan.fuel.refuelStops;
+    if (fuelStops.isNotEmpty) {
+      debugPrint('[FUEL] Stop received: ${fuelStops.length} stop(s)');
+      for (final s in fuelStops) {
+        debugPrint('[FUEL] Stop added to itinerary: ${s.name} at (${s.lat}, ${s.lng}), ${s.distanceFromStartKm} km');
       }
     }
 
@@ -393,12 +394,14 @@ class ApiService {
       plan = plan.copyWith(toll: calculatedToll);
     }
 
-    // Ensure fuel estimate is calculated accurately from the actual route distance, efficiency & fuel type
+    // Ensure fuel estimate is calculated accurately from the actual route distance, efficiency, current fuel & fuel type
     if (plan.fuelEstimate == null) {
       final fuelEst = FuelPriceService.instance.calculateRouteFuel(
         distanceKm: plan.distanceKm,
         mileage: vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0,
         fuelType: vehicle.fuelType,
+        currentFuelLiters: vehicle.currentFuelLiters,
+        tankCapacityLiters: vehicle.tankCapacityLiters,
         originLocation: start.name,
         destLocation: end.name,
       );
@@ -746,7 +749,11 @@ class ApiService {
             .select('*, trip_stops(*)')
             .order('created_at', ascending: false);
         if (data is List && data.isNotEmpty) {
-          return data;
+          final active = data.where((r) {
+            final m = (r as Map).cast<String, dynamic>();
+            return m['status'] != 'DELETED' && m['deleted_at'] == null;
+          }).toList();
+          return active;
         }
       }
     } catch (e) {
@@ -768,7 +775,31 @@ class ApiService {
       throw ApiException('Fetching trips failed (${response.statusCode}): ${response.body}');
     }
 
-    return jsonDecode(response.body) as List<dynamic>;
+    final list = jsonDecode(response.body) as List<dynamic>;
+    return list.where((r) {
+      if (r is Map) {
+        return r['status'] != 'DELETED' && r['deleted_at'] == null;
+      }
+      return true;
+    }).toList();
+  }
+
+  Future<void> deleteTrip(String id, String token) async {
+    final uri = Uri.parse('$baseUrl/api/trip/$id');
+    try {
+      final response = await http.delete(
+        uri,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode != 200 && response.statusCode != 204) {
+        debugPrint('Backend deleteTrip note: (${response.statusCode}) ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Backend deleteTrip exception: $e');
+    }
   }
 
   static const List<Map<String, dynamic>> _curatedPlaces = [
@@ -845,12 +876,16 @@ class ApiService {
       }
     }
 
-    // Tier 1: Instant Local Curated Knowledge Match
+    // Tier 1: Instant Local Curated Knowledge Match (prefix or exact primary name only)
+    int curatedCount = 0;
     for (final p in _curatedPlaces) {
       final name = p['name'] as String;
-      if (name.toLowerCase().contains(q)) {
+      final lowerName = name.toLowerCase();
+      final primaryName = lowerName.split(',').first.trim();
+      if (lowerName.startsWith(q) || primaryName == q) {
         addResult(name, (p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
-        if (results.length >= 6) return results;
+        curatedCount++;
+        if (curatedCount >= 2) break; // Allow room for Photon / Mapbox suggestions
       }
     }
 
@@ -1098,6 +1133,8 @@ class ApiService {
     String? purpose,
     String? startDate,
     String? startTime,
+    String? startDateTime,
+    String? timezone,
     String? weather,
   }) async {
     try {
@@ -1113,7 +1150,12 @@ class ApiService {
               'travellers': travellers,
               if (purpose != null) 'purpose': purpose,
               if (startDate != null) 'startDate': startDate,
-              if (startTime != null) 'startTime': startTime,
+              if (startTime != null) 'startTime': TripDateTime.to24Hour(startTime),
+              if (startDateTime != null)
+                'startDateTime': startDateTime
+              else if (startDate != null && startTime != null)
+                'startDateTime': '$startDate ${TripDateTime.to24Hour(startTime)}',
+              'timezone': timezone ?? DateTime.now().timeZoneName,
               if (weather != null && weather.isNotEmpty) 'weather': weather,
             }),
           )
@@ -1130,15 +1172,26 @@ class ApiService {
       start: start,
       end: end,
       days: days,
+      startTime: startTime ?? '08:00',
       travellers: travellers,
     );
   }
 
   /// Smart, time-blocked AI itinerary with automatic breaks + per-block reasons,
   /// plus a full trip budget (fuel + tolls + food + stay).
-  Future<({List<SmartDay> days, TripBudget? budget})> aiSmartItinerary({
+  Future<({
+    List<SmartDay> days,
+    TripBudget? budget,
+    double? totalDistanceKm,
+    String? tripType,
+    int? searchRadiusKm,
+    int? placesFoundCount,
+    bool? canExpandSearch,
+    int? nextSearchRadiusKm,
+  })> aiSmartItinerary({
     required String destination,
     String startLocation = '',
+    String tripType = 'around',
     List<String> places = const [],
     String startDate = '',
     String startTime = '08:00',
@@ -1149,11 +1202,16 @@ class ApiService {
     String preferences = '',
     String directive = '',
     int travellers = 1,
+    String vehicleType = 'car',
     double? fuelEfficiency,
+    double? currentFuel,
+    double? tankCapacity,
     List<String> selectedCategories = const [],
     Map<String, String> categoryPriorities = const {},
     String customPreferences = '',
+    int searchRadiusKm = 25,
   }) async {
+    final normStartTime = TripDateTime.to24Hour(startTime);
     try {
       final response = await http
           .post(
@@ -1162,20 +1220,28 @@ class ApiService {
             body: jsonEncode({
               'destination': destination,
               'startLocation': startLocation,
+              'tripType': 'around',
               'places': places,
               'startDate': startDate,
-              'startTime': startTime,
+              'startTime': normStartTime,
+              if (startDate.isNotEmpty)
+                'startDateTime': '$startDate $normStartTime',
+              'timezone': DateTime.now().timeZoneName,
               'endDate': endDate,
               'endTime': endTime,
               'durationDays': durationDays,
               'mode': mode,
               'preferences': preferences,
               'travellers': travellers,
+              'vehicleType': vehicleType,
               if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
+              if (currentFuel != null) 'currentFuel': currentFuel,
+              if (tankCapacity != null) 'tankCapacity': tankCapacity,
               if (directive.isNotEmpty) 'directive': directive,
               if (selectedCategories.isNotEmpty) 'selectedCategories': selectedCategories,
               if (categoryPriorities.isNotEmpty) 'categoryPriorities': categoryPriorities,
               if (customPreferences.isNotEmpty) 'customPreferences': customPreferences,
+              'searchRadiusKm': searchRadiusKm,
             }),
           )
           .timeout(const Duration(seconds: 45));
@@ -1188,36 +1254,117 @@ class ApiService {
         final budget = body['budget'] != null
             ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
             : null;
+        final totalDist = (body['totalDistanceKm'] as num?)?.toDouble();
+        final resTripType = body['tripType']?.toString() ?? 'around';
+        final resSearchRadius = (body['searchRadiusKm'] as num?)?.toInt();
+        final resPlacesCount = (body['placesFoundCount'] as num?)?.toInt();
+        final resCanExpand = body['canExpandSearch'] as bool?;
+        final resNextRadius = (body['nextSearchRadiusKm'] as num?)?.toInt();
+
         if (days.isNotEmpty) {
-          return (days: days, budget: budget);
+          return (
+            days: days,
+            budget: budget,
+            totalDistanceKm: totalDist,
+            tripType: resTripType,
+            searchRadiusKm: resSearchRadius,
+            placesFoundCount: resPlacesCount,
+            canExpandSearch: resCanExpand,
+            nextSearchRadiusKm: resNextRadius,
+          );
         }
       }
     } catch (_) {}
 
     // Fallback: Built-in Smart Itinerary & Budget Generator
-    return _generateFallbackSmartItinerary(
+    final fb = _generateFallbackSmartItinerary(
       destination: destination,
       startLocation: startLocation,
       places: places,
       preferences: preferences,
       durationDays: durationDays,
-      startTime: startTime,
+      startTime: normStartTime,
       travellers: travellers,
       fuelEfficiency: fuelEfficiency,
       selectedCategories: selectedCategories,
       categoryPriorities: categoryPriorities,
       customPreferences: customPreferences,
     );
+    return (
+      days: fb.days,
+      budget: fb.budget,
+      totalDistanceKm: null,
+      tripType: 'around',
+      searchRadiusKm: searchRadiusKm,
+      placesFoundCount: fb.days.fold(0, (sum, d) => sum + d.blocks.where((b) => b.type == 'activity').length),
+      canExpandSearch: false,
+      nextSearchRadiusKm: null,
+    );
   }
+
+  /// Recalculate itinerary on edits (stop removal, reordering, duration adjustment, start time shift).
+  Future<({List<SmartDay> days, TripBudget? budget, double totalDistanceKm})?> recalculateSmartItinerary({
+    required List<SmartDay> days,
+    String? startTime,
+    String? tripType,
+    String? origin,
+    String? destination,
+    double? currentFuel,
+    double? tankCapacity,
+    double? fuelEfficiency,
+    int travellers = 1,
+    bool isConfirmed = false,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/ai/recalculate-itinerary'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'days': days.map((d) => d.toJson()).toList(),
+              if (startTime != null) 'startTime': startTime,
+              if (tripType != null) 'tripType': tripType,
+              if (origin != null) 'origin': origin,
+              if (destination != null) 'destination': destination,
+              if (currentFuel != null) 'currentFuel': currentFuel,
+              if (tankCapacity != null) 'tankCapacity': tankCapacity,
+              if (fuelEfficiency != null) 'fuelEfficiency': fuelEfficiency,
+              'travellers': travellers,
+              'isConfirmed': isConfirmed,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final body = jsonDecode(response.body) as Map<String, dynamic>;
+        final newDays = (body['days'] as List? ?? [])
+            .map((e) => SmartDay.fromJson((e as Map).cast<String, dynamic>()))
+            .toList();
+        final budget = body['budget'] != null
+            ? TripBudget.fromJson((body['budget'] as Map).cast<String, dynamic>())
+            : null;
+        final totalDist = (body['totalDistanceKm'] as num?)?.toDouble() ?? 0.0;
+        return (days: newDays, budget: budget, totalDistanceKm: totalDist);
+      }
+    } catch (_) {}
+    return null;
+  }
+
 
   List<Map<String, dynamic>> _generateFallbackBuildItinerary({
     required String start,
     required String end,
     int days = 1,
+    String startTime = '08:00',
     int travellers = 1,
   }) {
     final res = <Map<String, dynamic>>[];
     final total = math.max(1, days);
+    final startMin = TripDateTime.parseMinutes(startTime);
+    final canonicalStart24 = TripDateTime.to24Hour(startTime);
+    final h24 = (startMin ~/ 60) % 24;
+    final startPart = h24 < 12 ? 'Morning' : (h24 < 17 ? 'Afternoon' : (h24 < 21 ? 'Evening' : 'Night'));
+
     for (int d = 1; d <= total; d++) {
       final isFirst = d == 1;
       final isLast = d == total;
@@ -1226,10 +1373,10 @@ class ApiService {
         'title': isFirst ? 'Journey to $end & Exploration' : (isLast ? 'Farewell $end & Return' : '$end Highlights & Culture'),
         'activities': [
           {
-            'part': 'Morning',
-            'time': '08:00',
+            'part': isFirst ? startPart : 'Morning',
+            'time': isFirst ? canonicalStart24 : '08:00',
             'title': isFirst ? 'Drive from $start to $end' : 'Breakfast & Morning Sights in $end',
-            'note': isFirst ? 'Scenic morning drive along the highway' : 'Fresh regional breakfast and sightseeing visit',
+            'note': isFirst ? 'Scenic drive along the highway' : 'Fresh regional breakfast and sightseeing visit',
           },
           {
             'part': 'Afternoon',
@@ -1547,31 +1694,8 @@ class ApiService {
 
     final totalDriveMin = (estimatedKm / 60.0 * 60).round();
 
-    int parseMinutes(String t) {
-      final clean = t.trim().toLowerCase();
-      if (clean.isEmpty) return 480; // 08:00 AM
-      final isPm = clean.contains('pm');
-      final isAm = clean.contains('am');
-      final numStr = clean.replaceAll(RegExp(r'[^0-9:]'), '');
-      final parts = numStr.split(':');
-      if (parts.isNotEmpty) {
-        int h = int.tryParse(parts[0]) ?? 8;
-        int m = parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0;
-        if (isPm && h < 12) h += 12;
-        if (isAm && h == 12) h = 0;
-        return h * 60 + m;
-      }
-      return 480;
-    }
-
-    String formatMin(int totalMin) {
-      final norm = totalMin % (24 * 60);
-      final h24 = norm ~/ 60;
-      final m = norm % 60;
-      final ampm = h24 >= 12 ? 'PM' : 'AM';
-      final h12 = h24 == 0 ? 12 : (h24 > 12 ? h24 - 12 : h24);
-      return '${h12.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $ampm';
-    }
+    int parseMinutes(String t) => TripDateTime.parseMinutes(t);
+    String formatMin(int totalMin) => TripDateTime.formatMinutes(totalMin);
 
     String getEmoji(String cat) {
       if (cat.contains('Temple') || cat.contains('Religious')) return '🛕';

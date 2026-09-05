@@ -22,9 +22,11 @@ import 'trip_history_screen.dart';
 import 'account_screens.dart';
 import '../widgets/profile_menu.dart';
 import '../services/trip_history_service.dart';
+import '../services/fuel_price_service.dart';
 import '../widgets/app_design.dart';
 import '../widgets/globe_preview.dart';
 import '../widgets/vehicle_search_sheet.dart';
+import '../services/vehicle_database_service.dart';
 import 'map_location_picker_screen.dart';
 
 class TripPlannerScreen extends StatefulWidget {
@@ -83,6 +85,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   final _tankController = TextEditingController();
   final _currentFuelController = TextEditingController(text: '30');
 
+  final FocusNode _currentFuelFocusNode = FocusNode();
+  final FocusNode _mileageFocusNode = FocusNode();
+
   VehicleModel? _selectedVehicle;
   int _travellers = 1;
   // Trip type: 'oneway' (A → B) or 'roundtrip' (A → B → A, i.e. a vacation).
@@ -105,6 +110,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   GeoPoint? _currentEnd;
   List<GeoPoint>? _currentWaypoints;
   Vehicle? _currentVehicle;
+  int _routeRequestId = 0;
 
   // Temp plan from "Find Places" — does NOT trigger trip screen switch
   TripPlan? _tempPlan;
@@ -310,15 +316,83 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   void _updateVehicleFields() {
     if (_selectedVehicle != null) {
-      final tank = _selectedVehicle!.tankCapacity;
-      _efficiencyController.text = _formatNum(_selectedVehicle!.effectiveMileage);
-      _tankController.text = _formatNum(tank);
-      // Keep "current fuel" valid: never more than the (possibly smaller) tank.
-      // Default to a full tank; if the user had already entered a smaller amount
-      // that still fits, keep it.
-      final existing = double.tryParse(_currentFuelController.text);
-      final current = (existing != null && existing > 0 && existing <= tank) ? existing : tank;
-      _currentFuelController.text = _formatNum(current);
+      final saved = VehicleDatabaseService.instance.getVehicleSettings(_selectedVehicle!.id);
+      if (saved != null) {
+        _efficiencyController.text = _formatNum(saved.mileage);
+        _currentFuelController.text = _formatNum(saved.currentFuel);
+        _selectedVehicle = _selectedVehicle!.copyWith(
+          isUserMileageOverride: true,
+          userCustomMileage: saved.mileage,
+          userCustomFuel: saved.currentFuel,
+        );
+      } else {
+        _efficiencyController.text = _formatNum(_selectedVehicle!.effectiveMileage);
+        final defaultFuel = _selectedVehicle!.tankCapacity > 0 ? _selectedVehicle!.tankCapacity : 0.0;
+        _currentFuelController.text = _formatNum(defaultFuel);
+      }
+      _tankController.text = _formatNum(_selectedVehicle!.tankCapacity);
+    }
+  }
+
+  Future<void> _saveVehicleSettings() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    if (_selectedVehicle == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a vehicle first.')),
+      );
+      return;
+    }
+
+    final fuelText = _currentFuelController.text.trim();
+    final fuel = double.tryParse(fuelText);
+    if (fuelText.isEmpty || fuel == null || fuel.isNaN || fuel < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid fuel amount.')),
+      );
+      return;
+    }
+
+    final tankCap = _selectedVehicle!.tankCapacity;
+    if (tankCap > 0 && fuel > tankCap) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Current fuel cannot exceed tank capacity (${_formatNum(tankCap)} L).')),
+      );
+      return;
+    }
+
+    final mileageText = _efficiencyController.text.trim();
+    final mileage = double.tryParse(mileageText);
+    if (mileageText.isEmpty || mileage == null || mileage.isNaN || mileage <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid mileage.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _selectedVehicle = _selectedVehicle!.copyWith(
+        isUserMileageOverride: true,
+        userCustomMileage: mileage,
+        userCustomFuel: fuel,
+      );
+    });
+
+    await VehicleDatabaseService.instance.saveVehicleSettings(
+      vehicleId: _selectedVehicle!.id,
+      currentFuel: fuel,
+      mileage: mileage,
+      fuelType: _selectedVehicle!.fuelType,
+    );
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vehicle details updated'),
+          backgroundColor: Color(0xFF10B981),
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -326,7 +400,51 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   String _formatNum(double v) =>
       v == v.roundToDouble() ? v.toInt().toString() : v.toString();
 
+  /// Resolves every stop controller to authoritative geographic coordinates
+  Future<List<GeoPoint>> _resolveAllStops() async {
+    final List<GeoPoint> geocodedStops = [];
+    for (final controller in _stopControllers) {
+      final address = controller.text.trim();
+      if (address.isNotEmpty) {
+        final resolved = _resolvedStopCoords[controller.hashCode];
+        if (resolved != null &&
+            resolved.name != null &&
+            (resolved.name!.trim().toLowerCase() == address.toLowerCase() ||
+                resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
+                address.toLowerCase().contains(resolved.name!.toLowerCase()))) {
+          geocodedStops.add(resolved);
+        } else {
+          final point = await _api.geocode(address);
+          geocodedStops.add(point);
+          _resolvedStopCoords[controller.hashCode] = point;
+        }
+      }
+    }
+    if (geocodedStops.length < 2) {
+      throw Exception("Need at least a starting point and destination");
+    }
+    return geocodedStops;
+  }
+
+  /// Builds ordered itinerary points strictly preserving user waypoint order
+  /// and guaranteeing origin == final destination for Around Trips.
+  ({GeoPoint start, GeoPoint end, List<GeoPoint> waypoints}) _buildItineraryPoints(List<GeoPoint> stops) {
+    if (stops.length < 2) throw Exception("Need at least a starting point and destination");
+    if (_tripType == 'roundtrip') {
+      final start = stops.first;
+      final end = GeoPoint(lat: start.lat, lng: start.lng, name: start.name);
+      final waypoints = stops.sublist(1);
+      return (start: start, end: end, waypoints: waypoints);
+    } else {
+      final start = stops.first;
+      final end = stops.last;
+      final waypoints = stops.sublist(1, stops.length - 1);
+      return (start: start, end: end, waypoints: waypoints);
+    }
+  }
+
   Future<void> _planTrip() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVehicle == null) {
       setState(() => _error = 'Please select a vehicle');
@@ -345,60 +463,50 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     Vehicle vehicle;
 
     try {
-      final List<GeoPoint> geocodedStops = [];
-      for (final controller in _stopControllers) {
-        final address = controller.text.trim();
-        if (address.isNotEmpty) {
-          final resolved = _resolvedStopCoords[controller.hashCode];
-          final isMatch = resolved != null &&
-              resolved.name != null &&
-              (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
-               address.toLowerCase().contains(resolved.name!.toLowerCase()));
-          if (resolved != null && isMatch) {
-            geocodedStops.add(resolved);
-          } else {
-            final point = await _api.geocode(address);
-            geocodedStops.add(point);
-            _resolvedStopCoords[controller.hashCode] = point;
-          }
-        }
-      }
+      final geocodedStops = await _resolveAllStops();
+      final points = _buildItineraryPoints(geocodedStops);
+      start = points.start;
+      end = points.end;
+      waypoints = points.waypoints;
 
-      if (geocodedStops.length < 2) {
-        throw Exception("Need at least a starting point and destination");
-      }
-
-      if (_tripType == 'roundtrip') {
-        // Vacation / round trip: go to the destination (and any stops) then
-        // return to the starting point, so distance/fuel/budget cover both legs.
-        start = geocodedStops.first;
-        end = geocodedStops.first;
-        waypoints = geocodedStops.sublist(1);
-      } else {
-        start = geocodedStops.first;
-        end = geocodedStops.last;
-        waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
-      }
+      final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
+      final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+      final tankCap = _selectedVehicle!.tankCapacity > 0
+          ? _selectedVehicle!.tankCapacity
+          : (double.tryParse(_tankController.text.trim()) ?? 50.0);
 
       vehicle = Vehicle(
         type: _selectedVehicle!.type,
-        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-        tankCapacityLiters: double.parse(_tankController.text),
-        currentFuelLiters: double.parse(_currentFuelController.text),
+        efficiencyKmPerLiter: eff > 0 ? eff : 15.0,
+        tankCapacityLiters: tankCap,
+        currentFuelLiters: curFuel >= 0 ? curFuel : 0.0,
         fuelType: _selectedVehicle?.fuelType ?? 'petrol',
         isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
       );
 
-      final canReuseTemp = _tempPlan != null &&
+      // Only reuse tempPlan if start, end, and EVERY waypoint match to high precision (< 0.0001 deg ~ 10m)
+      bool canReuseTemp = false;
+      if (_tempPlan != null &&
           _tempStart != null &&
           _tempEnd != null &&
           _tempWaypoints != null &&
-          _tempWaypoints!.length == waypoints.length &&
-          (_tempStart!.lat - start.lat).abs() < 0.01 &&
-          (_tempStart!.lng - start.lng).abs() < 0.01 &&
-          (_tempEnd!.lat - end.lat).abs() < 0.01 &&
-          (_tempEnd!.lng - end.lng).abs() < 0.01;
+          _tempWaypoints!.length == waypoints.length) {
+        final startMatch = (_tempStart!.lat - start.lat).abs() < 0.0001 &&
+                           (_tempStart!.lng - start.lng).abs() < 0.0001;
+        final endMatch = (_tempEnd!.lat - end.lat).abs() < 0.0001 &&
+                         (_tempEnd!.lng - end.lng).abs() < 0.0001;
+        bool waypointsMatch = true;
+        for (int i = 0; i < waypoints.length; i++) {
+          if ((_tempWaypoints![i].lat - waypoints[i].lat).abs() >= 0.0001 ||
+              (_tempWaypoints![i].lng - waypoints[i].lng).abs() >= 0.0001) {
+            waypointsMatch = false;
+            break;
+          }
+        }
+        canReuseTemp = startMatch && endMatch && waypointsMatch;
+      }
 
+      final reqId = ++_routeRequestId;
       if (canReuseTemp) {
         plan = _tempPlan!;
       } else {
@@ -411,7 +519,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         );
       }
 
-      if (!mounted) return;
+      plan = plan.copyWith(vehicleSnapshot: vehicle);
+
+      if (!mounted || reqId != _routeRequestId) return;
 
       // Round trip (vacation) → go straight to the day-by-day Plan workspace,
       // skipping the summary popup.
@@ -513,6 +623,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   /// Plans the trip (reusing a "Find Places" preview if present) and opens the
   /// AI Itinerary directly, so the itinerary can be set up from the planner.
   Future<void> _planAndOpenItinerary() async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (!_formKey.currentState!.validate()) return;
     if (_selectedVehicle == null) {
       setState(() => _error = 'Please select a vehicle');
@@ -523,7 +634,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _error = null;
     });
     try {
-      final TripPlan plan;
+      TripPlan plan;
       final GeoPoint start;
       final GeoPoint end;
       final List<GeoPoint> waypoints;
@@ -537,41 +648,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         waypoints = _tempWaypoints!;
         vehicle = _tempVehicle!;
       } else {
-        final List<GeoPoint> geocodedStops = [];
-        for (final controller in _stopControllers) {
-          final address = controller.text.trim();
-          if (address.isNotEmpty) {
-            final resolved = _resolvedStopCoords[controller.hashCode];
-            final isMatch = resolved != null &&
-                resolved.name != null &&
-                (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
-                    address.toLowerCase().contains(resolved.name!.toLowerCase()));
-            if (resolved != null && isMatch) {
-              geocodedStops.add(resolved);
-            } else {
-              final point = await _api.geocode(address);
-              geocodedStops.add(point);
-              _resolvedStopCoords[controller.hashCode] = point;
-            }
-          }
-        }
-        if (geocodedStops.length < 2) {
-          throw Exception("Need at least a starting point and destination");
-        }
-        if (_tripType == 'roundtrip') {
-          start = geocodedStops.first;
-          end = geocodedStops.first;
-          waypoints = geocodedStops.sublist(1);
-        } else {
-          start = geocodedStops.first;
-          end = geocodedStops.last;
-          waypoints = geocodedStops.sublist(1, geocodedStops.length - 1);
-        }
+        final geocodedStops = await _resolveAllStops();
+        final points = _buildItineraryPoints(geocodedStops);
+        start = points.start;
+        end = points.end;
+        waypoints = points.waypoints;
+
+        final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
+        final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+        final tankCap = _selectedVehicle!.tankCapacity > 0
+            ? _selectedVehicle!.tankCapacity
+            : (double.tryParse(_tankController.text.trim()) ?? 50.0);
+
         vehicle = Vehicle(
           type: _selectedVehicle!.type,
-          efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-          tankCapacityLiters: double.parse(_tankController.text),
-          currentFuelLiters: double.parse(_currentFuelController.text),
+          efficiencyKmPerLiter: eff > 0 ? eff : 15.0,
+          tankCapacityLiters: tankCap,
+          currentFuelLiters: curFuel >= 0 ? curFuel : 0.0,
           fuelType: _selectedVehicle?.fuelType ?? 'petrol',
           isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
         );
@@ -583,6 +676,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           travellers: _travellers,
         );
       }
+
+      plan = plan.copyWith(vehicleSnapshot: vehicle);
 
       if (!mounted) return;
       Navigator.of(context).push(
@@ -615,15 +710,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     final double cash = toll?.cashTollCost ?? 0;
     final double? minT = toll?.minTollCost;
     final double? maxT = toll?.maxTollCost;
-    final double litres = vehicle.efficiencyKmPerLiter > 0
-        ? plan.distanceKm / vehicle.efficiencyKmPerLiter
-        : 0;
-    // Fall back to litres x current pump price when the plan omits a fuel cost,
-    // so the estimate is always meaningful (matches the trip screen's figure).
-    const double defaultPumpPrice = 102.0; // ₹/L (petrol, India)
-    double fuelCost = toll?.fuelCost ?? 0;
-    if (fuelCost <= 0) fuelCost = litres * defaultPumpPrice;
-    final double pricePerL = litres > 0 ? fuelCost / litres : defaultPumpPrice;
+
+    final fuelEst = plan.fuelEstimate ?? FuelPriceService.instance.calculateRouteFuel(
+      distanceKm: plan.distanceKm,
+      mileage: vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0,
+      fuelType: vehicle.fuelType,
+      currentFuelLiters: vehicle.currentFuelLiters,
+      tankCapacityLiters: vehicle.tankCapacityLiters,
+      originLocation: _stopControllers.isNotEmpty ? _stopControllers.first.text : null,
+      destLocation: _stopControllers.isNotEmpty ? _stopControllers.last.text : null,
+    );
+
+    final b = plan.budget;
+    final currencySym = fuelEst.currencySymbol;
 
     final now = DateTime.now();
     final eta = now.add(Duration(minutes: plan.durationMin));
@@ -649,13 +748,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     letterSpacing: 0.3)),
           ]),
         );
-    Widget row(String k, String v, {Color? valueColor, bool strong = false}) =>
+    Widget row(String k, String v, {Color? valueColor, bool strong = false, String? subtitle}) =>
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 5),
+          padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(k, style: TextStyle(color: Colors.white.withOpacity(0.62), fontSize: 13)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(k, style: TextStyle(color: Colors.white.withOpacity(0.68), fontSize: 13)),
+                  if (subtitle != null && subtitle.isNotEmpty)
+                    Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.38), fontSize: 11)),
+                ],
+              ),
               Text(v,
                   style: TextStyle(
                       color: valueColor ?? Colors.white,
@@ -702,49 +808,91 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   ),
                 ),
               ),
-              const Text('Trip Summary',
+              const Text('Trip Summary & Budget',
                   style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('${plan.distanceKm.toStringAsFixed(1)} km route',
+              Text('${plan.formattedDistance} route · $durText',
                   style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
-              const SizedBox(height: 18),
+              const SizedBox(height: 16),
 
-              // Times
+              // 1. ESTIMATED TRIP BUDGET (Separated cleanly)
+              if (b != null)
+                card(Column(children: [
+                  sectionTitle(Icons.account_balance_wallet_rounded, 'ESTIMATED TRIP BUDGET'),
+                  row('Fuel', '$currencySym${b.fuel}'),
+                  if (b.tolls > 0) row('Tolls', '$currencySym${b.tolls}'),
+                  if (b.breakfast > 0) row('Breakfast', '$currencySym${b.breakfast}'),
+                  if (b.lunch > 0) row('Lunch', '$currencySym${b.lunch}'),
+                  if (b.teaSnacks > 0) row('Tea/Snacks', '$currencySym${b.teaSnacks}'),
+                  if (b.dinner > 0) row('Dinner', '$currencySym${b.dinner}'),
+                  if (b.other > 0) row('Other', '$currencySym${b.other}'),
+                  const Divider(color: Colors.white12, height: 18),
+                  row('Estimated Total', '$currencySym${b.total}',
+                      valueColor: const Color(0xFF10B981), strong: true),
+                ])),
+
+              // 2. FUEL ESTIMATE DETAILS
               card(Column(children: [
-                sectionTitle(Icons.schedule, 'Times'),
+                sectionTitle(Icons.local_gas_station_rounded, 'FUEL ESTIMATE DETAILS'),
+                row('Fuel Required', fuelEst.formattedFuelRequired),
+                row('Current Tank', fuelEst.formattedCurrentFuel),
+                row('Additional Required', fuelEst.formattedAdditionalRequired),
+                row('${fuelEst.fuelType.toUpperCase()} Price', fuelEst.formattedFuelPrice,
+                    subtitle: '${fuelEst.regionName} · ${fuelEst.updatedAtText}'),
+                const Divider(color: Colors.white12, height: 18),
+                row('Estimated Fuel Expense', fuelEst.formattedEstimatedCost,
+                    valueColor: Colors.orangeAccent, strong: true),
+              ])),
+
+              // 3. TOLL DETAILS & INDIVIDUAL TOLL PLAZAS
+              if (toll != null && toll.hasTolls)
+                card(Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    sectionTitle(Icons.toll_rounded, 'TOLLS (${toll.tolls.length} PLAZAS)'),
+                    for (int i = 0; i < toll.tolls.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${i + 1}. ${toll.tolls[i].name}',
+                                style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12.5),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              '$currencySym${toll.tolls[i].amount.toStringAsFixed(0)}',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    const Divider(color: Colors.white12, height: 18),
+                    row('Total Toll Cost (FASTag)', '$currencySym${fastag.toStringAsFixed(0)}',
+                        valueColor: const Color(0xFF60A5FA), strong: true),
+                    if (cash > 0 && cash != fastag)
+                      row('Cash Toll Total', '$currencySym${cash.toStringAsFixed(0)}',
+                          valueColor: Colors.white54),
+                  ],
+                )),
+
+              // 4. TIMES & SCHEDULE
+              card(Column(children: [
+                sectionTitle(Icons.schedule, 'SCHEDULE'),
                 row('Driving time', durText),
                 row('Departure', clock(now)),
                 row('Arrival (ETA)', clock(eta), valueColor: Colors.greenAccent, strong: true),
-              ])),
-
-              // Toll details
-              card(Column(children: [
-                sectionTitle(Icons.receipt_long, 'Toll Details'),
-                row('FASTag toll', '₹${fastag.toStringAsFixed(0)}'),
-                row('Cash toll', '₹${cash.toStringAsFixed(0)}'),
-                if (minT != null && maxT != null)
-                  row('Estimated range', '₹${minT.toStringAsFixed(0)} – ₹${maxT.toStringAsFixed(0)}'),
-                const Divider(color: Colors.white12, height: 18),
-                row('You pay (FASTag)', '₹${fastag.toStringAsFixed(0)}',
-                    valueColor: AppColors.accentLight, strong: true),
-              ])),
-
-              // Fuel
-              card(Column(children: [
-                sectionTitle(Icons.local_gas_station, 'Fuel'),
-                row('Fuel needed', '${litres.toStringAsFixed(1)} L'),
-                row('Price / litre (est.)', '₹${pricePerL.toStringAsFixed(1)}'),
-                row('Mileage', '${vehicle.efficiencyKmPerLiter.toStringAsFixed(0)} km/L'),
-                const Divider(color: Colors.white12, height: 18),
-                row('Fuel cost', '₹${fuelCost.toStringAsFixed(0)}',
-                    valueColor: Colors.orangeAccent, strong: true),
               ])),
 
               const SizedBox(height: 4),
               AccentButton(
                 onPressed: () => Navigator.of(ctx).pop(),
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Text('Start Trip',
+                child: const Text('Confirm & Start Trip',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
               ),
             ],
@@ -755,6 +903,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   }
 
   Future<void> _findPlacesBeforeTrip({List<String>? categories}) async {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_stopControllers.isEmpty || 
         _stopControllers.first.text.trim().isEmpty || 
         _stopControllers.last.text.trim().isEmpty) {
@@ -781,41 +930,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     });
 
     try {
-      final List<GeoPoint> geocodedStops = [];
-      for (final controller in _stopControllers) {
-        final address = controller.text.trim();
-        if (address.isNotEmpty) {
-          final resolved = _resolvedStopCoords[controller.hashCode];
-          final isMatch = resolved != null &&
-              resolved.name != null &&
-              (resolved.name!.toLowerCase().contains(address.toLowerCase()) ||
-               address.toLowerCase().contains(resolved.name!.toLowerCase()));
-          if (resolved != null && isMatch) {
-            geocodedStops.add(resolved);
-          } else {
-            final point = await _api.geocode(address);
-            geocodedStops.add(point);
-            _resolvedStopCoords[controller.hashCode] = point; // Cache it!
-          }
-        }
-      }
+      final geocodedStops = await _resolveAllStops();
+      final points = _buildItineraryPoints(geocodedStops);
+      final start = points.start;
+      final end = points.end;
+      final waypoints = points.waypoints;
 
-      if (geocodedStops.length < 2) {
-        throw Exception("Need at least a starting point and destination");
-      }
-
-      final bool round = _tripType == 'roundtrip';
-      final start = geocodedStops.first;
-      final end = round ? geocodedStops.first : geocodedStops.last;
-      final waypoints = round
-          ? geocodedStops.sublist(1)
-          : geocodedStops.sublist(1, geocodedStops.length - 1);
+      final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
+      final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+      final tankCap = _selectedVehicle!.tankCapacity > 0
+          ? _selectedVehicle!.tankCapacity
+          : (double.tryParse(_tankController.text.trim()) ?? 50.0);
 
       final vehicle = Vehicle(
         type: _selectedVehicle!.type,
-        efficiencyKmPerLiter: double.parse(_efficiencyController.text),
-        tankCapacityLiters: double.parse(_tankController.text),
-        currentFuelLiters: double.parse(_currentFuelController.text),
+        efficiencyKmPerLiter: eff > 0 ? eff : 15.0,
+        tankCapacityLiters: tankCap,
+        currentFuelLiters: curFuel >= 0 ? curFuel : 0.0,
         fuelType: _selectedVehicle?.fuelType ?? 'petrol',
         isCustomEfficiency: _selectedVehicle?.isUserMileageOverride ?? false,
       );
@@ -909,9 +1040,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       double minDetour = double.infinity;
 
       double _dist(GeoPoint p1, GeoPoint p2) {
-        final dx = p1.lng - p2.lng;
-        final dy = p1.lat - p2.lat;
-        return sqrt(dx * dx + dy * dy);
+        return const Distance().as(LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
       }
 
       for (int i = 0; i < resolvedNodes.length - 1; i++) {
@@ -1111,6 +1240,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _onStopQueryChanged(int index, String query) {
     _suggestDebounce?.cancel();
     final q = query.trim();
+
+    // Invalidate stale coordinates and route cache if the user edited the place text
+    if (index >= 0 && index < _stopControllers.length) {
+      final controller = _stopControllers[index];
+      final cached = _resolvedStopCoords[controller.hashCode];
+      if (cached != null && cached.name != null && cached.name!.trim().toLowerCase() != q.toLowerCase()) {
+        _resolvedStopCoords.remove(controller.hashCode);
+        _tempPlan = null;
+        _routeRequestId++; // Cancel any in-flight routing
+      }
+    }
+
     if (q.isEmpty) {
       setState(() {
         _suggestions.remove(index);
@@ -1286,6 +1427,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     _efficiencyController.dispose();
     _tankController.dispose();
     _currentFuelController.dispose();
+    _currentFuelFocusNode.dispose();
+    _mileageFocusNode.dispose();
     _placeSearchController.dispose();
     _placeSearchDebounce?.cancel();
     _formScrollController.dispose();
@@ -1512,6 +1655,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     final isDesktop = MediaQuery.of(context).size.width > 900;
     return SingleChildScrollView(
       controller: _formScrollController,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: EdgeInsets.only(
         left: embedded ? 20.0 : 24.0,
         right: embedded ? 20.0 : 24.0,
@@ -1942,10 +2086,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           child: Icon(icon, color: Colors.white, size: 22),
         ),
         const SizedBox(width: 14),
-        Text(
-          title,
-          style: const TextStyle(
-              fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+                fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+          ),
         ),
       ],
     );
@@ -1961,12 +2109,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     required IconData icon,
     Color? iconColor,
     TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    void Function(String)? onFieldSubmitted,
+    FocusNode? focusNode,
     String? Function(String?)? validator,
     Widget? suffixIcon,
     void Function(String)? onChanged,
   }) {
     return TextFormField(
       controller: controller,
+      focusNode: focusNode,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onFieldSubmitted,
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
@@ -2045,6 +2199,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                         label: label,
                         icon: icon,
                         iconColor: iconColor,
+                        textInputAction: isEnd ? TextInputAction.done : TextInputAction.next,
+                        onFieldSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                         onChanged: (v) => _onStopQueryChanged(index, v),
                         suffixIcon: Row(
@@ -2206,10 +2362,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
+              Expanded(
+                child: _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
+              ),
+              const SizedBox(width: 8),
               InkWell(
                 onTap: () async {
+                  FocusManager.instance.primaryFocus?.unfocus();
                   final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+                  FocusManager.instance.primaryFocus?.unfocus();
                   if (picked != null) {
                     setState(() {
                       _selectedVehicle = picked;
@@ -2241,7 +2402,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           // Vehicle Display Tile
           InkWell(
             onTap: () async {
+              FocusManager.instance.primaryFocus?.unfocus();
               final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+              FocusManager.instance.primaryFocus?.unfocus();
               if (picked != null) {
                 setState(() {
                   _selectedVehicle = picked;
@@ -2321,30 +2484,51 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             children: [
               Expanded(
                 child: _specField(
-                  controller: _efficiencyController,
-                  label: 'Efficiency',
-                  unit: 'km/l',
-                  icon: Icons.speed_rounded,
+                  controller: _currentFuelController,
+                  focusNode: _currentFuelFocusNode,
+                  label: 'Current Fuel in Tank',
+                  unit: 'L',
+                  icon: Icons.water_drop_rounded,
+                  textInputAction: TextInputAction.next,
+                  onFieldSubmitted: (_) {
+                    FocusScope.of(context).requestFocus(_mileageFocusNode);
+                  },
+                  validator: _currentFuelValidator,
                 ),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: _specField(
-                  controller: _tankController,
-                  label: 'Tank',
-                  unit: 'L',
-                  icon: Icons.local_gas_station_rounded,
+                  controller: _efficiencyController,
+                  focusNode: _mileageFocusNode,
+                  label: 'Vehicle Mileage',
+                  unit: 'km/L',
+                  icon: Icons.speed_rounded,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                  },
+                  validator: _mileageValidator,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          _specField(
-            controller: _currentFuelController,
-            label: 'Current fuel in tank',
-            unit: 'L',
-            icon: Icons.water_drop_rounded,
-            validator: _currentFuelValidator,
+          const SizedBox(height: 14),
+          // Save Button
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: _saveVehicleSettings,
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+              label: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E75B6),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           _buildTravellersRow(),
@@ -2361,6 +2545,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     required String label,
     required String unit,
     required IconData icon,
+    FocusNode? focusNode,
+    TextInputAction? textInputAction,
+    void Function(String)? onFieldSubmitted,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -2388,6 +2575,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         const SizedBox(height: 7),
         TextFormField(
           controller: controller,
+          focusNode: focusNode,
+          textInputAction: textInputAction,
+          onFieldSubmitted: onFieldSubmitted,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           validator: validator ?? _numberValidator,
           style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
@@ -2484,13 +2674,25 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     return null;
   }
 
-  /// Current fuel must be a valid number and not exceed the tank capacity.
+  /// Current fuel must be a valid number >= 0 and not exceed tank capacity if known.
   String? _currentFuelValidator(String? v) {
-    final base = _numberValidator(v);
-    if (base != null) return base;
-    final fuel = double.parse(v!);
-    final tank = double.tryParse(_tankController.text);
-    if (tank != null && fuel > tank) return 'Max ${_formatNum(tank)} L';
+    if (v == null || v.trim().isEmpty) return 'Enter a valid fuel amount.';
+    final fuel = double.tryParse(v.trim());
+    if (fuel == null || fuel.isNaN || fuel < 0) return 'Enter a valid fuel amount.';
+    final tank = _selectedVehicle != null && _selectedVehicle!.tankCapacity > 0
+        ? _selectedVehicle!.tankCapacity
+        : double.tryParse(_tankController.text);
+    if (tank != null && tank > 0 && fuel > tank) {
+      return 'Max ${_formatNum(tank)} L';
+    }
+    return null;
+  }
+
+  /// Mileage must be a valid number > 0.
+  String? _mileageValidator(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Enter a valid mileage.';
+    final m = double.tryParse(v.trim());
+    if (m == null || m.isNaN || m <= 0) return 'Enter a valid mileage.';
     return null;
   }
 

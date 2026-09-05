@@ -7,6 +7,7 @@ class ThreeDMap extends StatelessWidget {
   final GeoPoint start;
   final GeoPoint end;
   final List<GeoPoint> waypoints;
+  final List<RefuelStop> fuelStops;
   final bool useSatellite;
   final String vehicleType;
   final GeoPoint? animatedVehiclePosition;
@@ -25,6 +26,7 @@ class ThreeDMap extends StatelessWidget {
     required this.start,
     required this.end,
     required this.waypoints,
+    this.fuelStops = const [],
     required this.useSatellite,
     required this.vehicleType,
     this.animatedVehiclePosition,

@@ -8,7 +8,7 @@ const { annotateCumulativeDistance } = require("../utils/geo");
  * @returns {Array<{ day:number, fromKm:number, toKm:number, distanceKm:number,
  *   driveHours:number, endLat:number, endLng:number, isFinal:boolean }>}
  */
-function buildItinerary(routeCoordinates, durationMinutes, dailyDrivingHours = 7) {
+function buildItinerary(routeCoordinates, durationMinutes, dailyDrivingHours = 7, totalRouteDistanceKm = null) {
   if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2 || durationMinutes <= 0) {
     return [];
   }
@@ -22,7 +22,13 @@ function buildItinerary(routeCoordinates, durationMinutes, dailyDrivingHours = 7
   }
 
   const annotated = annotateCumulativeDistance(routeCoordinates);
-  const totalKm = annotated[annotated.length - 1].cumulativeKm;
+  const haversineTotalKm = annotated[annotated.length - 1].cumulativeKm;
+  const totalKm = (typeof totalRouteDistanceKm === "number" && totalRouteDistanceKm > 0)
+    ? totalRouteDistanceKm
+    : haversineTotalKm;
+
+  // Distance scale factor between authoritative road distance and haversine coordinates
+  const scale = haversineTotalKm > 0 ? (totalKm / haversineTotalKm) : 1.0;
   const avgSpeedKmh = totalKm / totalHours;
 
   const days = [];
@@ -34,10 +40,11 @@ function buildItinerary(routeCoordinates, durationMinutes, dailyDrivingHours = 7
     const dayKm = Math.min(dayHours * avgSpeedKmh, remainingKm);
     const toKm = fromKm + dayKm;
 
-    // Nearest route point at/after toKm becomes the overnight stop.
+    // Map toKm back to coordinate progression for overnight stop finding
+    const targetHaversineKm = toKm / scale;
     let endPt = annotated[annotated.length - 1];
     for (const p of annotated) {
-      if (p.cumulativeKm >= toKm) { endPt = p; break; }
+      if (p.cumulativeKm >= targetHaversineKm) { endPt = p; break; }
     }
 
     const isFinal = toKm >= totalKm - 0.5;

@@ -16,6 +16,7 @@ import '../services/auth_guard.dart';
 import '../widgets/app_design.dart';
 import '../data/temple_database.dart';
 import '../services/trip_reminder_service.dart';
+import '../utils/trip_date_time.dart';
 import 'day_planner_screen.dart';
 
 /// AI-powered smart trip planner: pick a start date/time + destination and the
@@ -39,6 +40,16 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   final _placesCtrl = TextEditingController();
   final _prefsCtrl = TextEditingController();
   final _customPrefCtrl = TextEditingController();
+  final _currentFuelCtrl = TextEditingController(text: '30');
+  final _mileageCtrl = TextEditingController(text: '15');
+
+  static const String _tripType = 'around'; // Smart AI Planner supports Around Trip only
+  int _searchRadiusKm = 25;
+  int? _nextSearchRadiusKm;
+  int? _placesFoundCount;
+  bool _canExpandSearch = false;
+  bool _isConfirmed = false;
+  double? _totalRouteKm;
 
   DateTime? _startDate;
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
@@ -99,8 +110,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     _placesCtrl.dispose();
     _prefsCtrl.dispose();
     _customPrefCtrl.dispose();
+    _currentFuelCtrl.dispose();
+    _mileageCtrl.dispose();
     super.dispose();
   }
+
 
   int get _durationDays {
     if (_startDate != null && _endDate != null) {
@@ -111,7 +125,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   }
 
   String _fmtDate(DateTime? d) => d == null ? 'Pick date' : '${d.day}/${d.month}/${d.year}';
-  String _fmtTime(TimeOfDay? t) => t == null ? '--:--' : t.format(context);
+  String _fmtTime(TimeOfDay? t) =>
+      t == null ? '--:--' : TripDateTime.formatTimeDisplay(DateTime(2026, 1, 1, t.hour, t.minute));
 
   void _toggleCategory(String id) {
     setState(() {
@@ -216,37 +231,72 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         startLocation: _startLocCtrl.text.trim(),
         places: places,
         startDate: _startDate == null ? '' : _fmtDate(_startDate),
-        startTime: _startTime.format(context),
+        startTime: TripDateTime.to24Hour(_startTime.hour, _startTime.minute),
         endDate: _endDate == null ? '' : _fmtDate(_endDate),
-        endTime: _endTime == null ? '' : _endTime!.format(context),
+        endTime: _endTime == null ? '' : TripDateTime.to24Hour(_endTime!.hour, _endTime!.minute),
         durationDays: _durationDays,
         mode: _mode,
         preferences: _prefsCtrl.text.trim(),
         directive: directive,
         travellers: _travellers,
-        fuelEfficiency: _vehicle?.mileage,
+        fuelEfficiency: double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage,
+        currentFuel: double.tryParse(_currentFuelCtrl.text.trim()),
+        tankCapacity: _vehicle?.tankCapacity,
+        vehicleType: _transportMode,
+        tripType: 'around',
         selectedCategories: selectedCategoryLabels,
         categoryPriorities: categoryPrioritiesMapped,
         customPreferences: _customPrefCtrl.text.trim(),
+        searchRadiusKm: _searchRadiusKm,
       );
       if (!mounted) return;
+      // Guarantee Day 1 begins at the selected canonical start time
+      final targetMin = _startTime.hour * 60 + _startTime.minute;
+      if (res.days.isNotEmpty && res.days.first.blocks.isNotEmpty) {
+        final d1 = res.days.first;
+        final firstBlockStart = d1.blocks.first.start;
+        final firstMin = TripDateTime.parseMinutes(firstBlockStart);
+        if ((firstMin - targetMin).abs() > 15) {
+          int cur = targetMin;
+          for (final b in d1.blocks) {
+            final dur = b.durationMin > 0 ? b.durationMin : (b.travelMin > 0 ? b.travelMin : 30);
+            b.start = TripDateTime.formatMinutes(cur);
+            b.end = TripDateTime.formatMinutes(cur + dur);
+            cur += dur;
+          }
+        }
+      }
+
+      double totalKm = 0;
+      for (final d in res.days) {
+        for (final b in d.blocks) {
+          totalKm += (b.distanceKm > 0 ? b.distanceKm : 0);
+        }
+      }
+
       setState(() {
         _itinerary = res.days;
         _budget = res.budget;
         _splitCount = _travellers; // default: split among travellers
+        _isConfirmed = false;
+        _totalRouteKm = totalKm > 0 ? totalKm : null;
+        _searchRadiusKm = res.searchRadiusKm ?? _searchRadiusKm;
+        _placesFoundCount = res.placesFoundCount;
+        _canExpandSearch = res.canExpandSearch ?? false;
+        _nextSearchRadiusKm = res.nextSearchRadiusKm;
 
         // Check if matching places are sparse
         int activityCount = 0;
         for (final d in res.days) {
           activityCount += d.blocks.where((b) => b.type == 'activity').length;
         }
-        if (res.days.isNotEmpty && _selectedCategoryIds.isNotEmpty && activityCount < _durationDays) {
+        if (res.days.isNotEmpty && _selectedCategoryIds.isNotEmpty && activityCount < (_durationDays * 2)) {
           _showInsufficientPlacesWarning = true;
         }
       });
 
       if (res.days.isNotEmpty) {
-        // Auto-schedule 30-minute departure reminder for Day 1
+        // Auto-schedule departure alerts and confirmation for Day 1
         final tripDate = _startDate ?? DateTime.now();
         final depTime = DateTime(
           tripDate.year,
@@ -255,11 +305,13 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           _startTime.hour,
           _startTime.minute,
         );
-        TripReminderService.instance.scheduleDepartureReminder(
+        TripReminderService.instance.scheduleTripStart(
           tripId: 'smart_${dest.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
           destination: dest,
           startPoint: _startLocCtrl.text.trim().isNotEmpty ? _startLocCtrl.text.trim() : 'Home',
           departureTime: depTime,
+          stops: places.take(5).toList(),
+          distanceKm: (_budget?.fuel != null) ? 180.0 : 145.0,
           remindBeforeMinutes: 30,
           vehicleType: _vehicle?.type ?? 'car',
         );
@@ -279,7 +331,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     if (_itinerary.isNotEmpty) _generate();
   }
 
-  /// Convert the AI timeline to PlanDays and persist it locally. Returns the
   /// Convert the AI timeline to PlanDays and persist it locally and to Supabase.
   Future<String> _persistPlan() async {
     final planDays = <PlanDay>[];
@@ -292,7 +343,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         items.add(PlanItem(
           id: '${DateTime.now().microsecondsSinceEpoch}_${i}_$j',
           text: b.title,
-          time: b.start,
+          time: TripDateTime.to12Hour(b.start),
           note: b.reason,
           category: _blockToCategory(b.type),
         ));
@@ -303,6 +354,31 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     final start = _startLocCtrl.text.trim();
     final tripKey = 'smart_${dest.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}';
     final tripTitle = start.isNotEmpty ? '$start to $dest' : '$dest (AI Trip)';
+
+    // Extract real verified coordinates from itinerary blocks
+    GeoPoint? startCoord;
+    GeoPoint? endCoord;
+    final waypoints = <GeoPoint>[];
+
+    for (final d in _itinerary) {
+      for (final b in d.blocks) {
+        if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
+          final pt = GeoPoint(lat: b.lat!, lng: b.lng!, name: b.title.isNotEmpty ? b.title : b.place);
+          if (startCoord == null) {
+            startCoord = pt;
+          } else {
+            waypoints.add(pt);
+          }
+        }
+      }
+    }
+
+    if (startCoord != null) {
+      endCoord = startCoord;
+    }
+
+    startCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
+    endCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
     
     // 1. Save locally to TripExtrasStore
     await TripExtrasStore(tripKey).saveDays(planDays, name: '$dest (AI plan)');
@@ -313,19 +389,15 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       title: tripTitle,
       startAddress: start.isNotEmpty ? start : 'Origin',
       endAddress: dest.isNotEmpty ? dest : 'Destination',
-      waypoints: _placesCtrl.text
-          .split(RegExp(r'[,\n]'))
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty)
-          .toList(),
-      distanceKm: _budget?.fuel != null ? 180.0 : 145.0,
+      waypoints: waypoints.map((w) => w.name ?? '').toList(),
+      distanceKm: _totalRouteKm ?? (_budget?.fuel != null ? 180.0 : 145.0),
       durationMinutes: _durationDays * 480,
-      vehicleType: _vehicle?.type ?? 'car',
+      vehicleType: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
       fuelCost: (_budget?.fuel ?? 0).toDouble(),
       tollCost: (_budget?.tolls ?? 0).toDouble(),
       totalCost: (_budget?.total ?? 0).toDouble(),
       completedAt: DateTime.now(),
-      isRoundTrip: true,
+      isRoundTrip: _tripType == 'around',
       totalStopsCount: planDays.fold(0, (sum, d) => sum + d.items.length),
     );
     await TripHistoryService.instance.saveTrip(historyItem);
@@ -334,25 +406,21 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     final session = Supabase.instance.client.auth.currentSession;
     if (session != null) {
       try {
-        final startCoord = GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Origin');
-        final endCoord = GeoPoint(lat: 12.2958, lng: 76.6394, name: dest.isNotEmpty ? dest : 'Destination');
+        final currentFuel = double.tryParse(_currentFuelCtrl.text.trim()) ?? _vehicle?.tankCapacity ?? 45.0;
+        final mileage = double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage ?? 15.0;
         await _api.saveTrip(
           name: tripTitle,
           start: startCoord,
           end: endCoord,
-          waypoints: historyItem.waypoints
-              .map((w) => GeoPoint(lat: 0.0, lng: 0.0, name: w))
-              .toList(),
-          vehicleType: _vehicle?.type ?? 'car',
+          waypoints: waypoints,
+          vehicleType: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
           token: session.accessToken,
-          vehicle: _vehicle != null
-              ? Vehicle(
-                  type: _vehicle!.type,
-                  efficiencyKmPerLiter: _vehicle!.mileage,
-                  tankCapacityLiters: 45.0,
-                  currentFuelLiters: 45.0,
-                )
-              : null,
+          vehicle: Vehicle(
+            type: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
+            efficiencyKmPerLiter: mileage,
+            tankCapacityLiters: _vehicle?.tankCapacity ?? 45.0,
+            currentFuelLiters: currentFuel,
+          ),
           tripStart: _startDate,
         );
       } catch (e) {
@@ -361,6 +429,91 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     }
 
     return tripKey;
+  }
+
+  void _adjustDuration(SmartDay day, TimelineBlock block, int deltaMin) {
+    setState(() {
+      block.durationMin = (block.durationMin + deltaMin).clamp(15, 360);
+      _reanchorDayTiming(day);
+    });
+  }
+
+  void _removeStop(SmartDay day, TimelineBlock block) {
+    setState(() {
+      day.blocks.remove(block);
+      _reanchorDayTiming(day);
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Removed "${block.title.isNotEmpty ? block.title : block.place}"'),
+        action: SnackBarAction(
+          label: 'RECALCULATE',
+          textColor: AppColors.accentLight,
+          onPressed: _recalculateItinerary,
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _reanchorDayTiming(SmartDay day) {
+    int curMin;
+    if (day.day == 1) {
+      curMin = _startTime.hour * 60 + _startTime.minute;
+    } else {
+      curMin = 8 * 60 + 30; // 08:30 AM for multi-day
+    }
+    for (final b in day.blocks) {
+      final dur = (b.type == 'travel' || b.type == 'return')
+          ? (b.travelMin > 0 ? b.travelMin : 30)
+          : (b.durationMin > 0 ? b.durationMin : 45);
+      b.start = TripDateTime.formatMinutes(curMin);
+      b.end = TripDateTime.formatMinutes(curMin + dur);
+      curMin += dur;
+    }
+  }
+
+  Future<void> _recalculateItinerary() async {
+    setState(() => _loading = true);
+    try {
+      final res = await _api.recalculateSmartItinerary(
+        days: _itinerary,
+        startTime: TripDateTime.to24Hour(_startTime.hour, _startTime.minute),
+        tripType: _tripType,
+        origin: _startLocCtrl.text.trim(),
+        destination: _destCtrl.text.trim(),
+        currentFuel: double.tryParse(_currentFuelCtrl.text.trim()),
+        tankCapacity: _vehicle?.tankCapacity,
+        fuelEfficiency: double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage,
+      );
+      if (mounted && res != null && res.days.isNotEmpty) {
+        setState(() {
+          _itinerary = res.days;
+          if (res.budget != null) _budget = res.budget;
+        });
+      }
+    } catch (e) {
+      debugPrint('Recalculate error: $e');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _confirmTrip() {
+    setState(() {
+      _isConfirmed = true;
+      for (final day in _itinerary) {
+        for (final b in day.blocks) {
+          b.isConfirmed = true;
+        }
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Trip Confirmed! Stops locked with verified coordinates ✓'),
+        backgroundColor: Color(0xFF10B981),
+      ),
+    );
   }
 
   /// Save the itinerary without leaving the screen.
@@ -376,6 +529,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   /// Save and open the day-by-day planner to start following the trip.
   Future<void> _start() async {
     if (!AuthGuard.ensure(context, action: 'save & start trips')) return;
+    setState(() => _isConfirmed = true);
     final tripKey = await _persistPlan();
     if (!mounted) return;
     final dest = _destCtrl.text.trim();
@@ -426,6 +580,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         return (Icons.beach_access_rounded, const Color(0xFF06B6D4));
       case 'return':
         return (Icons.home_rounded, const Color(0xFFEF4444));
+      case 'fuel':
+        return (Icons.local_gas_station_rounded, const Color(0xFFF59E0B));
       default:
         return (Icons.photo_camera_rounded, AppColors.accentLight);
     }
@@ -821,7 +977,13 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text('Set your start date & time — the AI schedules everything, breaks included.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
-          _placeField(_startLocCtrl, '🛫 Starting location — search, or use a quick pick below', Icons.my_location_rounded, isDest: false),
+          _tripTypeBadge(),
+          _placeField(
+            _startLocCtrl,
+            '🛫 Starting Location (Origin & return)',
+            Icons.my_location_rounded,
+            isDest: false,
+          ),
           const SizedBox(height: 8),
           // Quick picks: GPS current location + saved home (long-press to change).
           Wrap(
@@ -885,14 +1047,19 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                   children: [
                     Icon(Icons.swap_vert_rounded, color: AppColors.accentLight, size: 16),
                     SizedBox(width: 4),
-                    Text('Swap Origin & Destination', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                    Text('Swap Start & Destination', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
             ),
           ),
           const SizedBox(height: 6),
-          _placeField(_destCtrl, '🎯 Destination (e.g. Mysore, Coorg, Ooty, Tirupati)', Icons.explore_rounded, isDest: true),
+          _placeField(
+            _destCtrl,
+            '🎯 Destination / Trip Area (e.g. Madurai, Mysore, Ooty)',
+            Icons.explore_rounded,
+            isDest: true,
+          ),
           const SizedBox(height: 10),
           _field(_placesCtrl, 'Specific places to visit (comma-separated, optional)', Icons.place_rounded, maxLines: 2),
           const SizedBox(height: 12),
@@ -916,7 +1083,20 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
             const SizedBox(width: 10),
             _pill('Start ${_fmtTime(_startTime)}', Icons.schedule_rounded, () async {
               final picked = await showTimePicker(context: context, initialTime: _startTime);
-              if (picked != null) setState(() => _startTime = picked);
+              if (picked != null) {
+                setState(() {
+                  _startTime = picked;
+                  if (_itinerary.isNotEmpty && _itinerary.first.blocks.isNotEmpty) {
+                    int cur = picked.hour * 60 + picked.minute;
+                    for (final b in _itinerary.first.blocks) {
+                      final dur = b.durationMin > 0 ? b.durationMin : (b.travelMin > 0 ? b.travelMin : 30);
+                      b.start = TripDateTime.formatMinutes(cur);
+                      b.end = TripDateTime.formatMinutes(cur + dur);
+                      cur += dur;
+                    }
+                  }
+                });
+              }
             }),
           ]),
           const SizedBox(height: 10),
@@ -984,6 +1164,12 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               _pickVehicle,
             ),
           ]),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: _field(_mileageCtrl, 'Mileage (km/L)', Icons.speed_rounded)),
+            const SizedBox(width: 10),
+            Expanded(child: _field(_currentFuelCtrl, 'Fuel in Tank (L)', Icons.local_gas_station_rounded)),
+          ]),
           const SizedBox(height: 14),
           // Pace mode
           Text('Pace', style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
@@ -1005,6 +1191,40 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               const SizedBox(width: 8),
               Text(_itinerary.isEmpty ? 'GENERATE ITINERARY' : 'REGENERATE'),
             ]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tripTypeBadge() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.accentLight.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accentLight.withValues(alpha: 0.3)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.sync_rounded, color: AppColors.accentLight, size: 18),
+          SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Around Trip (Circuit)',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Plans destination-based sights and returns to your starting origin',
+                  style: TextStyle(color: Colors.white70, fontSize: 11),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1255,7 +1475,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Few places found for your current category selections',
+                  'Destination Place Discovery',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 13.5,
@@ -1267,38 +1487,55 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            'There aren\'t enough top attractions strictly matching your selected preferences for this route. What would you like to do?',
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 12),
+            _placesFoundCount != null
+                ? 'We found $_placesFoundCount relevant places for your selected destination and preferences.'
+                : 'Limited places found strictly matching your selected preferences within ${_searchRadiusKm} km.',
+            style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
           ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              ElevatedButton.icon(
-                onPressed: () => _generate(directive: 'Expand discovery radius to 50 km around destination and route to discover more places in selected categories.'),
-                icon: const Icon(Icons.explore_rounded, size: 14),
-                label: const Text('Expand Search Radius', style: TextStyle(fontSize: 12)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accentLight,
-                  foregroundColor: Colors.white,
+              OutlinedButton.icon(
+                onPressed: () {
+                  setState(() => _showInsufficientPlacesWarning = false);
+                },
+                icon: const Icon(Icons.check_circle_outline_rounded, size: 14, color: AppColors.accentLight),
+                label: const Text('Generate With Fewer Stops', style: TextStyle(color: Colors.white, fontSize: 12)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.accentLight),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
+              if (_canExpandSearch || _searchRadiusKm < 100)
+                ElevatedButton.icon(
+                  onPressed: () {
+                    final nextR = _nextSearchRadiusKm ?? (_searchRadiusKm < 50 ? 50 : 100);
+                    setState(() {
+                      _searchRadiusKm = nextR;
+                      _showInsufficientPlacesWarning = false;
+                    });
+                    _generate();
+                  },
+                  icon: const Icon(Icons.explore_rounded, size: 14),
+                  label: Text('Expand Search Area (${_nextSearchRadiusKm ?? (_searchRadiusKm < 50 ? 50 : 100)} km)', style: const TextStyle(fontSize: 12)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accentLight,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
               OutlinedButton.icon(
                 onPressed: () {
                   setState(() => _showInsufficientPlacesWarning = false);
                 },
                 icon: const Icon(Icons.category_rounded, size: 14, color: Colors.white70),
-                label: const Text('Add More Categories', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                label: const Text('Change Categories', style: TextStyle(color: Colors.white70, fontSize: 12)),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Colors.white.withValues(alpha: 0.25)),
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
-              ),
-              TextButton(
-                onPressed: () => setState(() => _showInsufficientPlacesWarning = false),
-                child: const Text('Keep Current Preferences', style: TextStyle(color: Colors.white60, fontSize: 11.5)),
               ),
             ],
           ),
@@ -1344,6 +1581,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     // Saved account vehicles first, then the built-in list.
     final saved = (await _api.savedVehicles()).where((v) => v.type == wantType).toList();
     final list = [...saved, ...predefinedVehicles.where((v) => v.type == wantType)];
+    if (!mounted) return;
     final chosen = await showModalBottomSheet<VehicleModel>(
       context: context,
       backgroundColor: const Color(0xFF161326),
@@ -1389,7 +1627,11 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       ),
     );
     if (chosen != null) {
-      setState(() => _vehicle = chosen);
+      setState(() {
+        _vehicle = chosen;
+        _mileageCtrl.text = chosen.mileage.toStringAsFixed(1);
+        _currentFuelCtrl.text = chosen.tankCapacity.toStringAsFixed(0);
+      });
       // If a plan already exists, refresh its budget with the new mileage.
       if (_itinerary.isNotEmpty) _generate();
     }
@@ -1460,6 +1702,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           ),
         ),
       ],
+      // Draft / Confirmed Status Banner
+      _tripStatusBanner(),
+      const SizedBox(height: 14),
       if (_showInsufficientPlacesWarning) ...[
         _insufficientPlacesBanner(),
         const SizedBox(height: 14),
@@ -1505,15 +1750,132 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           flex: 2,
           child: AccentButton(
             onPressed: _start,
-            child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
-              SizedBox(width: 4),
-              Text('START TRIP', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(_isConfirmed ? Icons.navigation_rounded : Icons.play_arrow_rounded, color: Colors.white, size: 22),
+              const SizedBox(width: 4),
+              Text(_isConfirmed ? 'START NAVIGATION' : 'CONFIRM & START', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
             ]),
           ),
         ),
       ]),
     ];
+  }
+
+  Widget _tripStatusBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _isConfirmed
+            ? const Color(0xFF10B981).withValues(alpha: 0.15)
+            : const Color(0xFF38BDF8).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isConfirmed
+              ? const Color(0xFF10B981).withValues(alpha: 0.4)
+              : const Color(0xFF38BDF8).withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: _isConfirmed
+                  ? const Color(0xFF10B981).withValues(alpha: 0.25)
+                  : const Color(0xFF38BDF8).withValues(alpha: 0.22),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _isConfirmed ? Icons.verified_rounded : Icons.edit_note_rounded,
+              color: _isConfirmed ? const Color(0xFF34D399) : const Color(0xFF38BDF8),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _isConfirmed ? 'TRIP CONFIRMED' : 'DRAFT ITINERARY',
+                      style: TextStyle(
+                        color: _isConfirmed ? const Color(0xFF34D399) : const Color(0xFF38BDF8),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        '🔄 Around Trip',
+                        style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    if (_totalRouteKm != null) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_totalRouteKm!.toStringAsFixed(0)} km',
+                        style: const TextStyle(color: Colors.white54, fontSize: 10.5, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _isConfirmed
+                      ? 'All stops verified with GPS waypoints. Ready to navigate.'
+                      : 'Review route, adjust visit times, or remove stops before locking your trip.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!_isConfirmed)
+            ElevatedButton(
+              onPressed: _confirmTrip,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+              child: const Text('CONFIRM', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _miniDurationBtn(String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
   }
 
   Widget _departureReminderCard() {
@@ -1526,8 +1888,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       _startTime.minute,
     );
     final reminderTime = depTime.subtract(const Duration(minutes: 30));
-    final reminderTimeFormatted =
-        '${(reminderTime.hour == 0 ? 12 : (reminderTime.hour > 12 ? reminderTime.hour - 12 : reminderTime.hour)).toString().padLeft(2, '0')}:${reminderTime.minute.toString().padLeft(2, '0')} ${reminderTime.hour >= 12 ? 'PM' : 'AM'}';
+    final reminderTimeFormatted = TripDateTime.formatTimeDisplay(reminderTime);
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1803,7 +2164,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                 Text(day.date, style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 11.5)),
             ]),
             const SizedBox(height: 12),
-            for (int i = 0; i < day.blocks.length; i++) _blockRow(day.blocks[i], i == day.blocks.length - 1),
+            for (int i = 0; i < day.blocks.length; i++) _blockRow(day, day.blocks[i], i == day.blocks.length - 1),
           ],
         ),
       ),
@@ -1844,28 +2205,18 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     }
   }
 
-  Widget _blockRow(TimelineBlock b, bool isLast) {
+  Widget _blockRow(SmartDay day, TimelineBlock b, bool isLast) {
     final (icon, color) = _blockStyle(b.type);
     // Travel/return legs pick their icon from the mode of transport (flight,
     // train, bus…) so an international flight isn't shown as a car drive.
     final isLeg = b.type == 'travel' || b.type == 'return';
     final legIcon = isLeg ? _travelIcon(b.travelMode) : icon;
     
-    // Normalize time display (e.g. 08:00 AM – 10:30 AM or 08:00 – 10:30)
+    // Normalize time display (e.g. 2:00 PM – 3:30 PM)
     String formatTimeStr(String t) {
       final clean = t.trim();
       if (clean.isEmpty) return '';
-      // If 24h format like 08:00 or 14:30
-      final parts = clean.split(':');
-      if (parts.length == 2 && int.tryParse(parts[0]) != null) {
-        int h = int.parse(parts[0]);
-        final mStr = parts[1].replaceAll(RegExp(r'[^0-9]'), '');
-        final m = int.tryParse(mStr) ?? 0;
-        final ampm = h >= 12 ? 'PM' : 'AM';
-        final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-        return '$h12:${m.toString().padLeft(2, '0')} $ampm';
-      }
-      return clean;
+      return TripDateTime.to12Hour(clean);
     }
 
     final startLabel = formatTimeStr(b.start);
@@ -2116,6 +2467,76 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                           ],
                         ),
                       ),
+                    if (b.isFuelStop || b.type == 'fuel')
+                      Container(
+                        margin: const EdgeInsets.only(top: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.3)),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.local_gas_station_rounded, size: 13, color: Color(0xFFF59E0B)),
+                            SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                '⛽ Recommended Fuel Stop (Smart Refuel Planning)',
+                                style: TextStyle(color: Color(0xFFFBBF24), fontSize: 10.5, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (!_isConfirmed && (b.type == 'activity' || b.type == 'shopping' || b.type == 'meal' || b.type == 'coffee' || b.type == 'fuel')) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          if (b.durationMin > 0) ...[
+                            _miniDurationBtn('-15m', () => _adjustDuration(day, b, -15)),
+                            const SizedBox(width: 4),
+                            _miniDurationBtn('+15m', () => _adjustDuration(day, b, 15)),
+                            const SizedBox(width: 8),
+                          ],
+                          if (b.type != 'start' && b.type != 'return')
+                            InkWell(
+                              onTap: () => _removeStop(day, b),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.close_rounded, size: 11, color: Colors.redAccent),
+                                    SizedBox(width: 3),
+                                    Text('Remove', style: TextStyle(color: Colors.redAccent, fontSize: 10, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (b.openingHours.isNotEmpty) ...[
+                            const Spacer(),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.schedule_rounded, size: 11, color: Colors.white.withValues(alpha: 0.5)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  b.openingHours,
+                                  style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 10),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

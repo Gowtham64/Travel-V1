@@ -1,31 +1,15 @@
-'use strict';
-
-self.addEventListener('install', () => {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    (async () => {
-      try {
-        await self.registration.unregister();
-      } catch (e) {
-        console.warn('Failed to unregister the service worker:', e);
+self.addEventListener('install', function () { self.skipWaiting(); });
+self.addEventListener('activate', function (event) {
+  event.waitUntil((async function () {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+      await self.registration.unregister();
+      if (keys.length > 0) {
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(function (c) { c.navigate(c.url); });
       }
-
-      try {
-        const clients = await self.clients.matchAll({
-          type: 'window',
-        });
-        // Reload clients to ensure they are not using the old service worker.
-        clients.forEach((client) => {
-          if (client.url && 'navigate' in client) {
-            client.navigate(client.url);
-          }
-        });
-      } catch (e) {
-        console.warn('Failed to navigate some service worker clients:', e);
-      }
-    })()
-  );
+    } catch (e) {}
+  })());
 });
+self.addEventListener('fetch', function () {});

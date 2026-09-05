@@ -17,6 +17,7 @@ class ThreeDMap extends StatefulWidget {
   final GeoPoint start;
   final GeoPoint end;
   final List<GeoPoint> waypoints;
+  final List<RefuelStop> fuelStops;
   final bool useSatellite;
   final String vehicleType;
   final GeoPoint? animatedVehiclePosition;
@@ -35,6 +36,7 @@ class ThreeDMap extends StatefulWidget {
     required this.start,
     required this.end,
     required this.waypoints,
+    this.fuelStops = const [],
     required this.useSatellite,
     required this.vehicleType,
     this.animatedVehiclePosition,
@@ -59,11 +61,16 @@ class _ThreeDMapState extends State<ThreeDMap> {
   bool _routeDrawn = false;
   bool _styleImageAdded = false;
 
+  final List<Circle> _fuelCircles = [];
+
   LatLng _ll(GeoPoint p) => LatLng(p.lat, p.lng);
 
   @override
   void didUpdateWidget(covariant ThreeDMap old) {
     super.didUpdateWidget(old);
+    if (widget.fuelStops != old.fuelStops && _controller != null) {
+      _syncFuelStops();
+    }
     final pos = widget.animatedVehiclePosition;
     if (pos != null && _validPoint(pos)) {
       final zoom = widget.customZoom ?? 15.5;
@@ -175,6 +182,13 @@ class _ThreeDMapState extends State<ThreeDMap> {
       if (_validPoint(wp)) await _addMarker(wp, '#2E75B6');
     }
 
+    // Dedicated Fuel Station Markers (always rendered and visible on map)
+    for (final fs in widget.fuelStops) {
+      if (_validLL(fs.lat, fs.lng)) {
+        await _addFuelMarker(fs);
+      }
+    }
+
     // Frame the whole route.
     if (route.length >= 2) {
       final minLat = route.map((p) => p.lat).reduce((a, b) => a < b ? a : b);
@@ -198,6 +212,36 @@ class _ThreeDMapState extends State<ThreeDMap> {
       circleStrokeColor: '#FFFFFF',
       circleStrokeWidth: 2.0,
     ));
+  }
+
+  Future<void> _addFuelMarker(RefuelStop fs) async {
+    final c = _controller;
+    if (c == null) return;
+    debugPrint('[FUEL] Marker rendered: ${fs.name} (${fs.lat}, ${fs.lng})');
+    final circle = await c.addCircle(CircleOptions(
+      geometry: LatLng(fs.lat, fs.lng),
+      circleRadius: 10.0,
+      circleColor: '#F59E0B',
+      circleStrokeColor: '#FFFFFF',
+      circleStrokeWidth: 3.0,
+    ));
+    _fuelCircles.add(circle);
+  }
+
+  Future<void> _syncFuelStops() async {
+    final c = _controller;
+    if (c == null) return;
+    for (final circle in _fuelCircles) {
+      try {
+        await c.removeCircle(circle);
+      } catch (_) {}
+    }
+    _fuelCircles.clear();
+    for (final fs in widget.fuelStops) {
+      if (_validLL(fs.lat, fs.lng)) {
+        await _addFuelMarker(fs);
+      }
+    }
   }
 
   Future<void> _updateVehicle(GeoPoint pos) async {

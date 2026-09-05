@@ -118,9 +118,9 @@ async function groundItinerary(days, startLocation = "", destination = "") {
       }
     }
 
-    // For each travel block, route between the nearest located place before and after it.
+    // For each travel or return block, route between the nearest located place before and after it.
     for (let i = 0; i < blocks.length; i += 1) {
-      if (blocks[i].type !== "travel") continue;
+      if (blocks[i].type !== "travel" && blocks[i].type !== "return") continue;
       // Only road-route drivable legs. A flight/train/bus/ferry leg must keep
       // the AI's air/rail distance & time — driving-routing it (or failing to)
       // would produce absurd values (e.g. a 5000 km "drive" to another country).
@@ -137,6 +137,10 @@ async function groundItinerary(days, startLocation = "", destination = "") {
       for (let j = i + 1; j < blocks.length; j += 1) {
         if (blocks[j]._coord) { to = blocks[j]._coord; break; }
       }
+      // On return legs, destination is the starting origin
+      if (!to && blocks[i].type === "return") {
+        to = await coordFor(startLocation, { allowFar: true });
+      }
       if (from && to) {
         const aiKm = Number(blocks[i].distanceKm) || 0;
         const r = await route(from, to);
@@ -148,14 +152,23 @@ async function groundItinerary(days, startLocation = "", destination = "") {
           blocks[i].distanceKm = r.km;
           blocks[i].travelMin = r.min;
           blocks[i].grounded = true;
+          blocks[i].lat = to.lat;
+          blocks[i].lng = to.lng;
         }
       }
     }
 
-    // Strip the internal coord field before sending to the client.
-    for (const b of blocks) delete b._coord;
+    // Transfer coordinates to public lat/lng fields before stripping _coord.
+    for (const b of blocks) {
+      if (b._coord) {
+        b.lat = b._coord.lat;
+        b.lng = b._coord.lng;
+        delete b._coord;
+      }
+    }
   }
   return days;
 }
 
-module.exports = { groundItinerary, geocode, geocodeCountry, route };
+module.exports = { groundItinerary, geocode, geocodeCountry, route, haversineKm };
+

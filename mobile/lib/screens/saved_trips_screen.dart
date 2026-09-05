@@ -77,12 +77,28 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
       }
     } catch (_) {}
 
+    // Strict tombstone filtering: never resurrect or display deleted trips
+    final deletedIds = await TripHistoryService.instance.getDeletedIds();
+    final activeLocalPlans = localPlans.where((p) {
+      final key = (p['key'] ?? '').toString();
+      final name = (p['name'] ?? '').toString().trim().toLowerCase();
+      return !deletedIds.contains(key) && !deletedIds.contains(name);
+    }).toList();
+
+    final activeCloudTrips = cloudTrips.where((ct) {
+      final id = (ct['id'] ?? '').toString();
+      final name = (ct['name'] ?? '').toString().trim().toLowerCase();
+      final status = (ct['status'] ?? '').toString();
+      final isDeleted = status == 'DELETED' || ct['deleted_at'] != null;
+      return !isDeleted && !deletedIds.contains(id) && !deletedIds.contains(name);
+    }).toList();
+
     if (!mounted) return;
     setState(() {
-      _localPlans = localPlans;
-      _trips = cloudTrips;
+      _localPlans = activeLocalPlans;
+      _trips = activeCloudTrips;
       // Only surface an error if we have nothing at all to show.
-      _error = (localPlans.isEmpty && cloudTrips.isEmpty && err != null) ? err : null;
+      _error = (activeLocalPlans.isEmpty && activeCloudTrips.isEmpty && err != null) ? err : null;
       _loading = false;
     });
   }
@@ -98,7 +114,10 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
   }
 
   Future<void> _deleteLocalPlan(Map<String, dynamic> p) async {
-    await TripExtrasStore.removeFromIndex((p['key'] ?? '').toString());
+    final key = (p['key'] ?? '').toString();
+    final name = (p['name'] ?? '').toString();
+    await TripHistoryService.instance.deleteTrip(key, title: name, tripKey: key);
+    await TripExtrasStore.removeFromIndex(key);
     _loadTrips();
   }
 
@@ -588,17 +607,26 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     setState(() => _trips.removeWhere((t) => (t['id'] ?? '').toString() == id));
 
     try {
+      final name = (trip['name'] ?? '').toString();
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null && id.isNotEmpty) {
+        _api.deleteTrip(id, session.accessToken);
+      }
       // Remove the specific cloud row by id (covers real cloud trips)…
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && id.isNotEmpty) {
         try {
+          await Supabase.instance.client
+              .from('trips')
+              .update({'status': 'DELETED', 'deleted_at': DateTime.now().toIso8601String()})
+              .eq('id', id);
           await Supabase.instance.client.from('trips').delete().eq('id', id);
         } catch (e) {
           debugPrint('Cloud delete note: $e');
         }
       }
-      // …and from the local trip-history cache (no re-push side effect).
-      await TripHistoryService.instance.deleteTrip(id);
+      // …and from the local trip-history cache and tombstone set.
+      await TripHistoryService.instance.deleteTrip(id, title: name);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

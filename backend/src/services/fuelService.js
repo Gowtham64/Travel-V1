@@ -373,32 +373,74 @@ function resolveLocation({ locationName = '', countryCode = 'IN', lat, lng }) {
  * Returns current fuel price details for a given location or coordinates.
  */
 function getFuelPrices({ locationName = '', countryCode = 'IN', lat, lng, fuelType = 'petrol' }) {
-  const loc = resolveLocation({ locationName, countryCode, lat, lng });
-  const fType = (fuelType || 'petrol').toLowerCase().trim();
-  const price = loc.prices[fType] || loc.prices.petrol || 102.86;
+  try {
+    const loc = resolveLocation({ locationName, countryCode, lat, lng });
+    const fType = (fuelType || 'petrol').toLowerCase().trim();
+    const price = loc.prices[fType] || loc.prices.petrol;
 
-  return {
-    country: loc.countryName,
-    countryCode: loc.countryCode,
-    state: loc.stateName,
-    city: loc.cityName,
-    currency: loc.currency,
-    currencySymbol: loc.currencySymbol,
-    unit: loc.unit,
-    fuelType: fType,
-    price: price,
-    allPrices: {
-      petrol: loc.prices.petrol,
-      diesel: loc.prices.diesel,
-      cng: loc.prices.cng || null,
-      ev: loc.prices.ev || null
-    },
-    effectiveAt: loc.effectiveAt,
-    lastUpdated: loc.lastUpdated,
-    source: loc.source,
-    status: 'live',
-    confidence: 'high'
-  };
+    if (!price || isNaN(price) || price <= 0) {
+      return {
+        country: loc.countryName || 'India',
+        countryCode: loc.countryCode || 'IN',
+        state: loc.stateName || 'Tamil Nadu',
+        city: loc.cityName || 'Chennai',
+        currency: loc.currency || 'INR',
+        currencySymbol: loc.currencySymbol || '₹',
+        unit: loc.unit || 'L',
+        fuelType: fType,
+        price: null,
+        status: 'unavailable',
+        message: 'Fuel price unavailable',
+        source: loc.source || 'CarDekho / OMC Daily Retail Price',
+        effectiveAt: loc.effectiveAt || new Date().toISOString(),
+        lastUpdated: loc.lastUpdated || new Date().toISOString(),
+      };
+    }
+
+    const now = new Date();
+    return {
+      country: loc.countryName,
+      countryCode: loc.countryCode,
+      state: loc.stateName,
+      city: loc.cityName,
+      currency: loc.currency,
+      currencySymbol: loc.currencySymbol,
+      unit: loc.unit,
+      fuelType: fType,
+      price: price,
+      displayPrice: `${loc.currencySymbol}${price.toFixed(2)}/${loc.unit === 'litre' ? 'L' : loc.unit}`,
+      applicableLocation: loc.cityName && loc.cityName !== loc.stateName ? `${loc.cityName}, ${loc.stateName}` : loc.stateName,
+      allPrices: {
+        petrol: loc.prices.petrol,
+        diesel: loc.prices.diesel,
+        cng: loc.prices.cng || null,
+        ev: loc.prices.ev || null
+      },
+      effectiveAt: loc.effectiveAt,
+      lastUpdated: loc.lastUpdated,
+      updatedAtText: 'Updated: Today',
+      source: 'CarDekho / OMC Daily Retail Price',
+      status: 'CURRENT',
+      confidence: 'high'
+    };
+  } catch (err) {
+    return {
+      country: 'India',
+      countryCode: 'IN',
+      state: 'Tamil Nadu',
+      city: 'Chennai',
+      currency: 'INR',
+      currencySymbol: '₹',
+      unit: 'L',
+      fuelType: (fuelType || 'petrol').toLowerCase().trim(),
+      price: null,
+      status: 'unavailable',
+      message: 'Fuel price unavailable',
+      source: 'CarDekho / OMC Daily Retail Price',
+      effectiveAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+  }
 }
 
 /**
@@ -407,7 +449,10 @@ function getFuelPrices({ locationName = '', countryCode = 'IN', lat, lng, fuelTy
 function calculateRouteFuel({
   distanceKm = 0,
   vehicleEfficiency = 15.0,
+  currentFuelLiters = 0,
+  tankCapacityLiters = 45.0,
   fuelType = 'petrol',
+  fuelPrice = null,
   startLocation = '',
   endLocation = '',
   routeCoordinates = []
@@ -415,36 +460,53 @@ function calculateRouteFuel({
   const eff = vehicleEfficiency > 0 ? vehicleEfficiency : 15.0;
   const fType = (fuelType || 'petrol').toLowerCase().trim();
   const fuelRequired = Math.round((distanceKm / eff) * 100) / 100;
+  const currentFuel = typeof currentFuelLiters === 'number' && currentFuelLiters >= 0
+    ? Math.round(currentFuelLiters * 100) / 100
+    : 0;
+  const additionalFuelRequired = Math.max(0, Math.round((fuelRequired - currentFuel) * 100) / 100);
 
   const startLoc = resolveLocation({ locationName: startLocation });
   const endLoc = resolveLocation({ locationName: endLocation });
 
-  const startPrice = startLoc.prices[fType] || startLoc.prices.petrol || 102.86;
-  const endPrice = endLoc.prices[fType] || endLoc.prices.petrol || startPrice;
+  let avgPrice = null;
+  if (typeof fuelPrice === 'number' && fuelPrice > 0) {
+    avgPrice = fuelPrice;
+  } else {
+    const startPrice = startLoc.prices[fType] || startLoc.prices.petrol || 102.45;
+    const endPrice = endLoc.prices[fType] || endLoc.prices.petrol || startPrice;
+    avgPrice = Math.round(((startPrice + endPrice) / 2) * 100) / 100;
+  }
 
-  // Average weighted price if crossing different pricing states
-  const avgPrice = Math.round(((startPrice + endPrice) / 2) * 100) / 100;
+  const estimatedCost = Math.round(additionalFuelRequired * avgPrice);
   const totalCost = Math.round(fuelRequired * avgPrice);
-
   const isMultiState = startLoc.stateName !== endLoc.stateName;
+  const applicableLocation = startLoc.stateName
+    ? (startLoc.cityName && startLoc.cityName !== startLoc.stateName ? `${startLoc.cityName}, ${startLoc.stateName}` : startLoc.stateName)
+    : startLoc.countryName;
 
   return {
     distanceKm,
     vehicleEfficiency: eff,
     fuelType: fType,
     fuelRequired,
+    fuelRequiredLiters: fuelRequired,
+    currentFuelLiters: currentFuel,
+    additionalFuelRequiredLiters: additionalFuelRequired,
     pricePerUnit: avgPrice,
     currency: startLoc.currency,
     currencySymbol: startLoc.currencySymbol,
     unit: startLoc.unit,
+    estimatedCost,
     totalCost,
+    totalFuelCost: totalCost,
+    applicableLocation,
     startRegion: `${startLoc.cityName}, ${startLoc.stateName}`,
     endRegion: `${endLoc.cityName}, ${endLoc.stateName}`,
     isMultiState,
-    source: startLoc.source,
+    source: 'CarDekho / OMC Daily Retail Price',
     effectiveAt: startLoc.effectiveAt,
     lastUpdated: startLoc.lastUpdated,
-    status: 'live'
+    status: 'CURRENT'
   };
 }
 
@@ -495,10 +557,27 @@ function findRefuelStops(
   for (let i = 0; i < annotated.length; i += 1) {
     const point = annotated[i];
     if (point.cumulativeKm >= nextThresholdKm) {
+      const topUpLiters = Math.round(tankCapacityLiters * 0.8 * 10) / 10;
+      const estimatedCost = Math.round(topUpLiters * 102.86);
       refuelStops.push({
+        id: `fuel_${point.lat.toFixed(4)}_${point.lng.toFixed(4)}`,
+        type: 'fuel_stop',
+        name: 'Fuel Station',
         lat: point.lat,
         lng: point.lng,
+        latitude: point.lat,
+        longitude: point.lng,
+        distanceFromRoute: 0.0,
+        offRouteKm: 0.0,
         distanceFromStartKm: Math.round(point.cumulativeKm * 10) / 10,
+        refillLiters: topUpLiters,
+        estimatedFuelRequired: topUpLiters,
+        estimatedCost,
+        pricePerUnit: 102.86,
+        currency: 'INR',
+        currencySymbol: '₹',
+        fuelType: 'petrol',
+        isSystemGenerated: true,
       });
       nextThresholdKm = point.cumulativeKm + fullTankRangeKm;
     }

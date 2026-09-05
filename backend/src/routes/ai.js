@@ -127,11 +127,19 @@ router.post("/travel-options", async (req, res) => {
 
 // Structured, day-by-day itinerary builder.
 router.post("/itinerary", async (req, res) => {
-  const { start, end, days, waypoints, travellers, purpose, startDate, startTime, weather } = req.body || {};
+  const { start, end, days, waypoints, travellers, purpose, startDate, startTime, startDateTime, timezone, weather } = req.body || {};
   if (!start || !end) {
     return res.status(400).json({ error: "start and end are required" });
   }
   try {
+    let resolvedDate = startDate ? String(startDate) : "";
+    let resolvedTime = startTime ? String(startTime) : "";
+    if (startDateTime && (!resolvedDate || !resolvedTime)) {
+      const dtParts = String(startDateTime).trim().split(/[T ]/);
+      if (dtParts.length >= 1 && !resolvedDate) resolvedDate = dtParts[0];
+      if (dtParts.length >= 2 && !resolvedTime) resolvedTime = dtParts[1];
+    }
+
     const itinerary = await buildItinerary({
       start: toPlaceString(start),
       end: toPlaceString(end),
@@ -139,8 +147,9 @@ router.post("/itinerary", async (req, res) => {
       waypoints: (Array.isArray(waypoints) ? waypoints : []).map(toPlaceString).filter(Boolean),
       travellers: Number(travellers) || 1,
       purpose: purpose ? String(purpose) : "",
-      startDate: startDate ? String(startDate) : "",
-      startTime: startTime ? String(startTime) : "",
+      startDate: resolvedDate,
+      startTime: resolvedTime,
+      timezone: timezone ? String(timezone) : "",
       weather: weather ? String(weather) : "",
     });
     res.json({ days: itinerary });
@@ -149,92 +158,89 @@ router.post("/itinerary", async (req, res) => {
   }
 });
 
+const itineraryEngine = require("../services/itineraryEngine");
+
 // Smart, time-blocked itinerary with automatic breaks + per-block reasons.
 router.post("/smart-itinerary", async (req, res) => {
   const b = req.body || {};
-  if (!b.destination) {
-    return res.status(400).json({ error: "destination is required" });
+  if (!b.destination && !b.startLocation) {
+    return res.status(400).json({ error: "destination or startLocation is required" });
   }
   try {
-    const startLocation = b.startLocation ? String(b.startLocation) : "";
-    const days = await smartItinerary({
-      destination: String(b.destination),
+    const startLocation = b.startLocation ? String(b.startLocation) : (b.destination ? String(b.destination) : "");
+    const destination = b.destination ? String(b.destination) : startLocation;
+    let resolvedDate = b.startDate ? String(b.startDate) : "";
+    let resolvedTime = b.startTime ? String(b.startTime) : "";
+    if (b.startDateTime && (!resolvedDate || !resolvedTime)) {
+      const dtParts = String(b.startDateTime).trim().split(/[T ]/);
+      if (dtParts.length >= 1 && !resolvedDate) resolvedDate = dtParts[0];
+      if (dtParts.length >= 2 && !resolvedTime) resolvedTime = dtParts[1];
+    }
+    if (!resolvedTime) resolvedTime = "08:00";
+
+    const tripType = "around"; // Smart AI Planner supports AROUND TRIP only
+    const searchRadiusKm = Number(b.searchRadiusKm) > 0 ? Number(b.searchRadiusKm) : 25;
+    const durationDays = Math.max(1, Math.min(Number(b.durationDays) || 1, 14));
+    const vehicleType = String(b.vehicleType || "car").toLowerCase();
+    const fuelEfficiency = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : (vehicleType === "bike" ? 35 : 15);
+    const tankCapacity = Number(b.tankCapacity) > 0 ? Number(b.tankCapacity) : (vehicleType === "bike" ? 13 : 45);
+    const currentFuel = Number(b.currentFuel) > 0 ? Number(b.currentFuel) : tankCapacity * 0.7;
+
+    // Execute the deterministic Itinerary Planning Engine
+    const planResult = await itineraryEngine.planItinerary({
       startLocation,
-      places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
-      startDate: b.startDate ? String(b.startDate) : "",
-      startTime: b.startTime ? String(b.startTime) : "08:00",
-      endDate: b.endDate ? String(b.endDate) : "",
-      endTime: b.endTime ? String(b.endTime) : "",
-      durationDays: Math.max(1, Math.min(Number(b.durationDays) || 1, 14)),
+      destination,
+      tripType: "around",
+      startDate: resolvedDate,
+      startTime: resolvedTime,
+      startDateTime: b.startDateTime ? String(b.startDateTime) : "",
+      timezone: b.timezone ? String(b.timezone) : "Asia/Kolkata",
+      durationDays,
       mode: ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced",
-      preferences: b.preferences ? String(b.preferences) : "",
-      directive: b.directive ? String(b.directive) : "",
+      places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
       selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories.map(String) : [],
       categoryPriorities: b.categoryPriorities && typeof b.categoryPriorities === "object" ? b.categoryPriorities : {},
-      customPreferences: b.customPreferences ? String(b.customPreferences) : "",
+      preferences: [b.preferences, b.customPreferences].filter(Boolean).join(". "),
+      vehicle: {
+        type: vehicleType,
+        efficiencyKmPerLiter: fuelEfficiency,
+        tankCapacityLiters: tankCapacity,
+        currentFuelLiters: currentFuel,
+      },
+      travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+      searchRadiusKm,
     });
-    // Replace AI-estimated travel legs with real geocoded + routed distance/time
-    // (best-effort; keeps AI numbers for any leg that can't be resolved).
-    try {
-      await groundItinerary(days, startLocation, String(b.destination));
-    } catch (err) {
-      console.error("Itinerary distance grounding skipped:", err.message);
-    }
+
+    const days = planResult.days;
 
     // Full trip budget: fuel + tolls + transport tickets + local transport + food + stay.
     let budget = null;
     try {
-      // Pass 1: tally the legs. Don't yet decide whether ground legs are self-drive
-      // (domestic) or taxis (abroad) — that needs the international flag below.
-      let groundKm = 0; // drive/walk legs (self-drive at home, taxis abroad)
-      const transportLegs = []; // flight/train/bus/ferry legs, ticket-priced
-      let hasLongFlight = false;
-      for (const day of days) {
-        for (const blk of day.blocks || []) {
-          if (blk.type !== "travel" && blk.type !== "return") continue;
-          const mode = String(blk.travelMode || "drive").toLowerCase();
-          const km = Number(blk.distanceKm) || 0;
-          if (mode === "flight" || mode === "train" || mode === "bus" || mode === "ferry") {
-            transportLegs.push({ mode, distanceKm: km });
-            if (mode === "flight" && km > 2500) hasLongFlight = true;
-          } else if (mode === "drive" || mode === "walk") {
-            groundKm += km;
-          }
-        }
-      }
-
-      // Is the destination outside India? Prefer geocoding it and testing India's
-      // bounding box; fall back to "has a long-haul flight" when geocoding fails.
-      let international = hasLongFlight;
+      let groundKm = planResult.totalDistanceKm || 0;
+      const transportLegs = [];
+      let international = false;
       try {
-        const destPt = await geocode(String(b.destination), "");
+        const destPt = await geocode(destination, "");
         if (destPt) international = !isInIndia(destPt);
-      } catch (_) {/* keep the flight-distance fallback */}
+      } catch (_) {}
 
-      // Abroad, ground legs are taxis (local transport); at home they're self-drive
-      // fuel (and tolls) in the traveller's own vehicle.
       const driveKm = international ? 0 : groundKm;
       const localKm = international ? groundKm : 0;
-
-      const durationDays = Math.max(1, Math.min(Number(b.durationDays) || days.length || 1, 14));
-      const eff = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : 15;
-      // Live daily prices (fuel, tickets, toll, food/stay/taxi, FX).
       const rates = priceService.getRates();
-      // Rough toll estimate from the live ₹/km of self-driving — none when abroad.
       const tollGuess = Math.round(driveKm * rates.tollPerKm);
+
       budget = estimateBudget({
         driveKm: Math.round(driveKm),
         localTransportKm: Math.round(localKm),
         transportLegs,
         ticketRates: rates.ticketRates,
         estimatedDays: durationDays,
-        vehicle: { efficiencyKmPerLiter: eff },
+        vehicle: { efficiencyKmPerLiter: fuelEfficiency },
         toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
         options: {
           international,
           travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
           fuelPricePerLiter: Number(b.fuelPrice) > 0 ? Number(b.fuelPrice) : rates.fuel.petrolPerLiter,
-          // Food / stay / local taxi at the live domestic or international rate.
           foodPerDay: international ? rates.intl.foodPerDay : rates.foodPerDay,
           stayPerNight: international ? rates.intl.stayPerNight : rates.stayPerNight,
           localTaxiPerKm: international ? rates.intl.localTaxiPerKm : rates.localTaxiPerKm,
@@ -244,11 +250,96 @@ router.post("/smart-itinerary", async (req, res) => {
       console.error("Itinerary budget estimate skipped:", err.message);
     }
 
-    res.json({ days, budget });
+    res.json({
+      days,
+      budget,
+      tripType: "around",
+      startPoint: planResult.startPoint,
+      endPoint: planResult.endPoint,
+      destinationPoint: planResult.destinationPoint,
+      searchRadiusKm: planResult.searchRadiusKm,
+      placesFoundCount: planResult.placesFoundCount,
+      canExpandSearch: planResult.canExpandSearch,
+      nextSearchRadiusKm: planResult.nextSearchRadiusKm,
+      totalDistanceKm: planResult.totalDistanceKm,
+      totalDurationMin: planResult.totalDurationMin,
+      status: "DRAFT",
+    });
   } catch (err) {
     handleError(res, err);
   }
 });
+
+// Recalculate itinerary on user edits (add/remove stop, reorder, adjust duration, change start time)
+router.post("/recalculate-itinerary", async (req, res) => {
+  const b = req.body || {};
+  const days = Array.isArray(b.days) ? b.days : [];
+  if (days.length === 0) {
+    return res.status(400).json({ error: "days array is required" });
+  }
+
+  try {
+    let startMin = b.startTime ? itineraryEngine.parseMinutes(b.startTime) : itineraryEngine.parseMinutes(days[0].blocks?.[0]?.start || "08:00");
+    let totalKm = 0;
+
+    for (let d = 0; d < days.length; d++) {
+      const day = days[d];
+      let cur = d === 0 ? startMin : 510; // 08:30 AM on Day 2+
+      const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+
+      for (let i = 0; i < blocks.length; i++) {
+        const blk = blocks[i];
+        blk.day = d + 1;
+        blk.sequence = i;
+
+        if (blk.type === "travel" || blk.type === "return") {
+          const travelDur = Math.max(1, Number(blk.travelMin) || Math.round((Number(blk.distanceKm) || 15) / 50 * 60));
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur + travelDur);
+          cur += travelDur;
+          totalKm += Number(blk.distanceKm) || 0;
+        } else if (blk.type === "start") {
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur);
+        } else {
+          const dur = Math.max(5, Number(blk.durationMin) || 30);
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur + dur);
+          cur += dur;
+        }
+      }
+    }
+
+    const rates = priceService.getRates();
+    const eff = Number(b.fuelEfficiency) || 15;
+    const tollGuess = Math.round(totalKm * rates.tollPerKm);
+    const budget = estimateBudget({
+      driveKm: Math.round(totalKm),
+      localTransportKm: 0,
+      transportLegs: [],
+      ticketRates: rates.ticketRates,
+      estimatedDays: days.length,
+      vehicle: { efficiencyKmPerLiter: eff },
+      toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+      options: {
+        travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+        fuelPricePerLiter: rates.fuel.petrolPerLiter,
+        foodPerDay: rates.foodPerDay,
+        stayPerNight: rates.stayPerNight,
+      },
+    });
+
+    res.json({
+      days,
+      totalDistanceKm: Math.round(totalKm * 10) / 10,
+      budget,
+      status: b.isConfirmed ? "CONFIRMED" : "DRAFT",
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+});
+
 
 // Trip assistant / itinerary writer (free-form text answer).
 router.post("/ask", async (req, res) => {

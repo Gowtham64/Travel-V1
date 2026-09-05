@@ -5,9 +5,12 @@ import UserNotifications
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let tripNotifId = "trip_progress"
+  private var notificationChannel: FlutterMethodChannel?
+  private var pendingNotificationArgs: [String: Any]?
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    UNUserNotificationCenter.current().delegate = self
     // Register our channels here — in the new Flutter iOS engine the
     // FlutterViewController isn't the window's rootViewController at
     // didFinishLaunching, so registering there silently no-ops. The plugin
@@ -19,16 +22,67 @@ import UserNotifications
   }
 
   private func setupChannels(_ messenger: FlutterBinaryMessenger) {
-    FlutterMethodChannel(name: "com.travelapp.notification", binaryMessenger: messenger)
-      .setMethodCallHandler { [weak self] call, result in
-        self?.handleNotification(call)
-        result(nil)
-      }
+    let notifChannel = FlutterMethodChannel(name: "com.travelapp.notification", binaryMessenger: messenger)
+    self.notificationChannel = notifChannel
+    if let pending = pendingNotificationArgs {
+      notifChannel.invokeMethod("onNotificationTapped", arguments: pending)
+      pendingNotificationArgs = nil
+    }
+    notifChannel.setMethodCallHandler { [weak self] call, result in
+      self?.handleNotification(call)
+      result(nil)
+    }
     FlutterMethodChannel(name: "com.travelapp.liveactivity", binaryMessenger: messenger)
       .setMethodCallHandler { call, result in
         Self.handleLiveActivity(call)
         result(nil)
       }
+    let carChannel = FlutterMethodChannel(name: "com.example.travel_app.car", binaryMessenger: messenger)
+    CarPlayNavigationManager.shared.carMethodChannel = carChannel
+    carChannel.setMethodCallHandler { call, result in
+      Self.handleCarPlatformChannel(call, result: result)
+    }
+  }
+
+  // MARK: - CarPlay Turn-by-Turn Platform Channel
+
+  private static func handleCarPlatformChannel(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
+    NSLog("VOYPLAN CarPlay channel: \(call.method)")
+    let args = call.arguments as? [String: Any] ?? [:]
+    switch call.method {
+    case "setRoute":
+      let start = args["start"] as? [String: Any] ?? [:]
+      let end = args["end"] as? [String: Any] ?? [:]
+      let waypoints = args["waypoints"] as? [[String: Any]] ?? []
+      let coordinates = args["coordinates"] as? [[String: Any]] ?? []
+      let fuelStops = args["fuelStops"] as? [[String: Any]]
+      let destinationName = end["name"] as? String
+      CarPlayNavigationManager.shared.setRoute(
+        start: start,
+        end: end,
+        waypoints: waypoints,
+        coordinates: coordinates,
+        fuelStops: fuelStops,
+        destinationName: destinationName
+      )
+      result(nil)
+    case "updateNavigation":
+      CarPlayNavigationManager.shared.updateNavigation(args: args)
+      result(nil)
+    case "setNavigationState":
+      let isNavigating = args["isNavigating"] as? Bool ?? false
+      CarPlayNavigationManager.shared.setNavigationState(isNavigating: isNavigating)
+      result(nil)
+    case "stopNavigation":
+      CarPlayNavigationManager.shared.stopNavigation(fromCar: false)
+      result(nil)
+    case "speakNavigation":
+      let phrase = (args["phrase"] as? String) ?? (call.arguments as? String) ?? ""
+      CarPlayVoiceGuidance.shared.speak(phrase)
+      result(nil)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
   }
 
   // MARK: - iOS Live Activity (Dynamic Island + lock screen)
@@ -122,6 +176,7 @@ import UserNotifications
     content.title = title
     content.body = body
     content.sound = UNNotificationSound.default
+    content.userInfo = args
     if #available(iOS 15.0, *) {
       content.interruptionLevel = .timeSensitive
     }
@@ -147,15 +202,36 @@ import UserNotifications
     let content = UNMutableNotificationContent()
     content.title = arriving ? "Arriving now"
       : (eta.isEmpty ? "Trip in progress" : "Arriving in \(eta)")
-    content.body = arriving
-      ? "You have reached \(destination)"
-      : String(format: "%.1f km left · %d%% · %@", distance, progress, destination)
+    content.body = "To \(destination) · \(String(format: "%.1f", distance)) km remaining"
     content.sound = nil
-    if #available(iOS 15.0, *) { content.interruptionLevel = .passive }
 
     // Same identifier → each update replaces the previous banner in place.
     let request = UNNotificationRequest(identifier: tripNotifId, content: content, trigger: nil)
     UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+  }
+
+  // Handle notification tap to bring user directly into Trip Confirmation popup
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    let userInfo = response.notification.request.content.userInfo
+    let tripId = (userInfo["tripId"] as? String) ?? (userInfo["id"] as? String) ?? ""
+    if !tripId.isEmpty {
+      let args: [String: Any] = [
+        "tripId": tripId,
+        "action": userInfo["actionType"] as? String ?? "trip_start",
+        "destination": userInfo["destination"] as? String ?? "",
+        "departureTime": userInfo["departureTime"] as? String ?? ""
+      ]
+      if let channel = notificationChannel {
+        channel.invokeMethod("onNotificationTapped", arguments: args)
+      } else {
+        pendingNotificationArgs = args
+      }
+    }
+    completionHandler()
   }
 
   // Show the banner even while the app is foregrounded.

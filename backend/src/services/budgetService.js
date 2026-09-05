@@ -66,14 +66,13 @@ function estimateBudget({
   estimatedDays,
   vehicle,
   toll,
+  startLocation = '',
   transportLegs = [],
   localTransportKm = 0,
   ticketRates = TICKET_RATES,
   options = {},
 }) {
   const international = !!options.international;
-  // International rates apply as the baseline abroad, but any explicit override
-  // in `options` still wins.
   const base = { ...DEFAULTS, ...(international ? INTL_DEFAULTS : {}) };
   const cfg = { ...base, ...options };
   const days = Math.max(1, estimatedDays || 1);
@@ -82,29 +81,33 @@ function estimateBudget({
 
   const selfDriveKm = Number(driveKm != null ? driveKm : distanceKm) || 0;
 
-  // Fuel: prefer a fuel cost already computed upstream, otherwise derive dynamically.
+  // Fuel: derive from route distance and current fuel price
   const eff = vehicle && vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15;
   const fType = (vehicle && vehicle.fuelType) || 'petrol';
-  const liters = selfDriveKm / eff;
+  const fuelRequired = selfDriveKm / eff;
+  const currentFuel = vehicle && typeof vehicle.currentFuelLiters === 'number' && vehicle.currentFuelLiters >= 0
+    ? vehicle.currentFuelLiters
+    : 0;
+  const additionalFuelRequired = Math.max(0, fuelRequired - currentFuel);
   
   let fuelRate = cfg.fuelPricePerLiter;
   try {
-    const prices = fuelService.getFuelPrices({ locationName: start || '', fuelType: fType });
-    fuelRate = prices.price || fuelRate;
+    const prices = fuelService.getFuelPrices({ locationName: startLocation || '', fuelType: fType });
+    if (prices.price && prices.price > 0) {
+      fuelRate = prices.price;
+    }
   } catch (_) {}
 
-  const fuelCost =
-    toll && typeof toll.fuelCost === "number" && toll.fuelCost > 0
-      ? toll.fuelCost
-      : Math.round(liters * fuelRate);
+  // Estimated fuel expense is based on additional fuel required (or total required if current is 0)
+  const fuelCost = Math.round((additionalFuelRequired > 0 ? additionalFuelRequired : fuelRequired) * fuelRate);
 
-  // Tolls: use the FASTag figure when available, else the min estimate.
+  // Tolls: exact fastag cost from authoritative route toll calculation
   let tollCost = 0;
   if (toll && toll.hasTolls) {
-    tollCost = toll.fastagTollCost ?? toll.minTollCost ?? 0;
+    tollCost = toll.fastagTollCost ?? toll.totalAmount ?? toll.minTollCost ?? 0;
   }
 
-  // Transport tickets: flight/train/bus/ferry legs, priced per person per leg.
+  // Transport tickets: flight/train/bus/ferry legs
   let transportCost = 0;
   for (const leg of Array.isArray(transportLegs) ? transportLegs : []) {
     transportCost += ticketCost(leg.mode, leg.distanceKm, ticketRates) * travellers;
@@ -113,16 +116,25 @@ function estimateBudget({
   // Local getting-around at the destination (taxis/ride-hail), per group.
   const localTransportCost = (Number(localTransportKm) || 0) * cfg.localTaxiPerKm;
 
-  const foodCost = cfg.foodPerDay * days * travellers;
-  const stayCost = cfg.stayPerNight * nights;
+  // Food & Break breakdown (per day, per traveller)
+  const breakfastRate = international ? 500 : 250;
+  const lunchRate = international ? 1000 : 500;
+  const teaSnacksRate = international ? 400 : 200;
+  const dinnerRate = international ? 1000 : 500;
 
-  const subtotal =
-    fuelCost + tollCost + transportCost + localTransportCost + foodCost + stayCost;
-  const buffer = subtotal * cfg.bufferRatio;
-  const total = subtotal + buffer;
+  const breakfastCost = breakfastRate * days * travellers;
+  const lunchCost = lunchRate * days * travellers;
+  const teaSnacksCost = teaSnacksRate * days * travellers;
+  const dinnerCost = dinnerRate * days * travellers;
+  const foodCost = breakfastCost + lunchCost + teaSnacksCost + dinnerCost;
+
+  const stayCost = cfg.stayPerNight * nights;
+  const otherCost = (international ? 800 : 300) * days * travellers;
+
+  const total = fuelCost + tollCost + foodCost + otherCost + transportCost + localTransportCost + stayCost;
 
   return {
-    currency: "INR",
+    currency: international ? "USD" : "INR",
     days,
     nights,
     travellers,
@@ -130,22 +142,31 @@ function estimateBudget({
     breakdown: {
       fuel: round(fuelCost),
       tolls: round(tollCost),
+      breakfast: round(breakfastCost),
+      lunch: round(lunchCost),
+      teaSnacks: round(teaSnacksCost),
+      dinner: round(dinnerCost),
+      food: round(foodCost),
+      other: round(otherCost),
       transport: round(transportCost),
       localTransport: round(localTransportCost),
-      food: round(foodCost),
       stay: round(stayCost),
-      buffer: round(buffer),
+      buffer: round(otherCost),
     },
     total: round(total),
     perDay: round(total / days),
     perPerson: round(total / travellers),
     assumptions: {
       international,
-      fuelPricePerLiter: cfg.fuelPricePerLiter,
-      foodPerDayPerPerson: cfg.foodPerDay,
-      stayPerNight: cfg.stayPerNight,
-      localTaxiPerKm: cfg.localTaxiPerKm,
-      bufferRatio: cfg.bufferRatio,
+      fuelPricePerLiter: fuelRate,
+      fuelRequiredLiters: round(fuelRequired * 10) / 10,
+      currentFuelLiters: round(currentFuel * 10) / 10,
+      additionalFuelRequiredLiters: round(additionalFuelRequired * 10) / 10,
+      breakfastPerDay: breakfastRate,
+      lunchPerDay: lunchRate,
+      teaSnacksPerDay: teaSnacksRate,
+      dinnerPerDay: dinnerRate,
+      otherPerDay: international ? 800 : 300,
     },
   };
 }

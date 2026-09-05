@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
@@ -37,6 +36,9 @@ class LiveNavigationEngine extends ChangeNotifier {
   GeoPoint? _destination;
   List<GeoPoint> _remainingWaypoints = [];
   final List<GeoPoint> _visitedWaypoints = [];
+  List<RefuelStop> _fuelStops = [];
+  final Set<String> _announcedFuelStops = {};
+  final Set<String> _visitedFuelStops = {};
   Vehicle? _vehicle;
 
   ManeuverInstruction _currentManeuver = const ManeuverInstruction(
@@ -55,7 +57,7 @@ class LiveNavigationEngine extends ChangeNotifier {
   int _offRouteStreak = 0;
   static const int _kRequiredOffRouteFixes = 3;
   static const double _kOffRouteThresholdMeters = 45.0;
-  static const double _kStopArrivalRadiusMeters = 40.0;
+  static const double _kStopArrivalRadiusMeters = 75.0;
 
   // Getters
   bool get isNavigating => _isNavigating;
@@ -71,9 +73,11 @@ class LiveNavigationEngine extends ChangeNotifier {
   GpsHealthStatus get gpsStatus => _gpsStatus;
 
   TripPlan? get activePlan => _activePlan;
+  GeoPoint? get currentOrigin => _currentOrigin;
   GeoPoint? get destination => _destination;
   List<GeoPoint> get remainingWaypoints => List.unmodifiable(_remainingWaypoints);
   List<GeoPoint> get visitedWaypoints => List.unmodifiable(_visitedWaypoints);
+  List<RefuelStop> get fuelStops => List.unmodifiable(_fuelStops);
 
   ManeuverInstruction get currentManeuver => _currentManeuver;
   double get remainingDistanceKm => _remainingDistanceKm;
@@ -91,12 +95,12 @@ class LiveNavigationEngine extends ChangeNotifier {
         speedUnit: _speedUnit,
       );
 
-  /// Starts live navigation for a One-Way or Around-Trip route.
   Future<void> startNavigation({
     required TripPlan initialPlan,
     required GeoPoint start,
     required GeoPoint end,
     List<GeoPoint> waypoints = const [],
+    List<RefuelStop>? fuelStops,
     required Vehicle vehicle,
     String speedUnit = 'km/h',
   }) async {
@@ -106,7 +110,10 @@ class LiveNavigationEngine extends ChangeNotifier {
     _currentOrigin = start;
     _destination = end;
     _remainingWaypoints = List.from(waypoints);
+    _fuelStops = fuelStops != null ? List.from(fuelStops) : List.from(initialPlan.fuel.refuelStops);
     _visitedWaypoints.clear();
+    _announcedFuelStops.clear();
+    _visitedFuelStops.clear();
     _vehicle = vehicle;
     _speedUnit = speedUnit;
     _isNavigating = true;
@@ -119,10 +126,24 @@ class LiveNavigationEngine extends ChangeNotifier {
     _remainingDurationMin = initialPlan.durationMin;
     _progressPercent = 0.0;
 
-    _guidance.primeVoices();
-    _voice.reset();
-    _voice.speak('Starting navigation. Drive safely.', force: true);
+    if (_fuelStops.isNotEmpty) {
+      debugPrint('[FUEL] LiveNavigationEngine initialized with ${_fuelStops.length} fuel stop(s)');
+    }
 
+    CarPlatformChannel.initialize();
+    CarPlatformChannel.onCarStopNavigation = () {
+      debugPrint('[CAR] Navigation stop requested from car display');
+      stopNavigation();
+    };
+
+    CarPlatformChannel.setRoute(
+      start: start,
+      end: end,
+      waypoints: _remainingWaypoints,
+      routeCoordinates: initialPlan.coordinates,
+      fuelStops: _fuelStops,
+      destinationName: end.name,
+    );
     CarPlatformChannel.setNavigationState(isNavigating: true);
 
     // Platform-appropriate location settings
@@ -281,6 +302,11 @@ class LiveNavigationEngine extends ChangeNotifier {
     CarPlatformChannel.updateNavigation(
       maneuver: _currentManeuver,
       telemetry: telemetry,
+      currentLat: here.latitude,
+      currentLng: here.longitude,
+      bearingDeg: _vehicleRotation * 180.0 / pi,
+      roadName: _currentManeuver.roadName,
+      nextFuelStop: _fuelStops.isNotEmpty ? _fuelStops.first : null,
     );
 
     notifyListeners();
@@ -302,6 +328,18 @@ class LiveNavigationEngine extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Filter out any waypoint that was already visited or passed near the vehicle
+      final unvisitedWaypoints = <GeoPoint>[];
+      for (final wp in _remainingWaypoints) {
+        final distToWp = const Distance().as(LengthUnit.Meter, currentGps, wp.toLatLng());
+        if (distToWp <= _kStopArrivalRadiusMeters) {
+          _visitedWaypoints.add(wp);
+        } else {
+          unvisitedWaypoints.add(wp);
+        }
+      }
+      _remainingWaypoints = unvisitedWaypoints;
+
       final currentOrigin = GeoPoint(
         lat: currentGps.latitude,
         lng: currentGps.longitude,
@@ -321,6 +359,21 @@ class LiveNavigationEngine extends ChangeNotifier {
         _remainingDistanceKm = newPlan.distanceKm;
         _remainingDurationMin = newPlan.durationMin;
         _offRouteStreak = 0;
+        if (newPlan.fuel.refuelStops.isNotEmpty) {
+          _fuelStops = List.from(newPlan.fuel.refuelStops);
+          debugPrint('[FUEL] Live reroute updated fuel stops: ${_fuelStops.length} stop(s)');
+        }
+
+        // Sync recalculated route and fuel stops with Android Auto / CarPlay immediately
+        CarPlatformChannel.setRoute(
+          start: currentOrigin,
+          end: _destination!,
+          waypoints: _remainingWaypoints,
+          routeCoordinates: newPlan.coordinates,
+          fuelStops: _fuelStops,
+          destinationName: _destination?.name,
+        );
+
         _guidance.announceManeuver(
           const ManeuverInstruction(
             type: ManeuverType.straight,
@@ -338,15 +391,33 @@ class LiveNavigationEngine extends ChangeNotifier {
     }
   }
 
-  /// Checks if the vehicle has arrived at intermediate waypoints or the final destination.
+  /// Checks if the vehicle has arrived at intermediate waypoints, fuel stops, or the final destination.
   void _checkArrivals(LatLng currentPos) {
-    final distCalc = const Distance();
+    const distCalc = Distance();
 
     // 1. Check intermediate waypoints
     if (_remainingWaypoints.isNotEmpty) {
       final nextWp = _remainingWaypoints.first;
       final d = distCalc.as(LengthUnit.Meter, currentPos, nextWp.toLatLng());
-      if (d <= _kStopArrivalRadiusMeters) {
+      bool isArrived = d <= _kStopArrivalRadiusMeters;
+
+      // Also check if vehicle has progressed past this waypoint along the planned polyline
+      if (!isArrived && _activePlan != null && _activePlan!.coordinates.length >= 2) {
+        final totalM = _activePlan!.distanceMeters;
+        if (totalM > 0) {
+          final wpProj = _guidance.projectOnRoute(
+            nextWp.toLatLng(),
+            _activePlan!.coordinates,
+          );
+          final currDistanceMeters = _progressPercent * totalM;
+          final wpDistanceMeters = wpProj.progressPercent * totalM;
+          if (currDistanceMeters > wpDistanceMeters + 120) {
+            isArrived = true;
+          }
+        }
+      }
+
+      if (isArrived) {
         final arrived = _remainingWaypoints.removeAt(0);
         _visitedWaypoints.add(arrived);
         _arrivedStopName = arrived.name ?? 'Stop';
@@ -358,6 +429,45 @@ class LiveNavigationEngine extends ChangeNotifier {
           ),
           force: true,
         );
+        notifyListeners();
+      }
+    }
+
+    // 2. Check fuel stops approach and arrivals
+    for (final fs in _fuelStops) {
+      final stopKey = fs.id.isNotEmpty ? fs.id : 'fuel_${fs.lat}_${fs.lng}';
+      if (_visitedFuelStops.contains(stopKey)) continue;
+
+      final fuelLatLng = LatLng(fs.lat, fs.lng);
+      final d = distCalc.as(LengthUnit.Meter, currentPos, fuelLatLng);
+
+      // Voice approach notice (around 2km)
+      if (d <= 2500 && d > 150 && !_announcedFuelStops.contains(stopKey)) {
+        _announcedFuelStops.add(stopKey);
+        final distKm = (d / 1000.0).toStringAsFixed(1);
+        _voice.speak('Fuel stop ahead: ${fs.name}, in $distKm kilometers.');
+      }
+
+      // Arrival at fuel stop (within 75m)
+      if (d <= 75.0) {
+        _visitedFuelStops.add(stopKey);
+        _arrivedStopName = '⛽ ${fs.name}';
+        _guidance.announceManeuver(
+          ManeuverInstruction(
+            type: ManeuverType.waypoint,
+            instruction: 'Arriving at fuel stop: ${fs.name}. Tank refueled.',
+            distanceMeters: 0,
+          ),
+          force: true,
+        );
+
+        // Top-up vehicle tank to capacity
+        if (_vehicle != null) {
+          _vehicle = _vehicle!.copyWith(
+            currentFuelLiters: _vehicle!.tankCapacityLiters,
+          );
+          debugPrint('[FUEL] Vehicle refueled at ${fs.name}. Fuel level reset to ${_vehicle!.tankCapacityLiters}L');
+        }
         notifyListeners();
       }
     }

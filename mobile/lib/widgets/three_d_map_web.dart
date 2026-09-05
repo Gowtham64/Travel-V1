@@ -12,6 +12,7 @@ class ThreeDMap extends StatefulWidget {
   final GeoPoint start;
   final GeoPoint end;
   final List<GeoPoint> waypoints;
+  final List<RefuelStop> fuelStops;
   final bool useSatellite;
   final String vehicleType;
   final GeoPoint? animatedVehiclePosition;
@@ -34,6 +35,7 @@ class ThreeDMap extends StatefulWidget {
     required this.start,
     required this.end,
     required this.waypoints,
+    this.fuelStops = const [],
     required this.useSatellite,
     required this.vehicleType,
     this.animatedVehiclePosition,
@@ -110,6 +112,12 @@ class _ThreeDMapState extends State<ThreeDMap> {
         js.context.callMethod('update3DRouteGeometry', [routeJson]);
       } catch (_) {}
     }
+    if (widget.fuelStops != oldWidget.fuelStops) {
+      final fuelStopsJson = jsonEncode(widget.fuelStops.map((s) => s.toJson()).toList());
+      try {
+        js.context.callMethod('update3DFuelStops', [fuelStopsJson]);
+      } catch (_) {}
+    }
     if (widget.animatedVehiclePosition != oldWidget.animatedVehiclePosition ||
         widget.speed != oldWidget.speed ||
         widget.customZoom != oldWidget.customZoom) {
@@ -137,6 +145,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
   void _initMap() {
     final routeJson = jsonEncode(widget.routePoints.map((p) => [p.lng, p.lat]).toList());
     final waypointsJson = jsonEncode(widget.waypoints.map((p) => {'lat': p.lat, 'lng': p.lng, 'name': p.name}).toList());
+    final fuelStopsJson = jsonEncode(widget.fuelStops.map((s) => s.toJson()).toList());
     
     final flatPois = <Map<String, dynamic>>[];
     widget.pois.forEach((category, list) {
@@ -167,6 +176,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
       waypointsJson,
       poisJson,
       widget.vehicleType,
+      fuelStopsJson,
     ]);
   }
 

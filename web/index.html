@@ -151,18 +151,26 @@
             top: 0;
             left: 0;
             width: 100%;
-            padding: 1.4rem 0;
             z-index: 1000;
-            transition: background-color 0.4s ease, padding 0.4s ease, border-color 0.4s ease;
+            transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
             border-bottom: 1px solid transparent;
         }
 
         header.scrolled {
-            background-color: rgba(5, 7, 10, 0.72);
-            backdrop-filter: blur(14px) saturate(140%);
-            -webkit-backdrop-filter: blur(14px) saturate(140%);
+            background-color: rgba(5, 7, 10, 0.84);
+            backdrop-filter: blur(16px) saturate(140%);
+            -webkit-backdrop-filter: blur(16px) saturate(140%);
             border-bottom-color: var(--line);
-            padding: 0.9rem 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        header nav {
+            padding: 1.15rem 0;
+            transition: padding 0.3s ease;
+        }
+
+        header.scrolled nav {
+            padding: 0.8rem 0;
         }
 
         nav {
@@ -1102,6 +1110,10 @@
 
         /* ─────────────  RESPONSIVE  ───────────── */
         @media (max-width: 940px) {
+            #hero {
+                padding: 7rem 0 3.5rem;
+            }
+
             .hero-inner {
                 grid-template-columns: 1fr;
                 gap: 2.5rem;
@@ -1139,21 +1151,12 @@
 
 <body>
 
-    <div class="top-banner" style="background: linear-gradient(90deg, #0f766e, #0e7490, #581c87); padding: 8px 16px; text-align: center; font-size: 13px; font-weight: 600; color: #fff; display: flex; align-items: center; justify-content: center; gap: 10px; z-index: 1000; position: relative;">
-        <span>⚡ Android App with Smart AI Planner is now available!</span>
-        <a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk" style="background: #2dd4bf; color: #05070a; padding: 4px 12px; border-radius: 999px; text-decoration: none; font-weight: 800; font-size: 12px; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 8px rgba(45,212,191,0.4);">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/></svg>
-            Download Android APK
-        </a>
-    </div>
-
     <header id="main-header">
         <nav class="container">
             <a href="#" class="logo"><img class="logo-mark" src="favicon.svg" alt="Voyplan logo" width="32" height="32">Voyplan</a>
             <ul class="nav-links">
                 <li><a href="#features">Features</a></li>
                 <li><a href="#preview">Experience</a></li>
-                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk" style="display:inline-flex; align-items:center; gap:5px; color:var(--teal); font-weight:700;"><svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/></svg>Download APK</a></li>
                 <li><a href="#get-app">Get the App</a></li>
                 <li class="nav-cta"><a href="#hero">Sign In</a></li>
             </ul>
@@ -1215,9 +1218,8 @@
                             <a class="hero-btn primary"
                                 href="https://voyplan.in/app/?guest=true">Launch web app &rarr;</a>
 
-                            <!-- Android APK -->
                             <a class="hero-btn ghost"
-                                href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk"
+                                href="Voyplan.apk"
                                 title="Download the Android APK">
                                 <svg viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/>
@@ -1299,11 +1301,6 @@
 
                         <a class="auth-guest" href="https://voyplan.in/app/?guest=true">Continue as
                             guest &rarr;</a>
-
-                        <a class="auth-guest" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk" style="margin-top: 6px; color: var(--teal); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
-                            <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor"><path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4483-.9993.9993-.9993c.5511 0 .9993.4483.9993.9993 0 .5511-.4483.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.2439 13.8533 7.8508 12 7.8508s-3.5902.3931-5.1367 1.0989L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3435-4.1021-2.6892-7.5743-6.0775-9.4396"/></svg>
-                            Download Android APK &rarr;
-                        </a>
                     </div>
                 </div>
             </div>
@@ -1416,7 +1413,7 @@
                             &rarr;</a>
 
                         <a class="btn-cta ghost"
-                            href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk"
+                            href="Voyplan.apk"
                             title="Download the Android APK">
                             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
                                 <path

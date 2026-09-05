@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'trip_extras_store.dart';
 
 class TripHistoryItem {
   final String id;
@@ -136,15 +137,78 @@ class TripHistoryService {
   static final TripHistoryService instance = TripHistoryService._();
 
   static const String _storageKey = 'voyplan_trip_history_v1';
+  static const String _deletedIdsKey = 'voyplan_deleted_trip_ids_v1';
+  static const String _offlineDeleteQueueKey = 'voyplan_offline_delete_queue_v1';
 
   final ValueNotifier<List<TripHistoryItem>> historyNotifier =
       ValueNotifier([]);
 
   Future<void> init() async {
+    await flushOfflineDeletionQueue();
     await getHistory();
   }
 
+  Future<Set<String>> getDeletedIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_deletedIdsKey) ?? [];
+      return list.toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> _recordDeleted(String id, [String? title]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final current = (prefs.getStringList(_deletedIdsKey) ?? []).toSet();
+      if (id.isNotEmpty) current.add(id);
+      if (title != null && title.trim().isNotEmpty && title.trim().toLowerCase() != 'to') {
+        current.add(title.trim().toLowerCase());
+      }
+      await prefs.setStringList(_deletedIdsKey, current.toList());
+    } catch (e) {
+      debugPrint('Error recording deleted tombstone: $e');
+    }
+  }
+
+  Future<void> _enqueueOfflineDelete(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = (prefs.getStringList(_offlineDeleteQueueKey) ?? []).toSet();
+      list.add(id);
+      await prefs.setStringList(_offlineDeleteQueueKey, list.toList());
+    } catch (_) {}
+  }
+
+  Future<void> flushOfflineDeletionQueue() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_offlineDeleteQueueKey) ?? [];
+      if (list.isEmpty) return;
+
+      final remaining = <String>[];
+      for (final id in list) {
+        try {
+          await Supabase.instance.client
+              .from('trips')
+              .update({'status': 'DELETED', 'deleted_at': DateTime.now().toIso8601String()})
+              .eq('id', id);
+          await Supabase.instance.client.from('trips').delete().eq('id', id);
+        } catch (_) {
+          remaining.add(id);
+        }
+      }
+      await prefs.setStringList(_offlineDeleteQueueKey, remaining);
+    } catch (_) {}
+  }
+
   Future<List<TripHistoryItem>> getHistory() async {
+    final deletedIds = await getDeletedIds();
+    await flushOfflineDeletionQueue();
+
     List<TripHistoryItem> items = [];
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -154,47 +218,56 @@ class TripHistoryService {
         items = list
             .map((e) =>
                 TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
+            .where((it) {
+              final key = (it.title.isNotEmpty ? it.title : '${it.startAddress} to ${it.endAddress}').trim().toLowerCase();
+              return !deletedIds.contains(it.id) && !deletedIds.contains(key);
+            })
             .toList();
       }
     } catch (e) {
       debugPrint('Error loading local trip history: $e');
     }
 
-    // Two-way cloud sync with Supabase: PULL cloud trips AND PUSH local-only
-    // trips up, so a trip saved on any device appears on every device.
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         final localItems = List<TripHistoryItem>.from(items);
 
-        // PULL: no user_id filter — RLS returns every trip owned by this account
-        // (matched by user_id OR the account's verified email), so trips saved
-        // from another device/sign-in method (Google / email / phone) sync in.
         final cloudRows = await Supabase.instance.client
             .from('trips')
             .select('*, trip_stops(*)')
             .order('created_at', ascending: false);
 
-        final cloudItems = (cloudRows is List)
-            ? cloudRows
-                .map((r) => TripHistoryItem.fromSupabaseTrip((r as Map).cast<String, dynamic>()))
-                .toList()
-            : <TripHistoryItem>[];
-
-        // Normalised trip name, used to detect which local trips are missing
-        // from the cloud (cloud rows are keyed by their `name`).
         String nameKey(TripHistoryItem t) =>
             (t.title.isNotEmpty ? t.title : '${t.startAddress} to ${t.endAddress}')
                 .trim()
                 .toLowerCase();
+
+        final cloudItems = <TripHistoryItem>[];
+        if (cloudRows is List) {
+          for (final r in cloudRows) {
+            final rowMap = (r as Map).cast<String, dynamic>();
+            if (rowMap['status'] == 'DELETED' || rowMap['deleted_at'] != null) {
+              continue;
+            }
+            final cit = TripHistoryItem.fromSupabaseTrip(rowMap);
+            final key = nameKey(cit);
+            if (deletedIds.contains(cit.id) || deletedIds.contains(key)) {
+              try {
+                Supabase.instance.client.from('trips').delete().eq('id', cit.id);
+              } catch (_) {}
+              continue;
+            }
+            cloudItems.add(cit);
+          }
+        }
+
         final cloudNames = cloudItems.map(nameKey).toSet();
 
-        // PUSH: upload any local-only trip so it propagates to other devices.
-        // Previously sync was pull-only, so a trip whose original cloud write
-        // silently failed (or was made before sign-in) stayed on one device.
         for (final li in localItems) {
           final key = nameKey(li);
           if (key.isEmpty || key == 'to') continue;
+          if (deletedIds.contains(li.id) || deletedIds.contains(key)) continue;
           if (!cloudNames.contains(key)) {
             try {
               await _pushTripToCloud(li, user);
@@ -205,20 +278,19 @@ class TripHistoryService {
           }
         }
 
-        // MERGE cloud items into the display list.
         final seenKeys = <String>{};
         for (final it in items) {
           seenKeys.add('${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
         }
         for (final cit in cloudItems) {
           final key = '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
-          if (!seenKeys.contains(key)) {
+          final nameK = nameKey(cit);
+          if (!seenKeys.contains(key) && !deletedIds.contains(cit.id) && !deletedIds.contains(nameK)) {
             items.add(cit);
             seenKeys.add(key);
           }
         }
 
-        // Persist merged cache locally.
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(
             _storageKey, jsonEncode(items.map((e) => e.toJson()).toList()));
@@ -235,7 +307,6 @@ class TripHistoryService {
   Future<void> saveTrip(TripHistoryItem item) async {
     try {
       final current = await getHistory();
-      // Remove recent duplicate if saved within last 15s for exact route
       current.removeWhere((existing) =>
           existing.id == item.id ||
           (existing.startAddress == item.startAddress &&
@@ -251,7 +322,6 @@ class TripHistoryService {
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
 
-      // Cloud persistence if signed in
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         await _pushTripToCloud(item, user);
@@ -261,9 +331,6 @@ class TripHistoryService {
     }
   }
 
-  /// Inserts one trip (and its waypoints) into Supabase. Shared by [saveTrip]
-  /// and the push-sync in [getHistory]. Stamps owner_email so the trip is
-  /// visible from the user's other sign-in identities that share the email.
   Future<void> _pushTripToCloud(TripHistoryItem item, User user) async {
     final startCoord = item.routeCoordinates.isNotEmpty
         ? item.routeCoordinates.first
@@ -291,6 +358,7 @@ class TripHistoryService {
         'isRoundTrip': item.isRoundTrip,
       },
       'vehicle_type': item.vehicleType,
+      'status': 'CONFIRMED',
     }).select().single();
 
     if (item.waypoints.isNotEmpty && inserted['id'] != null) {
@@ -306,11 +374,8 @@ class TripHistoryService {
     }
   }
 
-  Future<void> deleteTrip(String id) async {
+  Future<void> deleteTrip(String id, {String? title, String? tripKey}) async {
     try {
-      // Load the local cache DIRECTLY — do NOT call getHistory(), whose
-      // push-sync would re-upload the very trip we're deleting (under a new id),
-      // making it reappear after deletion.
       final prefs = await SharedPreferences.getInstance();
       List<TripHistoryItem> current = [];
       final raw = prefs.getString(_storageKey);
@@ -319,19 +384,50 @@ class TripHistoryService {
             .map((e) => TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
             .toList();
       }
-      current.removeWhere((e) => e.id == id);
+
+      final matched = current.where((e) => e.id == id).toList();
+      final effectiveTitle = title ?? (matched.isNotEmpty ? matched.first.title : null);
+
+      await _recordDeleted(id, effectiveTitle);
+
+      current.removeWhere((e) =>
+          e.id == id ||
+          (effectiveTitle != null &&
+              e.title.trim().toLowerCase() == effectiveTitle.trim().toLowerCase()));
       await prefs.setString(
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
 
-      // Delete the cloud row by id. Wrapped so a non-UUID local id (a
-      // history-only card) doesn't throw — it just has no cloud row to remove.
+      // Purge matching local plans in TripExtrasStore
+      try {
+        if (tripKey != null && tripKey.isNotEmpty) {
+          await TripExtrasStore.removeFromIndex(tripKey);
+        }
+        await TripExtrasStore.removeFromIndex(id);
+        if (effectiveTitle != null && effectiveTitle.isNotEmpty) {
+          final saved = await TripExtrasStore.savedPlans();
+          for (final sp in saved) {
+            final spName = (sp['name'] ?? '').toString().trim().toLowerCase();
+            if (spName == effectiveTitle.trim().toLowerCase()) {
+              await TripExtrasStore.removeFromIndex((sp['key'] ?? '').toString());
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint('TripExtrasStore delete purge note: $e');
+      }
+
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null && id.isNotEmpty) {
         try {
+          await Supabase.instance.client
+              .from('trips')
+              .update({'status': 'DELETED', 'deleted_at': DateTime.now().toIso8601String()})
+              .eq('id', id);
           await Supabase.instance.client.from('trips').delete().eq('id', id);
         } catch (e) {
           debugPrint('Cloud trip delete note: $e');
+          await _enqueueOfflineDelete(id);
         }
       }
     } catch (e) {

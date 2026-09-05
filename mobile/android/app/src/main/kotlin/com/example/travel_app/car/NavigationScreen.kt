@@ -29,6 +29,10 @@ import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import java.util.TimeZone
 
+import androidx.car.app.navigation.NavigationManager
+import androidx.car.app.navigation.NavigationManagerCallback
+import androidx.car.app.model.CarText
+
 /**
  * The single Android Auto navigation screen. It renders the route onto the car's
  * map surface and shows a turn-by-turn card + ETA driven by [CarNavState], which
@@ -41,6 +45,11 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
     private var surfaceHeight = 0
     private var visibleArea: Rect? = null
 
+    private val navigationManager: NavigationManager by lazy {
+        carContext.getCarService(NavigationManager::class.java)
+    }
+    private var isNavStartedWithManager = false
+
     // Post back to the main thread (getMainExecutor() needs API 28; minSdk is 23).
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -50,6 +59,7 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
     // Re-render + refresh the template whenever Flutter pushes new state.
     private val stateListener: () -> Unit = {
         mainHandler.post {
+            syncNavigationManager()
             invalidate()
             renderMap()
         }
@@ -57,12 +67,41 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
 
     init {
         carContext.getCarService(AppManager::class.java).setSurfaceCallback(this)
+        navigationManager.setNavigationManagerCallback(object : NavigationManagerCallback {
+            override fun onStopNavigation() {
+                CarNavState.requestStopNavigationFromCar()
+            }
+        })
         CarNavState.addListener(stateListener)
         lifecycle.addObserver(object : DefaultLifecycleObserver {
             override fun onDestroy(owner: LifecycleOwner) {
                 CarNavState.removeListener(stateListener)
+                if (isNavStartedWithManager) {
+                    try {
+                        navigationManager.navigationEnded()
+                        isNavStartedWithManager = false
+                    } catch (_: Exception) {}
+                }
             }
         })
+    }
+
+    private fun syncNavigationManager() {
+        if (CarNavState.isNavigating) {
+            if (!isNavStartedWithManager) {
+                try {
+                    navigationManager.navigationStarted()
+                    isNavStartedWithManager = true
+                } catch (_: Exception) {}
+            }
+        } else {
+            if (isNavStartedWithManager) {
+                try {
+                    navigationManager.navigationEnded()
+                    isNavStartedWithManager = false
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     // ---- Template (maneuver card + ETA) ----
@@ -71,26 +110,38 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
         CarIcon.Builder(IconCompat.createWithResource(carContext, resId)).build()
 
     override fun onGetTemplate(): Template {
-        // Top action strip: recenter (clears zoom nudge + POI) and Nearby search.
-        val actionStrip = ActionStrip.Builder()
-            .addAction(
+        val s = CarNavState
+
+        // Top action strip: End Navigation (if navigating), Recenter, and Nearby search.
+        val actionStripBuilder = ActionStrip.Builder()
+        if (s.isNavigating) {
+            actionStripBuilder.addAction(
                 Action.Builder()
-                    .setIcon(carIcon(R.drawable.ic_nearby))
-                    .setTitle("Nearby")
-                    .setOnClickListener { screenManager.push(PoiCategoryScreen(carContext)) }
-                    .build()
-            )
-            .addAction(
-                Action.Builder()
-                    .setTitle("Re-center")
+                    .setTitle("End Trip")
                     .setOnClickListener {
-                        CarNavState.zoomOffset = 0
-                        CarNavState.focusPoi = null
-                        renderMap()
+                        CarNavState.requestStopNavigationFromCar()
                     }
                     .build()
             )
-            .build()
+        }
+        actionStripBuilder.addAction(
+            Action.Builder()
+                .setIcon(carIcon(R.drawable.ic_nearby))
+                .setTitle("Nearby")
+                .setOnClickListener { screenManager.push(PoiCategoryScreen(carContext)) }
+                .build()
+        )
+        actionStripBuilder.addAction(
+            Action.Builder()
+                .setTitle("Re-center")
+                .setOnClickListener {
+                    CarNavState.zoomOffset = 0
+                    CarNavState.focusPoi = null
+                    renderMap()
+                }
+                .build()
+        )
+        val actionStrip = actionStripBuilder.build()
 
         // Map action strip: zoom in / out.
         val mapActionStrip = ActionStrip.Builder()
@@ -118,29 +169,49 @@ class NavigationScreen(carContext: CarContext) : Screen(carContext), SurfaceCall
             .setActionStrip(actionStrip)
             .setMapActionStrip(mapActionStrip)
 
-        val s = CarNavState
         if (s.isNavigating) {
-            val cue = s.instruction.ifBlank { "Continue" }
-            val step = Step.Builder(cue)
+            val nextFuel = s.nextFuelStop
+            val cue = when {
+                nextFuel != null && s.instruction.contains("Fuel", ignoreCase = true) ->
+                    "⛽ ${nextFuel.name} · ${nextFuel.fuelType.replaceFirstChar { it.uppercase() }}"
+                s.instruction.isNotBlank() -> s.instruction
+                else -> "Follow the highlighted route"
+            }
+            val stepBuilder = Step.Builder(cue)
                 .setManeuver(Maneuver.Builder(maneuverType(s.maneuverType)).build())
-                .build()
+            if (s.roadName.isNotBlank()) {
+                stepBuilder.setRoad(s.roadName)
+            }
+            val step = stepBuilder.build()
+
             val routingInfo = RoutingInfo.Builder()
                 .setCurrentStep(step, Distance.create(s.distanceMeters.coerceAtLeast(0.0), Distance.UNIT_METERS))
                 .build()
             builder.setNavigationInfo(routingInfo)
 
             val arrivalMillis = System.currentTimeMillis() + s.remainingDurationMin * 60_000L
-            val eta = TravelEstimate.Builder(
+            val etaBuilder = TravelEstimate.Builder(
                 Distance.create(s.remainingDistanceKm.coerceAtLeast(0.0), Distance.UNIT_KILOMETERS),
                 DateTimeWithZone.create(arrivalMillis, TimeZone.getDefault()),
-            )
-                .setRemainingTimeSeconds((s.remainingDurationMin * 60L).coerceAtLeast(0))
-                .build()
-            builder.setDestinationTravelEstimate(eta)
+            ).setRemainingTimeSeconds((s.remainingDurationMin * 60L).coerceAtLeast(0))
+
+            if (nextFuel != null) {
+                etaBuilder.setTripText(
+                    CarText.Builder("⛽ Next: ${nextFuel.name}").build()
+                )
+            } else if (s.destinationName.isNotBlank()) {
+                etaBuilder.setTripText(
+                    CarText.Builder("To ${s.destinationName}").build()
+                )
+            }
+            builder.setDestinationTravelEstimate(etaBuilder.build())
         } else {
-            builder.setNavigationInfo(
-                MessageInfo.Builder("Start a trip on your phone to navigate here").build()
-            )
+            val message = if (s.route.isNotEmpty()) {
+                "Route preview ready. Tap Start on phone to navigate."
+            } else {
+                "Start a trip on your phone to navigate here"
+            }
+            builder.setNavigationInfo(MessageInfo.Builder(message).build())
         }
         return builder.build()
     }

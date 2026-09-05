@@ -507,11 +507,14 @@ class FuelPriceService {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Calculates accurate fuel cost for a route considering vehicle efficiency,
-  /// fuel type, origin/destination locations, and optional route trajectory for multi-state routes.
+  /// Calculates accurate fuel cost for a route considering vehicle efficiency,
+  /// current fuel in tank, fuel type, origin/destination locations, and optional route trajectory.
   FuelEstimate calculateRouteFuel({
     required double distanceKm,
     required double mileage, // km/L
     required String fuelType,
+    double currentFuelLiters = 0.0,
+    double tankCapacityLiters = 45.0,
     String? originLocation,
     String? destLocation,
     List<LatLng>? routePoints,
@@ -523,6 +526,9 @@ class FuelPriceService {
         vehicleEfficiency: mileage > 0 ? mileage : 15.0,
         fuelType: fuelType,
         fuelRequired: 0.0,
+        currentFuelLiters: currentFuelLiters,
+        additionalFuelRequiredLiters: 0.0,
+        estimatedCost: 0.0,
         pricePerUnit: 0.0,
         totalCost: 0.0,
         unit: 'litre',
@@ -530,8 +536,10 @@ class FuelPriceService {
         currencySymbol: '₹',
         startRegion: 'Unknown',
         endRegion: 'Unknown',
+        applicableLocation: 'Unknown',
         isMultiState: false,
-        source: 'PPAC / Official OMC Daily RSP',
+        source: 'CarDekho / OMC Daily Retail Price',
+        updatedAtText: 'Fuel price unavailable',
         effectiveAt: nowIso,
         lastUpdated: nowIso,
         status: 'unavailable',
@@ -540,6 +548,8 @@ class FuelPriceService {
 
     final fuelRequiredLiters = distanceKm / mileage;
     final normalizedFuel = fuelType.toLowerCase().trim();
+    final curFuel = currentFuelLiters >= 0 ? currentFuelLiters : 0.0;
+    final additionalRequired = (fuelRequiredLiters - curFuel) > 0 ? (fuelRequiredLiters - curFuel) : 0.0;
 
     // Check if route traverses multiple distinct regions
     final originLoc = resolveLocation(locationName: originLocation);
@@ -554,28 +564,33 @@ class FuelPriceService {
     double appliedPrice;
 
     if (isMultiRegion) {
-      // 50-50 weighted or route-segmented pricing
       appliedPrice = (originPrice.price + destPrice.price) / 2.0;
     } else {
       appliedPrice = originPrice.price;
     }
 
     final totalFuelCost = (fuelRequiredLiters * appliedPrice).roundToDouble();
+    final estimatedCost = (additionalRequired * appliedPrice).roundToDouble();
 
     return FuelEstimate(
       distanceKm: distanceKm,
       vehicleEfficiency: mileage,
       fuelType: normalizedFuel,
       fuelRequired: double.parse(fuelRequiredLiters.toStringAsFixed(2)),
+      currentFuelLiters: double.parse(curFuel.toStringAsFixed(2)),
+      additionalFuelRequiredLiters: double.parse(additionalRequired.toStringAsFixed(2)),
       pricePerUnit: double.parse(appliedPrice.toStringAsFixed(2)),
+      estimatedCost: estimatedCost,
       unit: originPrice.unit,
       currency: originPrice.currency,
       currencySymbol: originPrice.currencySymbol,
       totalCost: totalFuelCost,
       startRegion: originLoc.displayName,
       endRegion: destLoc.displayName,
+      applicableLocation: originLoc.displayName.isNotEmpty ? originLoc.displayName : 'India',
       isMultiState: isMultiRegion,
-      source: originPrice.source,
+      source: 'CarDekho / OMC Daily Retail Price',
+      updatedAtText: 'Updated: Today',
       effectiveAt: originPrice.effectiveAt,
       lastUpdated: nowIso,
       status: 'live',

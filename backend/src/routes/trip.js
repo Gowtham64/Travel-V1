@@ -1,6 +1,7 @@
 const express = require("express");
 const { getRoute } = require("../services/routingService");
-const { findRefuelStops, planStationRefuelStops, estimateTripDays } = require("../services/fuelService");
+const { findRefuelStops, planStationRefuelStops, estimateTripDays, calculateRouteFuel, getFuelPrices } = require("../services/fuelService");
+const { FuelRangeService } = require("../services/fuelRangeService");
 const { getTollEstimate } = require("../services/tollService");
 const { findPlacesAlongRoute } = require("../services/placesService");
 const { getRouteWeather, getDepartureAdvice, suggestRestStops } = require("../services/weatherService");
@@ -8,6 +9,7 @@ const { estimateBudget } = require("../services/budgetService");
 const { buildItinerary } = require("../services/itineraryService");
 const { getWikiPlaces } = require("../services/wikiService");
 const { getDestinationEvents } = require("../services/eventsService");
+const { annotateCumulativeDistance, nearestRouteDistanceKm } = require("../utils/geo");
 
 const router = express.Router();
 
@@ -79,13 +81,13 @@ router.post("/plan", async (req, res) => {
 
   try {
     const avoidMotorways = isMotorwayBanned(vehicle.type);
-    const route = await getRoute(start, end, waypoints, { avoidMotorways });
+    let route = await getRoute(start, end, waypoints, { avoidMotorways });
 
     const currentFuelLiters = vehicle.currentFuelLiters ?? vehicle.tankCapacityLiters;
 
     // Fetch real fuel stations along the route so refuel stops land on actual
     // petrol pumps. Best-effort: Overpass can be slow or rate-limited, so a
-    // failure here just falls back to geometric refuel markers below.
+    // failure here just falls back to geometric refuel markers.
     let fuelStations = [];
     try {
       fuelStations = await findPlacesAlongRoute(route.coordinates, "fuel");
@@ -93,33 +95,96 @@ router.post("/plan", async (req, res) => {
       console.error("Fuel-station lookup skipped:", err.message);
     }
 
-    // Prefer snapping refuel stops to reachable real stations; if we found no
-    // stations (or the planner throws), fall back to the geometric estimate so
-    // the driver still gets refuel guidance.
+    // Execute smart refuel stop planning with safety reserve and location pricing
     let fuelPlan;
     try {
-      fuelPlan = fuelStations.length
-        ? planStationRefuelStops(
-            route.coordinates,
-            fuelStations,
-            currentFuelLiters,
-            vehicle.tankCapacityLiters,
-            vehicle.efficiencyKmPerLiter
-          )
-        : findRefuelStops(
-            route.coordinates,
-            currentFuelLiters,
-            vehicle.tankCapacityLiters,
-            vehicle.efficiencyKmPerLiter
-          );
+      fuelPlan = FuelRangeService.planSmartRefuelStops({
+        routeCoordinates: route.coordinates,
+        userStops: waypoints,
+        stations: fuelStations,
+        vehicle: {
+          currentFuelLiters,
+          tankCapacityLiters: vehicle.tankCapacityLiters,
+          efficiencyKmPerLiter: vehicle.efficiencyKmPerLiter,
+          fuelType: vehicle.fuelType,
+        },
+        options: {
+          totalRouteDistanceKm: route.distanceKm,
+        },
+      });
     } catch (err) {
-      console.error("Station refuel planning failed, using geometric fallback:", err.message);
+      console.error("Smart refuel planning error, using fallback:", err.message);
       fuelPlan = findRefuelStops(
         route.coordinates,
         currentFuelLiters,
         vehicle.tankCapacityLiters,
         vehicle.efficiencyKmPerLiter
       );
+    }
+
+    // Build ordered navigation waypoints merging user waypoints and system fuel stops.
+    // CRITICAL: User waypoints MUST strictly maintain their user-selected itinerary order!
+    // NEVER sort user waypoints against each other by distance.
+    let navigationWaypoints = [];
+    if (fuelPlan && Array.isArray(fuelPlan.refuelStops) && fuelPlan.refuelStops.length > 0) {
+      console.log(`[FUEL] Stop calculated: ${fuelPlan.refuelStops.length} stop(s) required`);
+      const annotated = annotateCumulativeDistance(route.coordinates);
+
+      const userWpItems = (waypoints || []).map((wp, idx) => {
+        const proj = nearestRouteDistanceKm(annotated, wp);
+        return {
+          ...wp,
+          type: 'waypoint',
+          name: wp.name || `Stop ${idx + 1}`,
+          distanceFromStartKm: proj.distanceFromStartKm,
+          userIndex: idx,
+        };
+      });
+
+      const fuelWpItems = fuelPlan.refuelStops.map((fs) => ({
+        ...fs,
+        type: 'fuel_stop',
+        name: fs.name || 'Fuel Station',
+        isFuelStop: true,
+      }));
+
+      // Insert fuel stops strictly within their assigned leg (legIndex) to maintain
+      // user waypoint sequence integrity and avoid false inversions on circuits.
+      const combined = [];
+      for (let i = 0; i < userWpItems.length; i++) {
+        const legFuelStops = fuelWpItems
+          .filter((f) => f.legIndex === i)
+          .sort((a, b) => a.distanceFromStartKm - b.distanceFromStartKm);
+        combined.push(...legFuelStops);
+        combined.push(userWpItems[i]);
+      }
+      const finalLegFuelStops = fuelWpItems
+        .filter((f) => f.legIndex === userWpItems.length)
+        .sort((a, b) => a.distanceFromStartKm - b.distanceFromStartKm);
+      combined.push(...finalLegFuelStops);
+
+      navigationWaypoints = combined;
+
+      // Re-route geometry through combined waypoints so polyline drives to fuel stations
+      try {
+        fuelPlan.refuelStops.forEach((s) => {
+          console.log(`[FUEL] Stop added to navigation waypoints: ${s.name} (${s.lat}, ${s.lng}) at km ${s.distanceFromStartKm}`);
+        });
+
+        const routeWaypoints = combined.map((w) => ({ lat: w.lat, lng: w.lng, name: w.name }));
+        const detourRoute = await getRoute(start, end, routeWaypoints, { avoidMotorways });
+        if (detourRoute && Array.isArray(detourRoute.coordinates) && detourRoute.coordinates.length >= 2) {
+          route = detourRoute;
+        }
+      } catch (err) {
+        console.warn("[FUEL] Re-routing through fuel stops skipped, retaining direct route:", err.message);
+      }
+    } else {
+      navigationWaypoints = (waypoints || []).map((wp, idx) => ({
+        ...wp,
+        type: 'waypoint',
+        name: wp.name || `Stop ${idx + 1}`,
+      }));
     }
 
     // estimateTripDays throws on non-positive inputs. A very short route rounds
@@ -160,20 +225,37 @@ router.post("/plan", async (req, res) => {
       console.error("Departure advice skipped:", err.message);
     }
 
-    // Suggested rest breaks based on total drive time (pure logic).
+    // Suggested rest breaks based on total drive time (pure logic) using authoritative distance.
     let restStops = [];
     try {
-      restStops = suggestRestStops(route.coordinates, route.durationMin);
+      restStops = suggestRestStops(route.coordinates, route.durationMin, 2.5, route.distanceKm);
     } catch (err) {
       console.error("Rest-stop suggestion skipped:", err.message);
     }
 
-    // Multi-day breakdown (pure logic).
+    // Multi-day breakdown (pure logic) using authoritative route distance.
     let itinerary = [];
     try {
-      itinerary = buildItinerary(route.coordinates, route.durationMin, dailyDrivingHours);
+      itinerary = buildItinerary(route.coordinates, route.durationMin, dailyDrivingHours, route.distanceKm);
     } catch (err) {
       console.error("Itinerary build skipped:", err.message);
+    }
+
+    // Fuel estimate derived from authoritative route distance, vehicle efficiency & live price
+    let fuelEstimate = null;
+    try {
+      fuelEstimate = calculateRouteFuel({
+        distanceKm: route.distanceKm,
+        vehicleEfficiency: vehicle.efficiencyKmPerLiter,
+        currentFuelLiters: vehicle.currentFuelLiters,
+        tankCapacityLiters: vehicle.tankCapacityLiters,
+        fuelType: vehicle.fuelType,
+        startLocation: start?.name || '',
+        endLocation: end?.name || '',
+        routeCoordinates: route.coordinates,
+      });
+    } catch (err) {
+      console.error("Fuel estimate calculation error:", err.message);
     }
 
     // Full trip budget builds on the numbers we already have, so it can't fail.
@@ -184,6 +266,7 @@ router.post("/plan", async (req, res) => {
         estimatedDays: days,
         vehicle,
         toll,
+        startLocation: start?.name || '',
         options: req.body.travellers ? { travellers: req.body.travellers } : {},
       });
     } catch (err) {
@@ -225,15 +308,25 @@ router.post("/plan", async (req, res) => {
 
     res.json({
       route: {
-        distanceKm: route.distanceKm,
-        durationMin: route.durationMin,
+        origin: { ...(route.origin || {}), ...(start || {}), lat: route.origin?.lat ?? start.lat, lng: route.origin?.lng ?? start.lng, name: route.origin?.name || start?.name },
+        destination: { ...(route.destination || {}), ...(end || {}), lat: route.destination?.lat ?? end.lat, lng: route.destination?.lng ?? end.lng, name: route.destination?.name || end?.name },
+        waypoints: route.waypoints || waypoints,
         coordinates: route.coordinates,
-        // True when expressways/motorways were excluded because the vehicle
-        // (2-/3-wheeler) is legally barred from them.
+        geometry: route.geometry,
+        distanceMeters: route.distanceMeters,
+        distanceKm: route.distanceKm,
+        durationSeconds: route.durationSeconds,
+        durationMin: route.durationMin,
+        legs: route.legs,
+        steps: route.steps,
+        maneuvers: route.maneuvers,
         avoidedMotorways: avoidMotorways,
+        provider: route.provider,
       },
       estimatedDays: days,
       fuel: fuelPlan,
+      fuelEstimate: fuelEstimate,
+      navigationWaypoints,
       toll,
       weather,
       departureAdvice,
@@ -383,9 +476,45 @@ router.get("/saved", requireAuth, async (req, res) => {
     `).order('created_at', { ascending: false });
     
     if (error) throw error;
-    res.json(data);
+    // Filter out soft-deleted trips
+    const active = (data || []).filter(t => t.status !== 'DELETED' && !t.deleted_at);
+    res.json(active);
   } catch (err) {
     console.error("Error fetching saved trips:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * DELETE /api/trip/:id
+ * Soft-deletes a trip (sets status='DELETED', deleted_at) and cascades deletion.
+ */
+router.delete("/:id", requireAuth, async (req, res) => {
+  if (!req.supabase) return res.status(503).json({ error: "Supabase not configured" });
+  const { id } = req.params;
+  if (!id) return res.status(400).json({ error: "Trip ID is required" });
+
+  try {
+    const nowIso = new Date().toISOString();
+    // Try updating status/deleted_at first for audit/tombstone
+    const { error: updateError } = await req.supabase
+      .from("trips")
+      .update({ status: "DELETED", deleted_at: nowIso })
+      .eq("id", id);
+
+    // If update succeeds or fails (e.g. column not yet migrated), also delete row to ensure clean removal
+    const { error: deleteError } = await req.supabase
+      .from("trips")
+      .delete()
+      .eq("id", id);
+
+    if (updateError && deleteError) {
+      throw deleteError || updateError;
+    }
+
+    res.json({ success: true, id, status: "DELETED", deleted_at: nowIso });
+  } catch (err) {
+    console.error("Error deleting trip:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

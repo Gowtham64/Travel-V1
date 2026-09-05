@@ -228,7 +228,7 @@ async function getDepartureAdvice(start, hours = 12, departAt = null) {
  *
  * @returns {Array<{ afterHours:number, distanceFromStartKm:number, lat:number, lng:number, label:string }>}
  */
-function suggestRestStops(routeCoordinates, durationMinutes, intervalHours = 2.5) {
+function suggestRestStops(routeCoordinates, durationMinutes, intervalHours = 2.5, totalRouteDistanceKm = null) {
   if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2 || durationMinutes <= 0) {
     return [];
   }
@@ -236,20 +236,25 @@ function suggestRestStops(routeCoordinates, durationMinutes, intervalHours = 2.5
   if (totalHours <= intervalHours) return [];
 
   const annotated = annotateCumulativeDistance(routeCoordinates);
-  const totalKm = annotated[annotated.length - 1].cumulativeKm;
+  const haversineTotalKm = annotated[annotated.length - 1].cumulativeKm;
+  const totalKm = (typeof totalRouteDistanceKm === "number" && totalRouteDistanceKm > 0)
+    ? totalRouteDistanceKm
+    : haversineTotalKm;
+  const scale = haversineTotalKm > 0 ? (totalKm / haversineTotalKm) : 1.0;
 
   const stops = [];
   for (let t = intervalHours; t < totalHours - 0.5; t += intervalHours) {
     const fraction = t / totalHours;
     const targetKm = totalKm * fraction;
+    const targetHaversineKm = targetKm / scale;
     // Find the route point nearest that cumulative distance.
     let pt = annotated[0];
     for (const p of annotated) {
-      if (p.cumulativeKm >= targetKm) { pt = p; break; }
+      if (p.cumulativeKm >= targetHaversineKm) { pt = p; break; }
     }
     stops.push({
       afterHours: Math.round(t * 10) / 10,
-      distanceFromStartKm: Math.round(pt.cumulativeKm * 10) / 10,
+      distanceFromStartKm: Math.round(targetKm * 10) / 10,
       lat: pt.lat,
       lng: pt.lng,
       label: `Suggested break after ${t % 1 === 0 ? t : t.toFixed(1)}h of driving`,

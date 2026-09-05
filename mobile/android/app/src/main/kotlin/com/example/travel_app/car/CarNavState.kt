@@ -8,6 +8,25 @@ import kotlin.math.sqrt
 /** A lat/lng pair. */
 data class LatLngD(val lat: Double, val lng: Double)
 
+/** A named waypoint along the trip. */
+data class WaypointInfo(
+    val name: String,
+    val lat: Double,
+    val lng: Double,
+    val isFuelStop: Boolean = false
+)
+
+/** A dedicated fuel stop along the route. */
+data class FuelStop(
+    val name: String,
+    val lat: Double,
+    val lng: Double,
+    val fuelType: String = "petrol",
+    val refillLiters: Double? = null,
+    val estimatedCost: Double? = null,
+    val distanceFromStartKm: Double? = null
+)
+
 /** A nearby point of interest (fuel, hospital, etc.). */
 data class Poi(val name: String, val lat: Double, val lng: Double, val distanceKm: Double)
 
@@ -21,13 +40,18 @@ data class Poi(val name: String, val lat: Double, val lng: Double, val distanceK
 object CarNavState {
     @Volatile var isNavigating: Boolean = false
 
+    var destinationName: String = "Destination"
     var start: LatLngD? = null
     var end: LatLngD? = null
     var waypoints: List<LatLngD> = emptyList()
+    var waypointsInfo: List<WaypointInfo> = emptyList()
+    var fuelStops: List<FuelStop> = emptyList()
+    var nextFuelStop: FuelStop? = null
     var route: List<LatLngD> = emptyList()
 
     // Live maneuver + telemetry (updated each guidance tick from Flutter).
     var instruction: String = ""
+    var roadName: String = ""
     var maneuverType: String = "straight"
     var distanceMeters: Double = 0.0
     var formattedDistance: String = ""
@@ -48,10 +72,19 @@ object CarNavState {
     // A nearby POI the user selected to mark on the map.
     var focusPoi: LatLngD? = null
 
+    // Callback invoked when the driver taps "Stop navigation" from the car display.
+    var onStopNavigationRequested: (() -> Unit)? = null
+
     private val listeners = mutableListOf<() -> Unit>()
 
     fun addListener(l: () -> Unit) { listeners.add(l) }
     fun removeListener(l: () -> Unit) { listeners.remove(l) }
+
+    fun requestStopNavigationFromCar() {
+        isNavigating = false
+        onStopNavigationRequested?.invoke()
+        notifyChanged()
+    }
 
     /** Notify the car screen that state changed so it can re-render. */
     fun notifyChanged() {

@@ -256,7 +256,7 @@ class _MapTab extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _stat(Icons.straighten_rounded, '${plan.distanceKm.toStringAsFixed(0)} km', 'Distance'),
+                _stat(Icons.straighten_rounded, plan.formattedDistance, 'Distance'),
                 _stat(Icons.schedule_rounded, _fmtDuration(plan.durationMin), 'Drive time'),
                 _stat(Icons.place_rounded, '${waypoints.length}', 'Stops'),
               ],

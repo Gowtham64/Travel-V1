@@ -111,9 +111,18 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
         fun sy(lat: Double) = (latToWorldY(lat, z) - originWY + area.top).toFloat()
 
         if (route.size >= 2) {
+            // High-contrast route casing
+            val routeCasing = Paint().apply {
+                color = Color.rgb(30, 64, 175) // Dark blue
+                strokeWidth = 16f
+                style = Paint.Style.STROKE
+                isAntiAlias = true
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+            }
             val line = Paint().apply {
-                color = Color.rgb(46, 117, 182)
-                strokeWidth = 12f
+                color = Color.rgb(37, 99, 235) // Vibrant navigation blue
+                strokeWidth = 11f
                 style = Paint.Style.STROKE
                 isAntiAlias = true
                 strokeCap = Paint.Cap.ROUND
@@ -122,16 +131,58 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
             val path = Path()
             path.moveTo(sx(route[0].lng), sy(route[0].lat))
             for (i in 1 until route.size) path.lineTo(sx(route[i].lng), sy(route[i].lat))
+            canvas.drawPath(path, routeCasing)
             canvas.drawPath(path, line)
 
-            val dot = Paint().apply { isAntiAlias = true }
-            dot.color = Color.rgb(34, 197, 94)
-            canvas.drawCircle(sx(route.first().lng), sy(route.first().lat), 16f, dot)
-            dot.color = Color.rgb(239, 68, 68)
-            canvas.drawCircle(sx(route.last().lng), sy(route.last().lat), 16f, dot)
+            // Start marker
+            val startPaint = Paint().apply { color = Color.rgb(16, 185, 129); isAntiAlias = true }
+            val borderPaint = Paint().apply { color = Color.WHITE; isAntiAlias = true }
+            canvas.drawCircle(sx(route.first().lng), sy(route.first().lat), 18f, borderPaint)
+            canvas.drawCircle(sx(route.first().lng), sy(route.first().lat), 14f, startPaint)
+
+            // Destination marker
+            val destPaint = Paint().apply { color = Color.rgb(239, 68, 68); isAntiAlias = true }
+            canvas.drawCircle(sx(route.last().lng), sy(route.last().lat), 20f, borderPaint)
+            canvas.drawCircle(sx(route.last().lng), sy(route.last().lat), 15f, destPaint)
         }
 
-        // Selected nearby POI (orange pin).
+        // Intermediate waypoints
+        val wpPaint = Paint().apply { color = Color.rgb(14, 165, 233); isAntiAlias = true }
+        val wpBorder = Paint().apply { color = Color.WHITE; isAntiAlias = true }
+        for (wp in CarNavState.waypoints) {
+            val wx = sx(wp.lng)
+            val wy = sy(wp.lat)
+            canvas.drawCircle(wx, wy, 14f, wpBorder)
+            canvas.drawCircle(wx, wy, 10f, wpPaint)
+        }
+
+        // Fuel Stops (Amber with fuel pump badge)
+        val fuelBorder = Paint().apply { color = Color.WHITE; isAntiAlias = true }
+        val fuelFill = Paint().apply { color = Color.rgb(245, 158, 11); isAntiAlias = true } // Vibrant Amber
+        val fuelText = Paint().apply {
+            color = Color.WHITE
+            textSize = 20f
+            isFakeBoldText = true
+            textAlign = Paint.Align.CENTER
+            isAntiAlias = true
+        }
+        for (fs in CarNavState.fuelStops) {
+            val fx = sx(fs.lng)
+            val fy = sy(fs.lat)
+            // Outer aura for upcoming fuel stop
+            if (CarNavState.nextFuelStop?.name == fs.name) {
+                val aura = Paint().apply {
+                    color = Color.argb(120, 245, 158, 11)
+                    isAntiAlias = true
+                }
+                canvas.drawCircle(fx, fy, 28f, aura)
+            }
+            canvas.drawCircle(fx, fy, 20f, fuelBorder)
+            canvas.drawCircle(fx, fy, 16f, fuelFill)
+            canvas.drawText("⛽", fx, fy + 7f, fuelText)
+        }
+
+        // Selected nearby POI (orange pin)
         CarNavState.focusPoi?.let {
             val poiPaint = Paint().apply { color = Color.rgb(249, 115, 22); isAntiAlias = true }
             val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
@@ -139,7 +190,7 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
             canvas.drawCircle(sx(it.lng), sy(it.lat), 12f, poiPaint)
         }
 
-        // Vehicle marker at the current position.
+        // Vehicle marker at current position
         CarNavState.currentPosition()?.let {
             val px = sx(it.lng)
             val py = sy(it.lat)
@@ -147,9 +198,9 @@ class CarMapRenderer(private val onTilesReady: () -> Unit) {
                 drawHeadingArrow(canvas, px, py, bearingDeg)
             } else {
                 val ring = Paint().apply { color = Color.WHITE; isAntiAlias = true }
-                canvas.drawCircle(px, py, 20f, ring)
+                canvas.drawCircle(px, py, 22f, ring)
                 val fill = Paint().apply { color = Color.rgb(37, 99, 235); isAntiAlias = true }
-                canvas.drawCircle(px, py, 14f, fill)
+                canvas.drawCircle(px, py, 16f, fill)
             }
         }
     }

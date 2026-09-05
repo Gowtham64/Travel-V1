@@ -5,7 +5,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../services/trip_reminder_service.dart';
 import '../utils/calendar_helper.dart';
+import '../utils/trip_date_time.dart';
+import 'trip_screen.dart';
 
 /// Premium, AI-powered Travel Itinerary screen.
 ///
@@ -90,19 +93,54 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   bool _building = false;
   bool _saving = false;
   final Set<String> _doneActivities = {};
+  bool _isConfirmed = false;
 
   @override
   void initState() {
     super.initState();
     _tripStart = widget.tripStart;
     if (widget.initialItinerary != null && widget.initialItinerary!.isNotEmpty) {
-      final days = widget.initialItinerary!.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
+      final reanchored = TripDateTime.validateAndReanchorDays(
+        widget.initialItinerary!,
+        startMinutes: _tripStart.hour * 60 + _tripStart.minute,
+      );
+      final days = reanchored.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
       if (days.isNotEmpty) _generated = days;
     }
     _packing = _generatePacking();
     _chat.add(_Msg(false, _openingLine()));
     _tickCountdown();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
+  }
+
+  Future<void> _confirmTrip() async {
+    setState(() => _isConfirmed = true);
+    await _scheduleReminders();
+    await _saveTrip();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip confirmed for ${TripDateTime.formatFullDisplay(_tripStart)}! Alert scheduled.'),
+          backgroundColor: const Color(0xFF10B981),
+        ),
+      );
+    }
+  }
+
+  Future<void> _scheduleReminders() async {
+    final tripId = 'itinerary_${_origin}_to_${_dest}'.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_');
+    final distClean = widget.plan.formattedDistance.replaceAll(RegExp(r'[^0-9.]'), '');
+    final distVal = distClean.isNotEmpty ? (double.tryParse(distClean) ?? 0.0) : 0.0;
+
+    await TripReminderService.instance.scheduleTripStart(
+      tripId: tripId,
+      destination: _dest,
+      startPoint: _origin,
+      departureTime: _tripStart,
+      stops: widget.waypoints.map((w) => w.name ?? 'Waypoint').toList(),
+      distanceKm: distVal,
+      vehicleType: widget.vehicleType,
+    );
   }
 
   @override
@@ -359,7 +397,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       children: [
                         const Icon(Icons.place_rounded, color: Colors.white70, size: 14),
                         const SizedBox(width: 4),
-                        Text('${widget.plan.distanceKm.toStringAsFixed(0)} km · $days ${days == 1 ? 'day' : 'days'}',
+                        Text('${widget.plan.formattedDistance} · $days ${days == 1 ? 'day' : 'days'}',
                             style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w500)),
                       ],
                     ),
@@ -384,6 +422,8 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         // editable trip start (calendar + clock)
         _tripStartEditor(),
         const SizedBox(height: 12),
+        _confirmTripButton(),
+        const SizedBox(height: 12),
         // countdown (only if upcoming)
         if (_remaining > Duration.zero) _countdownCard(),
         if (_remaining > Duration.zero) const SizedBox(height: 12),
@@ -402,17 +442,14 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   }
 
   String _fmtTime(DateTime d) {
-    final ampm = d.hour < 12 ? 'AM' : 'PM';
-    var h = d.hour % 12;
-    if (h == 0) h = 12;
-    return '$h:${d.minute.toString().padLeft(2, '0')} $ampm';
+    return TripDateTime.formatTimeDisplay(d);
   }
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   /// Editable "Trip start" card — opens the built-in calendar then clock.
   Widget _tripStartEditor() {
-    final label = '${_weekdays[_tripStart.weekday - 1]}, ${_fmtDate(_tripStart)} · ${_fmtTime(_tripStart)}';
+    final label = '${TripDateTime.formatDateDisplay(_tripStart)} · ${TripDateTime.formatTimeDisplay(_tripStart)}';
     return InkWell(
       onTap: _pickTripStart,
       borderRadius: BorderRadius.circular(14),
@@ -451,6 +488,55 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     );
   }
 
+  Widget _confirmTripButton() {
+    return Container(
+      width: double.infinity,
+      height: 48,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        gradient: _isConfirmed
+            ? const LinearGradient(colors: [Color(0xFF059669), Color(0xFF10B981)])
+            : const LinearGradient(colors: [_brand, Color(0xFF6366F1)]),
+        boxShadow: [
+          BoxShadow(
+            color: (_isConfirmed ? const Color(0xFF10B981) : _brand).withValues(alpha: 0.3),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _confirmTrip,
+          borderRadius: BorderRadius.circular(14),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  _isConfirmed ? Icons.check_circle_rounded : Icons.check_circle_outline_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _isConfirmed ? 'Trip Confirmed · Alerts Active' : 'Confirm Trip',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Built-in calendar (date) then clock (time) pickers.
   Future<void> _pickTripStart() async {
     final now = DateTime.now();
@@ -477,7 +563,21 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     if (!mounted) return;
     final t = time ?? TimeOfDay.fromDateTime(_tripStart);
 
-    setState(() => _tripStart = DateTime(date.year, date.month, date.day, t.hour, t.minute));
+    final newStart = DateTime(date.year, date.month, date.day, t.hour, t.minute);
+    setState(() {
+      _tripStart = newStart;
+      if (_generated != null && _generated!.isNotEmpty) {
+        final reanchored = TripDateTime.validateAndReanchorDays(
+          _generated!.map((d) => d.toJson()).toList(),
+          startMinutes: newStart.hour * 60 + newStart.minute,
+        );
+        _generated = reanchored.map(_GenDay.fromJson).toList();
+      }
+    });
+
+    if (_isConfirmed) {
+      _scheduleReminders();
+    }
   }
 
   Widget _oStat(IconData icon, String k, String v) {
@@ -670,10 +770,16 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         days: widget.plan.estimatedDays,
         travellers: widget.travellers,
         startDate: '${_weekdays[_tripStart.weekday - 1]}, ${_fmtDate(_tripStart)} ${_tripStart.year}',
-        startTime: _fmtTime(_tripStart),
+        startTime: TripDateTime.to24Hour(_tripStart.hour, _tripStart.minute),
+        startDateTime: _tripStart.toIso8601String(),
+        timezone: DateTime.now().timeZoneName,
         weather: _weatherSummary(),
       );
-      final days = raw.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
+      final validatedRaw = TripDateTime.validateAndReanchorDays(
+        raw,
+        startMinutes: _tripStart.hour * 60 + _tripStart.minute,
+      );
+      final days = validatedRaw.map(_GenDay.fromJson).where((d) => d.activities.isNotEmpty).toList();
       if (!mounted) return;
       if (days.isEmpty) {
         setState(() => _building = false);
@@ -882,9 +988,9 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                       spacing: 14,
                       runSpacing: 6,
                       children: [
-                        _metaItem(Icons.route_rounded, '${day.distanceKm.toStringAsFixed(0)} km'),
+                        _metaItem(Icons.route_rounded, '${day.distanceKm.toStringAsFixed(1)} km'),
                         _metaItem(Icons.schedule_rounded, hrs > 0 ? '${hrs}h ${mins}m drive' : '${mins}m drive'),
-                        _metaItem(Icons.flag_rounded, 'to ${day.toKm.toStringAsFixed(0)} km'),
+                        _metaItem(Icons.flag_rounded, 'to ${day.toKm.toStringAsFixed(1)} km'),
                       ],
                     ),
                     if (widget.plan.departureAdvice != null && day.day == 1 && widget.plan.departureAdvice!.recommendation.isNotEmpty) ...[
@@ -988,6 +1094,64 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
               _budgetMetric('${b.nights}', b.nights == 1 ? 'Night' : 'Nights'),
             ],
           ),
+          if (widget.plan.fuelEstimate != null || (b.breakfast > 0 || b.lunch > 0 || b.teaSnacks > 0 || b.dinner > 0)) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: _surface2,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _hairline),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (widget.plan.fuelEstimate != null) ...[
+                    Row(
+                      children: [
+                        const Icon(Icons.local_gas_station_rounded, size: 14, color: _brand),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Fuel: ${widget.plan.fuelEstimate!.formattedFuelRequired} • ${widget.plan.fuelEstimate!.priceWithLocation}',
+                            style: const TextStyle(color: _ink, fontSize: 11.5, fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (widget.plan.fuelEstimate!.updatedAtText.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 20, top: 2),
+                        child: Text(
+                          'Updated: ${widget.plan.fuelEstimate!.updatedAtText}',
+                          style: const TextStyle(color: _sub, fontSize: 10),
+                        ),
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (b.breakfast > 0 || b.lunch > 0 || b.teaSnacks > 0 || b.dinner > 0) ...[
+                    const Text('Meal & Break Estimates:', style: TextStyle(color: _sub, fontSize: 10.5, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        if (b.breakfast > 0)
+                          Text('🥞 Breakfast: ${_curFull(b.breakfast)}', style: const TextStyle(color: _ink, fontSize: 11)),
+                        if (b.lunch > 0)
+                          Text('🍛 Lunch: ${_curFull(b.lunch)}', style: const TextStyle(color: _ink, fontSize: 11)),
+                        if (b.teaSnacks > 0)
+                          Text('☕ Tea & Snacks: ${_curFull(b.teaSnacks)}', style: const TextStyle(color: _ink, fontSize: 11)),
+                        if (b.dinner > 0)
+                          Text('🍲 Dinner: ${_curFull(b.dinner)}', style: const TextStyle(color: _ink, fontSize: 11)),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -1436,7 +1600,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   String _openingLine() {
     final days = widget.plan.estimatedDays;
     return "Hi! I'm your trip assistant for $_origin → $_dest — "
-        "${widget.plan.distanceKm.toStringAsFixed(0)} km over $days ${days == 1 ? 'day' : 'days'}. "
+        "${widget.plan.formattedDistance} over $days ${days == 1 ? 'day' : 'days'}. "
         "Ask me about your schedule, budget, food stops, or what to pack.";
   }
 
@@ -1470,7 +1634,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
     final b = widget.plan.budget;
     final sb = StringBuffer()
       ..writeln('🧭 ${_origin} → ${_dest}')
-      ..writeln('${_fmtDateRange()} · ${widget.plan.estimatedDays} days · ${widget.plan.distanceKm.toStringAsFixed(0)} km')
+      ..writeln('${_fmtDateRange()} · ${widget.plan.estimatedDays} days · ${widget.plan.formattedDistance}')
       ..writeln('${widget.travellers} traveller${widget.travellers == 1 ? '' : 's'}');
     if (b != null) sb.writeln('Est. budget: ${_curFull(b.total)} (${_curFull(b.perDay)}/day)');
     sb.writeln('\nPlanned with Voyplan');
@@ -1514,7 +1678,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Future<void> _addToCalendar() async {
     await addTripToCalendar(
       title: 'Trip: $_origin → $_dest',
-      description: '${widget.plan.distanceKm.toStringAsFixed(0)} km · ${widget.plan.estimatedDays} days · planned with Voyplan',
+      description: '${widget.plan.formattedDistance} · ${widget.plan.estimatedDays} days · planned with Voyplan',
       location: _dest,
       start: _tripStart,
       end: _endDate.add(const Duration(hours: 20)),
@@ -1557,7 +1721,7 @@ class _GenDay {
         .map((e) => (e as Map).cast<String, dynamic>())
         .map((a) => _GenActivity(
               part: (a['part'] ?? '').toString(),
-              time: (a['time'] ?? '').toString(),
+              time: TripDateTime.to12Hour(a['time']),
               title: (a['title'] ?? '').toString(),
               note: (a['note'] ?? '').toString(),
             ))

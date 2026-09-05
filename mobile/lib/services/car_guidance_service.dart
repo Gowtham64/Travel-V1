@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
+import 'car_platform_channel.dart';
 import 'voice_prefs.dart';
 import 'car_guidance_speech_stub.dart'
     if (dart.library.html) 'dart:html' as html;
@@ -409,6 +410,7 @@ class CarGuidanceService {
     _lastAnnouncedDistance = dist;
 
     _speak(phrase);
+    CarPlatformChannel.speakNavigation(phrase);
   }
 
   dynamic _cachedVoice;

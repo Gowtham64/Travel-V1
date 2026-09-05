@@ -35,8 +35,13 @@ for f in ios-install.html privacy.html terms.html favicon.ico favicon.png favico
 done
 echo "  ✓ Landing site (index + favicons + SEO + manifests) copied"
 
+# Mobile installation files are served at the site root.
+if [ -f "web/Voyplan.apk" ]; then
+    cp web/Voyplan.apk $DEPLOY_DIR/Voyplan.apk
+    echo "  ✓ Android APK copied as Voyplan.apk"
+fi
+
 # iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
-# The Android APK is distributed via GitHub Releases, so it is NOT bundled in gh-pages.
 if [ -f "mobile/build/ios/iphoneos/Voyplan.ipa" ]; then
     cp mobile/build/ios/iphoneos/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
     echo "  ✓ iOS IPA (fresh build) copied as Voyplan.ipa"

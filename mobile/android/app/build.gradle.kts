@@ -1,9 +1,18 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     // Firebase — processes google-services.json for Firebase Analytics (Android only).
     id("com.google.gms.google-services")
+}
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
 android {
@@ -30,11 +39,24 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
@@ -74,8 +96,9 @@ flutter {
 }
 
 dependencies {
-    // Android Auto — Car App Library (CarAppService + NavigationTemplate).
+    // Android Auto — Car App Library (CarAppService + NavigationTemplate + Projected Host).
     implementation("androidx.car.app:app:1.4.0")
+    implementation("androidx.car.app:app-projected:1.4.0")
     // Required by flutter_local_notifications (core library desugaring).
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 

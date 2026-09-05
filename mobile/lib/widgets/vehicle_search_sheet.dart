@@ -15,6 +15,7 @@ class VehicleSearchSheet extends StatefulWidget {
   });
 
   static Future<VehicleModel?> show(BuildContext context, {VehicleModel? currentVehicle}) {
+    FocusManager.instance.primaryFocus?.unfocus();
     return showModalBottomSheet<VehicleModel>(
       context: context,
       isScrollControlled: true,
@@ -27,6 +28,7 @@ class VehicleSearchSheet extends StatefulWidget {
         child: VehicleSearchSheet(
           currentVehicle: currentVehicle,
           onVehicleSelected: (v) {
+            FocusManager.instance.primaryFocus?.unfocus();
             Navigator.of(ctx).pop(v);
           },
         ),
@@ -91,6 +93,7 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
   }
 
   void _onConfirmSelection() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_selectedVehicle == null) return;
 
     VehicleModel finalVehicle = _selectedVehicle!;
@@ -114,88 +117,104 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Drag handle
-            Center(
-              child: Container(
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF3B82F6).withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  child: const Icon(Icons.directions_car_filled_rounded, color: Color(0xFF60A5FA), size: 22),
                 ),
-                const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Vehicle Database',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                    Text(
-                      'Search by Brand, Model, or Variant · CarDekho Catalog',
-                      style: TextStyle(fontSize: 11.5, color: Colors.white60),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+              ),
+              const SizedBox(height: 14),
 
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F2433),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withOpacity(0.1)),
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF3B82F6).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.directions_car_filled_rounded, color: Color(0xFF60A5FA), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Vehicle Database',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          'Search by Brand, Model, or Variant · CarDekho Catalog',
+                          style: TextStyle(fontSize: 11.5, color: Colors.white60),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () {
+                      FocusManager.instance.primaryFocus?.unfocus();
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
               ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
-                onChanged: (_) => _performSearch(),
-                decoration: InputDecoration(
-                  hintText: 'Search (e.g. Innova, XUV700, Safari, Swift, Thar, Creta...)',
-                  hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14),
-                  prefixIcon: const Icon(Icons.search, color: Color(0xFF60A5FA), size: 20),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            _performSearch();
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              const SizedBox(height: 12),
+
+              // Search Bar
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F2433),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) {
+                    FocusManager.instance.primaryFocus?.unfocus();
+                    _performSearch();
+                  },
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  onChanged: (_) => _performSearch(),
+                  decoration: InputDecoration(
+                    hintText: 'Search (e.g. Innova, XUV700, Safari, Swift, Thar, Creta...)',
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14),
+                    prefixIcon: const Icon(Icons.search, color: Color(0xFF60A5FA), size: 20),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, color: Colors.white54, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              _performSearch();
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
                 ),
               ),
-            ),
             const SizedBox(height: 10),
 
             // Fuel Filter Chips Bar
@@ -353,6 +372,8 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
                             child: TextField(
                               controller: _customMileageController,
                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
                               style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
                               decoration: InputDecoration(
                                 suffixText: 'km/L',
@@ -384,14 +405,16 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildVehicleCard(VehicleModel v, bool isSelected) {
     final fuelColor = _getFuelColor(v.fuelType);
 
     return InkWell(
       onTap: () {
+        FocusManager.instance.primaryFocus?.unfocus();
         setState(() {
           _selectedVehicle = v;
           if (_useCustomMileage) {
@@ -440,25 +463,21 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
               ],
             ),
             const SizedBox(height: 6),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
               children: [
                 if (v.fuelType == 'ev') ...[
                   _specBadge(Icons.bolt, '${v.evRangeKm ?? 450} km Range', const Color(0xFF8B5CF6)),
-                  const SizedBox(width: 8),
                   _specBadge(Icons.battery_charging_full, '${v.batteryCapacityKwh ?? 50} kWh', Colors.white60),
                 ] else ...[
                   _specBadge(Icons.speed_rounded, '${v.mileage.toStringAsFixed(1)} km/L', const Color(0xFF10B981)),
-                  const SizedBox(width: 8),
                   _specBadge(Icons.local_gas_station_outlined, '${v.tankCapacity.toStringAsFixed(0)}L Tank', Colors.white60),
                 ],
-                if (v.seatingCapacity != null) ...[
-                  const SizedBox(width: 8),
+                if (v.seatingCapacity != null)
                   _specBadge(Icons.event_seat_outlined, '${v.seatingCapacity} Seats', Colors.white60),
-                ],
-                if (v.transmission != null) ...[
-                  const SizedBox(width: 8),
+                if (v.transmission != null)
                   _specBadge(Icons.tune_rounded, v.transmission!.contains('Auto') || v.transmission!.contains('AT') || v.transmission!.contains('DCT') ? 'AT' : 'MT', Colors.white60),
-                ],
               ],
             ),
           ],

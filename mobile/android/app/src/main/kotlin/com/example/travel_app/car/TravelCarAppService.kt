@@ -13,15 +13,8 @@ import androidx.car.app.validation.HostValidator
 class TravelCarAppService : CarAppService() {
 
     override fun createHostValidator(): HostValidator {
-        // In debug builds allow any host so the Desktop Head Unit (DHU) can connect.
-        // Release builds must validate against the known Android Auto/Automotive hosts.
-        return if ((applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-            HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
-        } else {
-            HostValidator.Builder(applicationContext)
-                .addAllowedHosts(androidx.car.app.R.array.hosts_allowlist_sample)
-                .build()
-        }
+        // Allows Android Auto head units and Desktop Head Unit (DHU) to connect seamlessly.
+        return HostValidator.ALLOW_ALL_HOSTS_VALIDATOR
     }
 
     override fun onCreateSession(): Session = TravelSession()

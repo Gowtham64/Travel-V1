@@ -343,13 +343,15 @@
         'opacity:' + (sunUp ? 1 : 0) + '; transition:opacity 1.5s;';
     };
 
-    window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType) {
+    window.initMapbox3D = function(containerId, accessToken, styleUrl, routeJson, waypointsJson, poisJson, vehicleType, fuelStopsJson) {
       const routePoints = JSON.parse(routeJson);
       const waypoints = JSON.parse(waypointsJson);
       const pois = JSON.parse(poisJson);
+      const fuelStops = fuelStopsJson ? JSON.parse(fuelStopsJson) : [];
 
       window.currentRoutePoints = routePoints;
       window.mapboxMarkers = [];
+      window.fuelStopMarkers = [];
       window.animatedRouteCoords = [];
 
       mapboxgl.accessToken = accessToken || 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
@@ -585,6 +587,74 @@
           .setPopup(new mapboxgl.Popup({ offset: 10 }).setHTML(popupHTML))
           .addTo(map);
       });
+
+      // Automatically generated Fuel Stop Markers (always visible on navigation map)
+      window.__renderFuelStopMarkers = function(stops) {
+        if (!stops || !Array.isArray(stops)) return;
+        if (window.fuelStopMarkers) {
+          window.fuelStopMarkers.forEach(m => m.remove());
+        }
+        window.fuelStopMarkers = [];
+        const seenIds = new Set();
+
+        stops.forEach((stop, index) => {
+          const lat = Number(stop.lat ?? stop.latitude);
+          const lng = Number(stop.lng ?? stop.longitude);
+          if (isNaN(lat) || isNaN(lng)) return;
+
+          const stopKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
+          if (seenIds.has(stopKey)) return;
+          seenIds.add(stopKey);
+
+          console.log(`[FUEL] Marker rendered: ${stop.name || 'Fuel Station'} (${lat}, ${lng})`);
+
+          const el = document.createElement('div');
+          el.className = 'fuel-stop-marker';
+          el.style.width = '38px';
+          el.style.height = '38px';
+          el.style.borderRadius = '50%';
+          el.style.backgroundColor = '#f59e0b'; // Vibrant Amber
+          el.style.border = '3px solid #ffffff';
+          el.style.boxShadow = '0 0 16px rgba(245, 158, 11, 0.8), 0 4px 10px rgba(0,0,0,0.4)';
+          el.style.display = 'flex';
+          el.style.alignItems = 'center';
+          el.style.justifyContent = 'center';
+          el.style.cursor = 'pointer';
+          el.style.fontSize = '20px';
+          el.style.zIndex = '15';
+          el.innerHTML = '⛽';
+
+          const reqLiters = stop.refillLiters ?? stop.estimatedFuelRequired;
+          const topUpText = reqLiters ? `Top-up: <b>~${Number(reqLiters).toFixed(1)} L</b>` : 'Refuel Stop';
+          const costText = stop.estimatedCost ? ` · <b>${stop.currencySymbol || '₹'}${Math.round(stop.estimatedCost)}</b>` : '';
+
+          const popupHTML = `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 6px; min-width: 190px;">
+              <div style="display: flex; align-items: center; gap: 6px; font-weight: bold; font-size: 13px; color: #d97706; margin-bottom: 4px;">
+                <span>⛽</span> <span>Fuel Station</span>
+              </div>
+              <div style="font-weight: 700; font-size: 13px; color: #111; margin-bottom: 4px;">${stop.name || 'Fuel Station'}</div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">Fuel Type: <b style="text-transform: capitalize;">${stop.fuelType || 'petrol'}</b></div>
+              <div style="font-size: 11px; color: #444; margin-bottom: 2px;">${topUpText}${costText}</div>
+              ${stop.distanceFromStartKm ? `<div style="font-size: 11px; color: #666; margin-bottom: 2px;">Route progression: <b>${Number(stop.distanceFromStartKm).toFixed(1)} km</b></div>` : ''}
+              ${stop.offRouteKm && Number(stop.offRouteKm) >= 0.1 ? `<div style="font-size: 11px; color: #666; margin-bottom: 4px;">Detour: <b>${Number(stop.offRouteKm).toFixed(1)} km off route</b></div>` : ''}
+              <div style="margin-top: 6px; padding: 4px 8px; background: #ecfdf5; border: 1px solid #10b981; border-radius: 4px; font-size: 11px; color: #059669; font-weight: 600; text-align: center;">
+                ✓ Active Navigation Waypoint
+              </div>
+            </div>
+          `;
+
+          const marker = new mapboxgl.Marker({ element: el })
+            .setLngLat([lng, lat])
+            .setPopup(new mapboxgl.Popup({ offset: 20 }).setHTML(popupHTML))
+            .addTo(map);
+
+          window.fuelStopMarkers.push(marker);
+        });
+      };
+
+      // Initial rendering of fuel stops
+      window.__renderFuelStopMarkers(fuelStops);
 
       function getPoiColor(category) {
         switch (category) {
@@ -1082,6 +1152,17 @@
         }
       } catch (e) {
         console.error('Failed to update 3D route geometry:', e);
+      }
+    };
+
+    window.update3DFuelStops = function(fuelStopsJson) {
+      try {
+        const stops = typeof fuelStopsJson === 'string' ? JSON.parse(fuelStopsJson) : fuelStopsJson;
+        if (typeof window.__renderFuelStopMarkers === 'function') {
+          window.__renderFuelStopMarkers(stops);
+        }
+      } catch (e) {
+        console.error('Failed to update 3D fuel stops:', e);
       }
     };
 

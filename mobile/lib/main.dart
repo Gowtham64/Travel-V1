@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -9,6 +10,9 @@ import 'theme/app_theme.dart';
 import 'config/app_config.dart';
 
 import 'services/trip_reminder_service.dart';
+import 'widgets/trip_start_dialog.dart';
+
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 // Environment-driven (see AppConfig). Defaults are the production project, so a
 // plain build is unchanged; staging/dev override via --dart-define.
@@ -57,6 +61,7 @@ class TravelApp extends StatelessWidget {
     final textTheme = _withFontFallback(baseTextTheme, indicFallback);
 
     return MaterialApp(
+      navigatorKey: appNavigatorKey,
       title: 'Voyplan',
       debugShowCheckedModeBanner: false,
       theme: Voy.dark(textTheme),
@@ -67,12 +72,22 @@ class TravelApp extends StatelessWidget {
       // (APP_ENV=staging) so staging can never be confused with production.
       builder: (context, child) {
         final content = child ?? const SizedBox.shrink();
-        if (!AppConfig.isStaging) return content;
+        final wrapped = GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () {
+            final currentFocus = FocusManager.instance.primaryFocus;
+            if (currentFocus != null && currentFocus.hasFocus) {
+              currentFocus.unfocus();
+            }
+          },
+          child: content,
+        );
+        if (!AppConfig.isStaging) return wrapped;
         return Directionality(
           textDirection: TextDirection.ltr,
           child: Stack(
             children: [
-              content,
+              wrapped,
               Positioned(
                 top: 0,
                 left: 0,
@@ -138,11 +153,53 @@ class AuthStateWrapper extends StatefulWidget {
 class _AuthStateWrapperState extends State<AuthStateWrapper> {
   bool _isLoading = true;
   bool _isAuthenticated = false;
+  StreamSubscription<TripDepartureReminder>? _tripReadySub;
+  bool _isTripStartDialogOpen = false;
 
   @override
   void initState() {
     super.initState();
     _checkAuth();
+    _setupTripReadyListener();
+  }
+
+  void _setupTripReadyListener() {
+    _tripReadySub = TripReminderService.instance.onTripReadyToStart.listen((reminder) {
+      _showTripStartDialogIfNeeded(reminder);
+    });
+    // Check if any trip was missed or is currently ready to start
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final active = await TripReminderService.instance.getActiveReadyToStartTrip();
+      if (active != null) {
+        _showTripStartDialogIfNeeded(active);
+      }
+    });
+  }
+
+  void _showTripStartDialogIfNeeded(TripDepartureReminder reminder) {
+    if (_isTripStartDialogOpen) return;
+    final navContext = appNavigatorKey.currentContext;
+    if (navContext == null) return;
+
+    _isTripStartDialogOpen = true;
+    TripStartDialog.show(
+      navContext,
+      reminder,
+      onStartNavigation: () {
+        _isTripStartDialogOpen = false;
+      },
+      onPostponed: (_) {
+        _isTripStartDialogOpen = false;
+      },
+    ).then((_) {
+      _isTripStartDialogOpen = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _tripReadySub?.cancel();
+    super.dispose();
   }
 
   Future<void> _checkAuth() async {
