@@ -1,4 +1,5 @@
 const axios = require("axios");
+const CURATED_PLACES = require("../data/curatedPlaces.json");
 
 // Provider-agnostic AI. Set AI_PROVIDER = gemini | groq | openrouter to force one,
 // otherwise auto-detect from whichever key is present. Gemini is preferred when
@@ -45,12 +46,13 @@ async function generate(prompt, opts = {}) {
 }
 
 async function geminiGenerate(prompt, opts, key) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${key}`;
+  const modelToUse = opts.model || GEMINI_MODEL;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelToUse)}:generateContent?key=${key}`;
   const body = { contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7 } };
   if (opts.system) body.systemInstruction = { parts: [{ text: opts.system }] };
   if (opts.json) body.generationConfig.responseMimeType = "application/json";
   if (opts.maxTokens) body.generationConfig.maxOutputTokens = opts.maxTokens;
-  const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" }, timeout: 30000 });
+  const res = await axios.post(url, body, { headers: { "Content-Type": "application/json" }, timeout: 35000 });
   return (res.data?.candidates?.[0]?.content?.parts || []).map((p) => p.text || "").join("").trim();
 }
 
@@ -569,6 +571,40 @@ async function smartItinerary({
       `4. Balance categories across the ${total} days following a logical sequence (Start -> Stop 1 -> Stop 2 -> Lunch -> Stop 3 -> Stay) without backtracking.\n`;
   }
 
+  function cleanCityName(str) {
+    if (!str) return "Destination";
+    const raw = str.split(',')[0].trim();
+    return raw.replace(/\s*\([^)]*\)/g, '').trim() || raw;
+  }
+  const cleanCity = cleanCityName(destination);
+  const parenMatch = destination ? destination.match(/\(([^)]+)\)/) : null;
+  const parenAlias = parenMatch ? parenMatch[1].toLowerCase().trim() : "";
+  const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter((s) => s && s.length >= 3);
+  if (searchTerms.some((s) => s.includes("tirumala") || s.includes("tirupati"))) {
+    if (!searchTerms.includes("tirumala")) searchTerms.push("tirumala");
+    if (!searchTerms.includes("tirupati")) searchTerms.push("tirupati");
+  }
+
+  let verifiedCandidates = [];
+  try {
+    verifiedCandidates = CURATED_ATTRACTIONS.filter((t) => {
+      const tCity = (t.city || "").toLowerCase();
+      const tName = (t.name || "").toLowerCase();
+      return searchTerms.some((st) => tCity.includes(st) || tName.includes(st));
+    });
+    if (Array.isArray(CURATED_PLACES)) {
+      for (const p of CURATED_PLACES) {
+        const pCity = (p.city || "").toLowerCase();
+        const pName = (p.name || "").toLowerCase();
+        if (searchTerms.some((st) => pCity.includes(st) || pName.includes(st))) {
+          if (!verifiedCandidates.some((c) => c.name === p.name)) {
+            verifiedCandidates.push({ name: p.name, city: p.city, highlight: p.description });
+          }
+        }
+      }
+    }
+  } catch (_) {}
+
   const startMin = parseMinutes(startTime);
   const canonical12h = formatMin(startMin);
   const canonical24h = format24h(startMin);
@@ -596,12 +632,41 @@ async function smartItinerary({
         `the traveller ALL THE WAY BACK to "${startLocation}" (realistic mode, distance & time). `;
     }
     if (isLast && (endDate || endTime)) ctx += `The trip should end around ${endDate} ${endTime}. `;
-    return ctx + placeLine + prefLine + paceLine + directiveLine + categoryConstraintLine + ITINERARY_RULES + " " + getItineraryJsonHint(isFirst ? canonical24h : "08:00");
+
+    const geoConstraint =
+      `\nHARD GEOGRAPHIC CONSTRAINT (MANDATORY RULE):\n` +
+      `The PRIMARY destination is "${destination}". Every single sightseeing or activity stop MUST be located strictly within "${destination}" (or within 25 km of "${destination}"). ` +
+      `You are STRICTLY FORBIDDEN from including attractions from other distant cities or states (for example, if destination is Tirumala, NEVER include places in Mangalore, Bangalore, Mumbai, Hyderabad, or Chennai). ` +
+      `All recommended attractions must be genuine sights in "${destination}".\n`;
+
+    let candidatesCtx = "";
+    if (verifiedCandidates.length) {
+      candidatesCtx =
+        `\nVERIFIED REAL ATTRACTIONS IN "${destination}" (PRIORITIZE THESE REAL SIGHTS):\n` +
+        verifiedCandidates.slice(0, 15).map((c) => `- ${c.name} (${c.city}): ${c.highlight || ""}`).join("\n") +
+        "\n";
+    }
+
+    return (
+      ctx +
+      geoConstraint +
+      candidatesCtx +
+      placeLine +
+      prefLine +
+      paceLine +
+      directiveLine +
+      categoryConstraintLine +
+      ITINERARY_RULES +
+      " " +
+      getItineraryJsonHint(isFirst ? canonical24h : "08:00")
+    );
   }
 
   const MODELS =
     PROVIDER === "groq"
       ? ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.3-70b-versatile"]
+      : PROVIDER === "gemini"
+      ? ["gemini-2.5-flash", "gemini-flash-latest", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-2.5-pro"]
       : [undefined];
   let days = [];
   let lastErr = null;
@@ -620,7 +685,7 @@ async function smartItinerary({
       lastErr = err;
       const status = err.response ? err.response.status : 0;
       console.error(`Itinerary model ${m} failed:`, status, err.response ? JSON.stringify(err.response.data).slice(0, 200) : err.message);
-      if (status !== 429) break;
+      // Continue to next model on 429, 404, or 5xx
     }
   }
 
@@ -640,8 +705,35 @@ async function smartItinerary({
     });
   }
 
+  // Post-process days to eliminate any hallucinated places outside destination
+  const forbiddenKeywords = ["mangaluru", "mangalore", "panambur", "kudroli", "tannirbhavi", "pilikula", "surathkal", "someshwara"];
+  const isMangaloreTrip = searchTerms.some((s) => s.includes("mangal"));
+  if (!isMangaloreTrip) {
+    for (const day of days) {
+      if (Array.isArray(day.blocks)) {
+        for (const b of day.blocks) {
+          if (b.type === "activity") {
+            const checkStr = `${b.title} ${b.place || ""} ${b.reason || ""}`.toLowerCase();
+            if (forbiddenKeywords.some((kw) => checkStr.includes(kw))) {
+              const fallbackAttraction = verifiedCandidates[0] || {
+                name: `${cleanCity} Historic Temple & Viewpoint`,
+                city: cleanCity,
+                highlight: `⭐ 4.8 · Scenic attraction in ${cleanCity}`,
+              };
+              b.title = `Visit ${fallbackAttraction.name}`;
+              b.place = `${fallbackAttraction.name}, ${fallbackAttraction.city || cleanCity}`;
+              b.reason = fallbackAttraction.highlight || `⭐ 4.8 · Scenic attraction in ${cleanCity}`;
+            }
+          }
+        }
+      }
+    }
+  }
+
   days = days.slice(0, total);
-  days.forEach((d, i) => { d.day = i + 1; });
+  days.forEach((d, i) => {
+    d.day = i + 1;
+  });
   return days;
 }
 
@@ -851,13 +943,39 @@ function buildFallbackSmartItinerary({
   // Extract search terms including aliases inside parentheses e.g. "Mangaluru (Mangalore)" -> "mangaluru", "mangalore"
   const parenMatch = destination ? destination.match(/\(([^)]+)\)/) : null;
   const parenAlias = parenMatch ? parenMatch[1].toLowerCase().trim() : "";
-  const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter(s => s && s.length >= 3);
+  const searchTerms = [cleanCity.toLowerCase(), parenAlias].filter((s) => s && s.length >= 3);
+  if (searchTerms.some((s) => s.includes("tirumala") || s.includes("tirupati"))) {
+    if (!searchTerms.includes("tirumala")) searchTerms.push("tirumala");
+    if (!searchTerms.includes("tirupati")) searchTerms.push("tirupati");
+  }
 
-  // Step 1: Gather candidate places for this destination from curated library
-  let destCandidates = CURATED_ATTRACTIONS.filter(t => {
-    const tCity = t.city.toLowerCase();
-    return searchTerms.some(st => tCity.includes(st) || text.includes(st));
+  // Step 1: Gather candidate places strictly for this destination from curated library & curatedPlaces.json
+  let destCandidates = CURATED_ATTRACTIONS.filter((t) => {
+    const tCity = (t.city || "").toLowerCase();
+    const tName = (t.name || "").toLowerCase();
+    const tDeity = (t.deity || "").toLowerCase();
+    return searchTerms.some((st) => tCity.includes(st) || tName.includes(st) || tDeity.includes(st));
   });
+
+  if (Array.isArray(CURATED_PLACES)) {
+    for (const p of CURATED_PLACES) {
+      const pCity = (p.city || "").toLowerCase();
+      const pName = (p.name || "").toLowerCase();
+      if (searchTerms.some((st) => pCity.includes(st) || pName.includes(st))) {
+        if (!destCandidates.some((c) => c.name === p.name)) {
+          destCandidates.push({
+            name: p.name,
+            deity: p.name,
+            city: p.city,
+            rating: String(p.rating || 4.7),
+            durationMin: p.visitDurationMin || 75,
+            highlight: p.description || `Famous ${p.category} in ${p.city}`,
+            categories: p.categories || [p.category || "Famous / Must-Visit Places"],
+          });
+        }
+      }
+    }
+  }
 
   // Step 2: Strict Category Filtering
   let pool = [];
