@@ -548,7 +548,13 @@ function filterAndScoreCandidates({
       // Keyword fallback match on place name (e.g. "Sri Venkateswara Temple" -> temple)
       if (!matches) {
         for (const selCat of selectedSet) {
-          if (selCat === "temple" && (pName.includes("temple") || pName.includes("kovil") || pName.includes("mandir") || pName.includes("devasthanam") || pName.includes("matha") || pName.includes("theertham"))) {
+          if (
+            selCat === "temple" &&
+            !c.category?.includes("waterfall") &&
+            !c.category?.includes("river") &&
+            !c.category?.includes("viewpoint") &&
+            (pName.includes("temple") || pName.includes("kovil") || pName.includes("mandir") || pName.includes("devasthanam") || pName.includes("matha"))
+          ) {
             matches = true;
             priorityScore = Math.max(priorityScore, 90);
             break;
@@ -604,19 +610,24 @@ function filterAndScoreCandidates({
       continue;
     }
 
+    // Primary category match bonus: if primary category matches user selection, boost above secondary matches
+    const primaryCat = normalizeCategory(c.category);
+    const isPrimaryCategoryMatch = selectedSet.has(primaryCat);
+    const primaryBonus = isPrimaryCategoryMatch ? 30 : 0;
+
     // Score: Destination itself / Destination-proximate places get highest priority boost, then corridor stops
     let locScore = 0;
     if (c.isDestinationAnchor) {
       locScore = 1000;
     } else if (isNearDest) {
-      locScore = 500 - distToDest * 2.0; // Closer to destination center = higher rank
+      locScore = 500 - distToDest * 0.2; // Gentle slope within search radius so top places across destination zone remain competitive
     } else if (isAlongCorridor) {
       locScore = 200 - corridorDetour * 5.0; // Minimal detour on highway corridor
     } else {
       locScore = 50;
     }
 
-    const totalScore = priorityScore + locScore + (c.rating ? c.rating * 5 : 20);
+    const totalScore = priorityScore + locScore + primaryBonus + ((c.rating || 4.5) * 20);
     const placeId = c.placeId || `pl_${Math.round(c.lat * 10000)}_${Math.round(c.lng * 10000)}`;
 
     valid.push({
@@ -640,7 +651,8 @@ function filterAndScoreCandidates({
     if (seenPlaceIds.has(p.placeId)) continue;
     const isDup = deduplicated.some(
       (existing) =>
-        haversineDistanceKm(existing, p) < 0.25 ||
+        (existing.placeId && p.placeId && existing.placeId === p.placeId) ||
+        haversineDistanceKm(existing, p) < 0.05 ||
         existing.name.toLowerCase().trim() === p.name.toLowerCase().trim()
     );
     if (!isDup) {
