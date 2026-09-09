@@ -2,6 +2,8 @@
 // expense tracker (with splitting), and reservations. All are plain, JSON-
 // serializable value types persisted locally per trip (see TripExtrasStore).
 
+import 'trip_models.dart';
+
 /// A photo/moment in the travel gallery. The image is stored inline as a
 /// compressed data URL (JPEG base64) so it persists locally with no backend.
 class GalleryPhoto {
@@ -139,8 +141,8 @@ class PlanItem {
   Map<String, dynamic> toJson() =>
       {'id': id, 'text': text, 'time': time, 'note': note, 'lat': lat, 'lng': lng, 'category': category, 'done': done};
   factory PlanItem.fromJson(Map<String, dynamic> j) => PlanItem(
-        id: j['id'].toString(),
-        text: (j['text'] ?? '').toString(),
+        id: j['id']?.toString() ?? '',
+        text: LocationHelper.cleanString(j['text']),
         time: (j['time'] ?? '').toString(),
         note: (j['note'] ?? '').toString(),
         lat: (j['lat'] as num?)?.toDouble(),
@@ -183,8 +185,8 @@ class TransportBooking {
   factory TransportBooking.fromJson(Map<String, dynamic> j) => TransportBooking(
         carrier: (j['carrier'] ?? '').toString(),
         number: (j['number'] ?? '').toString(),
-        from: (j['from'] ?? '').toString(),
-        to: (j['to'] ?? '').toString(),
+        from: LocationHelper.cleanString(j['from']),
+        to: LocationHelper.cleanString(j['to']),
         depart: (j['depart'] ?? '').toString(),
         arrive: (j['arrive'] ?? '').toString(),
         seat: (j['seat'] ?? '').toString(),
@@ -225,9 +227,9 @@ class PlanDay {
         'items': items.map((e) => e.toJson()).toList(),
       };
   factory PlanDay.fromJson(Map<String, dynamic> j) => PlanDay(
-        id: j['id'].toString(),
+        id: j['id']?.toString() ?? '',
         title: (j['title'] ?? '').toString(),
-        hotel: (j['hotel'] ?? '').toString(),
+        hotel: LocationHelper.cleanString(j['hotel']),
         transportMode: (j['transportMode'] ?? 'car').toString(),
         vehicleId: j['vehicleId']?.toString(),
         booking: j['booking'] != null ? TransportBooking.fromJson((j['booking'] as Map).cast<String, dynamic>()) : null,

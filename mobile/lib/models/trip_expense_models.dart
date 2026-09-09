@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'trip_models.dart';
 
 /// Supported expense categories matching VoyPlan trip budgeting & itinerary breaks
@@ -164,19 +163,19 @@ class TripExpenseItem {
     actualAmount: (json['actualAmount'] as num?)?.toDouble() ?? 0.0,
     currency: json['currency']?.toString() ?? 'INR',
     currencySymbol: json['currencySymbol']?.toString() ?? '₹',
-    location: json['location']?.toString() ?? '',
+    location: LocationHelper.cleanString(json['location']),
     dateTime: DateTime.tryParse(json['dateTime']?.toString() ?? '') ?? DateTime.now(),
     notes: json['notes']?.toString() ?? '',
     receiptNumber: json['receiptNumber']?.toString(),
     paymentMethod: json['paymentMethod']?.toString() ?? 'Cash',
     stopId: json['stopId']?.toString(),
-    stopName: json['stopName']?.toString(),
-    stationName: json['stationName']?.toString(),
+    stopName: json['stopName'] != null ? LocationHelper.cleanString(json['stopName']) : null,
+    stationName: json['stationName'] != null ? LocationHelper.cleanString(json['stationName']) : null,
     fuelType: json['fuelType']?.toString(),
     litres: (json['litres'] as num?)?.toDouble(),
     pricePerLitre: (json['pricePerLitre'] as num?)?.toDouble(),
     tollPlazaId: json['tollPlazaId']?.toString(),
-    tollPlazaName: json['tollPlazaName']?.toString(),
+    tollPlazaName: json['tollPlazaName'] != null ? LocationHelper.cleanString(json['tollPlazaName']) : null,
     routeLeg: json['routeLeg']?.toString() ?? 'single',
   );
 

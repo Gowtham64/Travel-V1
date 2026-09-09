@@ -16,10 +16,12 @@ gh-pages-deploy/
 # OS / editor junk
 .DS_Store
 **/.DS_Store
+.agents/
 
 # Build outputs & large binaries (distributed via GitHub Releases, not committed)
 *.apk
 *.ipa
+*.aab
 *.zip
 *.app/
 Voyplan.app/

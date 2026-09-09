@@ -17,12 +17,12 @@ class GeoPoint {
 
   factory GeoPoint.fromJson(Map<String, dynamic> json) =>
       GeoPoint(
-        lat: (json['lat'] as num).toDouble(),
-        lng: (json['lng'] as num).toDouble(),
-        name: json['name'] as String?,
+        lat: (json['lat'] as num?)?.toDouble() ?? (json['latitude'] as num?)?.toDouble() ?? 0.0,
+        lng: (json['lng'] as num?)?.toDouble() ?? (json['longitude'] as num?)?.toDouble() ?? 0.0,
+        name: LocationHelper.cleanString(json['name']),
         isFuelStop: (json['isFuelStop'] as bool?) ?? false,
         refuelStop: json['refuelStop'] != null
-            ? RefuelStop.fromJson(json['refuelStop'] as Map<String, dynamic>)
+            ? RefuelStop.fromJson((json['refuelStop'] as Map).cast<String, dynamic>())
             : null,
       );
 
@@ -163,16 +163,16 @@ class RefuelStop {
         lat: ((json['lat'] ?? json['latitude']) as num?)?.toDouble() ?? 0.0,
         lng: ((json['lng'] ?? json['longitude']) as num?)?.toDouble() ?? 0.0,
         distanceFromStartKm: (json['distanceFromStartKm'] as num?)?.toDouble() ?? 0.0,
-        name: (json['name'] as String?) ?? '',
+        name: LocationHelper.cleanString(json['name'], 'Fuel Station'),
         stationId: json['stationId'] ?? json['id'],
         offRouteKm: ((json['offRouteKm'] ?? json['distanceFromRoute']) as num?)?.toDouble(),
         fuelOnArrivalLiters: (json['fuelOnArrivalLiters'] as num?)?.toDouble(),
         refillLiters: (json['refillLiters'] as num?)?.toDouble(),
         estimatedCost: (json['estimatedCost'] as num?)?.toDouble(),
         pricePerUnit: (json['pricePerUnit'] as num?)?.toDouble(),
-        currency: (json['currency'] as String?) ?? 'INR',
-        currencySymbol: (json['currencySymbol'] as String?) ?? '₹',
-        fuelType: (json['fuelType'] as String?) ?? 'petrol',
+        currency: LocationHelper.cleanString(json['currency'], 'INR'),
+        currencySymbol: LocationHelper.cleanString(json['currencySymbol'], '₹'),
+        fuelType: LocationHelper.cleanString(json['fuelType'], 'petrol'),
         remainingRangeAfterRefuelKm: (json['remainingRangeAfterRefuelKm'] as num?)?.toDouble(),
         isSystemGenerated: (json['isSystemGenerated'] as bool?) ?? true,
         legIndex: (json['legIndex'] as num?)?.toInt() ?? 0,
@@ -277,11 +277,74 @@ class Trek {
 }
 
 /// One time block in the smart AI itinerary timeline.
+/// Canonical location model supporting structured location objects and raw strings.
+class TripLocation {
+  final String name;
+  final String? address;
+  final String? placeId;
+  final double? latitude;
+  final double? longitude;
+
+  const TripLocation({
+    required this.name,
+    this.address,
+    this.placeId,
+    this.latitude,
+    this.longitude,
+  });
+
+  factory TripLocation.fromDynamic(dynamic val, [String fallbackName = 'Location']) {
+    if (val == null) {
+      return TripLocation(name: fallbackName);
+    }
+    if (val is TripLocation) {
+      return val;
+    }
+    if (val is String) {
+      final clean = LocationHelper.cleanString(val, fallbackName);
+      return TripLocation(name: clean);
+    }
+    if (val is Map) {
+      final name = LocationHelper.cleanString(
+        val['name'] ?? val['title'] ?? val['place'] ?? val['address'] ?? val['city'],
+        fallbackName,
+      );
+      final addr = LocationHelper.cleanString(val['address'] ?? val['formatted_address'] ?? '');
+      final pId = LocationHelper.cleanString(val['placeId'] ?? val['id'] ?? '');
+      final lat = (val['latitude'] as num?)?.toDouble() ?? (val['lat'] as num?)?.toDouble();
+      final lng = (val['longitude'] as num?)?.toDouble() ?? (val['lng'] as num?)?.toDouble();
+      return TripLocation(
+        name: name,
+        address: addr.isNotEmpty ? addr : null,
+        placeId: pId.isNotEmpty ? pId : null,
+        latitude: lat,
+        longitude: lng,
+      );
+    }
+    return TripLocation(name: fallbackName);
+  }
+
+  factory TripLocation.fromJson(Map<String, dynamic> json) => TripLocation.fromDynamic(json);
+
+  Map<String, dynamic> toJson() => {
+    'name': name,
+    if (address != null) 'address': address,
+    if (placeId != null) 'placeId': placeId,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+  };
+
+  @override
+  String toString() => name;
+}
+
+/// One time block in the smart AI itinerary timeline.
 /// Safe extractor for location and place names.
 /// Guaranteed to NEVER return or render "[object Object]".
 class LocationHelper {
   static String cleanString(dynamic val, [String fallback = '']) {
     if (val == null) return fallback;
+    if (val is TripLocation) return val.name;
     if (val is String) {
       final s = val.trim();
       if (s.isEmpty || s == '[object Object]') return fallback;
@@ -336,6 +399,7 @@ class TimelineBlock {
   final bool isDestination;
   final bool isLocked;
   final bool isUserSelected;
+  final TripLocation? location;
 
   TimelineBlock({
     this.id = '',
@@ -368,14 +432,33 @@ class TimelineBlock {
     this.isDestination = false,
     this.isLocked = false,
     this.isUserSelected = false,
+    this.location,
   }) : stayDuration = stayDuration ?? durationMin;
 
   factory TimelineBlock.fromJson(Map<String, dynamic> j) {
     final dMin = (j['durationMin'] as num?)?.toInt() ?? 0;
+    final locObj = j['location'] != null
+        ? TripLocation.fromDynamic(j['location'])
+        : (j['place'] is Map
+            ? TripLocation.fromDynamic(j['place'])
+            : (j['destination'] is Map
+                ? TripLocation.fromDynamic(j['destination'])
+                : (j['hotel'] is Map
+                    ? TripLocation.fromDynamic(j['hotel'])
+                    : (j['overnightStay'] is Map
+                        ? TripLocation.fromDynamic(j['overnightStay'])
+                        : null))));
+
     final rawTitle = LocationHelper.cleanString(j['title']);
-    final rawPlace = LocationHelper.cleanString(j['place']);
-    final effectiveTitle = rawTitle.isNotEmpty ? rawTitle : (rawPlace.isNotEmpty ? rawPlace : 'Stop');
+    final rawPlace = LocationHelper.cleanString(j['place'], locObj?.name ?? '');
+    final effectiveTitle = rawTitle.isNotEmpty ? rawTitle : (rawPlace.isNotEmpty ? rawPlace : (locObj?.name ?? 'Stop'));
     final effectivePlace = rawPlace.isNotEmpty ? rawPlace : effectiveTitle;
+    final effectiveLat = (j['lat'] as num?)?.toDouble() ??
+        (j['latitude'] as num?)?.toDouble() ??
+        locObj?.latitude;
+    final effectiveLng = (j['lng'] as num?)?.toDouble() ??
+        (j['longitude'] as num?)?.toDouble() ??
+        locObj?.longitude;
 
     return TimelineBlock(
         id: (j['id'] ?? '').toString(),
@@ -384,9 +467,9 @@ class TimelineBlock {
         type: (j['type'] ?? 'activity').toString(),
         title: effectiveTitle,
         place: effectivePlace,
-        lat: (j['lat'] as num?)?.toDouble() ?? (j['latitude'] as num?)?.toDouble(),
-        lng: (j['lng'] as num?)?.toDouble() ?? (j['longitude'] as num?)?.toDouble(),
-        address: LocationHelper.cleanString(j['address'], effectivePlace),
+        lat: effectiveLat,
+        lng: effectiveLng,
+        address: LocationHelper.cleanString(j['address'], locObj?.address ?? effectivePlace),
         city: LocationHelper.cleanString(j['city']),
         state: LocationHelper.cleanString(j['state']),
         country: LocationHelper.cleanString(j['country'], 'India'),
@@ -406,11 +489,12 @@ class TimelineBlock {
         sequence: (j['sequence'] as num?)?.toInt() ?? 0,
         isFuelStop: j['isFuelStop'] == true || j['type'] == 'fuel',
         isConfirmed: j['isConfirmed'] == true,
-        placeId: LocationHelper.cleanString(j['placeId']),
+        placeId: LocationHelper.cleanString(j['placeId'], locObj?.placeId ?? ''),
         stayDuration: (j['stayDuration'] as num?)?.toInt() ?? dMin,
         isDestination: j['isDestination'] == true || j['type'] == 'destination',
         isLocked: j['isLocked'] == true || j['isDestination'] == true || j['type'] == 'destination',
         isUserSelected: j['isUserSelected'] == true || j['userSelected'] == true,
+        location: locObj,
       );
   }
 
@@ -445,6 +529,7 @@ class TimelineBlock {
         'isDestination': isDestination,
         'isLocked': isLocked,
         'isUserSelected': isUserSelected,
+        if (location != null) 'location': location!.toJson(),
       };
 }
 
@@ -549,7 +634,7 @@ class FuelPlan {
         totalRefuelCost: (json['totalRefuelCost'] as num?)?.toDouble(),
         totalRefillLiters: (json['totalRefillLiters'] as num?)?.toDouble(),
         refuelStops: ((json['refuelStops'] as List?) ?? [])
-            .map((e) => RefuelStop.fromJson(e as Map<String, dynamic>))
+            .map((e) => RefuelStop.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
 }
@@ -876,7 +961,7 @@ class TollEstimate {
   factory TollEstimate.fromJson(Map<String, dynamic> json) {
     final rawTolls = json['tolls'] as List<dynamic>? ?? [];
     final tollsList = rawTolls
-        .map((e) => TollPlaza.fromJson(e as Map<String, dynamic>))
+        .map((e) => TollPlaza.fromJson((e as Map).cast<String, dynamic>()))
         .toList();
     final count = json['tollCount'] as int? ?? tollsList.length;
     final total = (json['totalAmount'] as num?)?.toDouble() ??
@@ -951,17 +1036,17 @@ class PlaceOfInterest {
   });
 
   factory PlaceOfInterest.fromJson(Map<String, dynamic> json) => PlaceOfInterest(
-        id: json['id'] as int,
-        name: json['name'] as String,
-        lat: (json['lat'] as num).toDouble(),
-        lng: (json['lng'] as num).toDouble(),
-        address: json['address'] as String?,
+        id: (json['id'] as num?)?.toInt() ?? int.tryParse(json['id']?.toString() ?? '') ?? 0,
+        name: LocationHelper.cleanString(json['name'], 'Place'),
+        lat: (json['lat'] as num?)?.toDouble() ?? (json['latitude'] as num?)?.toDouble() ?? 0.0,
+        lng: (json['lng'] as num?)?.toDouble() ?? (json['longitude'] as num?)?.toDouble() ?? 0.0,
+        address: LocationHelper.cleanString(json['address']),
         rating: (json['rating'] as num?)?.toDouble(),
-        reviewsCount: json['reviewsCount'] as int?,
-        deity: json['deity'] as String?,
-        timing: json['timing'] as String?,
-        highlights: json['highlights'] as String?,
-        categoryType: json['categoryType'] as String?,
+        reviewsCount: (json['reviewsCount'] as num?)?.toInt(),
+        deity: LocationHelper.cleanString(json['deity']),
+        timing: LocationHelper.cleanString(json['timing']),
+        highlights: LocationHelper.cleanString(json['highlights']),
+        categoryType: LocationHelper.cleanString(json['categoryType']),
       );
 
   LatLng toLatLng() => LatLng(lat, lng);
@@ -1014,7 +1099,7 @@ class RouteWeather {
   factory RouteWeather.fromJson(Map<String, dynamic> json) => RouteWeather(
         hasAlerts: json['hasAlerts'] as bool? ?? false,
         points: (json['points'] as List? ?? [])
-            .map((e) => WeatherPoint.fromJson(e as Map<String, dynamic>))
+            .map((e) => WeatherPoint.fromJson((e as Map).cast<String, dynamic>()))
             .toList(),
       );
 }
@@ -1063,7 +1148,7 @@ class TripBudget {
   });
 
   factory TripBudget.fromJson(Map<String, dynamic> json) {
-    final b = (json['breakdown'] as Map<String, dynamic>? ?? {});
+    final b = (json['breakdown'] is Map ? (json['breakdown'] as Map).cast<String, dynamic>() : <String, dynamic>{});
     final foodTotal = (b['food'] as num?)?.toInt() ?? 0;
     final bf = (b['breakfast'] as num?)?.toInt() ??
         (foodTotal > 0 ? (foodTotal * 0.25).round() : 250);
@@ -1165,9 +1250,9 @@ class RestBreak {
   factory RestBreak.fromJson(Map<String, dynamic> json) => RestBreak(
         afterHours: (json['afterHours'] as num?)?.toDouble() ?? 0,
         distanceFromStartKm: (json['distanceFromStartKm'] as num?)?.toDouble() ?? 0,
-        lat: (json['lat'] as num?)?.toDouble() ?? 0,
-        lng: (json['lng'] as num?)?.toDouble() ?? 0,
-        label: json['label'] as String? ?? 'Rest break',
+        lat: ((json['lat'] ?? json['latitude']) as num?)?.toDouble() ?? 0,
+        lng: ((json['lng'] ?? json['longitude']) as num?)?.toDouble() ?? 0,
+        label: LocationHelper.cleanString(json['label'], 'Rest break'),
       );
 
   LatLng toLatLng() => LatLng(lat, lng);
@@ -1243,10 +1328,12 @@ class DestinationEvent {
   final String id;
   final String title;
   final String category;
-  final String location;
+  final TripLocation location;
   final String date;
   final String description;
   final String? url;
+
+  String get locationName => location.name;
 
   const DestinationEvent({
     required this.id,
@@ -1259,14 +1346,24 @@ class DestinationEvent {
   });
 
   factory DestinationEvent.fromJson(Map<String, dynamic> json) => DestinationEvent(
-        id: json['id'] as String? ?? '',
-        title: json['title'] as String? ?? 'Local Event',
-        category: json['category'] as String? ?? 'General',
-        location: json['location'] as String? ?? '',
-        date: json['date'] as String? ?? 'Upcoming',
-        description: json['description'] as String? ?? '',
-        url: json['url'] as String?,
+        id: json['id']?.toString() ?? '',
+        title: LocationHelper.cleanString(json['title'], 'Local Event'),
+        category: LocationHelper.cleanString(json['category'], 'General'),
+        location: TripLocation.fromDynamic(json['location']),
+        date: LocationHelper.cleanString(json['date'], 'Upcoming'),
+        description: LocationHelper.cleanString(json['description']),
+        url: json['url']?.toString(),
       );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'title': title,
+        'category': category,
+        'location': location.toJson(),
+        'date': date,
+        'description': description,
+        if (url != null) 'url': url,
+      };
 }
 
 class CanonicalRouteStep {
@@ -1289,16 +1386,23 @@ class CanonicalRouteStep {
   });
 
   factory CanonicalRouteStep.fromJson(Map<String, dynamic> json) {
+    GeoPoint? loc;
+    if (json['location'] != null) {
+      if (json['location'] is Map) {
+        loc = GeoPoint.fromJson((json['location'] as Map).cast<String, dynamic>());
+      } else if (json['location'] is List && (json['location'] as List).length >= 2) {
+        final l = json['location'] as List;
+        loc = GeoPoint(lat: (l[1] as num).toDouble(), lng: (l[0] as num).toDouble());
+      }
+    }
     return CanonicalRouteStep(
-      instruction: json['instruction'] as String? ?? 'Follow the road',
+      instruction: LocationHelper.cleanString(json['instruction'], 'Follow the road'),
       distanceMeters: (json['distanceMeters'] as num?)?.toInt() ?? 0,
       durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
-      roadName: json['roadName'] as String? ?? '',
-      maneuverType: json['maneuverType'] as String? ?? 'straight',
-      modifier: json['modifier'] as String? ?? '',
-      location: json['location'] != null
-          ? GeoPoint.fromJson((json['location'] as Map).cast<String, dynamic>())
-          : null,
+      roadName: LocationHelper.cleanString(json['roadName']),
+      maneuverType: LocationHelper.cleanString(json['maneuverType'], 'straight'),
+      modifier: LocationHelper.cleanString(json['modifier']),
+      location: loc,
     );
   }
 
@@ -1459,9 +1563,22 @@ class NavigationRoute {
     final durMin = (json['durationMin'] as num?)?.toInt() ?? 0;
     final durSec = (json['durationSeconds'] as num?)?.toInt() ?? (durMin * 60);
 
+    final origRaw = json['origin'];
+    final destRaw = json['destination'];
+    final GeoPoint originPt = origRaw is Map
+        ? GeoPoint.fromJson(origRaw.cast<String, dynamic>())
+        : (origRaw is String
+            ? GeoPoint(lat: 0, lng: 0, name: LocationHelper.cleanString(origRaw, 'Origin'))
+            : const GeoPoint(lat: 0, lng: 0, name: 'Origin'));
+    final GeoPoint destPt = destRaw is Map
+        ? GeoPoint.fromJson(destRaw.cast<String, dynamic>())
+        : (destRaw is String
+            ? GeoPoint(lat: 0, lng: 0, name: LocationHelper.cleanString(destRaw, 'Destination'))
+            : const GeoPoint(lat: 0, lng: 0, name: 'Destination'));
+
     return NavigationRoute(
-      origin: GeoPoint.fromJson((json['origin'] as Map).cast<String, dynamic>()),
-      destination: GeoPoint.fromJson((json['destination'] as Map).cast<String, dynamic>()),
+      origin: originPt,
+      destination: destPt,
       waypoints: (json['waypoints'] as List? ?? [])
           .map((e) => GeoPoint.fromJson((e as Map).cast<String, dynamic>()))
           .toList(),

@@ -1,6 +1,8 @@
 const express = require("express");
 const { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 const { groundItinerary, geocode } = require("../services/itineraryGeo");
+const itineraryEngine = require("../services/itineraryEngine");
+const { validateItineraryWithGemini } = require("../services/geminiValidatorService");
 
 // Generous bounding box for India (mainland + islands). Used to decide whether
 // a destination is domestic or international for budget pricing.
@@ -161,8 +163,6 @@ router.post("/itinerary", async (req, res) => {
   }
 });
 
-const itineraryEngine = require("../services/itineraryEngine");
-
 function cleanObjectStrings(obj) {
   if (obj == null) return obj;
   if (typeof obj === "string") {
@@ -195,6 +195,8 @@ function normalizeLocationInput(loc) {
 }
 
 // Smart, time-blocked itinerary with automatic breaks + per-block reasons.
+// The itinerary engine is always the planner. Gemini only validates drafts and
+// returns correction feedback for a subsequent engine pass.
 router.post("/smart-itinerary", async (req, res) => {
   const b = req.body || {};
   if (!b.destination && !b.startLocation) {
@@ -219,31 +221,111 @@ router.post("/smart-itinerary", async (req, res) => {
     const fuelEfficiency = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : (vehicleType === "bike" ? 35 : 15);
     const tankCapacity = Number(b.tankCapacity) > 0 ? Number(b.tankCapacity) : (vehicleType === "bike" ? 13 : 45);
     const currentFuel = Number(b.currentFuel) > 0 ? Number(b.currentFuel) : tankCapacity * 0.7;
+    const mode = ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced";
+    const preferences = [b.preferences, b.customPreferences].filter(Boolean).join(". ");
+    const rawCategories = Array.isArray(b.selectedCategories) && b.selectedCategories.length > 0
+      ? b.selectedCategories
+      : (Array.isArray(b.categories) ? b.categories : []);
+    const selectedCategories = rawCategories.map(String).filter(Boolean);
+    const travellers = Math.max(1, Math.min(Number(b.travellers) || 1, 20));
 
-    // Execute the deterministic Itinerary Planning Engine
-    const planResult = await itineraryEngine.planItinerary({
-      startLocation,
-      destination,
-      tripType,
-      startDate: resolvedDate,
-      startTime: resolvedTime,
-      startDateTime: b.startDateTime ? String(b.startDateTime) : "",
-      timezone: b.timezone ? String(b.timezone) : "Asia/Kolkata",
-      durationDays,
-      mode: ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced",
-      places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
-      selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories.map(String) : [],
-      categoryPriorities: b.categoryPriorities && typeof b.categoryPriorities === "object" ? b.categoryPriorities : {},
-      preferences: [b.preferences, b.customPreferences].filter(Boolean).join(". "),
-      vehicle: {
-        type: vehicleType,
-        efficiencyKmPerLiter: fuelEfficiency,
-        tankCapacityLiters: tankCapacity,
-        currentFuelLiters: currentFuel,
-      },
-      travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
-      searchRadiusKm,
-    });
+    // ── Generation - Validation - Correction Feedback Loop (Max 3 cycles) ──
+    // 1. Existing Itinerary Engine generates draft
+    // 2. Gemini AI Validator inspects against destination, hard categories, corridor detour, and timeline
+    // 3. If invalid, structured correction instructions (blacklists, missing categories) are fed back to the engine
+    // 4. Existing engine regenerates until approved (max 3 cycles)
+    const MAX_VALIDATION_CYCLES = 3;
+    let planResult = null;
+    let validationResult = null;
+    let correctionFeedback = null;
+    let approved = false;
+    let validationCycles = 0;
+
+    for (let cycle = 1; cycle <= MAX_VALIDATION_CYCLES; cycle++) {
+      validationCycles = cycle;
+      console.log(`[SMART PLANNER] === Generation Cycle ${cycle}/${MAX_VALIDATION_CYCLES} ===`);
+
+      planResult = await itineraryEngine.planItinerary({
+        startLocation,
+        destination,
+        tripType,
+        startDate: resolvedDate,
+        startTime: resolvedTime,
+        startDateTime: b.startDateTime ? String(b.startDateTime) : "",
+        timezone: b.timezone ? String(b.timezone) : "Asia/Kolkata",
+        durationDays,
+        mode,
+        places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
+        selectedCategories,
+        categoryPriorities: b.categoryPriorities && typeof b.categoryPriorities === "object" ? b.categoryPriorities : {},
+        preferences,
+        vehicle: {
+          type: vehicleType,
+          efficiencyKmPerLiter: fuelEfficiency,
+          tankCapacityLiters: tankCapacity,
+          currentFuelLiters: currentFuel,
+        },
+        travellers,
+        searchRadiusKm,
+        correctionFeedback,
+      });
+
+      // Gemini AI Validator inspects draft against constraints
+      validationResult = await validateItineraryWithGemini({
+        itinerary: planResult,
+        destination: planResult.destinationPoint || destination,
+        origin: planResult.startPoint || startLocation,
+        selectedCategories,
+        durationDays,
+        mode,
+        preferences,
+      });
+
+      if (validationResult.valid) {
+        console.log(`[SMART PLANNER] Itinerary APPROVED by Gemini on cycle ${cycle}.`);
+        approved = true;
+        break;
+      }
+
+      console.warn(`[SMART PLANNER] Itinerary REJECTED by Gemini on cycle ${cycle}. Issues: ${validationResult.issues.length}. Required corrections:`, validationResult.requiredCorrections);
+
+      // Accumulate correction instructions for the next regeneration cycle
+      correctionFeedback = {
+        blacklistedPlaceIds: [
+          ...new Set([
+            ...(correctionFeedback?.blacklistedPlaceIds || []),
+            ...(validationResult.blacklistedPlaceIds || []),
+          ]),
+        ],
+        blacklistedNames: [
+          ...new Set([
+            ...(correctionFeedback?.blacklistedNames || []),
+            ...(validationResult.blacklistedNames || []),
+          ]),
+        ],
+        missingCategories: [
+          ...new Set([
+            ...(correctionFeedback?.missingCategories || []),
+            ...(validationResult.missingCategories || []),
+          ]),
+        ],
+        requiredCorrections: validationResult.requiredCorrections,
+      };
+    }
+
+    // Do not expose a draft that the validation gate did not approve. The
+    // client can surface these precise corrections and let the traveller
+    // adjust incompatible constraints instead of receiving a misleading plan.
+    if (!approved) {
+      return res.status(422).json({
+        error: "Unable to generate an approved itinerary for the selected preferences. Please adjust your categories, dates, or pace.",
+        validation: {
+          approved: false,
+          cycles: validationCycles,
+          ...(validationResult || {}),
+        },
+      });
+    }
 
     const days = planResult.days;
 
@@ -273,7 +355,7 @@ router.post("/smart-itinerary", async (req, res) => {
         toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
         options: {
           international,
-          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          travellers,
           fuelPricePerLiter: Number(b.fuelPrice) > 0 ? Number(b.fuelPrice) : rates.fuel.petrolPerLiter,
           foodPerDay: international ? rates.intl.foodPerDay : rates.foodPerDay,
           stayPerNight: international ? rates.intl.stayPerNight : rates.stayPerNight,
@@ -301,12 +383,18 @@ router.post("/smart-itinerary", async (req, res) => {
       nextSearchRadiusKm: planResult.nextSearchRadiusKm,
       totalDistanceKm: planResult.totalDistanceKm,
       totalDurationMin: planResult.totalDurationMin,
-      status: "DRAFT",
+      status: "APPROVED",
+      validation: {
+        approved: true,
+        cycles: validationCycles,
+        ...validationResult,
+      },
     }));
   } catch (err) {
     handleError(res, err);
   }
 });
+
 
 // Recalculate itinerary on user edits (add/remove stop, reorder, adjust duration, change start time)
 router.post("/recalculate-itinerary", async (req, res) => {

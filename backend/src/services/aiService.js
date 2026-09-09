@@ -17,8 +17,8 @@ const PROVIDER = (
 ).toLowerCase();
 
 const GEMINI_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-// gemini-2.0-flash was retired; gemini-3.6-flash is the current fast model.
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+// Default to gemini-1.5-flash for speed and reliability, overridable via GEMINI_MODEL
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-1.5-flash";
 const GROQ_KEY = process.env.GROQ_API_KEY;
 // Groq decommissioned llama-3.3-70b-versatile for this key (404). Default to a
 // currently-available production model; override with GROQ_MODEL if needed.
@@ -1575,6 +1575,8 @@ async function rankCandidatesWithAI({ candidates = [], destination = "", origin 
 }
 
 module.exports = {
+  generate,
+  generateWithRetry,
   recommendStops,
   searchPlaces,
   travelOptions,

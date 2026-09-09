@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/trip_models.dart';
 import '../utils/trip_date_time.dart';
 
 /// Represents a scheduled trip and its reminder/confirmation state.
@@ -88,17 +89,18 @@ class TripDepartureReminder {
 
   factory TripDepartureReminder.fromJson(Map<String, dynamic> json) =>
       TripDepartureReminder(
-        id: json['id'] as String,
-        destination: json['destination'] as String,
-        startPoint: json['startPoint'] as String? ?? 'Home',
+        id: json['id']?.toString() ?? '',
+        destination: LocationHelper.cleanString(json['destination'], 'Destination'),
+        startPoint: LocationHelper.cleanString(json['startPoint'], 'Home'),
         departureTime: DateTime.parse(json['departureTime'] as String),
-        remindBeforeMinutes: json['remindBeforeMinutes'] as int? ?? 30,
+        remindBeforeMinutes: (json['remindBeforeMinutes'] as num?)?.toInt() ?? 30,
         notified: json['notified'] as bool? ?? false,
         startNotified: json['startNotified'] as bool? ?? false,
         vehicleType: json['vehicleType'] as String? ?? 'car',
         status: json['status'] as String? ?? 'CONFIRMED',
         stops: (json['stops'] as List<dynamic>?)
-                ?.map((e) => e.toString())
+                ?.map((e) => LocationHelper.cleanString(e))
+                .where((s) => s.isNotEmpty)
                 .toList() ??
             const [],
         distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,

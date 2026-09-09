@@ -7,6 +7,7 @@ const FuelRangeService = require("./fuelRangeService");
 const { rankCandidatesWithAI, getBestCuratedVenue } = require("./aiService");
 const curatedPlaces = require("../data/curatedPlaces.json");
 const { calculateTripRoute } = require("./routeCalculationService");
+const { normalizeCategory, isDeceptivePlace } = require("./geminiValidatorService");
 
 /**
  * Category-based standard visit durations (minutes)
@@ -480,26 +481,49 @@ function filterAndScoreCandidates({
   baseAxisStart,
   baseAxisEnd,
   searchRadiusKm = 25,
+  correctionFeedback = null,
 }) {
   if (!Array.isArray(candidates) || candidates.length === 0) return [];
 
-  const selectedSet = new Set(
-    selectedCategories.map((c) => c.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"))
-  );
+  const normSelectedCats = selectedCategories.map(normalizeCategory).filter(Boolean);
+  const selectedSet = new Set(normSelectedCats);
   const hasCategoryFilter = selectedSet.size > 0;
   const directDist = haversineDistanceKm(baseAxisStart, baseAxisEnd);
   const isLocalTrip = directDist <= 30;
+
+  const blacklistedIds = new Set((correctionFeedback?.blacklistedPlaceIds || []).map(String));
+  const blacklistedNames = new Set(
+    (correctionFeedback?.blacklistedNames || []).map((n) => String(n).toLowerCase().trim())
+  );
+  const missingCategories = new Set(
+    (correctionFeedback?.missingCategories || []).map(normalizeCategory).filter(Boolean)
+  );
 
   const valid = [];
   for (const c of candidates) {
     if (!c.lat || !c.lng) continue;
 
-    const placeCategories = [
-      c.category,
-      ...(Array.isArray(c.categories) ? c.categories : []),
-    ]
-      .filter(Boolean)
-      .map((cat) => cat.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"));
+    const pPlaceId = String(c.placeId || "");
+    const pName = String(c.name || "").toLowerCase().trim();
+
+    // Skip Gemini-blacklisted places from previous cycle
+    if (blacklistedIds.has(pPlaceId)) continue;
+    if (blacklistedNames.has(pName)) continue;
+
+    // Filter deceptive commercial places when user selected spiritual/nature/hill categories
+    if (hasCategoryFilter) {
+      let isDeceptive = false;
+      for (const selCat of selectedSet) {
+        if (isDeceptivePlace(c.name, selCat)) {
+          isDeceptive = true;
+          break;
+        }
+      }
+      if (isDeceptive) continue;
+    }
+
+    const rawCats = [c.category, ...(Array.isArray(c.categories) ? c.categories : [])].filter(Boolean);
+    const placeCategories = rawCats.map(normalizeCategory).filter(Boolean);
 
     // 1. Strict Category Match Check
     let matches = !hasCategoryFilter;
@@ -513,12 +537,45 @@ function filterAndScoreCandidates({
           if (prio === "must_visit") priorityScore = Math.max(priorityScore, 100);
           else if (prio === "would_like") priorityScore = Math.max(priorityScore, 70);
           else priorityScore = Math.max(priorityScore, 40);
+
+          // Priority boost if this category was flagged as missing by Gemini feedback
+          if (missingCategories.has(pCat)) {
+            priorityScore += 80;
+          }
         }
+      }
+
+      // Keyword fallback match on place name (e.g. "Sri Venkateswara Temple" -> temple)
+      if (!matches) {
+        for (const selCat of selectedSet) {
+          if (selCat === "temple" && (pName.includes("temple") || pName.includes("kovil") || pName.includes("mandir") || pName.includes("devasthanam") || pName.includes("matha") || pName.includes("theertham"))) {
+            matches = true;
+            priorityScore = Math.max(priorityScore, 90);
+            break;
+          }
+          if (selCat === "hill" && (pName.includes("hill") || pName.includes("viewpoint") || pName.includes("peak") || pName.includes("ghat") || pName.includes("shilathoranam"))) {
+            matches = true;
+            priorityScore = Math.max(priorityScore, 90);
+            break;
+          }
+          if (selCat === "nature" && (pName.includes("park") || pName.includes("garden") || pName.includes("lake") || pName.includes("forest") || pName.includes("falls") || pName.includes("valley"))) {
+            matches = true;
+            priorityScore = Math.max(priorityScore, 90);
+            break;
+          }
+        }
+      }
+
+      // Hard mutual exclusion: If user did NOT select temples, exclude temples (even if located on hills)
+      if (!selectedSet.has("temple") && (pName.includes("temple") || pName.includes("kovil") || pName.includes("mandir") || pName.includes("devasthanam") || rawCats.includes("temples") || c.category === "temples")) {
+        matches = false;
       }
     }
 
     // Do NOT add malls, movie theatres, or unrequested attractions unless explicitly matching
-    if (!matches && !c.isUserSpecified && !c.isDestinationAnchor) continue;
+    // A manually entered place still cannot override an explicitly selected
+    // category. It may be a useful search hint, never a hard-filter bypass.
+    if (!matches) continue;
 
     // 2. Destination Relevance & Corridor Detour Check
     const distToDest = haversineDistanceKm(baseAxisEnd, c);
@@ -630,6 +687,7 @@ async function planItinerary(params = {}) {
     vehicle = {},
     travellers = 1,
     searchRadiusKm = 25,
+    correctionFeedback = null,
   } = params;
 
   if (!destination) {
@@ -683,123 +741,153 @@ async function planItinerary(params = {}) {
   console.log(`[SMART PLANNER] BASELINE ROAD DISTANCE:  ${baseCorridorRoute.distanceKm.toFixed(1)} km`);
   console.log(`[SMART PLANNER] TRIP TYPE:               ${isAroundTrip ? 'Around / Round Trip' : 'One-Way'}`);
 
-  // Step 4: Discover Candidate Places & Filter Against Route Corridor (Requirement #6 & #7)
-  const rawCandidates = [];
+  // Step 4: Discover Candidate Places
   const isLocalTrip = directDist <= 30;
-
-  // A. User-specified places take top priority
-  for (const p of places) {
-    if (!p) continue;
-    const resolved = await resolveLocation(p, String(p), lockedDestination);
-    if (resolved) {
-      rawCandidates.push({
-        ...resolved,
-        placeId: resolved.placeId || `user_${Math.round(resolved.lat * 10000)}_${Math.round(resolved.lng * 10000)}`,
-        isUserSpecified: true,
-        category: resolved.category || "famous_places",
-        source: "user_specified",
-      });
-    }
-  }
-
-  // B. Curated database matching strictly near destination or along practical corridor
-  for (const cp of curatedPlaces) {
-    const distToDest = haversineDistanceKm(lockedDestination, cp);
-    const distToStart = haversineDistanceKm(startPt, cp);
-    const isNearDest = distToDest <= searchRadius;
-    const isNearStart = isLocalTrip && distToStart <= searchRadius;
-    const corridorDetour = distToStart + distToDest - directDist;
-    const isAlongCorridor =
-      !isLocalTrip &&
-      directDist > 50 &&
-      distToStart > 30 &&
-      distToDest > searchRadius &&
-      distToStart <= directDist * 1.05 &&
-      distToDest <= directDist * 1.05 &&
-      corridorDetour <= maxCorridorDetourKm;
-
-    if (isNearDest || isNearStart || isAlongCorridor) {
-      rawCandidates.push({
-        ...cp,
-        address: `${cp.name}, ${cp.city}, ${cp.state}`,
-        isUserSpecified: false,
-        source: "curated",
-      });
-    }
-  }
-
-  // C. Dynamic live POI search strictly around locked destination
-  try {
-    const photonCats = selectedCategories.length > 0
-      ? selectedCategories.map((c) => c.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"))
-      : ["temple", "attraction", "viewpoint"];
-    const osmPlaces = await findPOIsInArea(lockedDestination, photonCats, searchRadius);
-    for (const op of osmPlaces) {
-      rawCandidates.push(op);
-    }
-  } catch (err) {
-    console.warn("Photon live POI discovery skipped:", err.message);
-  }
-
-  // Step 4: Filter & Score candidates against category & corridor detour
-  const filteredPlaces = filterAndScoreCandidates({
-    candidates: rawCandidates,
-    selectedCategories,
-    categoryPriorities,
-    baseAxisStart: startPt,
-    baseAxisEnd: lockedDestination,
-    searchRadiusKm: searchRadius,
-  });
-
-  const candidateMap = new Map(filteredPlaces.map((c) => [c.placeId, c]));
-
-  // Limit stops per day based on pace and duration
-  const stopsPerDay = mode === "packed" ? 5 : mode === "relaxed" ? 3 : 4;
-  const maxStops = Math.max(1, Math.min(filteredPlaces.length, totalDays * stopsPerDay));
-
-  // AI selection & ranking from strictly validated candidates only
   let candidateStops = [];
-  try {
-    const aiStops = await rankCandidatesWithAI({
-      candidates: filteredPlaces,
-      destination: lockedDestination,
-      origin: startPt,
-      maxStops,
-      preferences,
+  let candidateMap = new Map();
+
+  // The engine alone discovers, grounds, filters and sequences all stops.
+  // Gemini may only influence this through `correctionFeedback` below.
+  const rawCandidates = [];
+
+    // A. User-specified places take top priority
+    for (const p of places) {
+      if (!p) continue;
+      const resolved = await resolveLocation(p, String(p), lockedDestination);
+      if (resolved) {
+        rawCandidates.push({
+          ...resolved,
+          placeId: resolved.placeId || `user_${Math.round(resolved.lat * 10000)}_${Math.round(resolved.lng * 10000)}`,
+          isUserSpecified: true,
+          category: resolved.category || "famous_places",
+          source: "user_specified",
+        });
+      }
+    }
+
+    // B. Curated database matching strictly near destination or along practical corridor
+    for (const cp of curatedPlaces) {
+      const distToDest = haversineDistanceKm(lockedDestination, cp);
+      const distToStart = haversineDistanceKm(startPt, cp);
+      const isNearDest = distToDest <= searchRadius;
+      const isNearStart = isLocalTrip && distToStart <= searchRadius;
+      const corridorDetour = distToStart + distToDest - directDist;
+      const isAlongCorridor =
+        !isLocalTrip &&
+        directDist > 50 &&
+        distToStart > 30 &&
+        distToDest > searchRadius &&
+        distToStart <= directDist * 1.05 &&
+        distToDest <= directDist * 1.05 &&
+        corridorDetour <= maxCorridorDetourKm;
+
+      if (isNearDest || isNearStart || isAlongCorridor) {
+        rawCandidates.push({
+          ...cp,
+          address: `${cp.name}, ${cp.city}, ${cp.state}`,
+          isUserSpecified: false,
+          source: "curated",
+        });
+      }
+    }
+
+    // C. Dynamic live POI search strictly around locked destination
+    try {
+      const photonCats = selectedCategories.length > 0
+        ? selectedCategories.map((c) => c.toLowerCase().trim().replace(/[^a-z0-9]/g, "_"))
+        : ["temple", "attraction", "viewpoint"];
+      const osmPlaces = await findPOIsInArea(lockedDestination, photonCats, searchRadius);
+      for (const op of osmPlaces) {
+        rawCandidates.push(op);
+      }
+    } catch (err) {
+      console.warn("Photon live POI discovery skipped:", err.message);
+    }
+
+    // Step 4b: Filter & Score candidates against category & corridor detour + correction feedback
+    const filteredPlaces = filterAndScoreCandidates({
+      candidates: rawCandidates,
+      selectedCategories,
+      categoryPriorities,
+      baseAxisStart: startPt,
+      baseAxisEnd: lockedDestination,
+      searchRadiusKm: searchRadius,
+      correctionFeedback,
     });
-    for (const s of aiStops) {
-      const match = candidateMap.get(s.placeId);
-      if (match && !candidateStops.some((existing) => existing.placeId === match.placeId)) {
-        candidateStops.push(match);
+
+    candidateMap = new Map(filteredPlaces.map((c) => [c.placeId, c]));
+
+    // Limit stops per day based on pace and duration
+    const stopsPerDay = mode === "packed" ? 5 : mode === "relaxed" ? 3 : 4;
+    const maxStops = Math.max(1, Math.min(filteredPlaces.length, totalDays * stopsPerDay));
+
+    // Multi-category distribution guarantee (Requirement #4 & #20):
+    const normCats = selectedCategories.map(normalizeCategory).filter(Boolean);
+    if (normCats.length > 1) {
+      const catBuckets = new Map();
+      normCats.forEach((cat) => catBuckets.set(cat, []));
+
+      for (const p of filteredPlaces) {
+        const rawCats = [p.category, ...(Array.isArray(p.categories) ? p.categories : [])].filter(Boolean);
+        const pCats = rawCats.map(normalizeCategory);
+        const pName = (p.name || "").toLowerCase();
+
+        for (const c of normCats) {
+          let matchesThis = pCats.includes(c);
+          if (!matchesThis) {
+            if (c === "temple" && (pName.includes("temple") || pName.includes("kovil") || pName.includes("mandir") || pName.includes("devasthanam") || pName.includes("theertham"))) matchesThis = true;
+            if (c === "hill" && (pName.includes("hill") || pName.includes("viewpoint") || pName.includes("peak") || pName.includes("ghat") || pName.includes("shilathoranam"))) matchesThis = true;
+            if (c === "nature" && (pName.includes("park") || pName.includes("garden") || pName.includes("lake") || pName.includes("forest") || pName.includes("falls") || pName.includes("valley"))) matchesThis = true;
+          }
+          if (matchesThis) {
+            catBuckets.get(c).push(p);
+            break;
+          }
+        }
+      }
+
+      // Interleave from each category bucket to guarantee all selected categories are represented
+      let addedAny = true;
+      let round = 0;
+      while (candidateStops.length < maxStops && addedAny && round < 10) {
+        addedAny = false;
+        round++;
+        for (const c of normCats) {
+          if (candidateStops.length >= maxStops) break;
+          const bucket = catBuckets.get(c) || [];
+          const nextPlace = bucket.shift();
+          if (nextPlace && !candidateStops.some((s) => s.placeId === nextPlace.placeId)) {
+            candidateStops.push(nextPlace);
+            addedAny = true;
+          }
+        }
       }
     }
-  } catch (_) {}
 
-  // Complete with top-ranked candidates if needed
-  if (candidateStops.length === 0) {
-    candidateStops = filteredPlaces.slice(0, maxStops);
-  } else if (candidateStops.length < maxStops) {
-    for (const p of filteredPlaces) {
-      if (candidateStops.length >= maxStops) break;
-      if (!candidateStops.some((s) => s.placeId === p.placeId)) {
-        candidateStops.push(p);
+    // Complete with top-ranked candidates if needed
+    if (candidateStops.length === 0) {
+      candidateStops = filteredPlaces.slice(0, maxStops);
+    } else if (candidateStops.length < maxStops) {
+      for (const p of filteredPlaces) {
+        if (candidateStops.length >= maxStops) break;
+        if (!candidateStops.some((s) => s.placeId === p.placeId)) {
+          candidateStops.push(p);
+        }
       }
     }
-  }
 
-  // Hard stop validation: Drop any stop that fails geographic bounds or candidateMap
-  candidateStops = candidateStops.filter((stop) => {
-    if (!stop.placeId || !candidateMap.has(stop.placeId)) return false;
-    if (!Number.isFinite(stop.lat) || !Number.isFinite(stop.lng) || stop.lat === 0) return false;
-    const distToDest = haversineDistanceKm(lockedDestination, stop);
-    const distToStart = haversineDistanceKm(startPt, stop);
-    const corridorDetour = distToStart + distToDest - directDist;
-    const inDestRadius = distToDest <= searchRadius;
-    const inLocalRadius = isLocalTrip && distToStart <= searchRadius;
-    const inCorridor = !isLocalTrip && distToStart > 25 && distToDest > searchRadius && corridorDetour <= maxCorridorDetourKm;
-    return inDestRadius || inLocalRadius || inCorridor || stop.isUserSpecified;
-  });
-
+    // Hard stop validation: Drop any stop that fails geographic bounds
+    candidateStops = candidateStops.filter((stop) => {
+      if (!stop.placeId || !candidateMap.has(stop.placeId)) return false;
+      if (!Number.isFinite(stop.lat) || !Number.isFinite(stop.lng) || stop.lat === 0) return false;
+      const distToDest = haversineDistanceKm(lockedDestination, stop);
+      const distToStart = haversineDistanceKm(startPt, stop);
+      const corridorDetour = distToStart + distToDest - directDist;
+      const inDestRadius = distToDest <= searchRadius;
+      const inLocalRadius = isLocalTrip && distToStart <= searchRadius;
+      const inCorridor = !isLocalTrip && distToStart > 25 && distToDest > searchRadius && corridorDetour <= maxCorridorDetourKm;
+      return inDestRadius || inLocalRadius || inCorridor || stop.isUserSpecified;
+    });
   // Step 5: Stop Partitioning (Transit Corridor vs Destination Area)
   // Ensures destination arrival happens on Day 1
   const midwayOutboundStops = [];
@@ -1386,7 +1474,7 @@ function validateItineraryQuality({
   // Check Destination Arrival on Day 1
   const day1DestArrival = day1.blocks.find((b) => b.isDestination === true || b.id === "d1_dest_arrival");
   if (!day1DestArrival) {
-    throw new Error(`Quality Gate Failed: Day 1 does not contain arrival at destination (${destination.name}).`);
+    throw new Error(`Quality Gate Failed: Day 1 does not contain arrival at destination (${destination?.name || "Destination"}).`);
   }
 
   // Check End Location based on Trip Type
@@ -1399,7 +1487,7 @@ function validateItineraryQuality({
   } else {
     // One-Way Trip must terminate at the destination
     if (!lastBlock.isDestination && haversineDistanceKm(lastBlock, destination) > 5) {
-      throw new Error(`Quality Gate Failed: One-Way Trip did not end at destination (${destination.name}).`);
+      throw new Error(`Quality Gate Failed: One-Way Trip did not end at destination (${destination?.name || "Destination"}).`);
     }
   }
 

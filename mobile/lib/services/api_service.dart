@@ -1520,8 +1520,8 @@ class ApiService {
   }
 
   ({List<SmartDay> days, TripBudget? budget}) _generateFallbackSmartItinerary({
-    required String destination,
-    required String startLocation,
+    required dynamic destination,
+    dynamic startLocation = '',
     required List<String> places,
     String preferences = '',
     required int durationDays,
@@ -1533,11 +1533,14 @@ class ApiService {
     String customPreferences = '',
   }) {
     final total = math.max(1, math.min(durationDays, 14));
-    final destName = destination.isNotEmpty ? destination : 'Destination';
-    final startName = startLocation.isNotEmpty ? startLocation : 'Home';
+    final destLoc = TripLocation.fromDynamic(destination, 'Destination');
+    final startLoc = TripLocation.fromDynamic(startLocation, 'Home');
+    final destName = destLoc.name.isNotEmpty ? destLoc.name : 'Destination';
+    final startName = startLoc.name.isNotEmpty ? startLoc.name : 'Home';
     final daysList = <SmartDay>[];
 
-    String cleanCityName(String str) {
+    String cleanCityName(dynamic input) {
+      final str = LocationHelper.cleanString(input);
       if (str.isEmpty) return 'Destination';
       final raw = str.split(',').first.trim();
       final noParen = raw.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
@@ -1545,7 +1548,7 @@ class ApiService {
     }
 
     final cleanCity = cleanCityName(destName);
-    final text = '$destination $preferences $customPreferences ${places.join(" ")}'.toLowerCase();
+    final text = '$destName $preferences $customPreferences ${places.join(" ")}'.toLowerCase();
 
     // Extract search terms including aliases in parentheses e.g. "Mangaluru (Mangalore)" -> ["mangaluru", "mangalore"]
     final parenMatch = RegExp(r'\(([^)]+)\)').firstMatch(destName);

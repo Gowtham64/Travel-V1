@@ -599,7 +599,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                             Divider(color: Colors.white.withValues(alpha: 0.08), height: 1),
                         itemBuilder: (_, idx) {
                           final s = suggestions[idx];
-                          final name = s['name'] as String? ?? '';
+                          final name = LocationHelper.cleanString(s['name'] ?? s);
                           return ListTile(
                             dense: true,
                             leading: const Icon(Icons.location_on_outlined, color: AppColors.accentLight, size: 18),
@@ -641,7 +641,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     debounce?.cancel();
 
     if (selected != null) {
-      final name = (selected['name'] as String?)?.trim() ?? '';
+      final name = LocationHelper.cleanString(selected['name'] ?? selected).trim();
       if (name.isEmpty) return;
       double? lat = (selected['lat'] as num?)?.toDouble();
       double? lng = (selected['lng'] as num?)?.toDouble();
@@ -1436,7 +1436,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                   InkWell(
                     onTap: () {
                       setState(() {
-                        c.text = s['name'] as String;
+                        c.text = LocationHelper.cleanString(s['name'] ?? s);
                         if (isDest) {
                           _selectedDestinationPlace = Map<String, dynamic>.from(s);
                           _destSuggestions = [];
@@ -1453,7 +1453,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Text(s['name'] as String,
+                          child: Text(LocationHelper.cleanString(s['name'] ?? s),
                               style: const TextStyle(color: Colors.white, fontSize: 13),
                               maxLines: 2, overflow: TextOverflow.ellipsis),
                         ),

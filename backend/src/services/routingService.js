@@ -432,7 +432,7 @@ async function getRoute(start, end, waypoints = [], options = {}) {
           legs,
           steps: allSteps,
           maneuvers,
-          avoidedMotorways,
+          avoidedMotorways: avoidMotorways,
           provider: "Mapbox",
         });
 
@@ -509,7 +509,7 @@ async function getRoute(start, end, waypoints = [], options = {}) {
           legs,
           steps: allSteps,
           maneuvers,
-          avoidedMotorways,
+          avoidedMotorways: avoidMotorways,
           provider: "OpenRouteService",
         });
 

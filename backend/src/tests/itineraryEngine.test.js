@@ -326,6 +326,7 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
         day: 1,
         blocks: [
           { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          { type: "destination", id: "d1_dest_arrival", isDestination: true, place: "Tirumala", start: "08:30 AM", end: "09:30 AM", lat: 13.6833, lng: 79.3473 },
           {
             type: "activity",
             title: "Visit Imaginary Sacred Temple",
@@ -349,7 +350,7 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
       itineraryEngine.validateItineraryQuality({
         days: mockDays,
         startLocation: { lat: 12.9716, lng: 77.5946 },
-        destination: { lat: 13.6833, lng: 79.3473 },
+        destination: { name: "Tirumala", lat: 13.6833, lng: 79.3473 },
         isAroundTrip: true,
         startMinutes: 480,
         candidateMap,
@@ -365,6 +366,7 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
         day: 1,
         blocks: [
           { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          { type: "destination", id: "d1_dest_arrival", isDestination: true, place: "Tirumala", start: "08:30 AM", end: "09:30 AM", lat: 13.6833, lng: 79.3473 },
           {
             type: "activity",
             title: "Visit Temple",
@@ -387,7 +389,7 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
       itineraryEngine.validateItineraryQuality({
         days: mockDays,
         startLocation: { lat: 12.9716, lng: 77.5946 },
-        destination: { lat: 13.6833, lng: 79.3473 },
+        destination: { name: "Tirumala", lat: 13.6833, lng: 79.3473 },
         isAroundTrip: true,
         startMinutes: 480,
         candidateMap,
@@ -402,14 +404,16 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
         day: 1,
         blocks: [
           { type: "start", place: "Bengaluru", start: "08:00 AM", end: "08:00 AM", lat: 12.9716, lng: 77.5946 },
+          { type: "destination", id: "d1_dest_arrival", isDestination: true, place: "Mysore", start: "08:30 AM", end: "09:30 AM", lat: 12.2958, lng: 76.6394 },
           {
             type: "activity",
-            title: "Visit Charminar Hyderabad",
-            placeId: "pl_hyderabad_charminar",
+            title: "Visit Faraway Spot",
+            place: "Faraway Spot",
+            placeId: "pl_faraway_spot",
             start: "10:00 AM",
             end: "11:00 AM",
-            lat: 17.3616, // Hyderabad - 500 km away
-            lng: 78.4747,
+            lat: 15.3647, // Hubli - 400 km away
+            lng: 75.1240,
           },
           { type: "return", place: "Bengaluru", start: "05:00 PM", end: "09:00 PM", lat: 12.9716, lng: 77.5946 },
         ],
@@ -417,14 +421,14 @@ describe("Itinerary Engine: Around Trip & Destination-Anchored Planning Tests", 
     ];
 
     const candidateMap = new Map([
-      ["pl_hyderabad_charminar", { placeId: "pl_hyderabad_charminar" }],
+      ["pl_faraway_spot", { placeId: "pl_faraway_spot" }],
     ]);
 
     expect(() => {
       itineraryEngine.validateItineraryQuality({
         days: mockDays,
         startLocation: { lat: 12.9716, lng: 77.5946 },
-        destination: { lat: 13.6833, lng: 79.3473 },
+        destination: { name: "Mysore", lat: 12.2958, lng: 76.6394 },
         isAroundTrip: true,
         startMinutes: 480,
         candidateMap,
