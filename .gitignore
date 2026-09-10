@@ -30,3 +30,9 @@ live.js
 
 # Local MCP config (contains Hostinger API token — never commit)
 .mcp.json
+
+# Autonomous AI Engineering System (dedicated repo)
+voyplan-ai-engineering/
+logs/
+*.log
+

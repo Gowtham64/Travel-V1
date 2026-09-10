@@ -393,26 +393,70 @@ function deterministicValidate({
     }
   }
 
-  // 4. Forbidden city / distance detour check
+  // 4. Deterministic Destination Boundary & Forbidden City Validation
   let routeValid = true;
-  if (isTirumala) {
-    const forbiddenCities = ["chennai", "pondicherry", "mysore", "mysuru", "hyderabad", "madurai", "coimbatore", "kodaikanal", "ooty"];
-    for (const d of days) {
-      for (const b of (d.blocks || [])) {
-        const placeStr = `${b.title || ""} ${b.place || ""} ${b.address || ""} ${b.city || ""}`.toLowerCase();
-        for (const kw of forbiddenCities) {
-          if (placeStr.includes(kw)) {
-            routeValid = false;
-            issues.push({
-              day: d.day || 1,
-              stop: b.title || b.place,
-              placeId: b.placeId,
-              issue: `Unrelated distant city '${kw}' included on a trip to Tirumala`,
-              action: "REMOVE",
-            });
-            if (b.placeId) blacklistedPlaceIds.push(b.placeId);
-            blacklistedNames.push((b.place || b.title || "").toLowerCase().trim());
-          }
+  const originName = (origin?.name || origin || "").toLowerCase();
+
+  // Destination-specific forbidden city clusters
+  let forbiddenCities = [];
+  if (destLower.includes("tirumala") || destLower.includes("tirupati")) {
+    forbiddenCities = ["chennai", "pondicherry", "mysore", "mysuru", "hyderabad", "madurai", "coimbatore", "kodaikanal", "ooty", "bengaluru", "bangalore"];
+  } else if (destLower.includes("goa")) {
+    forbiddenCities = ["bengaluru", "bangalore", "mumbai", "hyderabad", "chennai", "mysore", "mysuru", "delhi", "pune"];
+  } else if (destLower.includes("ooty")) {
+    forbiddenCities = ["chennai", "bengaluru", "bangalore", "mysore", "mysuru", "hyderabad", "mumbai", "goa"];
+  }
+
+  // Filter out the origin city so returning home/starting from origin isn't incorrectly flagged
+  forbiddenCities = forbiddenCities.filter((city) => !originName.includes(city));
+
+  for (const d of days) {
+    for (const b of (d.blocks || [])) {
+      // Don't flag start/return blocks when heading to/from origin
+      if (b.type === "start" || b.type === "return") continue;
+
+      const placeStr = `${b.title || ""} ${b.place || ""} ${b.address || ""} ${b.city || ""}`.toLowerCase();
+      for (const kw of forbiddenCities) {
+        if (placeStr.includes(kw)) {
+          routeValid = false;
+          issues.push({
+            day: d.day || 1,
+            stop: b.title || b.place,
+            placeId: b.placeId,
+            issue: `Unrelated distant city '${kw}' included on a trip to ${destination?.name || destination}`,
+            action: "REMOVE",
+          });
+          if (b.placeId) blacklistedPlaceIds.push(b.placeId);
+          blacklistedNames.push((b.place || b.title || "").toLowerCase().trim());
+        }
+      }
+
+      // Coordinate-based distance validation if destination coordinate is known
+      const destLat = destination?.lat ?? destination?.latitude;
+      const destLng = destination?.lng ?? destination?.longitude;
+      const bLat = b.lat ?? b.latitude;
+      const bLng = b.lng ?? b.longitude;
+
+      if (
+        b.type === "activity" &&
+        Number.isFinite(Number(destLat)) &&
+        Number.isFinite(Number(destLng)) &&
+        Number.isFinite(Number(bLat)) &&
+        Number.isFinite(Number(bLng))
+      ) {
+        const distKm = haversineDistanceKm({ lat: destLat, lng: destLng }, { lat: bLat, lng: bLng });
+        // Local destination activities must be within 75 km of the locked destination
+        if (distKm > 75) {
+          routeValid = false;
+          issues.push({
+            day: d.day || 1,
+            stop: b.title || b.place,
+            placeId: b.placeId,
+            issue: `Activity '${b.title || b.place}' is ${Math.round(distKm)} km away, outside destination boundary (max 75 km)`,
+            action: "REMOVE",
+          });
+          if (b.placeId) blacklistedPlaceIds.push(b.placeId);
+          blacklistedNames.push((b.place || b.title || "").toLowerCase().trim());
         }
       }
     }
