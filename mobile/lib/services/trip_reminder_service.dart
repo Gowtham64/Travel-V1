@@ -228,8 +228,9 @@ class TripReminderService {
       } catch (_) {}
     }
 
-    // If trip start is due now, emit immediately for in-app popup
-    if (isAlreadyDue) {
+    // Only emit immediately if departure time is actively occurring now (within 2 minutes), NOT for old past departures
+    final int secondsDifference = departureTime.difference(now).inSeconds;
+    if (secondsDifference >= -120 && secondsDifference <= 60) {
       _tripReadyController.add(reminder);
     } else if (secondsUntilPre <= 0 && !reminder.isPastDeparture) {
       _reminderController.add(reminder);
@@ -386,10 +387,30 @@ class TripReminderService {
     return upcoming.first;
   }
 
-  /// Get any trip currently ready to start (including missed trips awaiting decision).
+  /// Mark a trip as dismissed so it does not pop up again.
+  Future<void> dismissTrip(String tripId) async {
+    final list = await getReminders();
+    final idx = list.indexWhere((r) => r.id == tripId);
+    if (idx >= 0) {
+      list[idx] = list[idx].copyWith(status: 'DISMISSED');
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _prefsKey, jsonEncode(list.map((r) => r.toJson()).toList()));
+    }
+    await cancelAlarms(tripId);
+  }
+
+  /// Get any trip currently ready to start (within recent window, not stale or dismissed).
   Future<TripDepartureReminder?> getActiveReadyToStartTrip() async {
     final list = await getReminders();
-    final ready = list.where((r) => r.status == 'READY_TO_START').toList();
+    final now = DateTime.now();
+    final ready = list.where((r) {
+      if (r.status != 'READY_TO_START') return false;
+      // Stale check: do not pop up old trips whose departure was more than 30 minutes ago
+      final elapsed = now.difference(r.departureTime);
+      if (elapsed.inMinutes > 30) return false;
+      return true;
+    }).toList();
     if (ready.isEmpty) return null;
     ready.sort((a, b) => b.departureTime.compareTo(a.departureTime));
     return ready.first;
@@ -404,6 +425,14 @@ class TripReminderService {
     for (int i = 0; i < list.length; i++) {
       final r = list[i];
 
+      // Auto-expire trips whose departure was over 45 minutes ago
+      final elapsedMins = now.difference(r.departureTime).inMinutes;
+      if (elapsedMins > 45 && (r.status == 'READY_TO_START' || r.status == 'CONFIRMED')) {
+        list[i] = r.copyWith(status: 'EXPIRED');
+        updated = true;
+        continue;
+      }
+
       // 1. Check for exact trip start: CONFIRMED -> READY_TO_START
       if (r.status == 'CONFIRMED' && (now.isAfter(r.departureTime) || now.isAtSameMomentAs(r.departureTime))) {
         final readyReminder = r.copyWith(
@@ -412,11 +441,14 @@ class TripReminderService {
         );
         list[i] = readyReminder;
         updated = true;
-        _tripReadyController.add(readyReminder);
+        // Only emit if within recent 15 minutes window
+        if (elapsedMins <= 15) {
+          _tripReadyController.add(readyReminder);
+        }
       }
-      // 2. Keep missed trips as READY_TO_START until user makes a decision
+      // 2. Keep missed trips as READY_TO_START until user makes a decision or expired
       else if (r.status == 'READY_TO_START') {
-        // Do not cancel automatically
+        // Kept until expired
       }
       // 3. Pre-trip 30m reminder alert
       else if (r.status == 'CONFIRMED' && !r.notified && r.isDue && !r.isPastDeparture) {

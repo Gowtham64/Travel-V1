@@ -25,7 +25,7 @@ class TripStartDialog extends StatefulWidget {
   }) async {
     await showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (_) => TripStartDialog(
         reminder: reminder,
         onStartNavigation: onStartNavigation,
@@ -41,6 +41,13 @@ class TripStartDialog extends StatefulWidget {
 class _TripStartDialogState extends State<TripStartDialog> {
   bool _showingPostponeOptions = false;
   bool _isProcessing = false;
+
+  Future<void> _handleDismiss() async {
+    setState(() => _isProcessing = true);
+    await TripReminderService.instance.dismissTrip(widget.reminder.id);
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
 
   Future<void> _handleStart() async {
     setState(() => _isProcessing = true);
@@ -184,6 +191,11 @@ class _TripStartDialogState extends State<TripStartDialog> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                      onPressed: _isProcessing ? null : _handleDismiss,
+                      tooltip: 'Dismiss reminder',
                     ),
                   ],
                 ),
@@ -345,6 +357,24 @@ class _TripStartDialogState extends State<TripStartDialog> {
                             side: BorderSide(color: Colors.white.withValues(alpha: 0.16)),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Tertiary CTA: Dismiss & Don't Show Again
+                      SizedBox(
+                        width: double.infinity,
+                        height: 36,
+                        child: TextButton(
+                          onPressed: _isProcessing ? null : _handleDismiss,
+                          child: const Text(
+                            'Dismiss & Don\'t Show Again',
+                            style: TextStyle(
+                              color: Color(0xFF9CA3AF),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),

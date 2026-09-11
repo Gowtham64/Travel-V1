@@ -333,28 +333,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         }
       });
 
-      if (res.days.isNotEmpty) {
-        // Auto-schedule departure alerts and confirmation for Day 1
-        final tripDate = _startDate ?? DateTime.now();
-        final depTime = DateTime(
-          tripDate.year,
-          tripDate.month,
-          tripDate.day,
-          _startTime.hour,
-          _startTime.minute,
-        );
-        TripReminderService.instance.scheduleTripStart(
-          tripId: 'smart_${dest.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
-          destination: dest,
-          startPoint: _startLocCtrl.text.trim().isNotEmpty ? _startLocCtrl.text.trim() : 'Home',
-          departureTime: depTime,
-          stops: places.take(5).toList(),
-          distanceKm: (_budget?.fuel != null) ? 180.0 : 145.0,
-          remindBeforeMinutes: 30,
-          vehicleType: _vehicle?.type ?? 'car',
-        );
-      }
-
       if (res.days.isEmpty) setState(() => _error = 'The AI returned an empty plan — try again.');
     } catch (e) {
       if (!mounted) return;
@@ -769,6 +747,35 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         }
       }
     });
+
+    final dest = _destCtrl.text.trim();
+    if (dest.isNotEmpty && _itinerary.isNotEmpty) {
+      final now = DateTime.now();
+      final tripDate = _startDate ?? now;
+      var depTime = DateTime(
+        tripDate.year,
+        tripDate.month,
+        tripDate.day,
+        _startTime.hour,
+        _startTime.minute,
+      );
+      // If departure time is in the past, adjust it forward so it doesn't trigger immediate past alarm
+      if (depTime.isBefore(now)) {
+        depTime = now.add(const Duration(hours: 1));
+      }
+      final stops = _itinerary.expand((d) => d.blocks).map((b) => b.title).take(5).toList();
+      TripReminderService.instance.scheduleTripStart(
+        tripId: 'smart_${dest.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')}',
+        destination: dest,
+        startPoint: _startLocCtrl.text.trim().isNotEmpty ? _startLocCtrl.text.trim() : 'Home',
+        departureTime: depTime,
+        stops: stops,
+        distanceKm: (_budget?.fuel != null) ? 180.0 : 145.0,
+        remindBeforeMinutes: 30,
+        vehicleType: _vehicle?.type ?? 'car',
+      );
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Trip Confirmed! Stops locked with verified coordinates ✓'),

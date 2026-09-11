@@ -147,6 +147,40 @@ void main() {
       final updated = reminders.firstWhere((r) => r.id == 'test_trip_nav');
       expect(updated.status, 'IN_PROGRESS');
     });
+
+    test('Dismissing trip sets status to DISMISSED and excludes from active ready trips', () async {
+      final service = TripReminderService.instance;
+      final departure = DateTime.now();
+
+      await service.scheduleTripStart(
+        tripId: 'test_trip_dismiss',
+        destination: 'Goa',
+        departureTime: departure,
+      );
+
+      await service.dismissTrip('test_trip_dismiss');
+
+      final reminders = await service.getReminders();
+      final updated = reminders.firstWhere((r) => r.id == 'test_trip_dismiss');
+      expect(updated.status, 'DISMISSED');
+
+      final active = await service.getActiveReadyToStartTrip();
+      expect(active, isNull);
+    });
+
+    test('Stale trips older than 30 minutes are excluded from active ready trips', () async {
+      final service = TripReminderService.instance;
+      final pastDeparture = DateTime.now().subtract(const Duration(hours: 2));
+
+      await service.scheduleTripStart(
+        tripId: 'test_trip_stale',
+        destination: 'Maddur to Goa',
+        departureTime: pastDeparture,
+      );
+
+      final active = await service.getActiveReadyToStartTrip();
+      expect(active, isNull);
+    });
   });
 
   group('Bug 3: Deletion Tombstones and Push-Sync Protection', () {
