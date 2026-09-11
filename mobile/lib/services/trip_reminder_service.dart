@@ -150,6 +150,9 @@ class TripReminderService {
       } catch (_) {}
     }
 
+    // Purge any stale/past reminders on startup so old trips never haunt the user
+    await clearStaleReminders();
+
     // Check on startup
     await checkDueReminders();
 
@@ -158,6 +161,27 @@ class TripReminderService {
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       checkDueReminders();
     });
+  }
+
+  /// Purges any past/stale reminders whose departure time is in the past (over 15 minutes ago)
+  Future<void> clearStaleReminders() async {
+    try {
+      final list = await getReminders();
+      final now = DateTime.now();
+      final active = list.where((r) {
+        if (r.status == 'DISMISSED' || r.status == 'COMPLETED' || r.status == 'CANCELLED' || r.status == 'EXPIRED') {
+          return false;
+        }
+        // If departure time has passed by more than 15 minutes, purge it
+        if (now.difference(r.departureTime).inMinutes > 15) {
+          return false;
+        }
+        return true;
+      }).toList();
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_prefsKey, jsonEncode(active.map((r) => r.toJson()).toList()));
+    } catch (_) {}
   }
 
   /// Schedule a confirmed trip's start time and departure reminders.

@@ -167,13 +167,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     _tripReadySub = TripReminderService.instance.onTripReadyToStart.listen((reminder) {
       _showTripStartDialogIfNeeded(reminder);
     });
-    // Check if any trip was missed or is currently ready to start
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final active = await TripReminderService.instance.getActiveReadyToStartTrip();
-      if (active != null) {
-        _showTripStartDialogIfNeeded(active);
-      }
-    });
   }
 
   void _showTripStartDialogIfNeeded(TripDepartureReminder reminder) {
