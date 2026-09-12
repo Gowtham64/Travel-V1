@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Trip Demo · Voyplan</title>
+<link rel="stylesheet" href="leaflet.css" />
+<style>
+  :root { --accent:#60A5FA; --accent2:#2E75B6; --ink:#EDEFF3; --sub:#8B97A7; --bg:#0E1116; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; color:var(--ink); overflow:hidden; }
+  #map { position:absolute; inset:0; background:#0E1116; }
+  .leaflet-container { background:#0E1116; }
+
+  /* Stop markers */
+  .stop-pin { width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-weight:800;font-size:12px;color:#fff;border:2px solid #fff;background:rgba(255,255,255,0.25);
+    box-shadow:0 2px 6px rgba(0,0,0,.5); transform:scale(.6); transition:none; }
+  .stop-pin.done { background:var(--accent2); }
+  .veh { width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.6)); }
+  .veh svg { width:38px;height:38px; }
+
+  /* Top bar */
+  .topbar { position:absolute;top:0;left:0;right:0;z-index:600;padding:14px 16px;
+    background:linear-gradient(180deg,rgba(14,17,22,.9),rgba(14,17,22,0)); display:flex;align-items:center;gap:10px; }
+  .topbar h1 { font-size:15px;margin:0;font-weight:800; }
+  .topbar .sub { color:var(--sub);font-size:12px; }
+  .prog { position:absolute;top:0;left:0;height:3px;background:var(--accent);width:0%;z-index:601; }
+
+  /* Bottom card */
+  .card { position:absolute;left:16px;right:16px;bottom:20px;z-index:600;
+    background:rgba(24,28,36,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(255,255,255,.14);border-radius:18px;padding:16px;
+    box-shadow:0 16px 40px rgba(0,0,0,.4); }
+  .card .row { display:flex;align-items:center;gap:12px; }
+  .badge { width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--accent);background:rgba(96,165,250,.18);font-size:18px; }
+  .card .name { font-size:16px;font-weight:700;margin:0; }
+  .card .meta { color:var(--sub);font-size:12.5px;margin-top:2px; }
+  .card .count { color:var(--sub);font-size:12.5px;font-weight:600; }
+  .controls { display:flex;align-items:center;justify-content:center;gap:14px;margin-top:14px; }
+  button { font:inherit;border:none;border-radius:12px;cursor:pointer;color:#fff; }
+  .btn { background:var(--accent2);padding:10px 20px;font-weight:700;display:flex;align-items:center;gap:8px; }
+  .btn.ghost { background:rgba(255,255,255,.1); }
+  .msg { position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;
+    padding:30px;z-index:700;color:var(--sub);font-size:15px; }
+</style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="prog" id="prog"></div>
+  <div class="topbar">
+    <span style="font-size:20px">🧭</span>
+    <div><h1 id="title">Trip demo</h1><div class="sub" id="subtitle"></div></div>
+  </div>
+  <div class="card" id="card" style="display:none">
+    <div class="row">
+      <div class="badge" id="badge">📍</div>
+      <div style="flex:1;min-width:0">
+        <p class="name" id="stopName">—</p>
+        <div class="meta" id="stopMeta"></div>
+      </div>
+      <div class="count" id="count"></div>
+    </div>
+    <div class="controls">
+      <button class="btn ghost" id="restart">↺ Restart</button>
+      <button class="btn" id="play">⏸ Pause</button>
+    </div>
+  </div>
+  <div class="msg" id="msg" style="display:none"></div>
+
+  <script src="leaflet.js"></script>
+  <script src="gsap.min.js"></script>
+  <script>
+  (function () {
+    // ---- load itinerary handed over by the app (same-origin localStorage) ----
+    var data = null;
+    try { data = JSON.parse(localStorage.getItem('voyplan_demo') || 'null'); } catch (e) {}
+    if (!data || !Array.isArray(data.stops)) {
+      data = { name: 'Sample trip', stops: [] };
+    }
+    var stops = (data.stops || []).filter(function (s) { return typeof s.lat === 'number' && typeof s.lng === 'number'; });
+
+    document.getElementById('title').textContent = 'Demo · ' + (data.name || 'Trip');
+
+    if (stops.length < 2) {
+      document.getElementById('msg').style.display = 'flex';
+      document.getElementById('msg').textContent = 'Add at least two locatable places to your trip, then press Demo again.';
+      return;
+    }
+    document.getElementById('card').style.display = 'block';
+    document.getElementById('subtitle').textContent = stops.length + ' stops';
+
+    var catEmoji = { restaurant:'🍽️', stay:'🏨', activity:'🎟️', place:'📍' };
+
+    // ---- map ----
+    var map = L.map('map', { zoomControl:false, attributionControl:true, keyboard:false, dragging:true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OpenStreetMap' }).addTo(map);
+    map.fitBounds(stops.map(function(s){return [s.lat,s.lng];}), { padding:[60,60] });
+
+    // stop markers
+    var pins = stops.map(function (s, i) {
+      var m = L.marker([s.lat, s.lng], {
+        icon: L.divIcon({ className:'', html:'<div class="stop-pin" id="pin'+i+'">'+(i+1)+'</div>', iconSize:[26,26], iconAnchor:[13,13] })
+      }).addTo(map);
+      return m;
+    });
+    // route line (grows as we travel)
+    var poly = L.polyline([], { color:'#60A5FA', weight:5, opacity:.9, lineJoin:'round' }).addTo(map);
+    // moving vehicle marker
+    var vehIcon = L.divIcon({ className:'', iconSize:[44,44], iconAnchor:[22,22],
+      html:'<div class="veh"><svg viewBox="0 0 24 24" fill="#2563EB" stroke="#fff" stroke-width="1"><path d="M12 2 L19 21 L12 17 L5 21 Z"/></svg></div>' });
+    var veh = L.marker([stops[0].lat, stops[0].lng], { icon: vehIcon, zIndexOffset:1000 }).addTo(map);
+
+    function pinEl(i){ return document.getElementById('pin'+i); }
+    function pathUpTo(i, cur) {
+      var pts = []; for (var k=0;k<=i;k++) pts.push([stops[k].lat, stops[k].lng]);
+      if (cur) pts.push(cur); return pts;
+    }
+    function showCard(i) {
+      var s = stops[i];
+      document.getElementById('badge').textContent = catEmoji[s.category] || '📍';
+      document.getElementById('stopName').textContent = s.name || 'Stop ' + (i+1);
+      document.getElementById('stopMeta').textContent = [s.day, s.time].filter(Boolean).join(' · ');
+      document.getElementById('count').textContent = (i+1) + '/' + stops.length;
+      var el = pinEl(i); if (el) el.classList.add('done');
+      // animate the card + pin pop
+      gsap.fromTo('#card .row', { y:14, opacity:.4 }, { y:0, opacity:1, duration:.5, ease:'power2.out' });
+      if (el) gsap.fromTo(el, { scale:.6 }, { scale:1, duration:.5, ease:'back.out(2)' });
+    }
+
+    // ---- GSAP timeline ----
+    var tl = gsap.timeline({ paused:true, onUpdate:function(){
+      document.getElementById('prog').style.width = (tl.progress()*100).toFixed(1) + '%';
+    }, onComplete:function(){ setPlay(false); }});
+
+    tl.call(function(){ showCard(0); });
+    for (var i=0;i<stops.length-1;i++) {
+      (function(i){
+        var a = stops[i], b = stops[i+1];
+        var proxy = { t:0 };
+        tl.to(proxy, { t:1, duration:2.4, ease:'power1.inOut', onUpdate:function(){
+          var lat = a.lat + (b.lat-a.lat)*proxy.t;
+          var lng = a.lng + (b.lng-a.lng)*proxy.t;
+          veh.setLatLng([lat,lng]);
+          map.panTo([lat,lng], { animate:false });
+          poly.setLatLngs(pathUpTo(i, [lat,lng]));
+        }});
+        tl.call(function(){ showCard(i+1); });
+        tl.to({}, { duration:.6 }); // dwell at the stop
+      })(i);
+    }
+
+    // ---- controls ----
+    var playing = true;
+    function setPlay(p){ playing=p; document.getElementById('play').textContent = p ? '⏸ Pause' : '▶ Play'; }
+    document.getElementById('play').onclick = function(){
+      if (tl.progress() >= 1) { tl.restart(); setPlay(true); return; }
+      if (playing) { tl.pause(); setPlay(false); } else { tl.play(); setPlay(true); }
+    };
+    document.getElementById('restart').onclick = function(){ tl.restart(); setPlay(true); };
+
+    // kick off shortly after the map settles
+    setTimeout(function(){ tl.play(); }, 700);
+  })();
+  </script>
+</body>
+</html>
