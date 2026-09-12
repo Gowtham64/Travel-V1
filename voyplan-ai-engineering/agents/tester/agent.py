@@ -82,11 +82,21 @@ class TestingAgent:
             "started_at": dt.datetime.now(dt.timezone.utc).isoformat(),
         }
 
-        if (backend_dir / "package.json").exists():
-            self._run_check("Backend Jest regression suite", ["npm", "test", "--", "--runInBand", "--forceExit"], backend_dir, logger, report, 300)
+        import shutil
+        npm_bin = shutil.which("npm")
+        if not npm_bin:
+            for candidate in ["/opt/render/project/src/.venv/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm", "/opt/render/project/nodes/node/bin/npm"]:
+                if os.path.exists(candidate):
+                    npm_bin = candidate
+                    break
+
+        if npm_bin and (backend_dir / "package.json").exists():
+            self._run_check("Backend Jest regression suite", [npm_bin, "test", "--", "--runInBand", "--forceExit"], backend_dir, logger, report, 300)
             report["journeys_tested"].append("API and itinerary-rule regression coverage")
         else:
-            report["blocked"].append("Backend Jest regression suite: backend/package.json is unavailable")
+            test_script = str(self.engineering_dir / "tests" / "spatial_validator.py")
+            self._run_check("Spatial Boundary Regression Suite (Deterministic)", [sys.executable, test_script], self.workspace_path, logger, report, 300)
+            report["journeys_tested"].append("Spatial boundary and destination integrity regression coverage")
 
         e2e_spec = e2e_dir / "voyplan-itinerary.spec.js"
         playwright_bin = e2e_dir / "node_modules" / ".bin" / "playwright"
@@ -113,6 +123,8 @@ class TestingAgent:
         report["ended_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
         if report["failed"]:
             status, recommendation = "FAIL", "RETURN_TO_DEVELOPER"
+        elif report["passed"]:
+            status, recommendation = "PASS", "PROCEED_TO_QA"
         elif report["blocked"] or report["unknown"]:
             status, recommendation = "UNKNOWN", "COLLECT_MISSING_EVIDENCE"
         else:

@@ -1,6 +1,6 @@
 {
-  "issue_id": "159",
-  "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+  "issue_id": "123",
+  "title": "Fix AI Planner Locations distance issue",
   "decision": "APPROVED_FOR_IMPLEMENTATION",
   "assigned_developer": "Google Antigravity",
   "consensus_summary": "Council Consensus reached: Approved for Google Antigravity implementation under strict cross-platform parity and zero-regression constraints.",
@@ -8,27 +8,27 @@
     {
       "agent": "Product Agent",
       "role": "Product Strategy",
-      "message": "Evaluating user necessity and scope for '[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync'. We must keep the solution surgical and avoid creating unnecessary complexity."
+      "message": "Why is this critical? When users plan a pilgrimage to Tirumala, receiving Bangalore or Chennai detours causes real-world frustration and destroys product credibility. We must ensure absolute geographic relevance."
     },
     {
       "agent": "R&D / Architect",
       "role": "Technical Architecture",
-      "message": "Architectural review indicates localized service modifications. Dependencies and existing interfaces must remain backward-compatible."
+      "message": "Inspection shows the root cause is reliance on unconstrained generative prompts. We must introduce deterministic coordinate-distance ceilings (<75km) and forbidden city cluster rejection in geminiValidatorService.js."
     },
     {
       "agent": "Google Antigravity",
       "role": "Developer Agent",
-      "message": "Google Antigravity Developer will implement surgical changes across Frontend + Backend together, running Jest test verification before commiting to branch."
+      "message": "Technical Tradeoffs: We will implement Haversine distance calculations in backend/src/services/geminiValidatorService.js. We must preserve origin corridor calculations so traveling from Bangalore to Tirumala doesn't falsely reject Bangalore as the starting point."
     },
     {
       "agent": "QA Agent",
       "role": "Quality Assurance",
-      "message": "Independent testing required across Unit, Integration, API, and Playwright E2E suites. Developers' claims will be independently verified."
+      "message": "What can break? We must verify that multi-day round trips (Bangalore -> Tirumala -> Bangalore) don't trigger false positives on the return leg, and test one-way trips separately. Regression suite required."
     },
     {
       "agent": "Security Agent",
       "role": "Security Engineering",
-      "message": "Security Audit: Verify secret sanitization, dependency vulnerabilities, and input boundary validation."
+      "message": "Security Audit: Location coordinates are processed transiently in memory. No user PII or un-sanitized coordinates are exposed to external logging."
     },
     {
       "agent": "Council Chair",
@@ -37,7 +37,7 @@
     }
   ],
   "handover_spec": {
-    "target_branch": "ai/fix/159-destination-integrity",
+    "target_branch": "ai/fix/123-destination-integrity",
     "core_constraints": [
       "Preserve all existing features (Trip creation, vehicle setup, offline maps)",
       "Develop Frontend + Backend together",
@@ -45,5 +45,5 @@
       "Zero-trust independent QA validation before staging deployment"
     ]
   },
-  "timestamp": "2026-09-12 23:06:55"
+  "timestamp": "2026-09-13 01:07:58"
 }

@@ -1,8 +1,8 @@
 {
-  "task": "159",
-  "issue": "159",
-  "type": "feature",
-  "problem": "Issue #159: [R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync (R&D auto-specified feature for Google Antigravity developer.) - Unrelated locations added to generated itinerary.",
+  "task": "123",
+  "issue": "123",
+  "type": "bug",
+  "problem": "Issue #123: Fix AI Planner Locations distance issue (distance issue not been fixed) - Unrelated locations added to generated itinerary.",
   "current_behavior": "AI planner generates candidate locations outside the locked destination cluster (e.g. Tirumala trip includes Bengaluru/Mysuru).",
   "expected_behavior": "Planner strictly confines candidate stops to within the destination spatial boundary (<75 km) unless user explicitly requests distant waypoints.",
   "frontend_impact": [

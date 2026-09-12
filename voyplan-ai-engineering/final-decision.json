@@ -1,7 +1,7 @@
 {
-  "issue_id": "159",
-  "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+  "issue_id": "123",
+  "title": "Fix AI Planner Locations distance issue",
   "decision": "APPROVED",
   "developer": "Google Antigravity",
-  "timestamp": "2026-09-12 23:06:55"
+  "timestamp": "2026-09-13 01:07:58"
 }

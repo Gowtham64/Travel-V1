@@ -1,9 +1,9 @@
 {
-  "issue_id": "159",
-  "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+  "issue_id": "123",
+  "title": "Fix AI Planner Locations distance issue",
   "product_alignment": "HIGH_PRIORITY_STRATEGIC",
-  "user_problem_solved": "Product defect impacting traveler experience or system safety.",
-  "target_persona": "All VoyPlan mobile & web travelers",
+  "user_problem_solved": "Uncertain or hallucinated stops break traveler trust and cause real-world detours.",
+  "target_persona": "Pilgrimage traveler & Family roadtripper",
   "cross_platform_parity": {
     "web": "Must provide interactive visual confirmation, clear warnings on invalid inputs, and real-time map updates.",
     "android": "Must update local Hive cache and notify connected Android Auto head unit via CarNavState bridge.",
@@ -14,5 +14,5 @@
   "complexity_risk": "MEDIUM: Must protect existing trip creation and saved trips while adding deterministic boundary validation.",
   "product_approval": "APPROVED",
   "recommendation": "PROCEED_TO_COUNCIL_DEBATE",
-  "timestamp": "2026-09-12 23:06:54"
+  "timestamp": "2026-09-13 01:07:57"
 }

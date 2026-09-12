@@ -53,7 +53,9 @@ pipeline_state = {
     "artifacts": {},
     "last_run": time.strftime("%Y-%m-%d %H:%M:%S"),
     "production_approved": False,
-    "autonomous_scan_running": False
+    "autonomous_scan_running": False,
+    "human_review_required": False,
+    "review_reason": ""
 }
 
 
@@ -188,6 +190,9 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
         elif "Antigravity Dev" in line_clean and "PASS" in line_clean:
             pipeline_state["stages"]["developer"]["status"] = "PASS"
             time.sleep(0.6)
+        elif "Antigravity Dev" in line_clean and "FAIL" in line_clean:
+            pipeline_state["stages"]["developer"]["status"] = "FAIL"
+            time.sleep(0.6)
 
         elif "Stage 5: Independent Verification" in line_clean or "[testing]" in line_clean:
             pipeline_state["current_stage"] = "tester"
@@ -197,6 +202,9 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
             time.sleep(1.2)
         elif "Unit & Regression" in line_clean and "PASS" in line_clean:
             pipeline_state["stages"]["tester"]["status"] = "PASS"
+            time.sleep(0.6)
+        elif "Unit & Regression" in line_clean and "FAIL" in line_clean:
+            pipeline_state["stages"]["tester"]["status"] = "FAIL"
             time.sleep(0.6)
 
         elif "Stage 6: Independent QA" in line_clean or "[qa]" in line_clean:
@@ -208,6 +216,19 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
         elif "QA Acceptance" in line_clean and "PASS" in line_clean:
             pipeline_state["stages"]["qa"]["status"] = "PASS"
             pipeline_state["current_task"]["result"] = "PASS"
+            time.sleep(0.6)
+        elif "QA Acceptance" in line_clean and "FAIL" in line_clean:
+            pipeline_state["stages"]["qa"]["status"] = "FAIL"
+            time.sleep(0.6)
+
+        elif "HUMAN_REVIEW_REQUIRED" in line_clean or "MAXIMUM RETRIES EXHAUSTED" in line_clean:
+            pipeline_state["human_review_required"] = True
+            pipeline_state["review_reason"] = line_clean
+            pipeline_state["stages"]["release"]["status"] = "HUMAN_REVIEW_REQUIRED"
+            pipeline_state["stages"]["qa"]["status"] = "HUMAN_REVIEW_REQUIRED"
+            pipeline_state["current_task"]["stage"] = "HUMAN_REVIEW_REQUIRED"
+            pipeline_state["current_task"]["result"] = "HUMAN_REVIEW_REQUIRED"
+            pipeline_state["current_task"]["next"] = "Human Action: Approve (DEPLOY) or Decline"
             time.sleep(0.6)
 
         elif "Stage 7: Security Agent" in line_clean or "[security]" in line_clean:
@@ -249,7 +270,14 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
     all_data = queue_mgr.get_all()
     for t in all_data.get("tasks", []):
         if str(t.get("id")) == str(issue_id):
-            t["status"] = "RELEASED" if pipeline_state["stages"]["release"]["status"] == "PASS" else "READY_FOR_RELEASE"
+            if pipeline_state["stages"]["release"]["status"] == "PASS":
+                t["status"] = "RELEASED"
+            elif pipeline_state.get("human_review_required") or pipeline_state["stages"]["release"]["status"] == "HUMAN_REVIEW_REQUIRED":
+                t["status"] = "HUMAN_REVIEW_REQUIRED"
+            elif pipeline_state["stages"]["release"]["status"] == "WAITING_APPROVAL":
+                t["status"] = "WAITING_APPROVAL"
+            else:
+                t["status"] = "READY_FOR_RELEASE"
             t["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     queue_mgr.save_all(all_data)
 
@@ -429,6 +457,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 pipeline_state["current_task"]["result"] = "PASS"
                 pipeline_state["current_task"]["next"] = "Continuous 24/7 Monitoring"
                 pipeline_state["production_approved"] = True
+                pipeline_state["human_review_required"] = False
                 pipeline_state["running"] = False
                 
                 # Update queue & stats
@@ -451,6 +480,38 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps({"status": "DEPLOYING"}).encode("utf-8"))
+            return
+
+        elif parsed.path == "/api/decline":
+            issue_id = data.get("issue_id") or pipeline_state["current_task"].get("id")
+            reason = data.get("reason", "Declined by Human Operator").strip()
+            action = data.get("action", "REJECT").upper()  # REJECT, REQUEUE, MODIFY
+
+            pipeline_state["human_review_required"] = False
+            pipeline_state["stages"]["release"]["status"] = "DECLINED"
+            pipeline_state["current_task"]["stage"] = "DECLINED"
+            pipeline_state["current_task"]["result"] = "DECLINED"
+            pipeline_state["current_task"]["next"] = "Task Closed / Re-queued"
+            pipeline_state["logs"].append(f"[HUMAN OPERATOR] 🛑 Task #{issue_id} DECLINED. Action: {action}. Reason: '{reason}'")
+
+            all_data = queue_mgr.get_all()
+            for t in all_data.get("tasks", []):
+                if str(t.get("id")) == str(issue_id):
+                    if action == "REQUEUE":
+                        t["status"] = "PENDING"
+                        t["retries"] = 0
+                        t["notes"] = f"Re-queued by operator: {reason}"
+                    else:
+                        t["status"] = "DECLINED"
+                        t["notes"] = reason
+                    t["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            queue_mgr.save_all(all_data)
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "DECLINED", "action": action, "issue_id": issue_id}).encode("utf-8"))
             return
 
         elif parsed.path == "/api/autonomous/rnd-feature":

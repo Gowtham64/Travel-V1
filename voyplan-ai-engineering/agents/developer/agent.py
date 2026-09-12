@@ -54,8 +54,24 @@ class DeveloperAgent:
         # Execute tests to establish baseline
         backend_dir = os.path.join(self.workspace_path, "backend")
         logger.log_event("Running Jest baseline test suite...")
-        test_run = self._run_cmd(["npm", "test", "--", "--testPathPattern=destinationBoundaries", "--forceExit", "--silent"], cwd=backend_dir)
-        logger.record_command("npm test -- --testPathPattern=destinationBoundaries --forceExit", test_run.returncode, test_run.stdout)
+        
+        import shutil
+        npm_bin = shutil.which("npm")
+        if not npm_bin:
+            for candidate in ["/opt/render/project/src/.venv/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm", "/opt/render/project/nodes/node/bin/npm"]:
+                if os.path.exists(candidate):
+                    npm_bin = candidate
+                    break
+
+        if npm_bin:
+            test_run = self._run_cmd([npm_bin, "test", "--", "--testPathPattern=destinationBoundaries", "--forceExit", "--silent"], cwd=backend_dir)
+            logger.record_command(f"{npm_bin} test -- --testPathPattern=destinationBoundaries --forceExit", test_run.returncode, test_run.stdout)
+        else:
+            # Server environment without node/npm (e.g. Render Python container): run native spatial regression suite
+            logger.log_event("Node/npm not detected in PATH; executing native spatial boundary regression suite...", level="INFO")
+            test_script = os.path.join(self.workspace_path, "voyplan-ai-engineering", "tests", "spatial_validator.py")
+            test_run = self._run_cmd([sys.executable, test_script], cwd=self.workspace_path)
+            logger.record_command("python3 tests/spatial_validator.py", test_run.returncode, test_run.stdout)
 
         files_modified = report.get("affected_files", [])
         logger.record_files_changed(files_modified)

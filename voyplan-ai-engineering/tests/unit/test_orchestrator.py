@@ -37,24 +37,23 @@ class TestPipelineOrchestration(unittest.TestCase):
                 }, f, indent=2)
 
         test_file = os.path.join(self.engineering_dir, "test-result.json")
-        if not os.path.exists(test_file):
-            with open(test_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "status": "PASS",
-                    "passed_count": 4,
-                    "failed_count": 0,
-                    "failed_tests": [],
-                    "errors": []
-                }, f, indent=2)
+        with open(test_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "status": "PASS",
+                "passed_count": 4,
+                "failed_count": 0,
+                "passed": ["Spatial Boundary Regression Suite (Deterministic)"],
+                "failed_tests": [],
+                "errors": []
+            }, f, indent=2)
 
         qa_file = os.path.join(self.engineering_dir, "qa-result.json")
-        if not os.path.exists(qa_file):
-            with open(qa_file, "w", encoding="utf-8") as f:
-                json.dump({
-                    "status": "PASS",
-                    "issue": "123",
-                    "recommendation": "PROCEED_TO_STAGING"
-                }, f, indent=2)
+        with open(qa_file, "w", encoding="utf-8") as f:
+            json.dump({
+                "status": "PASS",
+                "issue": "123",
+                "recommendation": "PROCEED_TO_STAGING"
+            }, f, indent=2)
 
     def test_researcher_agent_fallback_report(self):
         agent = ResearchAgent(workspace_path=self.workspace, model_provider="ollama")
@@ -74,7 +73,7 @@ class TestPipelineOrchestration(unittest.TestCase):
         release = ReleaseAgent(workspace_path=self.workspace)
         banner = release.render_approval_gate("PASS", "PASS", "PASS", "PASS")
         self.assertIn("PRODUCTION RELEASE", banner)
-        self.assertIn("Human Approval Required", banner)
+        self.assertIn("HUMAN OPERATOR APPROVAL REQUIRED", banner)
 
         # Without approval keyword, should enter WAITING_APPROVAL state
         res_paused = release.deploy(human_approved=False)

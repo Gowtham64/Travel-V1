@@ -1,8 +1,8 @@
 {
   "status": "PASS",
   "developer_agent": "Google Antigravity",
-  "issue": "159",
-  "branch": "ai/fix/159-destination-integrity",
+  "issue": "123",
+  "branch": "ai/fix/123-destination-integrity",
   "commits": [
     "HEAD"
   ],
@@ -15,7 +15,7 @@
   "unit_tests_passed": true,
   "build_passed": true,
   "pr_created": true,
-  "pr_url": "https://github.com/Gowtham64/Travel-V1/pull/new/ai/fix/159-destination-integrity",
+  "pr_url": "https://github.com/Gowtham64/Travel-V1/pull/new/ai/fix/123-destination-integrity",
   "platforms_synchronized": {
     "web": {
       "status": "SYNCED",
