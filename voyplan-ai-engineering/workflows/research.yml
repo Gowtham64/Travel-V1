@@ -1,0 +1,27 @@
+name: Research Agent Workflow
+description: Triggered when a new GitHub issue is labeled 'ai-plan' or created
+inputs:
+  issue_number:
+    description: "GitHub Issue Number"
+    required: true
+  issue_title:
+    description: "Issue Title"
+    required: true
+  issue_body:
+    description: "Issue Description"
+    required: true
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.10"
+  - name: Execute R&D Agent
+    run: |
+      python3 -m voyplan-ai-engineering.agents.researcher.agent "${{ inputs.issue_number }}" "${{ inputs.issue_title }}" "${{ inputs.issue_body }}"
+  - name: Upload Research Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: research-report
+      path: voyplan-ai-engineering/research-report.json

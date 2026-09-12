@@ -1,0 +1,43 @@
+# VoyPlan AI Engineering System - Environments Configuration
+
+environments:
+  development:
+    name: "Development"
+    url: "http://localhost:3000"
+    client_url: "http://localhost:8080/app/"
+    backend_service: "local"
+    db_type: "staging"
+    git_branch: "feature/*"
+    isolated_docker: true
+
+  staging:
+    name: "Staging"
+    url: "${STAGING_URL:-https://staging.voyplan.in}"
+    backend_url: "${STAGING_BACKEND_URL:-https://voyplan-staging.onrender.com}"
+    git_branch: "develop"
+    platform: "Cloudflare Pages + Render"
+    requires_approval: false
+    auto_deploy_on_pr_merge: true
+    smoke_test_endpoints:
+      - "/api/status"
+      - "/api/ai/status"
+
+  production:
+    name: "Production"
+    url: "${PRODUCTION_URL:-https://voyplan.in}"
+    client_app_url: "https://voyplan.in/app/"
+    backend_url: "https://travel-v1-mzia.onrender.com"
+    git_branch: "main"
+    deployment_branch: "gh-pages"
+    platform: "GitHub Pages + Render"
+    requires_human_approval: true
+    approval_token_keyword: "DEPLOY"
+    smoke_test_endpoints:
+      - "/"
+      - "/app/"
+      - "/api/status"
+      - "/api/ai/status"
+    rollback:
+      enabled: true
+      max_rollback_attempts: 1
+      fallback_branch: "gh-pages"

@@ -1,0 +1,23 @@
+{
+  "bug_id": "BUG-1789232257",
+  "title": "Integrity Defect: Chennai \u2794 Pondicherry",
+  "platform": "Cross-Platform",
+  "severity": "P2",
+  "attempt": 1,
+  "max_attempts": 3,
+  "steps": [
+    "Execute automated test journey",
+    "Assert boundary constraints"
+  ],
+  "expected": "All stops within destination boundary and HTTP 200 approved",
+  "actual": "Non-200 HTTP response",
+  "evidence": [
+    "reports/destination-integrity-report.json"
+  ],
+  "root_cause": "Backend validator rejected generated itinerary after 3 cycles due to incompatible constraints (e.g. missing requested category stops in single day).",
+  "confidence": "HIGH",
+  "affected_layer": "BACKEND_SERVICE",
+  "impact": "High - degraded itinerary reliability or user friction",
+  "status": "OPEN",
+  "timestamp": "2026-09-12T22:27:37.116771"
+}

@@ -1,0 +1,293 @@
+{
+  "campaign_id": "CMP-1789232323",
+  "timestamp": "2026-09-12T22:28:43.497377",
+  "stages": {
+    "ios_testing": {
+      "task_id": "ios_test_1789232331",
+      "agent": "IOS_HUMAN_TESTER",
+      "platform": "iOS",
+      "device": "Gowtham\u2019s iPhone",
+      "device_id": "E8A963BD-997F-5275-B355-ABB76AF76D1B",
+      "status": "PASS",
+      "journey": [
+        {
+          "step": "LAUNCH_APP",
+          "status": "PASS",
+          "duration_s": 0.19
+        },
+        {
+          "step": "TERMINATE_APP",
+          "status": "WARN"
+        },
+        {
+          "step": "RELAUNCH_RESUMPTION",
+          "status": "PASS",
+          "duration_s": 0.2
+        }
+      ],
+      "evidence": [
+        "/Users/gowtham/Downloads/downloads /travel-app/voyplan-ai-engineering/evidence/logs/ios_state_20260912_222847.log",
+        "/Users/gowtham/Downloads/downloads /travel-app/voyplan-ai-engineering/evidence/logs/ios_state_20260912_222851.log"
+      ],
+      "timestamp": "2026-09-12T22:28:51.416711"
+    },
+    "android_testing": {
+      "task_id": "android_test_1789232331",
+      "agent": "ANDROID_HUMAN_TESTER",
+      "platform": "Android",
+      "status": "SKIP",
+      "reason": "No active Android device or emulator running. (Ready to run when emulator/device attached).",
+      "timestamp": "2026-09-12T22:28:51.639690"
+    },
+    "destination_integrity": {
+      "task_id": "integrity_audit_1789232367",
+      "agent": "DESTINATION_INTEGRITY_AUDITOR",
+      "timestamp": "2026-09-12T22:29:27.135641",
+      "overall_status": "FAIL",
+      "backend_url": "https://travel-v1-mzia.onrender.com",
+      "tests_run": 3,
+      "tests_passed": 1,
+      "results": [
+        {
+          "pair": "Bengaluru \u2794 Tirumala",
+          "status": "FAIL",
+          "status_code": 422,
+          "layer_failure": "BACKEND_SERVICE",
+          "reason": "Non-200 HTTP response",
+          "duration_s": 20.69
+        },
+        {
+          "pair": "Bengaluru \u2794 Tirupati",
+          "status": "PASS",
+          "duration_s": 10.66,
+          "stops_count": 14,
+          "violations": [],
+          "layer_failure": null,
+          "stops": [
+            {
+              "title": "Start from Bengaluru",
+              "lat": 12.9716,
+              "lng": 77.5946,
+              "type": "transit_leg"
+            },
+            {
+              "title": "Drive to Destination: Tirupati",
+              "lat": 13.6288,
+              "lng": 79.4192,
+              "type": "transit_leg"
+            },
+            {
+              "title": "Arrive at Destination: Tirupati",
+              "lat": 13.6288,
+              "lng": 79.4192,
+              "dist_from_dest_km": 0.2
+            },
+            {
+              "title": "Drive to Sri Venkateswara Zoological Park",
+              "lat": 13.6112,
+              "lng": 79.3789,
+              "dist_from_dest_km": 4.9
+            },
+            {
+              "title": "Visit Sri Venkateswara Zoological Park",
+              "lat": 13.6112,
+              "lng": 79.3789,
+              "dist_from_dest_km": 4.9
+            },
+            {
+              "title": "Drive to Lord Venkateswara Temple (Tirumala)",
+              "lat": 13.6833,
+              "lng": 79.3473,
+              "dist_from_dest_km": 9.8
+            },
+            {
+              "title": "Lunch Break",
+              "lat": 13.6833,
+              "lng": 79.3473,
+              "dist_from_dest_km": 9.8
+            },
+            {
+              "title": "Visit Lord Venkateswara Temple (Tirumala)",
+              "lat": 13.6833,
+              "lng": 79.3473,
+              "dist_from_dest_km": 9.8
+            },
+            {
+              "title": "Drive to Japali Hanuman Temple",
+              "lat": 13.7042,
+              "lng": 79.3585,
+              "dist_from_dest_km": 10.6
+            },
+            {
+              "title": "Visit Japali Hanuman Temple",
+              "lat": 13.7042,
+              "lng": 79.3585,
+              "dist_from_dest_km": 10.6
+            },
+            {
+              "title": "Tea & Refreshment Break",
+              "lat": 13.7042,
+              "lng": 79.3585,
+              "dist_from_dest_km": 10.6
+            },
+            {
+              "title": "Drive to Papavinasam Theertham",
+              "lat": 13.7225,
+              "lng": 79.3562,
+              "dist_from_dest_km": 12.4
+            },
+            {
+              "title": "Visit Papavinasam Theertham",
+              "lat": 13.7225,
+              "lng": 79.3562,
+              "dist_from_dest_km": 12.4
+            },
+            {
+              "title": "Return to Origin (Bengaluru)",
+              "lat": 12.9716,
+              "lng": 77.5946,
+              "type": "transit_leg"
+            }
+          ]
+        },
+        {
+          "pair": "Chennai \u2794 Pondicherry",
+          "status": "FAIL",
+          "status_code": 422,
+          "layer_failure": "BACKEND_SERVICE",
+          "reason": "Non-200 HTTP response",
+          "duration_s": 4.13
+        }
+      ]
+    },
+    "combinatorial_matrix": {
+      "task_id": "combinatorial_1789232385",
+      "agent": "COMBINATORIAL_ENGINE",
+      "timestamp": "2026-09-12T22:29:45.519074",
+      "total_tested": 3,
+      "passed": 2,
+      "failed_or_rejected": 1,
+      "scenarios": [
+        {
+          "id": "TC_COMB_01",
+          "params": {
+            "id": "TC_COMB_01",
+            "startLocation": "Bengaluru",
+            "destination": "Tirupati",
+            "durationDays": 1,
+            "mode": "balanced",
+            "vehicleType": "car",
+            "selectedCategories": [
+              "Temples"
+            ]
+          },
+          "status": "PASS",
+          "duration_s": 7.57,
+          "days": 1,
+          "total_distance_km": 569,
+          "total_budget": 2447
+        },
+        {
+          "id": "TC_COMB_02",
+          "params": {
+            "id": "TC_COMB_02",
+            "startLocation": "Bengaluru",
+            "destination": "Ooty",
+            "durationDays": 2,
+            "mode": "relaxed",
+            "vehicleType": "car",
+            "selectedCategories": [
+              "Nature",
+              "Viewpoint"
+            ]
+          },
+          "status": "PASS",
+          "duration_s": 6.29,
+          "days": 2,
+          "total_distance_km": 701.4,
+          "total_budget": 7190
+        },
+        {
+          "id": "TC_COMB_03",
+          "params": {
+            "id": "TC_COMB_03",
+            "startLocation": "Chennai",
+            "destination": "Pondicherry",
+            "durationDays": 1,
+            "mode": "balanced",
+            "vehicleType": "bike",
+            "selectedCategories": [
+              "Beach",
+              "Heritage"
+            ]
+          },
+          "status": "REJECTED_VALIDATOR",
+          "status_code": 422,
+          "duration_s": 4.46,
+          "error": "Unable to generate an approved itinerary for the selected preferences. Please adjust your categories, dates, or pace.",
+          "validation_issues": []
+        }
+      ]
+    },
+    "cross_platform_parity": {
+      "task_id": "xplat_comp_1789232385",
+      "agent": "CROSS_PLATFORM_COMPARATOR",
+      "timestamp": "2026-09-12T22:29:45.520257",
+      "platforms_evaluated": [
+        "iOS",
+        "Android"
+      ],
+      "parity_score": 100,
+      "discrepancies": [],
+      "status": "PASS"
+    }
+  },
+  "defects": [
+    {
+      "bug_id": "BUG-1789232385",
+      "title": "Integrity Defect: Bengaluru \u2794 Tirumala",
+      "platform": "Cross-Platform",
+      "severity": "P2",
+      "attempt": 1,
+      "max_attempts": 3,
+      "steps": [
+        "Execute automated test journey",
+        "Assert boundary constraints"
+      ],
+      "expected": "All stops within destination boundary and HTTP 200 approved",
+      "actual": "Non-200 HTTP response",
+      "evidence": [
+        "reports/destination-integrity-report.json"
+      ],
+      "root_cause": "Backend validator rejected generated itinerary after 3 cycles due to incompatible constraints (e.g. missing requested category stops in single day).",
+      "confidence": "HIGH",
+      "affected_layer": "BACKEND_SERVICE",
+      "impact": "High - degraded itinerary reliability or user friction",
+      "status": "OPEN",
+      "timestamp": "2026-09-12T22:29:45.520813"
+    },
+    {
+      "bug_id": "BUG-1789232385",
+      "title": "Integrity Defect: Chennai \u2794 Pondicherry",
+      "platform": "Cross-Platform",
+      "severity": "P2",
+      "attempt": 1,
+      "max_attempts": 3,
+      "steps": [
+        "Execute automated test journey",
+        "Assert boundary constraints"
+      ],
+      "expected": "All stops within destination boundary and HTTP 200 approved",
+      "actual": "Non-200 HTTP response",
+      "evidence": [
+        "reports/destination-integrity-report.json"
+      ],
+      "root_cause": "Backend validator rejected generated itinerary after 3 cycles due to incompatible constraints (e.g. missing requested category stops in single day).",
+      "confidence": "HIGH",
+      "affected_layer": "BACKEND_SERVICE",
+      "impact": "High - degraded itinerary reliability or user friction",
+      "status": "OPEN",
+      "timestamp": "2026-09-12T22:29:45.521748"
+    }
+  ]
+}

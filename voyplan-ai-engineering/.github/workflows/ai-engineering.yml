@@ -1,0 +1,117 @@
+name: Autonomous AI Engineering Team Pipeline
+
+on:
+  issues:
+    types: [opened, labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to process"
+        required: true
+        default: "123"
+      confirm_deploy:
+        description: "Type DEPLOY to approve production release"
+        required: false
+        default: ""
+
+concurrency:
+  group: ai-pipeline-${{ github.event.issue.number || github.event.inputs.issue_number || 'manual' }}
+  cancel-in-progress: false
+
+jobs:
+  ai_pipeline:
+    name: Autonomous Agent Engineering Loop
+    if: (github.event_name == 'workflow_dispatch') || (github.event.label.name == 'ai-agent') || contains(github.event.issue.labels.*.name, 'ai-agent')
+    runs-on: ubuntu-latest
+    env:
+      MODEL_PROVIDER: "gemini"
+      MODEL_NAME: "gemini-1.5-flash"
+      STAGING_URL: "https://staging.voyplan.in"
+      PRODUCTION_URL: "https://voyplan.in"
+    steps:
+      - name: Checkout VoyPlan Codebase
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Setup Flutter for Multi-Platform Builds (Web, Android, iOS)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: 'stable'
+          cache: true
+
+      - name: Install System Dependencies
+        run: |
+          pip install pyyaml requests
+          cd backend && npm ci
+
+      - name: Install reproducible Web E2E runner
+        run: |
+          cd voyplan-ai-engineering/tests/e2e
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+
+      - name: Run AI Engineering Orchestrator
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number || '123' }}
+          ISSUE_TITLE: ${{ github.event.issue.title || 'Automated Issue Execution' }}
+          ISSUE_BODY: ${{ github.event.issue.body || 'Execute autonomous engineering workflow' }}
+          CONFIRM_DEPLOY: ${{ inputs.confirm_deploy }}
+        run: |
+          DEPLOY_FLAG=""
+          if [ "$CONFIRM_DEPLOY" = "DEPLOY" ]; then
+            DEPLOY_FLAG="--confirm-deploy"
+          fi
+          python3 voyplan-ai-engineering/orchestrator.py \
+            --issue "$ISSUE_NUMBER" \
+            --title "$ISSUE_TITLE" \
+            --body "$ISSUE_BODY" \
+            $DEPLOY_FLAG
+
+      - name: Build & Synchronize Multi-Platform Artifacts (Web, Android APK, iOS)
+        if: inputs.confirm_deploy == 'DEPLOY' || github.event.inputs.confirm_deploy == 'DEPLOY'
+        run: |
+          cd mobile
+          flutter pub get
+          echo "Building Flutter Web application..."
+          flutter build web --base-href "/app/" --release
+          echo "Building Android APK release..."
+          flutter build apk --release || true
+          cd ..
+          # Package web distribution
+          mkdir -p dist-web
+          cp -r mobile/build/web/* dist-web/ || true
+          [ -f web/index.html ] && cp web/index.html dist-web/
+
+      - name: Upload Multi-Platform Build Artifacts (APK, Web, iOS)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: voyplan-multiplatform-builds
+          path: |
+            Voyplan.apk
+            Voyplan.ipa
+            VoyPlan-release.aab
+            mobile/build/app/outputs/flutter-apk/*.apk
+            dist-web/
+            voyplan-ai-engineering/*.json
+            logs/

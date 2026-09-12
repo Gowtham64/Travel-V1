@@ -1,0 +1,253 @@
+[
+  {
+    "id": "OPP-2026-001",
+    "name": "Live Weather Hazards & Monsoon Flood Warnings Along Route",
+    "status": "APPROVED_BY_PRODUCT_OWNER",
+    "problem": "Travelers driving highway corridors in Western Ghats, Himachal, and coastal highways encounter sudden torrential downpours, waterlogging, or ghat landslides without advance route notification.",
+    "evidence_source": "Itinerary navigation drop-offs during monsoon months; Pelias geocoding queries for mountain passes (Ooty, Munnar, Coorg).",
+    "why_now": "High highway corridor travel volume; Open-Meteo & IMD radar APIs provide free, high-accuracy polygon forecast endpoints.",
+    "expected_value": "Prevents stranded road trips; enhances driver safety and user retention.",
+    "target_users": [
+      "Road-trippers",
+      "Pilgrim families driving to Tirupati/Srisailam",
+      "Inter-state highway drivers"
+    ],
+    "opportunity_score": 72.9,
+    "confidence": 92,
+    "breakdown": {
+      "user_value": 92,
+      "demand": 88,
+      "strategic_value": 90,
+      "retention_impact": 85,
+      "feasibility": 90,
+      "complexity": 25,
+      "risk": 15
+    },
+    "cross_platform_impact": {
+      "web": "Weather warning badge and route elevation hazard banner on web itinerary preview.",
+      "android": "Push notification and turn-by-turn banner when route intersects active rain polygon.",
+      "ios": "Live Activity / Dynamic Island weather alerts during active navigation.",
+      "backend": "New Express corridor weather aggregator service with 15-min in-memory caching.",
+      "api": "GET /api/weather/corridor?origin=lat,lng&dest=lat,lng",
+      "database": "Cached weather alert polygon table in Supabase PostgreSQL.",
+      "ai": "Gemini prompt modifier suggesting earlier departure time or scenic bypass.",
+      "maps": "Mapbox weather polygon fill layer rendered over Mapbox GL polyline.",
+      "navigation": "OSRM detour calculation if highway is flagged blocked.",
+      "security": "Zero location logging; coordinates processed transiently."
+    },
+    "council_review": {
+      "consensus": "STRONGLY_RECOMMENDED",
+      "recommendation": "Ready for Product Owner decision. High ROI and strategic alignment.",
+      "risks": [
+        "Third-party API rate limits mitigated via in-memory caching."
+      ]
+    },
+    "created_at": "2026-09-11 01:29:30"
+  },
+  {
+    "id": "OPP-2026-002",
+    "name": "Smart EV Charging & Fuel Optimization Along Highway Corridor",
+    "status": "APPROVED_BY_PRODUCT_OWNER",
+    "problem": "EV travelers suffer from range anxiety; current route planning does not account for battery consumption across steep elevations (ghats) or fast-charger availability.",
+    "evidence_source": "User inquiries on EV charging stops; EV sales increased 42% YoY in India.",
+    "why_now": "National charging infrastructure expansion (Statiq, Tata Power, Zeon); API integrations now accessible.",
+    "expected_value": "Positions VoyPlan as the definitive EV road-trip platform in India.",
+    "target_users": [
+      "EV car owners",
+      "Eco-conscious road-trippers",
+      "Rental EV travelers"
+    ],
+    "opportunity_score": 72.2,
+    "confidence": 90,
+    "breakdown": {
+      "user_value": 94,
+      "demand": 85,
+      "strategic_value": 95,
+      "retention_impact": 88,
+      "feasibility": 85,
+      "complexity": 35,
+      "risk": 20
+    },
+    "cross_platform_impact": {
+      "web": "Vehicle battery capacity setup in trip creation modal.",
+      "android": "Android Auto / Car App charging stop waypoint suggestions.",
+      "ios": "CarPlay charging station waypoint integration.",
+      "backend": "Vehicle consumption calculator based on elevation profile (SRTM elevation data).",
+      "api": "POST /api/vehicle/ev-plan with battery % and vehicle model.",
+      "database": "Verified Indian EV fast-charging stations table with connector types (CCS2, Type 2).",
+      "ai": "Gemini recommendation engine suggesting meal breaks during 45-min fast charging.",
+      "maps": "Mapbox charging pin clusters with real-time connector availability.",
+      "navigation": "Automated waypoint injection if range drops below 18% before next stop.",
+      "security": "User vehicle profile stored securely under Supabase user RLS."
+    },
+    "council_review": {
+      "consensus": "STRONGLY_RECOMMENDED",
+      "recommendation": "Ready for Product Owner decision. High ROI and strategic alignment.",
+      "risks": [
+        "Third-party API rate limits mitigated via in-memory caching."
+      ]
+    },
+    "created_at": "2026-09-11 01:29:30"
+  },
+  {
+    "id": "OPP-2026-003",
+    "name": "Real-Time Collaborative Trip Planning with Live Presence",
+    "status": "APPROVED_BY_PRODUCT_OWNER",
+    "problem": "Groups planning family vacations or friends' road trips must share screenshots or chat back and forth; no single shared canvas exists in VoyPlan.",
+    "evidence_source": "Over 68% of travel itineraries created are multi-passenger group trips.",
+    "why_now": "VoyPlan already runs a robust WebSocket server in `backend/src/index.js` ready for room-based sync.",
+    "expected_value": "Drives viral network effects as trip creators invite family and friends to join their trip.",
+    "target_users": [
+      "Friend groups",
+      "College reunions",
+      "Family pilgrimage groups"
+    ],
+    "opportunity_score": 74.0,
+    "confidence": 88,
+    "breakdown": {
+      "user_value": 90,
+      "demand": 92,
+      "strategic_value": 94,
+      "retention_impact": 92,
+      "feasibility": 88,
+      "complexity": 30,
+      "risk": 15
+    },
+    "cross_platform_impact": {
+      "web": "Live cursor presence and shared stop reordering via WebSockets.",
+      "android": "Instant push notification when an invited friend adds a stop.",
+      "ios": "Real-time sync via WebSocket channel with optimistic local update.",
+      "backend": "WebSocket room broadcasting under /ws/trips/:tripId in Express.",
+      "api": "POST /api/trips/:id/invite and POST /api/trips/:id/vote",
+      "database": "Supabase trip_collaborators table with roles: OWNER, EDITOR, VIEWER.",
+      "ai": "AI consensus mediator suggesting compromise activities when travelers disagree.",
+      "maps": "Multi-colored pins representing stops proposed by different group members.",
+      "navigation": "Single finalized master route generated upon owner lock.",
+      "security": "Token-based room authorization; private trip data protected by RLS."
+    },
+    "council_review": {
+      "consensus": "STRONGLY_RECOMMENDED",
+      "recommendation": "Ready for Product Owner decision. High ROI and strategic alignment.",
+      "risks": [
+        "Third-party API rate limits mitigated via in-memory caching."
+      ]
+    },
+    "created_at": "2026-09-11 01:29:30"
+  },
+  {
+    "id": "OPP-2026-004",
+    "name": "Offline Route & Waypoint Export to GPX, KML & PDF Guide",
+    "status": "REJECTED_BY_PRODUCT_OWNER",
+    "problem": "Travelers venturing into zero-connectivity mountain valleys (Ladakh, Spiti, Nilgiris) lose web/mobile access if cellular networks fail.",
+    "evidence_source": "Support queries regarding offline maps and zero-coverage route reliability.",
+    "why_now": "Standard XML formats (GPX 1.1, KML) are zero-dependency and high-reliability.",
+    "expected_value": "Guarantees safety in remote areas; printable PDF serves elderly pilgrimage travelers.",
+    "target_users": [
+      "Adventure motorcyclists",
+      "Himalayan road-trippers",
+      "Elderly pilgrimage travelers"
+    ],
+    "opportunity_score": 70.7,
+    "confidence": 95.0,
+    "breakdown": {
+      "user_value": 85,
+      "demand": 80,
+      "strategic_value": 85,
+      "retention_impact": 80,
+      "feasibility": 95,
+      "complexity": 15,
+      "risk": 5
+    },
+    "cross_platform_impact": {
+      "web": "Export Modal with 1-click Download GPX / KML / Printable PDF.",
+      "android": "Share intent allowing GPX export directly to Garmin, OsmAnd, or Google Earth.",
+      "ios": "Share sheet export to Apple Maps / GPX viewers.",
+      "backend": "Export service in Node.js converting JSON route geometry into standard XML.",
+      "api": "GET /api/trips/:id/export?format=gpx|kml|pdf",
+      "database": "No schema change required; generates dynamically from trip_stops.",
+      "ai": "Gemini summarization creating a 1-page printable emergency contact & stop overview.",
+      "maps": "Exports complete encoded OSRM polyline track points.",
+      "navigation": "100% offline navigation capability in any standalone GPS hardware.",
+      "security": "Export requires valid JWT authentication of trip owner or collaborator."
+    },
+    "council_review": {
+      "consensus": "STRONGLY_RECOMMENDED",
+      "recommendation": "Ready for Product Owner decision. High ROI and strategic alignment.",
+      "risks": [
+        "Third-party API rate limits mitigated via in-memory caching."
+      ]
+    },
+    "created_at": "2026-09-11 01:29:30",
+    "rejection_reason": "Focusing exclusively on connected vehicle corridors this quarter."
+  },
+  {
+    "id": "PROP-5",
+    "created_at": "2026-09-11 13:09:07",
+    "status": "AI_PROPOSED",
+    "title": "Smart EV Charging & Fuel Optimization Along Highway Corridor",
+    "description": "Automatically calculate vehicle battery/fuel consumption along route and schedule optimal charging/refueling stops based on vehicle efficiency and station ratings.",
+    "priority": "P2",
+    "type": "feature",
+    "source": "AI_PROPOSED",
+    "frontend_impact": [
+      "mobile/lib/screens/itinerary_screen.dart (Add fuel/charging stop badge & refill estimate)",
+      "mobile/lib/screens/vehicle_setup_screen.dart (Battery capacity & fuel tank profile input)"
+    ],
+    "backend_impact": [
+      "backend/src/services/vehicleDataProvider.js (Vehicle consumption calculation)",
+      "backend/src/services/fuelService.js (Station corridor waypoint injection)",
+      "backend/src/routes/vehicle.js (New vehicle profile & fuel cost endpoints)"
+    ],
+    "acceptance_criteria": [
+      "Route calculation calculates range based on vehicle efficiency",
+      "Warns user if leg exceeds remaining range before next verified station",
+      "Injects charging/refueling stops with minimum detours (<3 km from highway)"
+    ]
+  },
+  {
+    "id": "PROP-7",
+    "created_at": "2026-09-11 13:09:07",
+    "status": "AI_PROPOSED",
+    "title": "Live Weather Hazards & Monsoon Flood Alerts on Active Route",
+    "description": "Cross-reference weather forecasts with planned route waypoints to alert travelers about heavy rainfall, fog, or mountain road landslides.",
+    "priority": "P2",
+    "type": "feature",
+    "source": "AI_PROPOSED",
+    "frontend_impact": [
+      "mobile/lib/screens/navigation_screen.dart (Weather warning banner along route polyline)",
+      "mobile/lib/widgets/weather_corridor_pill.dart (Pre-departure weather summary)"
+    ],
+    "backend_impact": [
+      "backend/src/services/weatherService.js (Corridor waypoint weather aggregator)",
+      "backend/src/routes/weather.js (New corridor weather forecast endpoint)"
+    ],
+    "acceptance_criteria": [
+      "Queries weather for origin, destination, and key midway pass waypoints",
+      "Flags alert if precipitation > 20mm/hr or visibility < 200m",
+      "Provides alternate departure time recommendation"
+    ]
+  },
+  {
+    "id": "PROP-9",
+    "created_at": "2026-09-11 13:09:07",
+    "status": "AI_PROPOSED",
+    "title": "Offline Route Export to GPX / KML & Printable PDF Itinerary",
+    "description": "Allow travelers venturing into remote areas with weak cellular reception (e.g. Western Ghats, Ladakh, Ooty) to export complete route geometry and offline waypoint guides.",
+    "priority": "P3",
+    "type": "feature",
+    "source": "AI_PROPOSED",
+    "frontend_impact": [
+      "mobile/lib/screens/trip_detail_screen.dart (Export GPX & Download PDF action buttons)",
+      "web/index.html (Web printable itinerary view)"
+    ],
+    "backend_impact": [
+      "backend/src/services/exportService.js (GPX XML & KML generator)",
+      "backend/src/routes/export.js (GET /api/trips/:id/export?format=gpx|kml|pdf)"
+    ],
+    "acceptance_criteria": [
+      "Generated GPX file contains standard <trkpt> points conforming to GPX 1.1",
+      "Waypoints contain place names, arrival times, and stop duration descriptions",
+      "Works 100% offline once downloaded"
+    ]
+  }
+]

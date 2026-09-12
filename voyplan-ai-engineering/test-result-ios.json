@@ -1,0 +1,29 @@
+{
+  "task_id": "ios_test_1789232331",
+  "agent": "IOS_HUMAN_TESTER",
+  "platform": "iOS",
+  "device": "Gowtham\u2019s iPhone",
+  "device_id": "E8A963BD-997F-5275-B355-ABB76AF76D1B",
+  "status": "PASS",
+  "journey": [
+    {
+      "step": "LAUNCH_APP",
+      "status": "PASS",
+      "duration_s": 0.19
+    },
+    {
+      "step": "TERMINATE_APP",
+      "status": "WARN"
+    },
+    {
+      "step": "RELAUNCH_RESUMPTION",
+      "status": "PASS",
+      "duration_s": 0.2
+    }
+  ],
+  "evidence": [
+    "/Users/gowtham/Downloads/downloads /travel-app/voyplan-ai-engineering/evidence/logs/ios_state_20260912_222847.log",
+    "/Users/gowtham/Downloads/downloads /travel-app/voyplan-ai-engineering/evidence/logs/ios_state_20260912_222851.log"
+  ],
+  "timestamp": "2026-09-12T22:28:51.416711"
+}

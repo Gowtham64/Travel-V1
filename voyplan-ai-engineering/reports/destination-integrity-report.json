@@ -1,0 +1,121 @@
+{
+  "task_id": "integrity_audit_1789235065",
+  "agent": "DESTINATION_INTEGRITY_AUDITOR",
+  "timestamp": "2026-09-12T23:14:25.010512",
+  "overall_status": "FAIL",
+  "backend_url": "https://travel-v1-mzia.onrender.com",
+  "tests_run": 3,
+  "tests_passed": 1,
+  "results": [
+    {
+      "pair": "Bengaluru \u2794 Tirumala",
+      "status": "FAIL",
+      "status_code": 422,
+      "layer_failure": "BACKEND_SERVICE",
+      "reason": "Non-200 HTTP response",
+      "duration_s": 18.47
+    },
+    {
+      "pair": "Bengaluru \u2794 Tirupati",
+      "status": "PASS",
+      "duration_s": 15.7,
+      "stops_count": 14,
+      "violations": [],
+      "layer_failure": null,
+      "stops": [
+        {
+          "title": "Start from Bengaluru",
+          "lat": 12.9716,
+          "lng": 77.5946,
+          "type": "transit_leg"
+        },
+        {
+          "title": "Drive to Destination: Tirupati",
+          "lat": 13.6288,
+          "lng": 79.4192,
+          "type": "transit_leg"
+        },
+        {
+          "title": "Arrive at Destination: Tirupati",
+          "lat": 13.6288,
+          "lng": 79.4192,
+          "dist_from_dest_km": 0.2
+        },
+        {
+          "title": "Drive to Sri Venkateswara Zoological Park",
+          "lat": 13.6112,
+          "lng": 79.3789,
+          "dist_from_dest_km": 4.9
+        },
+        {
+          "title": "Visit Sri Venkateswara Zoological Park",
+          "lat": 13.6112,
+          "lng": 79.3789,
+          "dist_from_dest_km": 4.9
+        },
+        {
+          "title": "Drive to Lord Venkateswara Temple (Tirumala)",
+          "lat": 13.6833,
+          "lng": 79.3473,
+          "dist_from_dest_km": 9.8
+        },
+        {
+          "title": "Lunch Break",
+          "lat": 13.6833,
+          "lng": 79.3473,
+          "dist_from_dest_km": 9.8
+        },
+        {
+          "title": "Visit Lord Venkateswara Temple (Tirumala)",
+          "lat": 13.6833,
+          "lng": 79.3473,
+          "dist_from_dest_km": 9.8
+        },
+        {
+          "title": "Drive to Japali Hanuman Temple",
+          "lat": 13.7042,
+          "lng": 79.3585,
+          "dist_from_dest_km": 10.6
+        },
+        {
+          "title": "Visit Japali Hanuman Temple",
+          "lat": 13.7042,
+          "lng": 79.3585,
+          "dist_from_dest_km": 10.6
+        },
+        {
+          "title": "Tea & Refreshment Break",
+          "lat": 13.7042,
+          "lng": 79.3585,
+          "dist_from_dest_km": 10.6
+        },
+        {
+          "title": "Drive to Papavinasam Theertham",
+          "lat": 13.7225,
+          "lng": 79.3562,
+          "dist_from_dest_km": 12.4
+        },
+        {
+          "title": "Visit Papavinasam Theertham",
+          "lat": 13.7225,
+          "lng": 79.3562,
+          "dist_from_dest_km": 12.4
+        },
+        {
+          "title": "Return to Origin (Bengaluru)",
+          "lat": 12.9716,
+          "lng": 77.5946,
+          "type": "transit_leg"
+        }
+      ]
+    },
+    {
+      "pair": "Chennai \u2794 Pondicherry",
+      "status": "FAIL",
+      "status_code": 422,
+      "layer_failure": "BACKEND_SERVICE",
+      "reason": "Non-200 HTTP response",
+      "duration_s": 9.2
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+name: QA Agent Workflow
+description: Independently verifies acceptance criteria and orchestrates retries
+steps:
+  - name: Run QA Validation Agent
+    run: |
+      python3 -m voyplan-ai-engineering.agents.qa.agent
+  - name: Upload QA Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: qa-result
+      path: voyplan-ai-engineering/qa-result.json

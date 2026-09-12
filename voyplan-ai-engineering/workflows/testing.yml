@@ -1,0 +1,21 @@
+name: Testing Agent Workflow
+description: Runs Jest backend tests, Flutter web smoke tests, and Playwright E2E
+steps:
+  - name: Checkout PR Branch
+    uses: actions/checkout@v4
+  - name: Setup Node & Playwright
+    uses: actions/setup-node@v4
+    with:
+      node-version: "20"
+  - name: Install Dependencies
+    run: |
+      cd backend && npm ci
+      cd ../voyplan-ai-engineering/tests/e2e && npm ci || true
+  - name: Run Testing Agent
+    run: |
+      python3 -m voyplan-ai-engineering.agents.tester.agent
+  - name: Upload Test Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: test-result
+      path: voyplan-ai-engineering/test-result.json

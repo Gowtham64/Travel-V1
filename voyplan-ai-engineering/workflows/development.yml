@@ -1,0 +1,27 @@
+name: Development Agent Workflow
+description: Executes code modifications on feature branches based on research-report.json
+inputs:
+  issue_number:
+    description: "GitHub Issue Number"
+    required: true
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+    with:
+      ref: develop
+  - name: Setup Node & Python
+    uses: actions/setup-node@v4
+    with:
+      node-version: "20"
+  - name: Setup Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.10"
+  - name: Execute Developer Agent
+    run: |
+      python3 -m voyplan-ai-engineering.agents.developer.agent
+  - name: Upload Development Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: development-result
+      path: voyplan-ai-engineering/development-result.json

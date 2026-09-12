@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  # 1. AI Orchestrator: 24/7 Continuous Scheduling & Event Dispatch
+  ai-orchestrator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: voyplan-ai-orchestrator
+    restart: unless-stopped
+    volumes:
+      - .:/workspace/voyplan-ai-engineering:rw
+      - ../:/workspace/travel-app:rw
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-gemini}
+      - MODEL_NAME=${MODEL_NAME:-gemini-1.5-flash}
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ai-dashboard
+    command: ["python3", "voyplan-ai-engineering/orchestrator_daemon.py"]
+
+  # 2. Live Operations Hub: Real-Time Dashboard & Emergency Controls
+  ai-dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: voyplan-ai-dashboard
+    restart: unless-stopped
+    ports:
+      - "3050:3050"
+    volumes:
+      - .:/workspace/voyplan-ai-engineering:rw
+    command: ["python3", "voyplan-ai-engineering/dashboard/server.py"]
+
+  # 3. Agent Isolation Sandbox: OpenHands Workspace Sandbox
+  openhands-sandbox:
+    image: ghcr.io/openhands/runtime:latest
+    container_name: voyplan-openhands-sandbox
+    restart: unless-stopped
+    volumes:
+      - ../:/workspace:rw
+    environment:
+      - SANDBOX_USER_ID=1000
+    security_opt:
+      - no-new-privileges:true
+
+  # 4. Optional Local Models: Ollama (Qwen2.5-Coder / Llama-3)
+  ollama:
+    image: ollama/ollama:latest
+    container_name: voyplan-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+
+  # 5. Playwright Web E2E Test Runner
+  playwright-runner:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    container_name: voyplan-playwright
+    volumes:
+      - .:/workspace:rw
+    working_dir: /workspace/tests/e2e
+    command: ["sh", "-c", "npm install --no-audit --no-fund && npx playwright test"]
+
+volumes:
+  ollama_models:

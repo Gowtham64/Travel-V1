@@ -1,0 +1,488 @@
+{
+  "tasks": [
+    {
+      "id": "123",
+      "title": "Fix AI Planner Random Locations",
+      "description": "Destination: Tirumala. The planner must not add unrelated locations.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "bug",
+      "locked_resources": [
+        "backend/src/services/itineraryEngine.js",
+        "backend/src/services/geminiValidatorService.js"
+      ],
+      "created_at": "2026-09-11 00:33:58",
+      "updated_at": "2026-09-12 23:00:15",
+      "retry_count": 0
+    },
+    {
+      "id": "124",
+      "title": "Trip Itinerary Item Editing & Drag-and-Drop Reordering",
+      "description": "Users should be able to edit, reorder, and remove itinerary stops on active trips.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [
+        "mobile/lib/screens/itinerary_screen.dart",
+        "backend/src/routes/trip.js"
+      ],
+      "created_at": "2026-09-11 00:33:58",
+      "updated_at": "2026-09-11 01:07:46",
+      "retry_count": 0
+    },
+    {
+      "id": "125",
+      "title": "Automated Offline OSRM Response Caching",
+      "description": "Cache repeated routing calls locally to accelerate integration tests and prevent network rate-limiting.",
+      "priority": "P4",
+      "status": "READY_FOR_RELEASE",
+      "type": "improvement",
+      "locked_resources": [
+        "backend/src/services/routingService.js"
+      ],
+      "created_at": "2026-09-11 00:33:58",
+      "updated_at": "2026-09-11 00:37:54",
+      "retry_count": 0
+    },
+    {
+      "id": "127",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in baseline-browser-mapping (moderate)",
+      "description": "Automated dependency scan detected moderate vulnerability in package 'baseline-browser-mapping'. Remediation required: npm audit fix.",
+      "priority": "P4",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:40:40",
+      "updated_at": "2026-09-11 00:40:46",
+      "retry_count": 0
+    },
+    {
+      "id": "128",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in body-parser (moderate)",
+      "description": "Automated dependency scan detected moderate vulnerability in package 'body-parser'. Remediation required: npm audit fix.",
+      "priority": "P4",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:44:42",
+      "updated_at": "2026-09-11 00:44:48",
+      "retry_count": 0
+    },
+    {
+      "id": "129",
+      "title": "[APPROVED AI PROPOSAL] Smart EV Charging & Fuel Optimization Along Highway Corridor",
+      "description": "Automatically calculate vehicle battery/fuel consumption along route and schedule optimal charging/refueling stops based on vehicle efficiency and station ratings.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 00:44:52",
+      "updated_at": "2026-09-11 00:45:00",
+      "retry_count": 0
+    },
+    {
+      "id": "130",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in brace-expansion (high)",
+      "description": "Automated dependency scan detected high vulnerability in package 'brace-expansion'. Remediation required: npm audit fix.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:55:35",
+      "updated_at": "2026-09-11 00:55:42",
+      "retry_count": 0
+    },
+    {
+      "id": "131",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in browserslist (high)",
+      "description": "Automated dependency scan detected high vulnerability in package 'browserslist'. Remediation required: npm audit fix.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:55:37",
+      "updated_at": "2026-09-11 00:55:44",
+      "retry_count": 0
+    },
+    {
+      "id": "132",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in express (moderate)",
+      "description": "Automated dependency scan detected moderate vulnerability in package 'express'. Remediation required: npm audit fix.",
+      "priority": "P4",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:55:40",
+      "updated_at": "2026-09-11 00:55:45",
+      "retry_count": 0
+    },
+    {
+      "id": "133",
+      "title": "[APPROVED AI PROPOSAL] Live Weather Hazards & Monsoon Flood Alerts on Active Route",
+      "description": "Cross-reference weather forecasts with planned route waypoints to alert travelers about heavy rainfall, fog, or mountain road landslides.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 00:55:46",
+      "updated_at": "2026-09-11 00:55:57",
+      "retry_count": 0
+    },
+    {
+      "id": "134",
+      "title": "[APPROVED AI PROPOSAL] Offline Route Export to GPX / KML & Printable PDF Itinerary",
+      "description": "Allow travelers venturing into remote areas with weak cellular reception (e.g. Western Ghats, Ladakh, Ooty) to export complete route geometry and offline waypoint guides.",
+      "priority": "P3",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 00:58:59",
+      "updated_at": "2026-09-11 00:59:09",
+      "retry_count": 0
+    },
+    {
+      "id": "135",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in js-yaml (high)",
+      "description": "Automated dependency scan detected high vulnerability in package 'js-yaml'. Remediation required: npm audit fix.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 00:59:42",
+      "updated_at": "2026-09-11 00:59:51",
+      "retry_count": 0
+    },
+    {
+      "id": "136",
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in qs (moderate)",
+      "description": "Automated dependency scan detected moderate vulnerability in package 'qs'. Remediation required: npm audit fix.",
+      "priority": "P4",
+      "status": "READY_FOR_RELEASE",
+      "type": "security",
+      "locked_resources": [
+        "backend/package.json",
+        "backend/package-lock.json"
+      ],
+      "created_at": "2026-09-11 01:02:46",
+      "updated_at": "2026-09-11 01:02:53",
+      "retry_count": 0
+    },
+    {
+      "id": "137",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "Allow multiple users to co-plan an itinerary in real time with shared stop voting and live presence. Requirements: Frontend ['mobile/lib/screens/trip_collaboration_screen.dart', 'web/js/collaboration.js'], Backend ['backend/src/routes/collaboration.js', 'backend/src/services/collaborationService.js'].",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 01:17:21",
+      "updated_at": "2026-09-11 01:17:26",
+      "retry_count": 0
+    },
+    {
+      "id": "138",
+      "title": "[TEST-DETECTED BUG] Edge Case: Polyline Waypoint Cluster Overlap at Dense Toll Plazas",
+      "description": "Testing Agent detected overlapping polyline markers causing navigation map stuttering during turn-by-turn rendering.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "bug",
+      "locked_resources": [
+        "backend/src/services/routingService.js",
+        "mobile/lib/services/live_navigation_engine.dart"
+      ],
+      "created_at": "2026-09-11 01:19:10",
+      "updated_at": "2026-09-11 01:19:18",
+      "retry_count": 0
+    },
+    {
+      "id": "139",
+      "title": "[R&D FEATURE SPEC] Smart Scenic Waypoint Generator & Route Diversion Detector",
+      "description": "Suggest scenic viewpoints along highways with <15 min detours and automatically recalculate ETA. Requirements: Frontend ['mobile/lib/screens/navigation_screen.dart', 'mobile/lib/widgets/scenic_pill.dart'], Backend ['backend/src/services/scenicWaypointService.js', 'backend/src/routes/ai.js'].",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 01:25:28",
+      "updated_at": "2026-09-11 01:25:42",
+      "retry_count": 0
+    },
+    {
+      "id": "140",
+      "title": "[TEST-DETECTED BUG] Edge Case: Polyline Waypoint Cluster Overlap at Dense Toll Plazas",
+      "description": "Testing Agent detected overlapping polyline markers causing navigation map stuttering during turn-by-turn rendering.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "bug",
+      "locked_resources": [
+        "backend/src/services/routingService.js",
+        "mobile/lib/services/live_navigation_engine.dart"
+      ],
+      "created_at": "2026-09-11 01:25:30",
+      "updated_at": "2026-09-11 01:25:41",
+      "retry_count": 0
+    },
+    {
+      "id": "141",
+      "title": "[APPROVED FEATURE] Live Weather Hazards & Monsoon Flood Warnings Along Route",
+      "description": "Travelers driving highway corridors in Western Ghats, Himachal, and coastal highways encounter sudden torrential downpours, waterlogging, or ghat landslides without advance route notification.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 10:33:53",
+      "updated_at": "2026-09-11 10:34:06",
+      "retry_count": 0
+    },
+    {
+      "id": "142",
+      "title": "[R&D FEATURE SPEC] Smart Scenic Waypoint Generator & Route Diversion Detector",
+      "description": "Suggest scenic viewpoints along highways with <15 min detours and automatically recalculate ETA. Requirements: Frontend ['mobile/lib/screens/navigation_screen.dart', 'mobile/lib/widgets/scenic_pill.dart'], Backend ['backend/src/services/scenicWaypointService.js', 'backend/src/routes/ai.js'].",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:22:15",
+      "updated_at": "2026-09-11 12:22:24",
+      "retry_count": 0
+    },
+    {
+      "id": "143",
+      "title": "[APPROVED FEATURE] Real-Time Collaborative Trip Planning with Live Presence",
+      "description": "Groups planning family vacations or friends' road trips must share screenshots or chat back and forth; no single shared canvas exists in VoyPlan.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:22:33",
+      "updated_at": "2026-09-11 12:22:35",
+      "retry_count": 0
+    },
+    {
+      "id": "144",
+      "title": "[APPROVED FEATURE] Smart EV Charging & Fuel Optimization Along Highway Corridor",
+      "description": "EV travelers suffer from range anxiety; current route planning does not account for battery consumption across steep elevations (ghats) or fast-charger availability.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:22:43",
+      "updated_at": "2026-09-11 12:22:47",
+      "retry_count": 0
+    },
+    {
+      "id": "145",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "RELEASED",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:24:01",
+      "updated_at": "2026-09-11 12:25:27",
+      "retry_count": 0
+    },
+    {
+      "id": "146",
+      "title": "[R&D FEATURE SPEC] Smart Scenic Waypoint Generator & Route Diversion Detector",
+      "description": "Suggest scenic viewpoints along highways with <15 min detours and automatically recalculate ETA. Requirements: Frontend ['mobile/lib/screens/navigation_screen.dart', 'mobile/lib/widgets/scenic_pill.dart'], Backend ['backend/src/services/scenicWaypointService.js', 'backend/src/routes/ai.js'].",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:44:42",
+      "updated_at": "2026-09-11 12:44:52",
+      "retry_count": 0
+    },
+    {
+      "id": "147",
+      "title": "[R&D FEATURE SPEC] Dynamic Fuel Cost Splitter with Toll Fare Aggregator",
+      "description": "Calculate exact toll plaza fares via Fastag API and split fuel costs among passengers based on mileage. Requirements: Frontend ['mobile/lib/screens/budget_screen.dart'], Backend ['backend/src/services/budgetService.js', 'backend/src/services/fuelPriceProvider.js'].",
+      "priority": "P3",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:47:07",
+      "updated_at": "2026-09-11 12:47:14",
+      "retry_count": 0
+    },
+    {
+      "id": "148",
+      "title": "[R&D FEATURE SPEC] Dynamic Fuel Cost Splitter with Toll Fare Aggregator",
+      "description": "Calculate exact toll plaza fares via Fastag API and split fuel costs among passengers based on mileage. Requirements: Frontend ['mobile/lib/screens/budget_screen.dart'], Backend ['backend/src/services/budgetService.js', 'backend/src/services/fuelPriceProvider.js'].",
+      "priority": "P3",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 12:47:37",
+      "updated_at": "2026-09-11 12:47:46",
+      "retry_count": 0
+    },
+    {
+      "id": "149",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "RELEASED",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 13:14:10",
+      "updated_at": "2026-09-11 13:16:22",
+      "retry_count": 0
+    },
+    {
+      "id": "150",
+      "title": "[TEST-DETECTED BUG] Edge Case: Polyline Waypoint Cluster Overlap at Dense Toll Plazas",
+      "description": "Testing Agent detected overlapping polyline markers causing navigation map stuttering during turn-by-turn rendering.",
+      "priority": "P1",
+      "status": "READY_FOR_RELEASE",
+      "type": "bug",
+      "locked_resources": [
+        "backend/src/services/routingService.js",
+        "mobile/lib/services/live_navigation_engine.dart"
+      ],
+      "created_at": "2026-09-11 13:15:15",
+      "updated_at": "2026-09-11 13:15:23",
+      "retry_count": 0
+    },
+    {
+      "id": "151",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "Allow multiple users to co-plan an itinerary in real time with shared stop voting and live presence. Requirements: Frontend ['mobile/lib/screens/trip_collaboration_screen.dart', 'web/js/collaboration.js'], Backend ['backend/src/routes/collaboration.js', 'backend/src/services/collaborationService.js'].",
+      "priority": "P2",
+      "status": "RELEASED",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 13:45:50",
+      "updated_at": "2026-09-11 14:04:46",
+      "retry_count": 0
+    },
+    {
+      "id": "152",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 14:24:15",
+      "updated_at": "2026-09-11 14:25:26",
+      "retry_count": 0
+    },
+    {
+      "id": "153",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "RELEASED",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 14:34:11",
+      "updated_at": "2026-09-11 14:38:27",
+      "retry_count": 0
+    },
+    {
+      "id": "154",
+      "title": "[R&D FEATURE SPEC] Dynamic Fuel Cost Splitter with Toll Fare Aggregator",
+      "description": "Calculate exact toll plaza fares via Fastag API and split fuel costs among passengers based on mileage. Requirements: Frontend ['mobile/lib/screens/budget_screen.dart'], Backend ['backend/src/services/budgetService.js', 'backend/src/services/fuelPriceProvider.js'].",
+      "priority": "P3",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 19:20:16",
+      "updated_at": "2026-09-11 19:42:43",
+      "retry_count": 0
+    },
+    {
+      "id": "155",
+      "title": "[R&D FEATURE SPEC] Smart Scenic Waypoint Generator & Route Diversion Detector",
+      "description": "Suggest scenic viewpoints along highways with <15 min detours and automatically recalculate ETA. Requirements: Frontend ['mobile/lib/screens/navigation_screen.dart', 'mobile/lib/widgets/scenic_pill.dart'], Backend ['backend/src/services/scenicWaypointService.js', 'backend/src/routes/ai.js'].",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 19:20:20",
+      "updated_at": "2026-09-11 19:31:46",
+      "retry_count": 0
+    },
+    {
+      "id": "156",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 20:12:13",
+      "updated_at": "2026-09-11 20:20:19",
+      "retry_count": 0
+    },
+    {
+      "id": "157",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-11 21:48:49",
+      "updated_at": "2026-09-11 21:57:29",
+      "retry_count": 0
+    },
+    {
+      "id": "158",
+      "title": "[AUTO-DETECTED BUG] Regression in Destination Boundaries Suite",
+      "description": "Automated CI health scan detected failing unit tests in destinationBoundaries.test.js. Output:\nnpm error code EAGAIN\nnpm error syscall spawn sh\nnpm error path /Users/gowtham/Downloads/downloads /travel-app/backend\nnpm error errno -35\nnpm error spawn sh EAGAIN\nnpm error command sh -c jest src/tests/destinationBoundaries.test.js --forceExit\n\nnpm error A complete log of this run can be found in:",
+      "priority": "P1",
+      "status": "FAILED",
+      "type": "bug",
+      "locked_resources": [
+        "backend/src/services/geminiValidatorService.js"
+      ],
+      "created_at": "2026-09-12 14:58:24",
+      "updated_at": "2026-09-12 22:32:09",
+      "retry_count": 1,
+      "last_error": "Verification failed on criteria: ['1. Destination coordinates strictly anchor the itinerary generation.', '2. Distant unrelated cities are deterministically rejected.', '3. Automated regression tests pass for Tirumala, Goa, Ooty, and Tirupati.', '4. Existing one-way and round-trip routing functionality remains fully operational.']. Returning to Developer Agent."
+    },
+    {
+      "id": "159",
+      "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+      "description": "R&D auto-specified feature for Google Antigravity developer.",
+      "priority": "P2",
+      "status": "READY_FOR_RELEASE",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-12 23:06:54",
+      "updated_at": "2026-09-12 23:14:59",
+      "retry_count": 1,
+      "last_error": "Verification failed on criteria: ['1. Destination coordinates strictly anchor the itinerary generation.', '2. Distant unrelated cities are deterministically rejected.', '3. Automated regression tests pass for Tirumala, Goa, Ooty, and Tirupati.', '4. Existing one-way and round-trip routing functionality remains fully operational.']. Returning to Developer Agent."
+    }
+  ],
+  "stats": {
+    "completed_today": 1,
+    "failed_today": 2,
+    "prs_created": 32,
+    "prs_merged": 1,
+    "tests_executed": 84,
+    "qa_failures": 2,
+    "deployments": 6,
+    "rollbacks": 0
+  }
+}

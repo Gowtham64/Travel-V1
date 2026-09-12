@@ -1,0 +1,69 @@
+{
+  "task_id": "combinatorial_1789232385",
+  "agent": "COMBINATORIAL_ENGINE",
+  "timestamp": "2026-09-12T22:29:45.519074",
+  "total_tested": 3,
+  "passed": 2,
+  "failed_or_rejected": 1,
+  "scenarios": [
+    {
+      "id": "TC_COMB_01",
+      "params": {
+        "id": "TC_COMB_01",
+        "startLocation": "Bengaluru",
+        "destination": "Tirupati",
+        "durationDays": 1,
+        "mode": "balanced",
+        "vehicleType": "car",
+        "selectedCategories": [
+          "Temples"
+        ]
+      },
+      "status": "PASS",
+      "duration_s": 7.57,
+      "days": 1,
+      "total_distance_km": 569,
+      "total_budget": 2447
+    },
+    {
+      "id": "TC_COMB_02",
+      "params": {
+        "id": "TC_COMB_02",
+        "startLocation": "Bengaluru",
+        "destination": "Ooty",
+        "durationDays": 2,
+        "mode": "relaxed",
+        "vehicleType": "car",
+        "selectedCategories": [
+          "Nature",
+          "Viewpoint"
+        ]
+      },
+      "status": "PASS",
+      "duration_s": 6.29,
+      "days": 2,
+      "total_distance_km": 701.4,
+      "total_budget": 7190
+    },
+    {
+      "id": "TC_COMB_03",
+      "params": {
+        "id": "TC_COMB_03",
+        "startLocation": "Chennai",
+        "destination": "Pondicherry",
+        "durationDays": 1,
+        "mode": "balanced",
+        "vehicleType": "bike",
+        "selectedCategories": [
+          "Beach",
+          "Heritage"
+        ]
+      },
+      "status": "REJECTED_VALIDATOR",
+      "status_code": 422,
+      "duration_s": 4.46,
+      "error": "Unable to generate an approved itinerary for the selected preferences. Please adjust your categories, dates, or pace.",
+      "validation_issues": []
+    }
+  ]
+}

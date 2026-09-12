@@ -1,0 +1,18 @@
+services:
+  ai-orchestrator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ..:/workspace:rw
+    environment:
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - MODEL_PROVIDER=${MODEL_PROVIDER:-ollama}
+      - MODEL_NAME=${MODEL_NAME:-qwen2.5-coder:latest}
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["--issue", "123", "--title", "Fix AI Planner Random Locations"]

@@ -1,0 +1,67 @@
+{
+  "session_id": "test-20260912T174218Z-12104439",
+  "platform": "web/backend",
+  "environment": "local/unconfigured",
+  "persona": "independent real-traveler exploratory tester",
+  "pages_discovered": [],
+  "features_discovered": [
+    "backend regression suite",
+    "web itinerary E2E"
+  ],
+  "actions_performed": [
+    {
+      "action": "Backend Jest regression suite",
+      "status": "PASS"
+    }
+  ],
+  "journeys_tested": [
+    "API and itinerary-rule regression coverage"
+  ],
+  "passed": [
+    "Backend Jest regression suite"
+  ],
+  "failed": [],
+  "blocked": [
+    "Web E2E: no STAGING_URL or PRODUCTION_URL was configured; no real UI was tested"
+  ],
+  "unknown": [
+    "Android journey: no APK/device evidence supplied",
+    "iOS journey: no IPA/simulator evidence supplied",
+    "Database persistence: no isolated test database credentials or record identifier supplied"
+  ],
+  "bugs": [],
+  "root_causes": [],
+  "api_validation": [],
+  "database_validation": [],
+  "screenshots": [],
+  "traces": [],
+  "regression_tests_created": [],
+  "next_actions": [
+    "Provide a staging URL and install Playwright browsers to execute the web journey.",
+    "Attach Android and iOS device sessions for equivalent real-human journeys.",
+    "Provide a disposable test account and staging database access for save/reload validation."
+  ],
+  "evidence": [
+    {
+      "timestamp": "2026-09-12T17:42:18.321117+00:00",
+      "command": "npm test -- --runInBand --forceExit",
+      "exit_code": 0,
+      "stdout": "\n> travel-app-backend@0.1.0 test\n> jest --runInBand --forceExit\n\n",
+      "stderr": " at log (src/services/itineraryEngine.js:749:11)\n\n    console.log\n      [SMART PLANNER] DESTINATION PLACE ID:    osm_tirumala_hub\n\n      at log (src/services/itineraryEngine.js:750:11)\n\n    console.log\n      [SMART PLANNER] ORIGIN:                  Bengaluru\n\n      at log (src/services/itineraryEngine.js:751:11)\n\n    console.log\n      [SMART PLANNER] DIRECT DISTANCE:         205.8 km\n\n      at log (src/services/itineraryEngine.js:752:11)\n\n    console.log\n      [SMART PLANNER] BASELINE ROAD DISTANCE:  100.0 km\n\n      at log (src/services/itineraryEngine.js:753:11)\n\n    console.log\n      [SMART PLANNER] TRIP TYPE:               One-Way\n\n      at log (src/services/itineraryEngine.js:754:11)\n\n    console.log\n      [SMART PLANNER] GENERATED STOPS:         4 stop(s)\n\n      at log (src/services/itineraryEngine.js:1403:13)\n\n    console.log\n      [SMART PLANNER] FINAL ROUTE DESTINATION: Tirumala (13.6833, 79.35)\n\n      at log (src/services/itineraryEngine.js:1404:13)\n\n    console.log\n      [SMART PLANNER] FINAL NAVIGATION DEST:   Tirumala\n\n      at log (src/services/itineraryEngine.js:1405:13)\n\n    console.log\n      [SMART PLANNER] ==========================================\n\n      at log (src/services/itineraryEngine.js:1406:13)\n\nPASS src/tests/treksService.test.js\nPASS src/tests/orsPoiService.test.js\n  \u25cf Console\n\n    console.log\n      POI [restaurant]: found 3 verified places along route\n\n      at log (src/services/orsPoiService.js:129:13)\n\nPASS src/tests/fuelService.test.js\nPASS src/tests/routingAccuracy.test.js\n  \u25cf Console\n\n    console.warn\n      \u26a0\ufe0f  Node.js 20 and below are deprecated and will no longer be supported in future versions of @supabase/supabase-js. Please upgrade to Node.js 22 or later. For more information, visit: https://github.com/orgs/supabase/discussions/45715\n\n    > 1 | const { createClient } = require('@supabase/supabase-js');\n        |                          ^\n      2 | const crypto = require('crypto');\n      3 | const WebSocket = require('ws');\n      4 |\n\n      at Object.<anonymous> (node_modules/@supabase/supabase-js/src/index.ts:101:11)\n      at Object.require (src/services/dbService.js:1:26)\n      at Object.require (src/services/routingService.js:2:54)\n      at Object.require (src/tests/routingAccuracy.test.js:6:5)\n\n    console.warn\n      [ROUTE VALIDATION] Route distance (100000m) differs from sum of legs (145000m) by 45000m. Normalizing to sum of legs.\n\n      194 |       const maxAllowedDelta = Math.max(500, routeResult.distanceMeters * 0.03); // 3% or 500m\n      195 |       if (delta > maxAllowedDelta) {\n    > 196 |         console.warn(`[ROUTE VALIDATION] Route distance (${routeResult.distanceMeters}m) differs from sum of legs (${sumLegMeters}m) by ${delta}m. Normalizing to sum of legs.`);\n          |                 ^\n      197 |         routeResult.distanceMeters = sumLegMeters;\n      198 |         routeResult.distanceKm = Math.round((sumLegMeters / 1000) * 10) / 10;\n      199 |       }\n\n      at warn (src/services/routingService.js:196:17)\n      at Object.validateRoute (src/tests/routingAccuracy.test.js:194:19)\n\nPASS src/tests/wikiService.test.js\n  \u25cf Console\n\n    console.warn\n      Wikipedia geosearch failed: Network error\n\n      42 |     });\n      43 |   } catch (err) {\n    > 44 |     console.warn(\"Wikipedia geosearch failed:\", err.message);\n         |             ^\n      45 |     return [];\n      46 |   }\n      47 | }\n\n      at warn (src/services/wikiService.js:44:13)\n      at Object.<anonymous> (src/tests/wikiService.test.js:55:20)\n\nPASS src/tests/fuelExpenseFlow.test.js\nPASS src/tests/eventsService.test.js\nPASS src/tests/aiTimeCanonical.test.js\nPASS src/tests/fuelRangeService.test.js\nPASS src/tests/geo.test.js\n\nTest Suites: 17 passed, 17 total\nTests:       106 passed, 106 total\nSnapshots:   0 total\nTime:        151.532 s, estimated 159 s\nRan all test suites.\nForce exiting Jest: Have you considered using `--detectOpenHandles` to detect async operations that kept running after all tests finished?\n"
+    }
+  ],
+  "started_at": "2026-09-12T17:42:18.321105+00:00",
+  "ended_at": "2026-09-12T17:44:50.118579+00:00",
+  "status": "UNKNOWN",
+  "branch": "ai/fix/159-destination-integrity",
+  "commit": "HEAD",
+  "tests_run": [
+    "Backend Jest regression suite"
+  ],
+  "passed_count": 1,
+  "failed_count": 0,
+  "failed_tests": [],
+  "errors": [],
+  "regressions": [],
+  "recommendation": "COLLECT_MISSING_EVIDENCE"
+}

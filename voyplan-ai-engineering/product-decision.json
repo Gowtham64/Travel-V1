@@ -1,0 +1,18 @@
+{
+  "issue_id": "159",
+  "title": "[R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync",
+  "product_alignment": "HIGH_PRIORITY_STRATEGIC",
+  "user_problem_solved": "Product defect impacting traveler experience or system safety.",
+  "target_persona": "All VoyPlan mobile & web travelers",
+  "cross_platform_parity": {
+    "web": "Must provide interactive visual confirmation, clear warnings on invalid inputs, and real-time map updates.",
+    "android": "Must update local Hive cache and notify connected Android Auto head unit via CarNavState bridge.",
+    "ios": "Must maintain voice guidance maneuver queue integrity via CarPlayVoiceGuidance bridge.",
+    "backend": "Must enforce strict deterministic API contract and schema validation."
+  },
+  "value_assessment": "CRITICAL: Guarantees spatial correctness and preserves core brand promise of zero-hallucination travel planning.",
+  "complexity_risk": "MEDIUM: Must protect existing trip creation and saved trips while adding deterministic boundary validation.",
+  "product_approval": "APPROVED",
+  "recommendation": "PROCEED_TO_COUNCIL_DEBATE",
+  "timestamp": "2026-09-12 23:06:54"
+}

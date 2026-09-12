@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "environment": "production",
+  "deployment_id": "prod-20260911143825",
+  "staging_smoke_tests": "PASS",
+  "human_approval_received": true,
+  "production_smoke_tests": "PASS",
+  "rollback_triggered": false,
+  "platforms_deployed": {
+    "web": {
+      "status": "DEPLOYED",
+      "url": "https://voyplan.in",
+      "flutter_web": "https://voyplan.in/app/"
+    },
+    "android": {
+      "status": "DEPLOYED",
+      "artifact": "Voyplan.apk",
+      "bundle": "VoyPlan-release.aab"
+    },
+    "ios": {
+      "status": "DEPLOYED",
+      "artifact": "Voyplan.ipa",
+      "bundle": "Voyplan.app"
+    },
+    "backend": {
+      "status": "DEPLOYED",
+      "url": "https://api.voyplan.in"
+    }
+  },
+  "timestamp": "2026-09-11T14:38:25.334167"
+}

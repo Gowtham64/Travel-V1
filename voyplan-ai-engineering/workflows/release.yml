@@ -1,0 +1,16 @@
+name: Release Agent Workflow
+description: Staging promotion, human approval gate, and production release with rollback
+inputs:
+  confirm_deploy:
+    description: "Type DEPLOY to approve production release"
+    required: false
+    default: ""
+steps:
+  - name: Run Release Agent
+    run: |
+      python3 -m voyplan-ai-engineering.agents.release.agent ${{ inputs.confirm_deploy && '--confirm=DEPLOY' || '' }}
+  - name: Upload Release Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: release-result
+      path: voyplan-ai-engineering/release-result.json

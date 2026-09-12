@@ -1,0 +1,81 @@
+{
+  "task": "159",
+  "issue": "159",
+  "type": "feature",
+  "problem": "Issue #159: [R&D FEATURE SPEC] Group Collaborative Trip Planning with Live WebSocket Sync (R&D auto-specified feature for Google Antigravity developer.) - Unrelated locations added to generated itinerary.",
+  "current_behavior": "AI planner generates candidate locations outside the locked destination cluster (e.g. Tirumala trip includes Bengaluru/Mysuru).",
+  "expected_behavior": "Planner strictly confines candidate stops to within the destination spatial boundary (<75 km) unless user explicitly requests distant waypoints.",
+  "frontend_impact": [
+    "mobile/lib/screens/itinerary_screen.dart (timeline card rendering)",
+    "mobile/lib/screens/home_screen.dart (destination selection guardrails)"
+  ],
+  "backend_impact": [
+    "backend/src/services/itineraryEngine.js (candidate generation)",
+    "backend/src/services/geminiValidatorService.js (boundary validation)"
+  ],
+  "database_impact": [
+    "No DDL/DML changes required (pure business logic & validation layer)"
+  ],
+  "api_impact": [
+    "POST /api/ai/smart-itinerary (ensuring strict 200 payload or 422 correction feedback)"
+  ],
+  "existing_features_affected": [
+    "One-way road trip planning",
+    "Around / Round trip return-to-origin planning",
+    "Dynamic refueling stop insertion",
+    "Category-based filtering"
+  ],
+  "root_cause": "Itinerary generation lacked a deterministic spatial bounding filter around the locked destination coordinates before candidate selection and AI ranking.",
+  "affected_files": [
+    "backend/src/services/itineraryEngine.js",
+    "backend/src/services/geminiValidatorService.js",
+    "backend/src/tests/destinationIntegrity.test.js",
+    "backend/src/tests/destinationBoundaries.test.js"
+  ],
+  "architecture": "Backend Node.js/Express: Itinerary Planning Engine & Spatial Validation Layer",
+  "recommended_solution": "Enforce a deterministic distance/boundary filter (e.g., maximum bounding radius for destination cluster) rejecting distant metro hubs like Bengaluru, Chennai, Mysuru, Hyderabad when destination is Tirumala, Goa, or Ooty.",
+  "technical_design": "Inject coordinate-based Haversine distance verification (<75 km) and destination-specific forbidden city filters in deterministicValidate() to immediately reject foreign cluster stops.",
+  "implementation_plan": [
+    "1. Define destination spatial bounding box and forbidden city mapping in geminiValidatorService.js.",
+    "2. Update itineraryEngine to pass locked destination coordinates to validation layer.",
+    "3. Add automated regression test suite covering Tirumala, Goa, Ooty, and Tirupati.",
+    "4. Verify Playwright E2E and Jest test suites."
+  ],
+  "risks": [
+    "Rejecting genuine transit stops if corridor radius is set too narrow",
+    "Over-constraining itineraries with legitimate user-requested multi-city waypoints"
+  ],
+  "acceptance_criteria": [
+    "1. Destination coordinates strictly anchor the itinerary generation.",
+    "2. Distant unrelated cities are deterministically rejected.",
+    "3. Automated regression tests pass for Tirumala, Goa, Ooty, and Tirupati.",
+    "4. Existing one-way and round-trip routing functionality remains fully operational."
+  ],
+  "test_cases": [
+    {
+      "name": "Test 1: Tirumala Destination Integrity",
+      "type": "integration",
+      "description": "Destination Tirumala includes Tirumala/Tirupati attractions and strictly rejects Bengaluru, Mysuru, Chennai, Hyderabad."
+    },
+    {
+      "name": "Test 2: Goa Destination Integrity",
+      "type": "integration",
+      "description": "Destination Goa generates Goa coastal/heritage sights and rejects Bengaluru, Mumbai, Hyderabad."
+    },
+    {
+      "name": "Test 3: Ooty Destination Integrity",
+      "type": "integration",
+      "description": "Destination Ooty generates Nilgiris sights and rejects distant cities."
+    },
+    {
+      "name": "Test 4: Tirupati Destination Integrity",
+      "type": "integration",
+      "description": "Destination Tirupati generates Tirupati attractions without irrelevant detours."
+    }
+  ],
+  "test_plan": [
+    "Jest unit tests for spatial distance formula",
+    "Jest integration tests for itineraryEngine and validator",
+    "Playwright E2E test for web client smart-itinerary endpoint"
+  ]
+}

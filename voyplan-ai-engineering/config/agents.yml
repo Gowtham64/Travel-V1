@@ -1,0 +1,78 @@
+# VoyPlan AI Engineering System - Agent Configuration
+
+system:
+  name: "VoyPlan Autonomous AI Engineering Team"
+  version: "1.0.0"
+  target_repo: "https://github.com/Gowtham64/Travel-V1.git"
+  workspace_path: "../"
+
+cost_control:
+  max_qa_retries: 3
+  max_agent_iterations: 20
+  command_timeout_seconds: 300
+  test_timeout_seconds: 600
+  deployment_timeout_seconds: 900
+  token_budget_per_run: 500000
+
+llm:
+  # Provider: 'ollama' | 'openai' | 'gemini' | 'anthropic' | 'openrouter'
+  provider: "${MODEL_PROVIDER:-ollama}"
+  
+  # Models per provider
+  ollama:
+    base_url: "${OLLAMA_BASE_URL:-http://localhost:11434}"
+    model: "${MODEL_NAME:-qwen2.5-coder:latest}"
+    temperature: 0.2
+    
+  openai:
+    api_key: "${OPENAI_API_KEY:-}"
+    model: "${MODEL_NAME:-gpt-4o}"
+    temperature: 0.2
+    
+  gemini:
+    api_key: "${GOOGLE_API_KEY:-${GEMINI_API_KEY:-}}"
+    model: "${MODEL_NAME:-gemini-1.5-flash}"
+    temperature: 0.2
+
+  anthropic:
+    api_key: "${ANTHROPIC_API_KEY:-}"
+    model: "${MODEL_NAME:-claude-3-5-sonnet-20241022}"
+    temperature: 0.2
+
+agents:
+  researcher:
+    enabled: true
+    timeout_seconds: 300
+    allowed_tools: ["grep", "find_files", "read_file", "git_log", "git_status"]
+    output_artifact: "research-report.json"
+    
+  developer:
+    enabled: true
+    timeout_seconds: 600
+    branch_prefix: "ai/"
+    allowed_tools: ["read_file", "write_file", "git_diff", "git_checkout", "git_commit", "npm_test", "flutter_test"]
+    output_artifact: "development-result.json"
+    
+  tester:
+    enabled: true
+    timeout_seconds: 600
+    run_playwright: true
+    run_unit_tests: true
+    run_integration_tests: true
+    output_artifact: "test-result.json"
+    
+  qa:
+    enabled: true
+    timeout_seconds: 300
+    max_retries: 3
+    strict_acceptance_check: true
+    output_artifact: "qa-result.json"
+    
+  release:
+    enabled: true
+    require_human_approval: true
+    allow_production_auto_deploy: false
+    staging_smoke_tests: true
+    production_smoke_tests: true
+    auto_rollback_on_failure: true
+    output_artifact: "release-result.json"
