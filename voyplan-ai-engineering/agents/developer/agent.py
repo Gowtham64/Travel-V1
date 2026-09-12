@@ -48,8 +48,8 @@ class DeveloperAgent:
             logger.log_event(f"Creating isolated branch '{branch_name}' from develop...", level="WARN")
             self._run_cmd(["git", "checkout", "-b", branch_name])
         else:
-            logger.log_event(f"Ensuring branch '{branch_name}' exists...")
-            self._run_cmd(["git", "checkout", "-B", branch_name])
+            logger.log_event(f"Ensuring branch '{branch_name}' exists from main...")
+            self._run_cmd(["git", "checkout", "-B", branch_name, "main"])
 
         # Execute tests to establish baseline
         backend_dir = os.path.join(self.workspace_path, "backend")
