@@ -91,7 +91,17 @@ function isMotorwayBanned(vehicleType) {
  * }
  */
 router.post("/plan", async (req, res) => {
-  const { start, end, waypoints = [], vehicle, dailyDrivingHours = 7, includePlaces = [], departAt = null } = req.body || {};
+  const {
+    start,
+    end,
+    waypoints = [],
+    vehicle,
+    dailyDrivingHours = 7,
+    includePlaces = [],
+    departAt = null,
+    days: reqDays,
+    durationDays: reqDurationDays,
+  } = req.body || {};
 
   if (!isValidPoint(start) || !isValidPoint(end)) {
     return res.status(400).json({ error: "start and end must be { lat, lng } objects" });
@@ -229,13 +239,16 @@ router.post("/plan", async (req, res) => {
     // estimateTripDays throws on non-positive inputs. A very short route rounds
     // to durationMin 0, and a client can pass dailyDrivingHours 0 — neither
     // should 502 the whole plan, so clamp to sane minimums and fall back to 1 day.
-    let days = 1;
-    try {
-      const safeDuration = route.durationMin > 0 ? route.durationMin : 1;
-      const safeDailyHours = dailyDrivingHours > 0 ? dailyDrivingHours : 7;
-      days = estimateTripDays(safeDuration, safeDailyHours);
-    } catch (err) {
-      console.error("Trip-days estimate failed, defaulting to 1:", err.message);
+    let days = Number(reqDays || reqDurationDays) || 0;
+    if (days <= 0) {
+      try {
+        const safeDuration = route.durationMin > 0 ? route.durationMin : 1;
+        const safeDailyHours = dailyDrivingHours > 0 ? dailyDrivingHours : 7;
+        days = estimateTripDays(safeDuration, safeDailyHours);
+      } catch (err) {
+        console.error("Trip-days estimate failed, defaulting to 1:", err.message);
+        days = 1;
+      }
     }
 
     // Toll lookup is best-effort - the free tier has a tiny daily quota, so a failure
@@ -362,6 +375,10 @@ router.post("/plan", async (req, res) => {
         avoidedMotorways: avoidMotorways,
         provider: route.provider,
       },
+      totalDistanceKm: route.distanceKm,
+      distanceKm: route.distanceKm,
+      totalDurationMin: route.durationMin,
+      durationMin: route.durationMin,
       estimatedDays: days,
       fuel: fuelPlan,
       fuelEstimate: fuelEstimate,

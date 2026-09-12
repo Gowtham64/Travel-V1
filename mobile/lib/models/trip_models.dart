@@ -1758,10 +1758,13 @@ class TripPlan {
   String get formattedDistance => formatDistance(distanceKm, distMeters: distanceMeters);
 
   factory TripPlan.fromJson(Map<String, dynamic> json) {
-    final route = (json['route'] as Map).cast<String, dynamic>();
+    final route = (json['route'] is Map ? (json['route'] as Map).cast<String, dynamic>() : <String, dynamic>{});
     final placesJson = ((json['places'] as Map?) ?? {}).cast<String, dynamic>();
 
-    final num? rawDistKm = (route['distanceKm'] as num?) ?? (json['totalDistanceKm'] as num?);
+    final num? rawDistKm = (route['distanceKm'] as num?) ??
+        (json['totalDistanceKm'] as num?) ??
+        (json['distanceKm'] as num?) ??
+        (json['distance'] as num?);
     final distKm = rawDistKm?.toDouble() ?? 0.0;
     final distMeters = (route['distanceMeters'] as num?)?.toInt() ?? (distKm * 1000).round();
     final durMin = (route['durationMin'] as num?)?.toInt() ?? ((json['totalDurationMin'] as num?)?.toInt() ?? 0);
