@@ -5,13 +5,13 @@ based on tests/matrix.yaml.
 """
 
 from typing import Dict, Any, List
-from ai.tools.tests import run_backend_tests, run_mobile_tests, run_all_verification
+from ai.tools.runner_dispatcher import runner_dispatcher
 from ai.tools.terminal import run_command
 
 def execute_smoke_and_regression(root_dir: str = ".") -> Dict[str, Any]:
-    """Runs the primary test suites and collates any failure reports."""
-    print("[TEST AGENT] Executing full verification suites...")
-    res = run_all_verification(cwd_root=root_dir)
+    """Dispatches execution across Linux (Web/Backend/Android) and macOS (iOS Simulator) via Control Plane."""
+    print("[TEST AGENT] Central Control Plane dispatching multi-runner verification...")
+    res = runner_dispatcher.run_unified_matrix(root_dir=root_dir)
     return res
 
 def run_flaky_check(test_command: str, cwd: str = ".", repeat: int = 5) -> Dict[str, Any]:
