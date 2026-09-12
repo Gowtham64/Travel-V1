@@ -310,6 +310,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 if pipeline_state.get("current_task"):
                     pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
                     pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
+            elif pipeline_state.get("production_approved") and pipeline_state.get("waiting_approval"):
+                # Auto-clear stale waiting_approval flag after successful deploy
+                pipeline_state["waiting_approval"] = False
 
             # Retrieve queue tasks & stats
             queue_data = queue_mgr.get_all()
@@ -474,6 +477,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 pipeline_state["current_task"]["next"] = "Continuous 24/7 Monitoring"
                 pipeline_state["production_approved"] = True
                 pipeline_state["human_review_required"] = False
+                pipeline_state["waiting_approval"] = False
                 pipeline_state["running"] = False
                 
                 # Update queue & stats

@@ -1444,10 +1444,12 @@
           }).join('');
         }
 
-        const isWaiting = (data.stages.release && data.stages.release.status === 'WAITING_APPROVAL') || 
+        const isWaiting = !data.production_approved && (
+                          (data.stages.release && data.stages.release.status === 'WAITING_APPROVAL') || 
                           (data.current_task && data.current_task.stage === 'WAITING_APPROVAL') ||
                           Boolean(data.waiting_approval) ||
-                          (data.artifacts && data.artifacts.release && data.artifacts.release.status === 'WAITING_APPROVAL' && !data.production_approved);
+                          (data.artifacts && data.artifacts.release && data.artifacts.release.status === 'WAITING_APPROVAL')
+                        );
         const isReviewRequired = Boolean(data.human_review_required) || (data.stages.release && data.stages.release.status === 'HUMAN_REVIEW_REQUIRED') || (data.current_task && data.current_task.stage === 'HUMAN_REVIEW_REQUIRED') || (data.stages.qa && data.stages.qa.status === 'HUMAN_REVIEW_REQUIRED');
 
         const gateBanner = document.getElementById('production-gate-banner');
