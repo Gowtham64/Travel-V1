@@ -453,6 +453,55 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps({"status": "DEPLOYING"}).encode("utf-8"))
             return
 
+        elif parsed.path == "/api/decline":
+            reason = data.get("reason", "Declined by Human Operator via Operations Hub").strip()
+            def decline_worker():
+                pipeline_state["running"] = False
+                pipeline_state["stages"]["release"]["status"] = "DECLINED"
+                pipeline_state["stages"]["release"]["details"] = f"Declined by Human: {reason}"
+                pipeline_state["current_task"]["stage"] = "DECLINED_BY_HUMAN"
+                pipeline_state["current_task"]["result"] = "DECLINED"
+                pipeline_state["current_task"]["next"] = "Review & Re-queue"
+                pipeline_state["production_approved"] = False
+                pipeline_state["logs"].append(f"[RELEASE AGENT] 🛑 HUMAN OPERATOR DECLINED DEPLOYMENT: '{reason}'. Production remains completely untouched.")
+                
+                rel_file = os.path.join(BASE_DIR, "release-result.json")
+                rel_data = {
+                    "status": "DECLINED_BY_HUMAN",
+                    "reason": reason,
+                    "environment": "staging",
+                    "human_approval_received": False,
+                    "rollback_triggered": False,
+                    "message": f"Deployment declined: {reason}",
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                }
+                try:
+                    with open(rel_file, "w", encoding="utf-8") as f:
+                        json.dump(rel_data, f, indent=2)
+                except Exception:
+                    pass
+
+                all_data = queue_mgr.get_all()
+                cur_id = pipeline_state["current_task"].get("id")
+                for t in all_data.get("tasks", []):
+                    if str(t.get("id")) == str(cur_id):
+                        t["status"] = "DECLINED"
+                        t["decline_reason"] = reason
+                        t["updated_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+                queue_mgr.save_all(all_data)
+                pipeline_state["artifacts"] = load_artifacts()
+
+            t = threading.Thread(target=decline_worker)
+            t.daemon = True
+            t.start()
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "DECLINED", "reason": reason}).encode("utf-8"))
+            return
+
         elif parsed.path == "/api/autonomous/rnd-feature":
             def rnd_feature_worker():
                 pipeline_state["logs"].append("[R&D AGENT] 🔬 R&D Architect autonomously inspecting VoyPlan architecture (Flutter, Node.js, Supabase, Mapbox)...")
