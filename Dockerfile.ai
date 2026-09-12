@@ -1,0 +1,29 @@
+# VoyPlan Autonomous AI Engineering & QA Container
+FROM python:3.11-slim
+
+# Install system dependencies, Node.js 20, Git, and Chrome dependencies for Playwright
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    ca-certificates \
+    gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Install Playwright and Python dependencies
+COPY ai/requirements.txt ./ai/requirements.txt
+RUN pip install --no-cache-dir -r ./ai/requirements.txt || true
+RUN npx -y playwright install-deps chromium || true
+
+# Copy workspace
+COPY . .
+
+# Install backend npm packages
+RUN cd backend && npm install --silent
+
+ENV PYTHONPATH=/workspace
+CMD ["python3", "ai/agents/orchestrator.py", "--daemon", "--interval", "300"]

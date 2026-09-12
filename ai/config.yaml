@@ -1,0 +1,70 @@
+# VoyPlan Autonomous AI QA + Bug-Fixing System Configuration
+system:
+  name: "VoyPlan Autonomous Engineering & QA"
+  version: "1.0.0"
+  mode: "autonomous" # autonomous | supervised | audit_only
+  max_repair_attempts: 5
+  isolated_worktrees: true
+  auto_create_pr: true
+  auto_merge_low_risk: false
+
+project:
+  name: "VoyPlan"
+  repository: "https://github.com/Gowtham64/Travel-V1.git"
+  default_branch: "main"
+  work_branch_prefix: "ai/fix-"
+  components:
+    backend:
+      path: "backend"
+      runtime: "node"
+      test_cmd: "npm test -- --forceExit"
+      lint_cmd: "npm run lint 2>/dev/null || true"
+      build_cmd: "node -c src/index.js"
+    mobile:
+      path: "mobile"
+      runtime: "flutter"
+      test_cmd: "flutter test"
+      lint_cmd: "flutter analyze"
+      build_cmd: "flutter build web --release"
+    web:
+      path: "web"
+      runtime: "static/html"
+      deploy_script: "./deploy_web.sh"
+
+llm:
+  provider: "gemini" # gemini | openai | anthropic | local
+  model: "gemini-2.5-pro"
+  temperature: 0.1
+  timeout_seconds: 90
+
+testing:
+  matrix_path: "tests/matrix.yaml"
+  browser:
+    headless: true
+    slow_mo_ms: 50
+    capture_traces: true
+    capture_screenshots: true
+    base_url: "https://voyplan.in"
+    local_url: "http://localhost:3000"
+  flaky_detection:
+    repeat_count: 5
+    flaky_threshold: 0.8
+  security:
+    npm_audit: true
+    flutter_audit: true
+    secret_scan: true
+
+permissions:
+  allowed:
+    - "read_repository"
+    - "write_repository"
+    - "run_tests"
+    - "run_builds"
+    - "create_branch"
+    - "commit"
+    - "create_pr"
+  restricted:
+    - "production_db_drop"
+    - "direct_main_overwrite"
+    - "secret_exfiltration"
+    - "destructive_infrastructure_commands"

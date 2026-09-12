@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  voyplan-ai-orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: voyplan-ai-qa
+    restart: unless-stopped
+    volumes:
+      - .:/workspace
+      - /workspace/node_modules
+      - /workspace/backend/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    command: python3 ai/agents/orchestrator.py --daemon --interval 300

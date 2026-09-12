@@ -1,0 +1,27 @@
+{
+  "suites": [
+    {
+      "name": "Backend Jest Suite",
+      "command": "npm test -- --forceExit",
+      "cwd": "backend",
+      "test_count": 106,
+      "last_status": "passed",
+      "flaky_tests": []
+    },
+    {
+      "name": "Mobile Flutter Test Suite",
+      "command": "flutter test",
+      "cwd": "mobile",
+      "test_count": 57,
+      "last_status": "passed",
+      "flaky_tests": []
+    }
+  ],
+  "regression_tests": [
+    "backend/src/tests/fuelExpenseFlow.test.js",
+    "backend/src/tests/trip.route.test.js",
+    "mobile/test/canonical_time_and_trip_lifecycle_test.dart",
+    "mobile/test/vehicle_database_test.dart"
+  ],
+  "known_flaky": []
+}

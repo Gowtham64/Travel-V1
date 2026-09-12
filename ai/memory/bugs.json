@@ -1,0 +1,35 @@
+[
+  {
+    "id": "BUG-0001",
+    "title": "Trip budget deflated fuel cost to top-up liters instead of full trip fuel consumed",
+    "status": "fixed",
+    "component": "backend",
+    "root_cause": "fuelCost in budgetService was conditionally set to additionalFuelRequired instead of fuelRequired.",
+    "affected_files": [
+      "backend/src/services/budgetService.js",
+      "backend/src/routes/trip.js",
+      "mobile/lib/models/trip_models.dart"
+    ],
+    "test": "backend/src/tests/fuelExpenseFlow.test.js",
+    "reproduction_steps": "Plan a 505.5 km round trip with vehicle efficiency 15 km/l and 30L initial tank. Fuel expense previously showed ₹381 instead of ₹3,466.",
+    "commit": "92e999b",
+    "attempts": 1,
+    "verified_at": "2026-09-12T23:38:00Z"
+  },
+  {
+    "id": "BUG-0002",
+    "title": "Round-trip distance calculation missing top-level totalDistanceKm in trip/plan API",
+    "status": "fixed",
+    "component": "backend",
+    "root_cause": "API returned distanceKm inside route object only, causing clients checking root attributes to miss distance value.",
+    "affected_files": [
+      "backend/src/routes/trip.js",
+      "mobile/lib/models/trip_models.dart"
+    ],
+    "test": "backend/src/tests/trip.route.test.js",
+    "reproduction_steps": "POST /api/trip/plan with start and end both set to origin and destination as waypoint. Root totalDistanceKm was missing.",
+    "commit": "2f016f6",
+    "attempts": 1,
+    "verified_at": "2026-09-12T23:38:00Z"
+  }
+]

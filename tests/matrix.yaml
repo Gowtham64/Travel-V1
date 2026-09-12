@@ -1,0 +1,54 @@
+# VoyPlan Combinatorial Test Matrix Database
+# Used by Test Agent to synthesize and run risk-based combinatorial test suites.
+
+platforms:
+  - id: web
+    name: "Web Browser (Flutter Web / Desktop)"
+    runners: ["playwright", "flutter_web"]
+  - id: android
+    name: "Android Mobile / Android Auto"
+    runners: ["flutter_test", "adb"]
+  - id: ios
+    name: "iOS Mobile / CarPlay"
+    runners: ["flutter_test", "xcrun_devicectl"]
+
+trip_types:
+  - oneway
+  - roundtrip
+  - multi_stop
+
+vehicle_types:
+  - type: car
+    fuel_types: ["petrol", "diesel", "cng", "ev"]
+    efficiencies: [12.0, 15.0, 18.0, 22.0]
+  - type: suv
+    fuel_types: ["petrol", "diesel"]
+    efficiencies: [10.0, 13.5]
+  - type: bike
+    fuel_types: ["petrol", "ev"]
+    efficiencies: [35.0, 45.0]
+
+distance_corridors:
+  - name: "Short local hop"
+    start: "Bengaluru Central"
+    destination: "Nandi Hills"
+    expected_km_range: [50, 75]
+  - name: "Intercity road trip"
+    start: "Bengaluru"
+    destination: "Tirupati"
+    expected_km_range: [240, 275]
+    expected_roundtrip_km: [480, 550]
+  - name: "Cross-state interstate journey"
+    start: "Bengaluru"
+    destination: "Goa"
+    expected_km_range: [550, 620]
+
+network_conditions:
+  - online_high_speed
+  - latency_300ms
+  - offline_fallback
+
+user_states:
+  - guest
+  - authenticated_oauth
+  - custom_mileage_override
