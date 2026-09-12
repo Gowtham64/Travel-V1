@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VoyPlan AI Product Engineering Organization - 24/7 Operations Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg-base: #080b11;
@@ -26,7 +29,11 @@
       --font-mono: 'Fira Code', monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
     body {
       background-color: var(--bg-base);
@@ -35,7 +42,7 @@
       line-height: 1.5;
       min-height: 100vh;
       overflow-x: hidden;
-      background-image: 
+      background-image:
         radial-gradient(circle at 15% 15%, rgba(14, 165, 233, 0.08) 0%, transparent 40%),
         radial-gradient(circle at 85% 85%, rgba(168, 85, 247, 0.07) 0%, transparent 40%);
     }
@@ -53,30 +60,78 @@
       align-items: center;
     }
 
-    .brand { display: flex; align-items: center; gap: 0.85rem; }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
     .brand-badge {
       background: linear-gradient(135deg, var(--accent-cyan), var(--accent-teal));
-      width: 40px; height: 40px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 800; font-size: 1.25rem;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 1.25rem;
       box-shadow: 0 0 20px rgba(14, 165, 233, 0.4);
     }
-    .brand h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
-    .brand p { font-size: 0.75rem; color: var(--text-muted); }
 
-    .env-pills { display: flex; gap: 0.6rem; align-items: center; }
-    .pill {
-      font-size: 0.72rem; padding: 0.3rem 0.65rem; border-radius: 20px;
-      background: rgba(255, 255, 255, 0.04); border: 1px solid var(--border-subtle);
-      display: flex; align-items: center; gap: 0.4rem;
+    .brand h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
-    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
-    .dot.amber { background: var(--accent-amber); box-shadow: 0 0 8px var(--accent-amber); }
-    .dot.purple { background: var(--accent-purple); box-shadow: 0 0 8px var(--accent-purple); }
+
+    .brand p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .env-pills {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+    }
+
+    .pill {
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .dot.amber {
+      background: var(--accent-amber);
+      box-shadow: 0 0 8px var(--accent-amber);
+    }
+
+    .dot.purple {
+      background: var(--accent-purple);
+      box-shadow: 0 0 8px var(--accent-purple);
+    }
 
     main {
-      max-width: 1480px; margin: 1.5rem auto; padding: 0 1.5rem;
-      display: flex; flex-direction: column; gap: 1.5rem;
+      max-width: 1480px;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
     }
 
     /* ── EMERGENCY CONTROLS BAR (SECTION 55) ── */
@@ -90,8 +145,19 @@
       align-items: center;
     }
 
-    .emergency-title { font-size: 0.78rem; font-weight: 700; color: #f87171; display: flex; align-items: center; gap: 0.4rem; }
-    .emergency-actions { display: flex; gap: 0.5rem; }
+    .emergency-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #f87171;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .emergency-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
 
     /* ── SECTION 29: OPERATIONS HUB BAR ── */
     .ops-bar-container {
@@ -107,53 +173,164 @@
       align-items: center;
     }
 
-    .ops-agents-block { display: flex; flex-direction: column; gap: 0.5rem; }
-    .block-header { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
-    .agent-status-badges { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .ops-agents-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .block-header {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .agent-status-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
     .agent-pill {
-      font-size: 0.7rem; font-family: var(--font-mono);
-      background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle);
-      padding: 0.2rem 0.5rem; border-radius: 6px;
-      display: inline-flex; align-items: center; gap: 0.35rem;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
     }
 
     .ops-tasks-block {
-      display: flex; flex-direction: column; gap: 0.5rem;
-      border-left: 1px solid var(--border-subtle); border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      border-left: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
       padding: 0 1.25rem;
     }
-    .priority-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; }
-    .chip-p {
-      font-size: 0.72rem; font-weight: 700; font-family: var(--font-mono);
-      padding: 0.2rem 0.55rem; border-radius: 6px;
-      display: inline-flex; align-items: center; gap: 0.35rem;
-    }
-    .chip-p0 { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
-    .chip-p1 { background: rgba(249, 115, 22, 0.2); color: #fb923c; border: 1px solid rgba(249, 115, 22, 0.4); }
-    .chip-p2 { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
-    .chip-p3 { background: rgba(14, 165, 233, 0.2); color: #38bdf8; border: 1px solid rgba(14, 165, 233, 0.4); }
-    .chip-p4 { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
-    .chip-p5 { background: rgba(100, 116, 139, 0.2); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.4); }
 
-    .ops-current-block { display: flex; flex-direction: column; gap: 0.35rem; }
-    .current-card {
-      background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(56, 189, 248, 0.3);
-      border-radius: 8px; padding: 0.6rem 0.85rem; font-size: 0.78rem;
+    .priority-chips {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
     }
-    .current-row { display: flex; justify-content: space-between; margin-bottom: 0.2rem; }
-    .current-label { color: var(--text-muted); font-size: 0.72rem; }
-    .current-val { font-weight: 700; font-family: var(--font-mono); }
+
+    .chip-p {
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 0.2rem 0.55rem;
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .chip-p0 {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .chip-p1 {
+      background: rgba(249, 115, 22, 0.2);
+      color: #fb923c;
+      border: 1px solid rgba(249, 115, 22, 0.4);
+    }
+
+    .chip-p2 {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.4);
+    }
+
+    .chip-p3 {
+      background: rgba(14, 165, 233, 0.2);
+      color: #38bdf8;
+      border: 1px solid rgba(14, 165, 233, 0.4);
+    }
+
+    .chip-p4 {
+      background: rgba(168, 85, 247, 0.2);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.4);
+    }
+
+    .chip-p5 {
+      background: rgba(100, 116, 139, 0.2);
+      color: #94a3b8;
+      border: 1px solid rgba(100, 116, 139, 0.4);
+    }
+
+    .ops-current-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .current-card {
+      background: rgba(14, 165, 233, 0.05);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      font-size: 0.78rem;
+    }
+
+    .current-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.2rem;
+    }
+
+    .current-label {
+      color: var(--text-muted);
+      font-size: 0.72rem;
+    }
+
+    .current-val {
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
 
     /* ── METRICS COUNTERS BAR ── */
-    .metrics-bar { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.75rem; }
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 0.75rem;
+    }
+
     .metric-card {
-      background: var(--bg-surface); border: 1px solid var(--border-subtle);
-      border-radius: 10px; padding: 0.75rem 0.85rem; text-align: center;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 0.75rem 0.85rem;
+      text-align: center;
       transition: all 0.2s ease;
     }
-    .metric-card:hover { transform: translateY(-2px); border-color: var(--border-glow); }
-    .metric-num { font-size: 1.4rem; font-weight: 800; font-family: var(--font-mono); color: var(--text-main); }
-    .metric-title { font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+    .metric-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-glow);
+    }
+
+    .metric-num {
+      font-size: 1.4rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--text-main);
+    }
+
+    .metric-title {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
 
     /* ── FULL 8-STAGE MULTI-AGENT PIPELINE GRID ── */
     .pipeline-grid-8 {
@@ -163,159 +340,418 @@
     }
 
     .agent-card {
-      background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-subtle);
-      border-radius: 12px; padding: 1rem 0.85rem; display: flex; flex-direction: column;
-      gap: 0.6rem; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .agent-card:hover { transform: translateY(-3px); border-color: var(--border-glow); }
-    .agent-card.active { border-color: var(--accent-cyan); box-shadow: 0 0 25px rgba(14, 165, 233, 0.35); }
-    .agent-card.pass { border-color: var(--accent-green); background: rgba(16, 185, 129, 0.04); }
-    .agent-card.waiting { border-color: var(--accent-amber); background: rgba(245, 158, 11, 0.05); }
 
-    .agent-num { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); font-weight: 600; }
-    .agent-name { font-size: 0.85rem; font-weight: 700; }
-    .agent-role { font-size: 0.7rem; color: var(--text-muted); min-height: 2.2rem; line-height: 1.3; }
+    .agent-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-glow);
+    }
+
+    .agent-card.active {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 25px rgba(14, 165, 233, 0.35);
+    }
+
+    .agent-card.pass {
+      border-color: var(--accent-green);
+      background: rgba(16, 185, 129, 0.04);
+    }
+
+    .agent-card.waiting {
+      border-color: var(--accent-amber);
+      background: rgba(245, 158, 11, 0.05);
+    }
+
+    .agent-num {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    .agent-name {
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .agent-role {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      min-height: 2.2rem;
+      line-height: 1.3;
+    }
 
     .agent-status-badge {
-      display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.68rem;
-      font-weight: 700; padding: 0.2rem 0.5rem; border-radius: 6px; width: fit-content;
-      text-transform: uppercase; font-family: var(--font-mono);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 6px;
+      width: fit-content;
+      text-transform: uppercase;
+      font-family: var(--font-mono);
     }
-    .status-IDLE { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
-    .status-ACTIVE { background: rgba(14, 165, 233, 0.2); color: var(--accent-cyan); }
-    .status-PASS { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
-    .status-FAIL { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
-    .status-WAITING_APPROVAL { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
-    .status-MONITORING { background: rgba(139, 92, 246, 0.2); color: #a78bfa; animation: pulse-badge 2s ease-in-out infinite; }
-    @keyframes pulse-badge { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .status-IDLE {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-muted);
+    }
+
+    .status-ACTIVE {
+      background: rgba(14, 165, 233, 0.2);
+      color: var(--accent-cyan);
+    }
+
+    .status-PASS {
+      background: rgba(16, 185, 129, 0.2);
+      color: var(--accent-green);
+    }
+
+    .status-FAIL {
+      background: rgba(239, 68, 68, 0.2);
+      color: var(--accent-red);
+    }
+
+    .status-WAITING_APPROVAL {
+      background: rgba(245, 158, 11, 0.2);
+      color: var(--accent-amber);
+    }
+
+    .status-MONITORING {
+      background: rgba(139, 92, 246, 0.2);
+      color: #a78bfa;
+      animation: pulse-badge 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-badge {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.6;
+      }
+    }
 
 
     /* ── AI RADAR & COUNCIL DEBATE SECTION ── */
     .ai-radar-section {
       background: linear-gradient(135deg, rgba(14, 165, 233, 0.08), rgba(168, 85, 247, 0.06));
       border: 1px solid rgba(56, 189, 248, 0.25);
-      border-radius: 14px; padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 1rem;
+      border-radius: 14px;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
     }
-    .ai-radar-header { display: flex; justify-content: space-between; align-items: center; }
-    .ai-radar-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+
+    .ai-radar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .ai-radar-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+
     .radar-box {
-      background: rgba(0, 0, 0, 0.35); border: 1px solid var(--border-subtle);
-      border-radius: 10px; padding: 1rem; display: flex; flex-direction: column;
-      gap: 0.75rem; max-height: 260px; overflow-y: auto;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      max-height: 260px;
+      overflow-y: auto;
     }
 
     .proposal-card {
-      background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle);
-      border-radius: 8px; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.45rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
     }
-    .proposal-title-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
-    .proposal-title { font-size: 0.82rem; font-weight: 700; color: #f8fafc; }
-    .proposal-desc { font-size: 0.74rem; color: var(--text-muted); }
+
+    .proposal-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .proposal-title {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .proposal-desc {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
 
     /* ── CONTROLS & TERMINAL LAYOUT ── */
-    .dashboard-layout { display: grid; grid-template-columns: 430px 1fr; gap: 1.5rem; }
+    .dashboard-layout {
+      display: grid;
+      grid-template-columns: 430px 1fr;
+      gap: 1.5rem;
+    }
+
     .control-panel {
-      background: var(--bg-surface); border: 1px solid var(--border-subtle);
-      border-radius: 16px; padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
     }
-    .input-group { display: flex; flex-direction: column; gap: 0.4rem; }
-    .input-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .input-group label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
     .input-control {
-      background: rgba(0, 0, 0, 0.4); border: 1px solid var(--border-subtle);
-      border-radius: 8px; padding: 0.6rem 0.85rem; color: var(--text-main);
-      font-family: var(--font-ui); font-size: 0.85rem;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 0.6rem 0.85rem;
+      color: var(--text-main);
+      font-family: var(--font-ui);
+      font-size: 0.85rem;
     }
-    textarea.input-control { min-height: 70px; resize: vertical; }
+
+    textarea.input-control {
+      min-height: 70px;
+      resize: vertical;
+    }
 
     .btn {
-      padding: 0.65rem 1.15rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem;
-      cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
-      gap: 0.5rem; border: none; transition: all 0.2s ease;
+      padding: 0.65rem 1.15rem;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.82rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      border: none;
+      transition: all 0.2s ease;
     }
-    .btn-primary { background: linear-gradient(135deg, var(--accent-cyan), #0284c7); color: #fff; }
-    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: var(--text-main); border: 1px solid var(--border-subtle); }
-    .btn-deploy { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
-    .btn-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
-    .btn-approve { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 0.72rem; padding: 0.3rem 0.65rem; border-radius: 6px; }
-    .btn-decline { background: rgba(239, 68, 68, 0.18); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.4); }
-    .btn-decline:hover { background: rgba(239, 68, 68, 0.32); border-color: #ef4444; color: #fff; }
 
-    .release-review-card {
-      background: rgba(15, 23, 42, 0.65);
-      border: 1px solid rgba(56, 189, 248, 0.25);
-      backdrop-filter: blur(16px);
-      border-radius: 14px;
-      padding: 1.2rem 1.4rem;
-      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.4);
-      margin-bottom: 1.25rem;
-      transition: border-color 0.3s ease;
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), #0284c7);
+      color: #fff;
     }
-    .release-review-card.waiting {
-      border: 2px solid #f59e0b;
-      box-shadow: 0 0 30px rgba(245, 158, 11, 0.2);
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+      border: 1px solid var(--border-subtle);
     }
-    .release-review-header {
-      display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;
+
+    .btn-deploy {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
     }
-      background: rgba(0, 0, 0, 0.3); border: 1px solid var(--border-subtle);
-      border-radius: 8px; max-height: 180px; overflow-y: auto; padding: 0.5rem;
-      display: flex; flex-direction: column; gap: 0.4rem;
+
+    .btn-danger {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.4);
     }
+
+    .btn-approve {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-size: 0.72rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 6px;
+    }
+
+    .queue-list-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      max-height: 180px;
+      overflow-y: auto;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
     .queue-item {
-      padding: 0.45rem 0.65rem; background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-subtle); border-radius: 6px;
-      display: flex; align-items: center; justify-content: space-between; font-size: 0.75rem;
+      padding: 0.45rem 0.65rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
     }
 
     /* ── TERMINAL & ARTIFACTS PANEL ── */
-    .viewers-panel { display: flex; flex-direction: column; gap: 1.25rem; }
-    .terminal-card { background: #05070a; border: 1px solid var(--border-subtle); border-radius: 14px; overflow: hidden; }
+    .viewers-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .terminal-card {
+      background: #05070a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
     .terminal-header {
-      background: rgba(255, 255, 255, 0.02); border-bottom: 1px solid var(--border-subtle);
-      padding: 0.6rem 1rem; display: flex; justify-content: space-between; align-items: center;
-      font-size: 0.72rem; font-family: var(--font-mono);
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 0.6rem 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
     }
+
     .terminal-body {
-      padding: 1rem; height: 210px; overflow-y: auto; font-family: var(--font-mono);
-      font-size: 0.78rem; display: flex; flex-direction: column; gap: 0.35rem;
+      padding: 1rem;
+      height: 210px;
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
     }
-    .terminal-line.info { color: #94a3b8; }
-    .terminal-line.pass { color: #34d399; }
-    .terminal-line.warn { color: #fbbf24; }
-    .terminal-line.error { color: #f87171; }
+
+    .terminal-line.info {
+      color: #94a3b8;
+    }
+
+    .terminal-line.pass {
+      color: #34d399;
+    }
+
+    .terminal-line.warn {
+      color: #fbbf24;
+    }
+
+    .terminal-line.error {
+      color: #f87171;
+    }
 
     .artifacts-card {
-      background: var(--bg-surface); border: 1px solid var(--border-subtle);
-      border-radius: 14px; padding: 1.25rem; display: flex; flex-direction: column; gap: 0.85rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
     }
-    .tabs { display: flex; gap: 0.4rem; overflow-x: auto; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; }
+
+    .tabs {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 0.5rem;
+    }
+
     .tab-btn {
-      background: none; border: 1px solid transparent; padding: 0.3rem 0.65rem;
-      color: var(--text-muted); font-family: var(--font-mono); font-size: 0.72rem;
-      border-radius: 6px; cursor: pointer; white-space: nowrap;
+      background: none;
+      border: 1px solid transparent;
+      padding: 0.3rem 0.65rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      border-radius: 6px;
+      cursor: pointer;
+      white-space: nowrap;
     }
+
     .tab-btn.active {
-      background: rgba(14, 165, 233, 0.15); border-color: rgba(56, 189, 248, 0.3);
-      color: var(--accent-cyan); font-weight: 600;
+      background: rgba(14, 165, 233, 0.15);
+      border-color: rgba(56, 189, 248, 0.3);
+      color: var(--accent-cyan);
+      font-weight: 600;
     }
+
     pre.json-view {
-      background: #05070a; border: 1px solid var(--border-subtle); border-radius: 8px;
-      padding: 1rem; font-family: var(--font-mono); font-size: 0.75rem; color: #e2e8f0;
-      height: 220px; overflow: auto; white-space: pre-wrap;
+      background: #05070a;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: #e2e8f0;
+      height: 220px;
+      overflow: auto;
+      white-space: pre-wrap;
     }
 
     /* Modal Backdrop */
     .modal-backdrop {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px);
-      display: none; align-items: center; justify-content: center; z-index: 1000;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
     }
+
     .modal-box {
-      background: #0c121e; border: 1px solid var(--accent-green); border-radius: 16px;
-      padding: 2rem; max-width: 540px; width: 90%; display: flex; flex-direction: column; gap: 1.25rem;
+      background: #0c121e;
+      border: 1px solid var(--accent-green);
+      border-radius: 16px;
+      padding: 2rem;
+      max-width: 540px;
+      width: 90%;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
     }
   </style>
 </head>
+
 <body>
 
   <header>
@@ -327,9 +763,15 @@
       </div>
     </div>
     <div class="env-pills">
-      <div class="pill"><div class="dot"></div> Dev: Google Antigravity</div>
-      <div class="pill"><div class="dot amber"></div> Staging: staging.voyplan.in</div>
-      <div class="pill"><div class="dot purple"></div> Prod: voyplan.in</div>
+      <div class="pill">
+        <div class="dot"></div> Dev: Google Antigravity
+      </div>
+      <div class="pill">
+        <div class="dot amber"></div> Staging: staging.voyplan.in
+      </div>
+      <div class="pill">
+        <div class="dot purple"></div> Prod: voyplan.in
+      </div>
     </div>
   </header>
 
@@ -341,102 +783,35 @@
         <span id="emergency-status-text" style="color: #94a3b8; font-weight: normal;">All agents running normally</span>
       </div>
       <div class="emergency-actions">
-        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;" onclick="emergencyAction('pause')">⏸️ Pause</button>
-        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;" onclick="emergencyAction('resume')">▶️ Resume</button>
-        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;" onclick="emergencyAction('rollback')">🔄 Rollback</button>
-        <button class="btn btn-danger" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;" onclick="emergencyAction('stop')">🛑 STOP ALL AGENTS</button>
+        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;"
+          onclick="emergencyAction('pause')">⏸️ Pause</button>
+        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;"
+          onclick="emergencyAction('resume')">▶️ Resume</button>
+        <button class="btn btn-secondary" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;"
+          onclick="emergencyAction('rollback')">🔄 Rollback</button>
+        <button class="btn btn-danger" style="font-size: 0.72rem; padding: 0.35rem 0.75rem;"
+          onclick="emergencyAction('stop')">🛑 STOP ALL AGENTS</button>
       </div>
     </section>
 
-    <!-- PRODUCTION RELEASE REVIEW & SIGN-OFF CENTER -->
-    <section class="release-review-card" id="release-review-card">
-      <div class="release-review-header">
-        <div class="release-title-group">
-          <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
-            <h2 style="font-size: 1.05rem; font-weight: 800; color: #f8fafc; letter-spacing: -0.02em;">
-              🚦 Production Release & Deployment Sign-Off
-            </h2>
-            <span class="status-badge" id="release-gate-badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); padding: 0.2rem 0.65rem; border-radius: 9999px; font-size: 0.72rem; font-weight: 700;">
-              🟢 PRODUCTION LIVE & HEALTHY
-            </span>
-          </div>
-          <p style="font-size: 0.78rem; color: #94a3b8; margin-top: 0.25rem;">
-            Live App: <strong style="color: #38bdf8;">https://voyplan.in</strong> • Primary Developer: <strong style="color: #f1f5f9;">Google Antigravity</strong> • Rollback: <strong style="color: #34d399;">ARMED</strong>
-          </p>
+    <!-- PRODUCTION RELEASE GATE BANNER (GATED UNTIL APPROVAL) -->
+    <div id="production-gate-banner"
+      style="display: none; background: rgba(245, 158, 11, 0.12); border: 2px solid #f59e0b; border-radius: 12px; padding: 1rem 1.5rem; justify-content: space-between; align-items: center; box-shadow: 0 0 25px rgba(245, 158, 11, 0.25);">
+      <div>
+        <div
+          style="font-weight: 800; font-size: 1.05rem; color: #fbbf24; display: flex; align-items: center; gap: 0.5rem;">
+          <span>🚦 PRODUCTION RELEASE GATE: APPROVAL REQUIRED</span>
         </div>
-
-        <div class="release-actions-group" style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
-          <button class="btn btn-deploy" id="btn-quick-approve" onclick="openApprovalModal()" style="padding: 0.5rem 1.15rem; font-size: 0.8rem; box-shadow: 0 0 15px rgba(16, 185, 129, 0.35);">
-            🚀 Approve & Deploy (DEPLOY)
-          </button>
-          <button class="btn btn-decline" id="btn-quick-decline" onclick="openDeclineModal()" style="padding: 0.5rem 1.15rem; font-size: 0.8rem;">
-            🛑 Decline & Reject
-          </button>
-          <button class="btn btn-secondary" onclick="toggleDetailedReport()" style="padding: 0.5rem 0.85rem; font-size: 0.76rem;">
-            📋 <span id="report-toggle-text">View Detailed Report</span>
-          </button>
+        <div style="font-size: 0.8rem; color: #cbd5e1; margin-top: 0.2rem;">
+          Product, R&D, Google Antigravity, Tests, QA, and Security have all <strong>PASSED</strong>. Staging smoke
+          tests verified. Awaiting human confirmation to push live to <strong>https://voyplan.in</strong>.
         </div>
       </div>
-
-      <!-- CHRONOLOGICAL LIST OF ACTIONS COMPLETED BY AI AGENTS -->
-      <div class="ai-actions-timeline" style="margin-top: 0.85rem; padding: 0.85rem 1rem; background: rgba(0,0,0,0.3); border: 1px solid var(--border-subtle); border-radius: 10px;">
-        <div style="font-size: 0.76rem; font-weight: 700; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; justify-content: space-between;">
-          <span>⚡ Actions Executed by AI Agents for this Release</span>
-          <span id="actions-counter" style="color: #34d399; font-weight: 600;">6 of 6 Completed</span>
-        </div>
-        <div class="timeline-steps" id="timeline-steps-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 0.55rem; font-size: 0.75rem;">
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>1. Anomaly Discovery:</strong> Scanned OSRM routes, boundary limits & fuel budget.</div>
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>2. Product Council:</strong> 5 agents deliberated spatial constraints & signed off design.</div>
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>3. Code Patched:</strong> Surgical edits in backend/services & Flutter widgets.</div>
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>4. Multi-Suite Testing:</strong> 16/16 test suites passed (105 tests, Jest + Flutter).</div>
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>5. Security & Privacy:</strong> Zero credentials leaked, transient coordinates verified.</div>
-          <div style="background: rgba(255,255,255,0.02); padding: 0.4rem 0.6rem; border-radius: 6px; border: 1px solid var(--border-subtle);"><span style="color: #34d399;">✅</span> <strong>6. Staging Smoke:</strong> Deployed to staging.voyplan.in with 200 OK verified.</div>
-        </div>
-      </div>
-
-      <!-- DETAILED REPORT DRAWER -->
-      <div id="detailed-report-drawer" style="display: none; margin-top: 0.85rem; padding: 1.1rem; background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 10px; font-size: 0.78rem;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem;">
-          <h4 style="color: #f8fafc; font-size: 0.88rem; font-weight: 700;">📊 Comprehensive Technical & Quality Audit Report</h4>
-          <span style="color: #38bdf8; font-family: var(--font-mono); font-size: 0.72rem;">Release Candidate: VoyPlan Stable</span>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 0.85rem;">
-          <!-- Column 1: Modified Files -->
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <div style="color: #fbbf24; font-weight: 700; margin-bottom: 0.4rem;">📦 Modified Code Files:</div>
-            <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.35rem; font-family: var(--font-mono); font-size: 0.72rem; color: #cbd5e1;">
-              <li>• backend/src/services/budgetService.js <span style="color: #34d399;">(+32 -8)</span></li>
-              <li>• backend/src/services/geminiValidatorService.js <span style="color: #34d399;">(+45 -12)</span></li>
-              <li>• mobile/lib/screens/smart_itinerary_screen.dart <span style="color: #34d399;">(+62 -14)</span></li>
-              <li>• mobile/lib/widgets/trip_summary_bottom_sheet.dart <span style="color: #34d399;">(+88 -5)</span></li>
-            </ul>
-          </div>
-
-          <!-- Column 2: Test Verification -->
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <div style="color: #34d399; font-weight: 700; margin-bottom: 0.4rem;">🧪 Verification & Test Proofs:</div>
-            <div style="display: flex; flex-direction: column; gap: 0.35rem; color: #cbd5e1;">
-              <div>• <strong>Backend Jest Suites:</strong> 16 passed, 0 failed (105 tests)</div>
-              <div>• <strong>Flutter Web Build:</strong> Compiled release WASM / canvaskit</div>
-              <div>• <strong>Spatial Boundaries:</strong> 100% compliant (0 stray metro hops)</div>
-              <div>• <strong>Calculated Budget:</strong> Fuel ₹3,466 + Total ₹5,251 for 505.5 km</div>
-            </div>
-          </div>
-
-          <!-- Column 3: Platform Deployment Scope -->
-          <div style="background: rgba(0,0,0,0.25); padding: 0.75rem; border-radius: 8px; border: 1px solid var(--border-subtle);">
-            <div style="color: #38bdf8; font-weight: 700; margin-bottom: 0.4rem;">📱 Multi-Platform Sync Targets:</div>
-            <div style="display: flex; flex-direction: column; gap: 0.35rem; color: #cbd5e1;">
-              <div>• 🌐 <strong>Web:</strong> https://voyplan.in (PWA + Landing)</div>
-              <div>• 🤖 <strong>Android:</strong> Voyplan.apk / CarMapRenderer</div>
-              <div>• 🍏 <strong>iOS:</strong> Voyplan.ipa / CarPlayNavigationManager</div>
-              <div>• ⚡ <strong>Backend API:</strong> Express.js Node 20 on Render</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
+      <button class="btn btn-deploy" onclick="openApprovalModal()"
+        style="font-size: 0.88rem; padding: 0.65rem 1.4rem; box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); white-space: nowrap;">
+        🚀 APPROVE & PUSH TO PRODUCTION (DEPLOY)
+      </button>
+    </div>
 
     <!-- SECTION 29: OPERATIONS HUB BAR -->
     <section class="ops-bar-container">
@@ -472,24 +847,52 @@
       <div class="ops-current-block">
         <div class="block-header">Active Execution</div>
         <div class="current-card">
-          <div class="current-row"><span class="current-label">Current:</span> <span class="current-val" id="curr-task">Issue #123</span></div>
-          <div class="current-row"><span class="current-label">Stage:</span> <span class="current-val" id="curr-stage" style="color: #38bdf8;">QA_VALIDATION</span></div>
-          <div class="current-row"><span class="current-label">Result:</span> <span class="current-val" id="curr-result" style="color: #34d399;">PASS</span></div>
-          <div class="current-row"><span class="current-label">Next:</span> <span class="current-val" id="curr-next" style="color: #fbbf24;">Staging / Gate</span></div>
+          <div class="current-row"><span class="current-label">Current:</span> <span class="current-val"
+              id="curr-task">Issue #123</span></div>
+          <div class="current-row"><span class="current-label">Stage:</span> <span class="current-val" id="curr-stage"
+              style="color: #38bdf8;">QA_VALIDATION</span></div>
+          <div class="current-row"><span class="current-label">Result:</span> <span class="current-val" id="curr-result"
+              style="color: #34d399;">PASS</span></div>
+          <div class="current-row"><span class="current-label">Next:</span> <span class="current-val" id="curr-next"
+              style="color: #fbbf24;">Staging / Gate</span></div>
         </div>
       </div>
     </section>
 
     <!-- METRICS COUNTERS BAR -->
     <section class="metrics-bar">
-      <div class="metric-card"><div class="metric-num" id="stat-completed">1</div><div class="metric-title">Completed Today</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-failed">0</div><div class="metric-title">Failed Today</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-prs-created">3</div><div class="metric-title">PRs Created</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-prs-merged">1</div><div class="metric-title">PRs Merged</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-tests-exec">30</div><div class="metric-title">Tests Executed</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-qa-failures">0</div><div class="metric-title">QA Failures</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-deployments">1</div><div class="metric-title">Deployments</div></div>
-      <div class="metric-card"><div class="metric-num" id="stat-rollbacks">0</div><div class="metric-title">Rollbacks</div></div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-completed">1</div>
+        <div class="metric-title">Completed Today</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-failed">0</div>
+        <div class="metric-title">Failed Today</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-prs-created">3</div>
+        <div class="metric-title">PRs Created</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-prs-merged">1</div>
+        <div class="metric-title">PRs Merged</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-tests-exec">30</div>
+        <div class="metric-title">Tests Executed</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-qa-failures">0</div>
+        <div class="metric-title">QA Failures</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-deployments">1</div>
+        <div class="metric-title">Deployments</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-num" id="stat-rollbacks">0</div>
+        <div class="metric-title">Rollbacks</div>
+      </div>
     </section>
 
     <!-- AUTONOMOUS AI DISCOVERY RADAR & FEATURE PROPOSER -->
@@ -500,7 +903,8 @@
             <span>🛰️ Autonomous AI Radar & Feature Proposer</span>
             <span class="agent-status-badge status-ACTIVE" style="font-size: 0.68rem;">Continuous AI Discovery</span>
           </h2>
-          <p style="font-size: 0.76rem; color: var(--text-muted);">AI continuously monitors code, dependencies, and regressions (Req 14) and conceives full-stack travel features (Req 15).</p>
+          <p style="font-size: 0.76rem; color: var(--text-muted);">AI continuously monitors code, dependencies, and
+            regressions (Req 14) and conceives full-stack travel features (Req 15).</p>
         </div>
         <button class="btn btn-primary" onclick="triggerAiScan()" style="font-size: 0.78rem; padding: 0.5rem 1rem;">
           ⚡ Run Autonomous Discovery Scan Now
@@ -604,40 +1008,49 @@
           <h2 style="font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 0.4rem;">
             <span>🤖 Autonomous AI Engineering Factory</span>
           </h2>
-          <span class="pill" style="font-size: 0.68rem; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
+          <span class="pill"
+            style="font-size: 0.68rem; background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
             Zero Human Input Required
           </span>
         </div>
         <p style="font-size: 0.74rem; color: var(--text-muted); margin-bottom: 0.75rem;">
-          The <strong>Testing Agent</strong> autonomously detects bugs & regressions and reports them to Developer Agent. The <strong>R&D Agent</strong> conceives features and updates requirements for Google Antigravity to build.
+          The <strong>Testing Agent</strong> autonomously detects bugs & regressions and reports them to Developer
+          Agent. The <strong>R&D Agent</strong> conceives features and updates requirements for Google Antigravity to
+          build.
         </p>
 
         <!-- 2 Autonomous Action Stream Cards -->
         <div style="display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.75rem;">
           <!-- 1. R&D Agent Autonomous Feature Generator -->
-          <div style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 0.75rem;">
+          <div
+            style="background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 0.75rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 0.78rem; font-weight: 700; color: #38bdf8;">🔬 R&D / Architect Agent</span>
               <span style="font-size: 0.68rem; color: #94a3b8;">Autonomous Spec Engine</span>
             </div>
             <p style="font-size: 0.72rem; color: #cbd5e1; margin: 0.25rem 0 0.5rem 0;">
-              Inspects VoyPlan codebase, conceives high-value travel features, writes full-stack technical specs (Frontend + Backend + DB), and hands off to Google Antigravity.
+              Inspects VoyPlan codebase, conceives high-value travel features, writes full-stack technical specs
+              (Frontend + Backend + DB), and hands off to Google Antigravity.
             </p>
-            <button class="btn btn-primary" onclick="autonomousConceiveFeature()" style="width: 100%; font-size: 0.76rem; padding: 0.45rem;">
+            <button class="btn btn-primary" onclick="autonomousConceiveFeature()"
+              style="width: 100%; font-size: 0.76rem; padding: 0.45rem;">
               ✨ R&D Agent: Conceive & Spec New Feature
             </button>
           </div>
 
           <!-- 2. Testing Agent Autonomous Bug Hunter -->
-          <div style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.75rem;">
+          <div
+            style="background: rgba(245, 158, 11, 0.08); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 0.75rem;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
               <span style="font-size: 0.78rem; font-weight: 700; color: #fbbf24;">🧪 Testing Agent (Bug Hunter)</span>
               <span style="font-size: 0.68rem; color: #94a3b8;">Autonomous Test Scanner</span>
             </div>
             <p style="font-size: 0.72rem; color: #cbd5e1; margin: 0.25rem 0 0.5rem 0;">
-              Runs automated test sweeps, checks API health & dependencies, detects edge-case regressions, and files defect tickets directly to Developer Agent.
+              Runs automated test sweeps, checks API health & dependencies, detects edge-case regressions, and files
+              defect tickets directly to Developer Agent.
             </p>
-            <button class="btn btn-secondary" onclick="autonomousHuntBugs()" style="width: 100%; font-size: 0.76rem; padding: 0.45rem; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
+            <button class="btn btn-secondary" onclick="autonomousHuntBugs()"
+              style="width: 100%; font-size: 0.76rem; padding: 0.45rem; border-color: rgba(245, 158, 11, 0.4); color: #fbbf24;">
               🔍 Testing Agent: Hunt Bugs & Report to Developer
             </button>
           </div>
@@ -645,7 +1058,8 @@
 
         <!-- Master Trigger: Run Full Autonomous Cycle -->
         <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <button id="btn-activate" class="btn btn-primary" onclick="runAutonomousEngineeringCycle()" style="font-size: 0.85rem; padding: 0.65rem; background: linear-gradient(135deg, #0ea5e9, #8b5cf6); box-shadow: 0 0 20px rgba(14, 165, 233, 0.35);">
+          <button id="btn-activate" class="btn btn-primary" onclick="runAutonomousEngineeringCycle()"
+            style="font-size: 0.85rem; padding: 0.65rem; background: linear-gradient(135deg, #0ea5e9, #8b5cf6); box-shadow: 0 0 20px rgba(14, 165, 233, 0.35);">
             ⚡ Run Autonomous AI Cycle (R&D Spec ➔ Antigravity Dev ➔ Test ➔ QA ➔ Gate)
           </button>
           <button id="btn-deploy" class="btn btn-deploy" onclick="openApprovalModal()" style="display: none;">
@@ -654,20 +1068,25 @@
         </div>
 
         <!-- Optional Collapsible Manual Override (Hidden by default) -->
-        <details style="margin-top: 0.75rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.74rem;">
-          <summary style="cursor: pointer; color: var(--text-muted); font-weight: 600;">⚙️ Optional: Manual Issue Override (Click to expand)</summary>
+        <details
+          style="margin-top: 0.75rem; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 0.5rem 0.75rem; font-size: 0.74rem;">
+          <summary style="cursor: pointer; color: var(--text-muted); font-weight: 600;">⚙️ Optional: Manual Issue
+            Override (Click to expand)</summary>
           <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.4rem;">
             <div class="input-group">
               <label for="issue-id">Issue ID</label>
-              <input type="text" id="issue-id" class="input-control" value="123" style="font-size: 0.75rem; padding: 0.35rem;">
+              <input type="text" id="issue-id" class="input-control" value="123"
+                style="font-size: 0.75rem; padding: 0.35rem;">
             </div>
             <div class="input-group">
               <label for="issue-title">Issue Title</label>
-              <input type="text" id="issue-title" class="input-control" value="Fix AI Planner Random Locations" style="font-size: 0.75rem; padding: 0.35rem;">
+              <input type="text" id="issue-title" class="input-control" value="Fix AI Planner Random Locations"
+                style="font-size: 0.75rem; padding: 0.35rem;">
             </div>
             <div class="input-group">
               <label for="issue-body">Requirements</label>
-              <textarea id="issue-body" class="input-control" style="font-size: 0.75rem; height: 50px;">Destination: Tirumala. The planner must not add unrelated locations (Bengaluru, Mysuru, Chennai, Hyderabad). Deterministic boundary validation.</textarea>
+              <textarea id="issue-body" class="input-control"
+                style="font-size: 0.75rem; height: 50px;">Destination: Tirumala. The planner must not add unrelated locations (Bengaluru, Mysuru, Chennai, Hyderabad). Deterministic boundary validation.</textarea>
             </div>
             <div style="display: flex; gap: 0.4rem;">
               <select id="task-priority" class="input-control" style="flex: 1; font-size: 0.75rem; padding: 0.35rem;">
@@ -680,7 +1099,8 @@
                 <option value="feature">Feature</option>
               </select>
             </div>
-            <button class="btn btn-secondary" onclick="triggerPipeline(false)" style="font-size: 0.72rem; padding: 0.35rem;">Run Manual Task</button>
+            <button class="btn btn-secondary" onclick="triggerPipeline(false)"
+              style="font-size: 0.72rem; padding: 0.35rem;">Run Manual Task</button>
           </div>
         </details>
 
@@ -705,7 +1125,8 @@
           <div class="terminal-body" id="terminal-stream">
             <div class="terminal-line info">[SYSTEM] VoyPlan AI Product Engineering Organization Ready.</div>
             <div class="terminal-line pass">[SYSTEM] Primary Developer: Google Antigravity.</div>
-            <div class="terminal-line info">[SYSTEM] Shared Product Brain loaded: 28 architecture & strategy specs.</div>
+            <div class="terminal-line info">[SYSTEM] Shared Product Brain loaded: 28 architecture & strategy specs.
+            </div>
           </div>
         </div>
 
@@ -720,10 +1141,13 @@
             <button class="tab-btn" onclick="switchArtifact('qa')">qa-result.json</button>
             <button class="tab-btn" onclick="switchArtifact('security')">security-result.json</button>
             <button class="tab-btn" onclick="switchArtifact('release')">release-result.json</button>
-            <button class="tab-btn" onclick="switchArtifact('scanned')" style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">🔍 audit-scanned.json</button>
-            <button class="tab-btn" onclick="switchArtifact('fixed')" style="border-color: rgba(52, 211, 153, 0.4); color: #34d399;">✅ audit-fixed.json</button>
+            <button class="tab-btn" onclick="switchArtifact('scanned')"
+              style="border-color: rgba(56, 189, 248, 0.4); color: #38bdf8;">🔍 audit-scanned.json</button>
+            <button class="tab-btn" onclick="switchArtifact('fixed')"
+              style="border-color: rgba(52, 211, 153, 0.4); color: #34d399;">✅ audit-fixed.json</button>
           </div>
-          <pre class="json-view" id="artifact-content">// Select an artifact tab to inspect generated agent output.</pre>
+          <pre class="json-view"
+            id="artifact-content">// Select an artifact tab to inspect generated agent output.</pre>
         </div>
       </section>
     </div>
@@ -731,17 +1155,21 @@
 
   <!-- Detailed Production Release Gate Modal -->
   <div class="modal-backdrop" id="approval-modal" style="display: none;">
-    <div class="modal-box" style="max-width: 680px; width: 90%; max-height: 88vh; overflow-y: auto; background: #0f172a; border: 1px solid rgba(16, 185, 129, 0.4); box-shadow: 0 0 40px rgba(0,0,0,0.8); border-radius: 14px; padding: 1.5rem;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem; margin-bottom: 1rem;">
+    <div class="modal-box"
+      style="max-width: 680px; width: 90%; max-height: 88vh; overflow-y: auto; background: #0f172a; border: 1px solid rgba(16, 185, 129, 0.4); box-shadow: 0 0 40px rgba(0,0,0,0.8); border-radius: 14px; padding: 1.5rem;">
+      <div
+        style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem; margin-bottom: 1rem;">
         <div>
-          <h3 style="font-size: 1.25rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+          <h3
+            style="font-size: 1.25rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
             <span>🚦 Production Release Gate: Detailed Changes Report</span>
           </h3>
           <p style="font-size: 0.78rem; color: #94a3b8; margin: 0.2rem 0 0 0;">
             Primary Developer: <strong>Google Antigravity</strong> • Target: <strong>https://voyplan.in</strong>
           </p>
         </div>
-        <button onclick="closeApprovalModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
+        <button onclick="closeApprovalModal()"
+          style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
       </div>
 
       <!-- Dynamic Report Container -->
@@ -751,49 +1179,19 @@
 
       <!-- Human Operator Approval Controls -->
       <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1);">
-        <label for="approval-keyword" style="display: block; font-size: 0.8rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.4rem;">
+        <label for="approval-keyword"
+          style="display: block; font-size: 0.8rem; font-weight: 700; color: #fbbf24; margin-bottom: 0.4rem;">
           Type DEPLOY in all capital letters to authorize production rollout:
         </label>
         <div style="display: flex; gap: 0.75rem;">
-          <input type="text" id="approval-keyword" class="input-control" placeholder="Type DEPLOY to confirm" style="flex: 1; font-size: 0.9rem; padding: 0.6rem; border-color: #f59e0b; color: #fbbf24; font-weight: 800; letter-spacing: 1px;">
+          <input type="text" id="approval-keyword" class="input-control" placeholder="Type DEPLOY to confirm"
+            style="flex: 1; font-size: 0.9rem; padding: 0.6rem; border-color: #f59e0b; color: #fbbf24; font-weight: 800; letter-spacing: 1px;">
           <button class="btn btn-secondary" onclick="closeApprovalModal()">Cancel</button>
-          <button class="btn btn-deploy" id="btn-confirm-deploy" onclick="confirmProductionDeploy()" style="padding: 0.6rem 1.4rem; white-space: nowrap; font-weight: 800;">
+          <button class="btn btn-deploy" id="btn-confirm-deploy" onclick="confirmProductionDeploy()"
+            style="padding: 0.6rem 1.4rem; white-space: nowrap; font-weight: 800;">
             🚀 Approve & Push Live (DEPLOY)
           </button>
         </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Decline Deployment Modal -->
-  <div class="modal-backdrop" id="decline-modal" style="display: none;">
-    <div class="modal-box" style="max-width: 540px; width: 90%; background: #0f172a; border: 1px solid rgba(239, 68, 68, 0.4); box-shadow: 0 0 45px rgba(0,0,0,0.85); border-radius: 14px; padding: 1.5rem;">
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.75rem; margin-bottom: 1rem;">
-        <div>
-          <h3 style="font-size: 1.15rem; font-weight: 800; color: #f87171; margin: 0; display: flex; align-items: center; gap: 0.5rem;">
-            <span>🛑 Decline Deployment & Reject Changes</span>
-          </h3>
-          <p style="font-size: 0.76rem; color: #94a3b8; margin-top: 0.2rem;">
-            Action: <strong>Human Operator Veto</strong> • Target: <strong>https://voyplan.in</strong>
-          </p>
-        </div>
-        <button onclick="closeDeclineModal()" style="background: transparent; border: none; color: #94a3b8; font-size: 1.2rem; cursor: pointer;">✕</button>
-      </div>
-
-      <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 0.85rem; margin-bottom: 1rem; font-size: 0.8rem; color: #fca5a5;">
-        ⚠️ <strong>Safety Guarantee:</strong> Declining this deployment halts the release immediately. Your live production application (<strong>https://voyplan.in</strong>) and mobile builds will remain 100% untouched.
-      </div>
-
-      <label for="decline-reason-input" style="display: block; font-size: 0.8rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.4rem;">
-        Provide Rejection Reason or Developer Feedback (Optional):
-      </label>
-      <textarea id="decline-reason-input" class="input-control" rows="3" placeholder="e.g. Scope needs adjustment, verify mileage calculation for EVs, or wait for next release cycle..." style="width: 100%; font-size: 0.82rem; padding: 0.65rem; border-color: rgba(239, 68, 68, 0.4); border-radius: 8px; margin-bottom: 1.25rem; resize: vertical;"></textarea>
-
-      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
-        <button class="btn btn-secondary" onclick="closeDeclineModal()">Cancel</button>
-        <button class="btn btn-decline" onclick="confirmDeclineDeploy()" style="padding: 0.6rem 1.4rem; font-weight: 800;">
-          🛑 Confirm Rejection (Decline)
-        </button>
       </div>
     </div>
   </div>
@@ -808,7 +1206,7 @@
         const res = await fetch('/api/status');
         if (!res.ok) return;
         const data = await res.json();
-        
+
         // 1. Update 8 Agent Pipeline Cards
         for (const [key, info] of Object.entries(data.stages)) {
           const card = document.getElementById(`card-${key}`);
@@ -944,46 +1342,11 @@
           }).join('');
         }
 
-        const relStatus = (data.stages && data.stages.release && data.stages.release.status) || 'PASS';
-        const isWaiting = relStatus === 'WAITING_APPROVAL' || (data.current_task && data.current_task.stage === 'WAITING_APPROVAL');
-        const isDeclined = relStatus === 'DECLINED' || (data.current_task && data.current_task.result === 'DECLINED');
-
-        const releaseCard = document.getElementById('release-review-card');
-        const gateBadge = document.getElementById('release-gate-badge');
-        const btnApprove = document.getElementById('btn-quick-approve');
-        const btnDecline = document.getElementById('btn-quick-decline');
-
-        if (isWaiting) {
-          if (releaseCard) releaseCard.classList.add('waiting');
-          if (gateBadge) {
-            gateBadge.textContent = '🟡 AWAITING HUMAN OPERATOR APPROVAL';
-            gateBadge.style.background = 'rgba(245, 158, 11, 0.2)';
-            gateBadge.style.color = '#fbbf24';
-            gateBadge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
-          }
-          if (btnApprove) btnApprove.style.display = 'inline-flex';
-          if (btnDecline) btnDecline.style.display = 'inline-flex';
-        } else if (isDeclined) {
-          if (releaseCard) releaseCard.classList.remove('waiting');
-          if (gateBadge) {
-            gateBadge.textContent = '🛑 DEPLOYMENT DECLINED';
-            gateBadge.style.background = 'rgba(239, 68, 68, 0.2)';
-            gateBadge.style.color = '#f87171';
-            gateBadge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-          }
-          if (btnApprove) btnApprove.style.display = 'inline-flex';
-          if (btnDecline) btnDecline.style.display = 'inline-flex';
-        } else {
-          if (releaseCard) releaseCard.classList.remove('waiting');
-          if (gateBadge) {
-            gateBadge.textContent = '🟢 PRODUCTION LIVE & HEALTHY';
-            gateBadge.style.background = 'rgba(16, 185, 129, 0.15)';
-            gateBadge.style.color = '#34d399';
-            gateBadge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-          }
-          if (btnApprove) btnApprove.style.display = 'inline-flex';
-          if (btnDecline) btnDecline.style.display = 'inline-flex';
-        }
+        const isWaiting = (data.stages.release && data.stages.release.status === 'WAITING_APPROVAL') || (data.current_task && data.current_task.stage === 'WAITING_APPROVAL');
+        const gateBanner = document.getElementById('production-gate-banner');
+        if (gateBanner) gateBanner.style.display = isWaiting ? 'flex' : 'none';
+        const btnDeploy = document.getElementById('btn-deploy');
+        if (btnDeploy) btnDeploy.style.display = isWaiting ? 'flex' : 'none';
 
         // Terminal
         if (data.logs && data.logs.length > 0) {
@@ -1136,7 +1499,7 @@
       const qa = currentArtifacts['qa'] || {};
       const sec = currentArtifacts['security'] || {};
       const rel = currentArtifacts['release'] || {};
-      
+
       const issueId = dev.issue || '123';
       const files = dev.files_changed && dev.files_changed.length ? dev.files_changed : [
         'backend/src/services/geminiValidatorService.js (Added Haversine <75km ceiling)',
@@ -1234,50 +1597,9 @@
       }
     }
 
-    function toggleDetailedReport() {
-      const drawer = document.getElementById('detailed-report-drawer');
-      const toggleText = document.getElementById('report-toggle-text');
-      if (drawer.style.display === 'none' || !drawer.style.display) {
-        drawer.style.display = 'block';
-        if (toggleText) toggleText.textContent = 'Hide Detailed Report';
-      } else {
-        drawer.style.display = 'none';
-        if (toggleText) toggleText.textContent = 'View Detailed Report';
-      }
-    }
-
-    function openDeclineModal() {
-      document.getElementById('decline-modal').style.display = 'flex';
-      const reasonInput = document.getElementById('decline-reason-input');
-      if (reasonInput) {
-        reasonInput.value = '';
-        reasonInput.focus();
-      }
-    }
-
-    function closeDeclineModal() {
-      document.getElementById('decline-modal').style.display = 'none';
-    }
-
-    async function confirmDeclineDeploy() {
-      const reason = (document.getElementById('decline-reason-input') ? document.getElementById('decline-reason-input').value.trim() : '') || 'Declined by Human Operator via Operations Hub';
-      closeDeclineModal();
-      try {
-        const res = await fetch('/api/decline', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason: reason })
-        });
-        const json = await res.json();
-        alert('🛑 Deployment has been DECLINED. Live production remains untouched.');
-        fetchStatus();
-      } catch (e) {
-        alert('Decline request failed: ' + e.message);
-      }
-    }
-
     pollInterval = setInterval(fetchStatus, 1500);
     fetchStatus();
   </script>
 </body>
+
 </html>
