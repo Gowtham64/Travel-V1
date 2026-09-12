@@ -37,8 +37,13 @@ echo "  ✓ Landing site (index + favicons + SEO + manifests) copied"
 
 # Mobile installation files are served at the site root.
 if [ -f "web/Voyplan.apk" ]; then
-    cp web/Voyplan.apk $DEPLOY_DIR/Voyplan.apk
-    echo "  ✓ Android APK copied as Voyplan.apk"
+    APK_SIZE=$(wc -c < "web/Voyplan.apk" | tr -d ' ')
+    if [ "$APK_SIZE" -lt 100000000 ]; then
+        cp web/Voyplan.apk $DEPLOY_DIR/Voyplan.apk
+        echo "  ✓ Android APK copied as Voyplan.apk"
+    else
+        echo "  ⚠️ Android APK exceeds GitHub 100MB limit ($APK_SIZE bytes), skipping direct commit to gh-pages"
+    fi
 fi
 
 # iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
