@@ -6,23 +6,18 @@ on:
   pull_request:
     branches: [ main, develop ]
   schedule:
-    # Continuous Autonomous Testing Cycle every 6 hours
     - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       test_run_id:
-        description: "Custom Test Run Identifier (e.g. TEST-RUN-2026-0001)"
+        description: "Custom Test Run Identifier"
         required: false
-        default: ""
-
-concurrency:
-  group: server-ai-qa-${{ github.ref }}
-  cancel-in-progress: false
+        default: "SERVER-RUN-001"
+        type: string
 
 jobs:
-  # ── RUNNER 1: LINUX RUNNER (Web + Backend + Android) ──
   linux-web-backend-android:
-    name: 🐧 Linux Server: Web + Backend + Android Runner
+    name: "Linux Server: Web + Backend + Android Runner"
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -104,7 +99,7 @@ jobs:
 
   # ── RUNNER 2: macOS RUNNER (iOS Simulator + Xcode) ──
   macos-ios-simulator:
-    name: 🍏 macOS Server: iOS Simulator Runner
+    name: "macOS Server: iOS Simulator Runner"
     runs-on: macos-14
     timeout-minutes: 40
 
@@ -152,7 +147,7 @@ jobs:
 
   # ── CENTRAL ORCHESTRATOR & RESULT MERGER ──
   ai-central-orchestrator:
-    name: 🧠 Central AI Orchestrator & Final QA Report
+    name: "Central AI Orchestrator & Final QA Report"
     runs-on: ubuntu-latest
     needs: [linux-web-backend-android, macos-ios-simulator]
     if: always()
