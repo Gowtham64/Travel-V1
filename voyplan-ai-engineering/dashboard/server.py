@@ -241,21 +241,23 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
             pipeline_state["stages"]["security"]["status"] = "PASS"
             time.sleep(0.6)
 
-        elif "Stage 8: Staging Deployment" in line_clean or "[release]" in line_clean:
+        elif "WAITING_APPROVAL" in line_clean or "Waiting for approval" in line_clean or "HUMAN OPERATOR APPROVAL REQUIRED" in line_clean:
+            pipeline_state["stages"]["release"]["status"] = "WAITING_APPROVAL"
+            pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
+            pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
+            pipeline_state["waiting_approval"] = True
+            time.sleep(0.6)
+        elif "Stage 8: Staging Deployment" in line_clean:
             pipeline_state["current_stage"] = "release"
             pipeline_state["stages"]["release"]["status"] = "ACTIVE"
             pipeline_state["current_task"]["stage"] = "STAGING_DEPLOYMENT"
             pipeline_state["current_task"]["next"] = "Production Gate"
             time.sleep(1.2)
-        elif "WAITING_APPROVAL" in line_clean:
-            pipeline_state["stages"]["release"]["status"] = "WAITING_APPROVAL"
-            pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
-            pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
-            time.sleep(0.6)
         elif "Production Gate" in line_clean and "PASS" in line_clean:
             pipeline_state["stages"]["release"]["status"] = "PASS"
             pipeline_state["current_task"]["stage"] = "RELEASED"
             pipeline_state["current_task"]["next"] = "Next in Queue"
+            pipeline_state["waiting_approval"] = False
             time.sleep(0.6)
 
         pipeline_state["artifacts"] = load_artifacts()
@@ -264,6 +266,13 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
     pipeline_state["running"] = False
     pipeline_state["current_stage"] = None
     pipeline_state["artifacts"] = load_artifacts()
+    rel_art = pipeline_state["artifacts"].get("release") or {}
+    if rel_art.get("status") == "WAITING_APPROVAL" and not pipeline_state.get("production_approved"):
+        pipeline_state["waiting_approval"] = True
+        pipeline_state["stages"]["release"]["status"] = "WAITING_APPROVAL"
+        if pipeline_state.get("current_task"):
+            pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
+            pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
     pipeline_state["last_run"] = time.strftime("%Y-%m-%d %H:%M:%S")
 
     # Update queue status
@@ -294,6 +303,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.end_headers()
 
             pipeline_state["artifacts"] = load_artifacts()
+            rel_art = pipeline_state["artifacts"].get("release") or {}
+            if rel_art.get("status") == "WAITING_APPROVAL" and not pipeline_state.get("production_approved"):
+                pipeline_state["waiting_approval"] = True
+                pipeline_state["stages"]["release"]["status"] = "WAITING_APPROVAL"
+                if pipeline_state.get("current_task"):
+                    pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
+                    pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
 
             # Retrieve queue tasks & stats
             queue_data = queue_mgr.get_all()
