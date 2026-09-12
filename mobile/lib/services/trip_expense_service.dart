@@ -406,7 +406,9 @@ class TripExpenseService {
       ((_activePlan?.distanceKm ?? 0) / (_activeVehicle?.efficiencyKmPerLiter ?? 15.0));
     final actualFuelPurchasedLiters = fuelItems.fold<double>(0.0, (sum, e) => sum + (e.litres ?? 0.0));
     final fuelPricePerLiter = fuelEst?.pricePerUnit ?? 102.45;
-    final estimatedFuelCost = fuelEst?.estimatedCost ?? (fuelRequiredLiters * fuelPricePerLiter);
+    final estimatedFuelCost = (fuelEst != null && fuelEst.totalCost > 0)
+        ? fuelEst.totalCost
+        : (fuelEst?.estimatedCost ?? (fuelRequiredLiters * fuelPricePerLiter));
     final actualFuelCost = fuelItems.fold<double>(0.0, (sum, e) => sum + e.actualAmount);
 
     // Toll metrics

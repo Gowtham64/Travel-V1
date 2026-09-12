@@ -251,7 +251,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
           });
         }
       });
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('Auth check error: $e');
       if (mounted) {
         setState(() {

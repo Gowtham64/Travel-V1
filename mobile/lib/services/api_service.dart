@@ -36,8 +36,7 @@ class ApiService {
   static const String _prodBackend = AppConfig.backendUrl;
 
   ApiService({String? baseUrl})
-      : baseUrl = baseUrl ??
-            ((kIsWeb || kReleaseMode) ? _prodBackend : 'http://10.0.2.2:3000');
+      : baseUrl = baseUrl ?? _prodBackend;
 
   // ---------------------------------------------------------------------------
   // Account API (profile-menu features) — all require a logged-in user; RLS on
@@ -1326,6 +1325,7 @@ class ApiService {
     final fb = _generateFallbackSmartItinerary(
       destination: destination,
       startLocation: startLocation,
+      tripType: tripType,
       places: places,
       preferences: preferences,
       durationDays: durationDays,
@@ -1343,9 +1343,9 @@ class ApiService {
       navigationRoute: null,
       tripPlan: null,
       routeVersion: 1,
-      totalDistanceKm: null,
-      totalDurationMin: null,
-      tripType: 'around',
+      totalDistanceKm: fb.totalDistanceKm,
+      totalDurationMin: fb.totalDurationMin,
+      tripType: tripType,
       searchRadiusKm: searchRadiusKm,
       placesFoundCount: fb.days.fold(0, (sum, d) => sum + d.blocks.where((b) => b.type == 'activity').length),
       canExpandSearch: false,
@@ -1544,9 +1544,10 @@ class ApiService {
     return res;
   }
 
-  ({List<SmartDay> days, TripBudget? budget}) _generateFallbackSmartItinerary({
+  ({List<SmartDay> days, TripBudget? budget, double totalDistanceKm, int totalDurationMin}) _generateFallbackSmartItinerary({
     required dynamic destination,
     dynamic startLocation = '',
+    String tripType = 'around',
     required List<String> places,
     String preferences = '',
     required int durationDays,
@@ -2187,7 +2188,10 @@ class ApiService {
     }
 
     final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
-    final totalKm = (estimatedKm * 2) * (total > 1 ? 1.2 : 1.0);
+    final isRound = tripType == 'around' || tripType == 'roundtrip';
+    final totalKm = isRound
+        ? ((estimatedKm * 2) * (total > 1 ? 1.2 : 1.0))
+        : (estimatedKm * (total > 1 ? 1.15 : 1.0));
     final fuelEst = FuelPriceService.instance.calculateRouteFuel(
       distanceKm: totalKm,
       mileage: eff,
@@ -2235,7 +2239,12 @@ class ApiService {
       perDay: (grandTotal / total).round(),
     );
 
-    return (days: daysList, budget: budget);
+    return (
+      days: daysList,
+      budget: budget,
+      totalDistanceKm: totalKm,
+      totalDurationMin: (totalKm / 50 * 60).round(),
+    );
   }
 
   /// AI-suggested flight / train / hotel options for a journey (typical options,

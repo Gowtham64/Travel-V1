@@ -6775,6 +6775,21 @@ class _BudgetCard extends StatelessWidget {
                 ],
               ),
             ),
+          if (budget.outOfPocketFuel > 0 && budget.outOfPocketFuel < budget.fuel) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Top-up needed now (tank has fuel)',
+                    style: TextStyle(fontSize: 11, color: Colors.orange.shade300)),
+                Text('₹${_fmt(budget.outOfPocketFuel)}',
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.orange.shade300,
+                        fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ],
         ],
       ),
     );

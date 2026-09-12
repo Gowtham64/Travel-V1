@@ -310,7 +310,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           'device_access': deviceAccess,
         });
       }
-    } catch (e) {
+    } on Object catch (e) {
       debugPrint('Failed to record user details: $e');
     }
   }
@@ -524,60 +524,35 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
       if (!mounted || reqId != _routeRequestId) return;
 
-      // Round trip (vacation) → go straight to the day-by-day Plan workspace,
-      // skipping the summary popup.
-      if (_tripType == 'roundtrip') {
-        final startAddr = _stopControllers.first.text.trim();
-        final endAddr = _stopControllers.last.text.trim();
-        final toll = plan.toll?.fastagTollCost ?? 0.0;
-        final double litres = vehicle.efficiencyKmPerLiter > 0 ? plan.distanceKm / vehicle.efficiencyKmPerLiter : 0.0;
-        final double fuel = plan.toll?.fuelCost ?? (litres * 102.0);
-        final double total = toll + fuel;
-        final stops = waypoints.map((w) => w.name ?? 'Waypoint').toList();
+      // Always show Trip Summary Dialog to review distance, fuel, tolls, and budget
+      await _showTripSummaryDialog(plan, vehicle);
+      if (!mounted) return;
 
-        TripHistoryService.instance.saveTrip(
-          TripHistoryItem(
-            id: 'trip_${start.lat.toStringAsFixed(3)}_${end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
-            title: '$startAddr → $endAddr (round trip)',
-            startAddress: startAddr,
-            endAddress: endAddr,
-            waypoints: stops,
-            distanceKm: plan.distanceKm,
-            durationMinutes: plan.durationMin,
-            vehicleType: vehicle.type,
-            fuelCost: fuel,
-            tollCost: toll,
-            totalCost: total,
-            completedAt: DateTime.now(),
-            isRoundTrip: true,
-            totalStopsCount: stops.length,
-          ),
-        );
+      final startAddr = _stopControllers.first.text.trim();
+      final endAddr = _stopControllers.last.text.trim();
+      final stops = waypoints.map((w) => w.name ?? 'Waypoint').toList();
+      final double fuelCost = (plan.budget?.fuel ?? (plan.fuelEstimate?.totalCost ?? (plan.distanceKm / vehicle.efficiencyKmPerLiter * 102.86))).toDouble();
+      final double tollCost = (plan.budget?.tolls ?? (plan.toll?.fastagTollCost ?? 0.0)).toDouble();
+      final double totalCost = (plan.budget?.total ?? (fuelCost + tollCost)).toDouble();
 
-        final tripKey = [
-          start.lat.toStringAsFixed(3), start.lng.toStringAsFixed(3),
-          end.lat.toStringAsFixed(3), end.lng.toStringAsFixed(3),
-          vehicle.type,
-        ].join('_').replaceAll(RegExp(r'[^A-Za-z0-9_.-]'), '');
-        Navigator.of(context).push(MaterialPageRoute(
-          builder: (_) => TripWorkspaceScreen(
-            tripKey: tripKey,
-            tripName: '$startAddr → $endAddr (round trip)',
-            plan: plan,
-            start: start,
-            end: end,
-            waypoints: waypoints,
-            vehicle: vehicle,
-            startAddress: startAddr,
-            endAddress: endAddr,
-            tripStart: DateTime.now(),
-            travellers: _travellers,
-            currency: plan.budget?.currency ?? 'INR',
-            initialTabIndex: 1, // Plan tab
-          ),
-        ));
-        return;
-      }
+      TripHistoryService.instance.saveTrip(
+        TripHistoryItem(
+          id: 'trip_${start.lat.toStringAsFixed(3)}_${end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
+          title: '$startAddr → $endAddr${_tripType == 'roundtrip' ? ' (round trip)' : ''}',
+          startAddress: startAddr,
+          endAddress: endAddr,
+          waypoints: stops,
+          distanceKm: plan.distanceKm,
+          durationMinutes: plan.durationMin,
+          vehicleType: vehicle.type,
+          fuelCost: fuelCost,
+          tollCost: tollCost,
+          totalCost: totalCost,
+          completedAt: DateTime.now(),
+          isRoundTrip: _tripType == 'roundtrip',
+          totalStopsCount: stops.length,
+        ),
+      );
 
       if (MediaQuery.of(context).size.width > 900) {
         setState(() {
@@ -599,8 +574,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           MaterialPageRoute(
             builder: (_) => TripScreen(
               plan: plan,
-              startAddress: _stopControllers.first.text.trim(),
-              endAddress: _stopControllers.last.text.trim(),
+              startAddress: startAddr,
+              endAddress: endAddr,
               vehicleType: _selectedVehicle!.type,
               poiCategories: _selectedPOIs.toList(),
               start: start,
@@ -724,6 +699,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
     final b = plan.budget;
     final currencySym = fuelEst.currencySymbol;
+    final int fuelDisplay = (b != null)
+        ? (fuelEst.totalFuelCost > 0 ? fuelEst.totalFuelCost.round() : b.fuel)
+        : (fuelEst.totalFuelCost > 0 ? fuelEst.totalFuelCost.round() : 0);
+    final int totalDisplay = (b != null)
+        ? (b.total - b.fuel + fuelDisplay)
+        : (fuelDisplay + (plan.toll?.fastagTollCost ?? 0).round());
 
     final now = DateTime.now();
     final eta = now.add(Duration(minutes: plan.durationMin));
@@ -812,7 +793,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               const Text('Trip Summary & Budget',
                   style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('${plan.formattedDistance} route · $durText',
+              Text('${plan.formattedDistance} (${_tripType == 'roundtrip' ? 'Round Trip' : 'One-Way'}) · $durText',
                   style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
               const SizedBox(height: 16),
 
@@ -820,7 +801,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               if (b != null)
                 card(Column(children: [
                   sectionTitle(Icons.account_balance_wallet_rounded, 'ESTIMATED TRIP BUDGET'),
-                  row('Fuel', '$currencySym${b.fuel}'),
+                  row('Fuel', '$currencySym$fuelDisplay',
+                      subtitle: (fuelEst.additionalFuelRequiredLiters > 0 && fuelEst.additionalFuelRequiredLiters < fuelEst.fuelRequiredLiters)
+                          ? 'Top-up needed now: $currencySym${fuelEst.estimatedCost.round()}'
+                          : null),
                   if (b.tolls > 0) row('Tolls', '$currencySym${b.tolls}'),
                   if (b.breakfast > 0) row('Breakfast', '$currencySym${b.breakfast}'),
                   if (b.lunch > 0) row('Lunch', '$currencySym${b.lunch}'),
@@ -828,7 +812,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   if (b.dinner > 0) row('Dinner', '$currencySym${b.dinner}'),
                   if (b.other > 0) row('Other', '$currencySym${b.other}'),
                   const Divider(color: Colors.white12, height: 18),
-                  row('Estimated Total', '$currencySym${b.total}',
+                  row('Estimated Total', '$currencySym$totalDisplay',
                       valueColor: const Color(0xFF10B981), strong: true),
                 ])),
 
@@ -837,12 +821,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 sectionTitle(Icons.local_gas_station_rounded, 'FUEL ESTIMATE DETAILS'),
                 row('Fuel Required', fuelEst.formattedFuelRequired),
                 row('Current Tank', fuelEst.formattedCurrentFuel),
-                row('Additional Required', fuelEst.formattedAdditionalRequired),
+                row('Additional to Refill', fuelEst.formattedAdditionalRequired),
                 row('${fuelEst.fuelType.toUpperCase()} Price', fuelEst.formattedFuelPrice,
                     subtitle: '${fuelEst.regionName} · ${fuelEst.updatedAtText}'),
                 const Divider(color: Colors.white12, height: 18),
-                row('Estimated Fuel Expense', fuelEst.formattedEstimatedCost,
+                row('Total Trip Fuel Cost', '$currencySym${fuelEst.totalFuelCost.toStringAsFixed(0)}',
                     valueColor: Colors.orangeAccent, strong: true),
+                if (fuelEst.additionalFuelRequiredLiters > 0 && fuelEst.additionalFuelRequiredLiters < fuelEst.fuelRequiredLiters)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: row('Top-Up to Buy Now', fuelEst.formattedTopUpCost,
+                        valueColor: Colors.orange.shade300),
+                  ),
               ])),
 
               // 3. TOLL DETAILS & INDIVIDUAL TOLL PLAZAS
@@ -2211,7 +2201,107 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildSectionHeader(Icons.route, 'Your Route'),
-          const SizedBox(height: 24),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_tripType != 'oneway') {
+                      setState(() {
+                        _tripType = 'oneway';
+                        _tempPlan = null;
+                        _currentPlan = null;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: _tripType == 'oneway'
+                          ? const Color(0xFF60A5FA).withOpacity(0.18)
+                          : Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _tripType == 'oneway'
+                            ? const Color(0xFF60A5FA)
+                            : Colors.white.withOpacity(0.1),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 15,
+                          color: _tripType == 'oneway' ? const Color(0xFF60A5FA) : Colors.white60,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'One-Way (A ➔ B)',
+                          style: TextStyle(
+                            color: _tripType == 'oneway' ? Colors.white : Colors.white60,
+                            fontSize: 12,
+                            fontWeight: _tripType == 'oneway' ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    if (_tripType != 'roundtrip') {
+                      setState(() {
+                        _tripType = 'roundtrip';
+                        _tempPlan = null;
+                        _currentPlan = null;
+                      });
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    decoration: BoxDecoration(
+                      color: _tripType == 'roundtrip'
+                          ? const Color(0xFF60A5FA).withOpacity(0.18)
+                          : Colors.white.withOpacity(0.04),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _tripType == 'roundtrip'
+                            ? const Color(0xFF60A5FA)
+                            : Colors.white.withOpacity(0.1),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.sync_rounded,
+                          size: 15,
+                          color: _tripType == 'roundtrip' ? const Color(0xFF60A5FA) : Colors.white60,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Round Trip (A ➔ B ➔ A)',
+                          style: TextStyle(
+                            color: _tripType == 'roundtrip' ? Colors.white : Colors.white60,
+                            fontSize: 12,
+                            fontWeight: _tripType == 'roundtrip' ? FontWeight.w700 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
           ReorderableListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

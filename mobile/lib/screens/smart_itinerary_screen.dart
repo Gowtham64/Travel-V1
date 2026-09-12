@@ -410,7 +410,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       startAddress: start.isNotEmpty ? start : 'Origin',
       endAddress: dest.isNotEmpty ? dest : 'Destination',
       waypoints: waypoints.map((w) => w.name ?? '').toList(),
-      distanceKm: _totalRouteKm ?? (_budget?.fuel != null ? 180.0 : 145.0),
+      distanceKm: _totalRouteKm ?? (_currentRoute?.distanceKm ?? 0.0),
       durationMinutes: _durationDays * 480,
       vehicleType: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
       fuelCost: (_budget?.fuel ?? 0).toDouble(),
@@ -770,7 +770,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         startPoint: _startLocCtrl.text.trim().isNotEmpty ? _startLocCtrl.text.trim() : 'Home',
         departureTime: depTime,
         stops: stops,
-        distanceKm: (_budget?.fuel != null) ? 180.0 : 145.0,
+        distanceKm: _totalRouteKm ?? (_currentRoute?.distanceKm ?? 0.0),
         remindBeforeMinutes: 30,
         vehicleType: _vehicle?.type ?? 'car',
       );
@@ -2405,9 +2405,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Text(
-                        '🔄 Around Trip',
-                        style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                      child: Text(
+                        _tripType == 'around' ? '🔄 Round Trip' : '➡️ One-Way',
+                        style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
                     if (_totalRouteKm != null) ...[
@@ -2685,7 +2685,26 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           const SizedBox(height: 10),
           if (b.transport > 0)
             row(Icons.flight_rounded, 'Flights / tickets', b.transport, const Color(0xFF38BDF8)),
-          if (b.fuel > 0) row(Icons.local_gas_station_rounded, 'Fuel', b.fuel, const Color(0xFFF97316)),
+          if (b.fuel > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                const Icon(Icons.local_gas_station_rounded, size: 16, color: Color(0xFFF97316)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Fuel', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13)),
+                      if (b.outOfPocketFuel > 0 && b.outOfPocketFuel < b.fuel)
+                        Text('Top-up needed: ${m(b.outOfPocketFuel)}',
+                            style: TextStyle(color: Colors.orangeAccent.withValues(alpha: 0.85), fontSize: 11)),
+                    ],
+                  ),
+                ),
+                Text(m(b.fuel), style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w600)),
+              ]),
+            ),
           if (b.tolls > 0) row(Icons.toll_rounded, 'Tolls', b.tolls, const Color(0xFFEAB308)),
           if (b.localTransport > 0)
             row(Icons.local_taxi_rounded, 'Local transport', b.localTransport, const Color(0xFFFACC15)),

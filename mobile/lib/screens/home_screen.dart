@@ -88,10 +88,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   String get _userName {
-    final email = Supabase.instance.client.auth.currentUser?.email;
-    if (email == null || email.isEmpty) return 'Traveller';
-    final name = email.split('@').first.replaceAll(RegExp(r'[._]'), ' ');
-    return name.isEmpty ? 'Traveller' : name[0].toUpperCase() + name.substring(1);
+    try {
+      final email = Supabase.instance.client.auth.currentUser?.email;
+      if (email == null || email.isEmpty) return 'Traveller';
+      final name = email.split('@').first.replaceAll(RegExp(r'[._]'), ' ');
+      return name.isEmpty ? 'Traveller' : name[0].toUpperCase() + name.substring(1);
+    } catch (_) {
+      return 'Traveller';
+    }
   }
 
   String get _greeting {
@@ -535,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             onTap: onTap,
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [c1, c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 borderRadius: BorderRadius.circular(16),
@@ -544,12 +548,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, size: 20, color: Colors.white),
-                  const SizedBox(width: 9),
+                  const SizedBox(width: 8),
                   Flexible(
-                    child: Text(label,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
                         maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                        style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
+                      ),
+                    ),
                   ),
                 ],
               ),

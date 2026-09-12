@@ -67,11 +67,11 @@ class _TripWorkspaceScreenState extends State<TripWorkspaceScreen> {
   }
 
   void _syncTripToCloud() {
-    final toll = widget.plan.toll?.fastagTollCost ?? 0.0;
+    final toll = (widget.plan.budget?.tolls ?? (widget.plan.toll?.fastagTollCost ?? 0)).toDouble();
     final v = widget.vehicle;
     final double litres = v.efficiencyKmPerLiter > 0 ? widget.plan.distanceKm / v.efficiencyKmPerLiter : 0.0;
-    final double fuel = widget.plan.toll?.fuelCost ?? (litres * 102.0);
-    final double total = toll + fuel;
+    final double fuel = (widget.plan.budget?.fuel ?? (widget.plan.fuelEstimate?.totalCost ?? (litres * 102.86))).toDouble();
+    final double total = (widget.plan.budget?.total ?? (toll + fuel)).toDouble();
     final stops = widget.waypoints.map((w) => w.name ?? 'Waypoint').toList();
 
     TripHistoryService.instance.saveTrip(

@@ -775,7 +775,8 @@ class FuelEstimate {
   double get totalFuelCost => totalCost;
   double get fuelRequiredLiters => fuelRequired;
   double get appliedPricePerLiter => pricePerUnit;
-  double get estimatedFuelCost => estimatedCost > 0 ? estimatedCost : totalCost;
+  double get estimatedFuelCost => totalCost > 0 ? totalCost : (estimatedCost > 0 ? estimatedCost : 0.0);
+  double get outOfPocketFuelCost => estimatedCost > 0 ? estimatedCost : totalCost;
   bool get isPriceAvailable => status.toLowerCase() != 'unavailable' && pricePerUnit > 0;
 
   String get formattedFuelRequired => '${fuelRequired.toStringAsFixed(1)} L';
@@ -784,7 +785,8 @@ class FuelEstimate {
   String get formattedFuelPrice => isPriceAvailable
       ? '$currencySymbol${pricePerUnit.toStringAsFixed(2)}/${unit == "litre" ? "L" : unit}'
       : 'Fuel price unavailable';
-  String get formattedEstimatedCost => '$currencySymbol${(estimatedCost > 0 ? estimatedCost : totalCost).toStringAsFixed(2)}';
+  String get formattedEstimatedCost => '$currencySymbol${(totalCost > 0 ? totalCost : estimatedCost).toStringAsFixed(2)}';
+  String get formattedTopUpCost => '$currencySymbol${estimatedCost.toStringAsFixed(2)}';
 
   String get regionName => applicableLocation.isNotEmpty
       ? applicableLocation
@@ -1111,6 +1113,7 @@ class TripBudget {
   final int travellers;
   final bool international;
   final int fuel;
+  final int outOfPocketFuel;
   final int tolls;
   final int transport; // flight/train/bus/ferry tickets
   final int localTransport; // destination taxis / local getting-around
@@ -1132,6 +1135,7 @@ class TripBudget {
     required this.travellers,
     this.international = false,
     required this.fuel,
+    this.outOfPocketFuel = 0,
     required this.tolls,
     this.transport = 0,
     this.localTransport = 0,
@@ -1160,14 +1164,43 @@ class TripBudget {
         (foodTotal > 0 ? (foodTotal * 0.25).round() : 500);
     final calculatedFood = bf + ln + ts + dn;
     final otherVal = (b['other'] as num?)?.toInt() ?? (b['buffer'] as num?)?.toInt() ?? 300;
+    final fuelVal = (b['fuel'] as num?)?.toInt() ?? 0;
+    final outOfPocketVal = (b['outOfPocketFuel'] as num?)?.toInt() ?? fuelVal;
+
+    int reconciledFuel = fuelVal;
+    int reconciledOutOfPocket = outOfPocketVal;
+    int reconciledTotal = (json['total'] as num?)?.toInt() ?? 0;
+
+    // Self-healing: reconcile against assumptions if backend sent out-of-pocket top-up as trip fuel
+    final assumptions = (json['assumptions'] is Map ? (json['assumptions'] as Map).cast<String, dynamic>() : null);
+    if (assumptions != null) {
+      final reqLiters = (assumptions['fuelRequiredLiters'] as num?)?.toDouble() ?? 0.0;
+      final pricePerL = (assumptions['fuelPricePerLiter'] as num?)?.toDouble() ?? 0.0;
+      final additionalL = (assumptions['additionalFuelRequiredLiters'] as num?)?.toDouble();
+      if (reqLiters > 0 && pricePerL > 0) {
+        final totalTripFuel = (reqLiters * pricePerL).round();
+        if (reconciledFuel < totalTripFuel) {
+          final diff = totalTripFuel - reconciledFuel;
+          reconciledOutOfPocket = reconciledFuel;
+          reconciledFuel = totalTripFuel;
+          reconciledTotal += diff;
+        }
+        if (additionalL != null) {
+          reconciledOutOfPocket = (additionalL * pricePerL).round();
+        }
+      }
+    }
+
+    final d = (json['days'] as num?)?.toInt() ?? 1;
 
     return TripBudget(
       currency: json['currency'] as String? ?? 'INR',
-      days: (json['days'] as num?)?.toInt() ?? 1,
+      days: d,
       nights: (json['nights'] as num?)?.toInt() ?? 0,
       travellers: (json['travellers'] as num?)?.toInt() ?? 1,
       international: json['international'] as bool? ?? false,
-      fuel: (b['fuel'] as num?)?.toInt() ?? 0,
+      fuel: reconciledFuel,
+      outOfPocketFuel: reconciledOutOfPocket,
       tolls: (b['tolls'] as num?)?.toInt() ?? 0,
       transport: (b['transport'] as num?)?.toInt() ?? 0,
       localTransport: (b['localTransport'] as num?)?.toInt() ?? 0,
@@ -1179,8 +1212,54 @@ class TripBudget {
       other: otherVal,
       stay: (b['stay'] as num?)?.toInt() ?? 0,
       buffer: (b['buffer'] as num?)?.toInt() ?? otherVal,
-      total: (json['total'] as num?)?.toInt() ?? 0,
-      perDay: (json['perDay'] as num?)?.toInt() ?? 0,
+      total: reconciledTotal,
+      perDay: d > 0 ? (reconciledTotal / d).round() : reconciledTotal,
+    );
+  }
+
+  TripBudget copyWith({
+    String? currency,
+    int? days,
+    int? nights,
+    int? travellers,
+    bool? international,
+    int? fuel,
+    int? outOfPocketFuel,
+    int? tolls,
+    int? transport,
+    int? localTransport,
+    int? breakfast,
+    int? lunch,
+    int? teaSnacks,
+    int? dinner,
+    int? food,
+    int? other,
+    int? stay,
+    int? buffer,
+    int? total,
+    int? perDay,
+  }) {
+    return TripBudget(
+      currency: currency ?? this.currency,
+      days: days ?? this.days,
+      nights: nights ?? this.nights,
+      travellers: travellers ?? this.travellers,
+      international: international ?? this.international,
+      fuel: fuel ?? this.fuel,
+      outOfPocketFuel: outOfPocketFuel ?? this.outOfPocketFuel,
+      tolls: tolls ?? this.tolls,
+      transport: transport ?? this.transport,
+      localTransport: localTransport ?? this.localTransport,
+      breakfast: breakfast ?? this.breakfast,
+      lunch: lunch ?? this.lunch,
+      teaSnacks: teaSnacks ?? this.teaSnacks,
+      dinner: dinner ?? this.dinner,
+      food: food ?? this.food,
+      other: other ?? this.other,
+      stay: stay ?? this.stay,
+      buffer: buffer ?? this.buffer,
+      total: total ?? this.total,
+      perDay: perDay ?? this.perDay,
     );
   }
 
@@ -1194,6 +1273,7 @@ class TripBudget {
     'perDay': perDay,
     'breakdown': {
       'fuel': fuel,
+      'outOfPocketFuel': outOfPocketFuel,
       'tolls': tolls,
       'transport': transport,
       'localTransport': localTransport,
@@ -1681,10 +1761,28 @@ class TripPlan {
     final route = (json['route'] as Map).cast<String, dynamic>();
     final placesJson = ((json['places'] as Map?) ?? {}).cast<String, dynamic>();
 
-    final distKm = (route['distanceKm'] as num).toDouble();
+    final num? rawDistKm = (route['distanceKm'] as num?) ?? (json['totalDistanceKm'] as num?);
+    final distKm = rawDistKm?.toDouble() ?? 0.0;
     final distMeters = (route['distanceMeters'] as num?)?.toInt() ?? (distKm * 1000).round();
-    final durMin = (route['durationMin'] as num?)?.toInt() ?? 0;
+    final durMin = (route['durationMin'] as num?)?.toInt() ?? ((json['totalDurationMin'] as num?)?.toInt() ?? 0);
     final durSec = (route['durationSeconds'] as num?)?.toInt() ?? (durMin * 60);
+
+    final fuelEstimate = json['fuelEstimate'] != null
+        ? FuelEstimate.fromJson((json['fuelEstimate'] as Map).cast<String, dynamic>())
+        : null;
+
+    var budget = json['budget'] != null ? TripBudget.fromJson((json['budget'] as Map).cast<String, dynamic>()) : null;
+    if (budget != null && fuelEstimate != null && fuelEstimate.totalCost > 0) {
+      if (budget.fuel < fuelEstimate.totalCost.round()) {
+        final diff = fuelEstimate.totalCost.round() - budget.fuel;
+        budget = budget.copyWith(
+          fuel: fuelEstimate.totalCost.round(),
+          outOfPocketFuel: fuelEstimate.estimatedCost.round(),
+          total: budget.total + diff,
+          perDay: budget.days > 0 ? ((budget.total + diff) / budget.days).round() : (budget.total + diff),
+        );
+      }
+    }
 
     return TripPlan(
       distanceKm: distKm,
@@ -1695,11 +1793,9 @@ class TripPlan {
           .map((e) => GeoPoint.fromJson((e as Map).cast<String, dynamic>()))
           .toList(),
       avoidedMotorways: (route['avoidedMotorways'] as bool?) ?? false,
-      estimatedDays: json['estimatedDays'] as int,
+      estimatedDays: (json['estimatedDays'] as num?)?.toInt() ?? 1,
       fuel: FuelPlan.fromJson((json['fuel'] as Map).cast<String, dynamic>()),
-      fuelEstimate: json['fuelEstimate'] != null
-          ? FuelEstimate.fromJson((json['fuelEstimate'] as Map).cast<String, dynamic>())
-          : null,
+      fuelEstimate: fuelEstimate,
       toll: json['toll'] != null ? TollEstimate.fromJson((json['toll'] as Map).cast<String, dynamic>()) : null,
       weather: json['weather'] != null ? RouteWeather.fromJson((json['weather'] as Map).cast<String, dynamic>()) : null,
       departureAdvice: json['departureAdvice'] != null
@@ -1711,7 +1807,7 @@ class TripPlan {
       itinerary: (json['itinerary'] as List? ?? [])
           .map((e) => DayPlan.fromJson((e as Map).cast<String, dynamic>()))
           .toList(),
-      budget: json['budget'] != null ? TripBudget.fromJson((json['budget'] as Map).cast<String, dynamic>()) : null,
+      budget: budget,
       places: placesJson.map(
         (key, value) => MapEntry(
           key,
