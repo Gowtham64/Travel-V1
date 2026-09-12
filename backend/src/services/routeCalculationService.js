@@ -103,7 +103,7 @@ async function calculateTripRoute({
     throw new Error("Invalid destination: valid coordinates (lat, lng) are required");
   }
 
-  const isAroundTrip = tripType === "around";
+  const isAroundTrip = tripType === "around" || tripType === "round" || tripType === "roundtrip";
   const normStops = (Array.isArray(stops) ? stops : [])
     .map((s, idx) => normalizeLocation(s, `Stop ${idx + 1}`, "activity", idx + 1))
     .filter(Boolean);
@@ -262,7 +262,7 @@ async function calculateTripRoute({
     tripId,
     origin: normOrigin,
     destination: normDest,
-    tripType,
+    tripType: isAroundTrip ? "around" : "one_way",
     stops: normStops,
     route: {
       distanceMeters,

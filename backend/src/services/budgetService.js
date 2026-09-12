@@ -98,8 +98,9 @@ function estimateBudget({
     }
   } catch (_) {}
 
-  // Estimated fuel expense is based on additional fuel required (or total required if current is 0)
-  const fuelCost = Math.round((additionalFuelRequired > 0 ? additionalFuelRequired : fuelRequired) * fuelRate);
+  // Estimated trip fuel expense is based on total fuel required for the trip
+  const fuelCost = Math.round(fuelRequired * fuelRate);
+  const outOfPocketFuel = Math.round(additionalFuelRequired * fuelRate);
 
   // Tolls: exact fastag cost from authoritative route toll calculation
   let tollCost = 0;
@@ -141,6 +142,7 @@ function estimateBudget({
     international,
     breakdown: {
       fuel: round(fuelCost),
+      outOfPocketFuel: round(outOfPocketFuel),
       tolls: round(tollCost),
       breakfast: round(breakfastCost),
       lunch: round(lunchCost),
@@ -162,6 +164,8 @@ function estimateBudget({
       fuelRequiredLiters: round(fuelRequired * 10) / 10,
       currentFuelLiters: round(currentFuel * 10) / 10,
       additionalFuelRequiredLiters: round(additionalFuelRequired * 10) / 10,
+      totalFuelCost: round(fuelCost),
+      outOfPocketFuelCost: round(outOfPocketFuel),
       breakfastPerDay: breakfastRate,
       lunchPerDay: lunchRate,
       teaSnacksPerDay: teaSnacksRate,

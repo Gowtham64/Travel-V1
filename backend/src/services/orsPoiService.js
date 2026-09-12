@@ -114,6 +114,17 @@ async function findPOIsAlongRoute(routeCoordinates, categories) {
     }
 
     await Promise.all(fetchPromises);
+
+    // Sort POIs progressively along the route corridor from origin to destination
+    if (routeCoordinates && routeCoordinates.length > 0) {
+      const origin = routeCoordinates[0];
+      results.sort((a, b) => {
+        const distA = distKm(a.lat, a.lng, origin.lat, origin.lng);
+        const distB = distKm(b.lat, b.lng, origin.lat, origin.lng);
+        return distA - distB;
+      });
+    }
+
     places[category] = results;
     console.log(`POI [${category}]: found ${results.length} verified places along route`);
   }

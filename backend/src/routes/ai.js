@@ -485,7 +485,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
             tankCapacityLiters: Number(b.tankCapacity) || 45,
             currentFuelLiters: Number(b.currentFuel) || 30,
           },
-          tripType: b.tripType || "around",
+          tripType: (b.tripType === "one_way" || b.tripType === "oneway") ? "one_way" : "around",
           durationDays: days.length,
           travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
           routeVersion: nextRouteVersion,

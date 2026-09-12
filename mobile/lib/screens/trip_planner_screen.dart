@@ -19,6 +19,7 @@ import 'trip_workspace_screen.dart';
 import 'itinerary_screen.dart';
 import 'saved_trips_screen.dart';
 import 'trip_history_screen.dart';
+import 'login_screen.dart';
 import 'account_screens.dart';
 import '../widgets/profile_menu.dart';
 import '../services/trip_history_service.dart';
@@ -1020,6 +1021,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
   }
 
+  double _calcDistKm(double lat1, double lon1, double lat2, double lon2) {
+    const p = 0.017453292519943295;
+    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+        cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
+    return 12742 * asin(sqrt(a));
+  }
+
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
     final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
 
@@ -2010,30 +2018,69 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 ],
               ),
             ),
-            // Log Out Button at Bottom
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.2)),
-                  color: Colors.redAccent.withOpacity(0.05),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                  leading: const Icon(Icons.logout_rounded, color: Colors.redAccent, size: 22),
-                  title: const Text(
-                    'Log out',
-                    style: TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold),
+            // Auth Button at Bottom (Log in / Sign up for guest, Log out for authenticated user)
+            Builder(
+              builder: (ctx) {
+                final currentUser = Supabase.instance.client.auth.currentUser;
+                final isGuest = currentUser == null;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isGuest
+                            ? const Color(0xFF38BDF8).withOpacity(0.35)
+                            : Colors.redAccent.withOpacity(0.25),
+                      ),
+                      color: isGuest
+                          ? const Color(0xFF38BDF8).withOpacity(0.08)
+                          : Colors.redAccent.withOpacity(0.05),
+                    ),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                      leading: Icon(
+                        isGuest ? Icons.login_rounded : Icons.logout_rounded,
+                        color: isGuest ? const Color(0xFF38BDF8) : Colors.redAccent,
+                        size: 22,
+                      ),
+                      title: Text(
+                        isGuest ? 'Log in / Sign up' : 'Log out',
+                        style: TextStyle(
+                          color: isGuest ? const Color(0xFF38BDF8) : Colors.redAccent,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        if (isGuest) {
+                          if (kIsWeb) {
+                            redirectToLanding();
+                          } else {
+                            Navigator.push(
+                              ctx,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            );
+                          }
+                        } else {
+                          await Supabase.instance.client.auth.signOut();
+                          if (kIsWeb) {
+                            redirectToLanding();
+                          } else {
+                            Navigator.pushAndRemoveUntil(
+                              ctx,
+                              MaterialPageRoute(builder: (_) => const LoginScreen()),
+                              (route) => false,
+                            );
+                          }
+                        }
+                      },
+                    ),
                   ),
-                  onTap: () async {
-                    await Supabase.instance.client.auth.signOut();
-                    // Return to the landing page (which hosts login) on web.
-                    redirectToLanding();
-                  },
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -3281,6 +3328,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
     if (allPois.isEmpty) return const SizedBox.shrink();
 
+    // Sort POIs progressively along the route corridor from start to destination
+    final startCoord = _tempStart ?? (_stopControllers.isNotEmpty ? _resolvedStopCoords[_stopControllers.first.hashCode] : null);
+    if (startCoord != null) {
+      allPois.sort((a, b) {
+        final distA = _calcDistKm(a.value.lat, a.value.lng, startCoord.lat, startCoord.lng);
+        final distB = _calcDistKm(b.value.lat, b.value.lng, startCoord.lat, startCoord.lng);
+        return distA.compareTo(distB);
+      });
+    }
+
     return Container(
       constraints: const BoxConstraints(maxHeight: 380),
       margin: const EdgeInsets.only(top: 8),
@@ -3300,6 +3357,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           final place = poi.value;
           final temple = (category == 'temple') ? TempleDatabase.findTemple(place.name) : null;
           final isTemple = category == 'temple' || temple != null;
+          final distFromOrigin = startCoord != null
+              ? _calcDistKm(place.lat, place.lng, startCoord.lat, startCoord.lng)
+              : null;
 
           final cleanName = temple?.canonicalName ?? (place.name.toLowerCase().startsWith('unnamed')
               ? (category == 'fuel'
@@ -3381,7 +3441,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                             ),
                           ),
                           const SizedBox(height: 4),
-                          Row(
+                          Wrap(
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 6,
+                            runSpacing: 4,
                             children: [
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -3401,20 +3464,35 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 6),
                               Text(
                                 categoryLabel,
                                 style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
                               ),
-                              const SizedBox(width: 6),
-                              Container(
-                                width: 4,
-                                height: 4,
-                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.4), shape: BoxShape.circle),
-                              ),
-                              const SizedBox(width: 6),
+                              if (distFromOrigin != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF38BDF8).withOpacity(0.18),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.near_me_outlined, color: Color(0xFF38BDF8), size: 11),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        '${distFromOrigin.toStringAsFixed(1)} km',
+                                        style: const TextStyle(
+                                          color: Color(0xFF38BDF8),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               Text(
-                                'Open',
+                                '• Open',
                                 style: TextStyle(color: Colors.greenAccent.shade400, fontSize: 11, fontWeight: FontWeight.w600),
                               ),
                             ],

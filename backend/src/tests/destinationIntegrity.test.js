@@ -1,3 +1,24 @@
+// This suite validates deterministic itinerary constraints. Keep external routing and
+// POI discovery out of it: their availability belongs to integration/E2E coverage.
+jest.mock("../services/routingService", () => ({
+  getRoute: jest.fn(async (from, to) => ({
+    distanceKm: 100,
+    durationMin: 120,
+    coordinates: [from, to],
+  })),
+  toPoint: jest.fn(),
+}));
+jest.mock("../services/itineraryGeo", () => ({
+  geocode: jest.fn(),
+  route: jest.fn(),
+}));
+jest.mock("../services/orsPoiService", () => ({
+  findPOIsInArea: jest.fn(async () => []),
+}));
+jest.mock("../services/routeCalculationService", () => ({
+  calculateTripRoute: jest.fn(async () => null),
+}));
+
 const { planItinerary, resolveLocation } = require("../services/itineraryEngine");
 
 describe("Smart AI Planner Destination Integrity & Hard Constraint Tests", () => {

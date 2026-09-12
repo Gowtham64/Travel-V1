@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Mapbox 3D Model Diagnostic</title>
+<meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js"></script>
+<script src="https://unpkg.com/three@0.126.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.126.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+<style>
+  body { margin:0; font-family:-apple-system,system-ui,sans-serif; background:#0b1220; color:#e6edf6; }
+  h2 { margin:14px 16px 4px; font-size:15px; }
+  p.note { margin:0 16px 8px; font-size:12px; color:#8fa3bf; }
+  .map { position:relative; width:100%; height:46vh; }
+  .badge { position:absolute; z-index:2; top:10px; left:10px; background:rgba(10,16,28,.72);
+           padding:6px 10px; border-radius:8px; font-size:12px; backdrop-filter:blur(8px); }
+</style>
+</head>
+<body>
+  <h2>Test A &mdash; Exact Mapbox docs example (static antenna model)</h2>
+  <p class="note">If you see a tall antenna/tower structure on the map, Three.js custom layers render in your browser.</p>
+  <div id="mapA" class="map"><div class="badge">Test A: static model (docs verbatim)</div></div>
+
+  <h2>Test B &mdash; Car driving along a route (same technique)</h2>
+  <p class="note">A car model should drive along the blue line, looping. This is what we want inside the app.</p>
+  <div id="mapB" class="map"><div class="badge" id="badgeB">Test B: animated car</div></div>
+
+<script>
+const TOKEN = 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+mapboxgl.accessToken = TOKEN;
+const THREE = window.THREE;
+
+/* ---------- TEST A: exact docs example (static antenna) ---------- */
+(function () {
+  const map = new mapboxgl.Map({
+    container: 'mapA',
+    style: 'mapbox://styles/mapbox/standard',
+    zoom: 18, center: [148.9819, -35.3981], pitch: 60, antialias: true
+  });
+  const modelOrigin = [148.9819, -35.39847];
+  const modelAltitude = 0;
+  const modelRotate = [Math.PI / 2, 0, 0];
+  const mc = mapboxgl.MercatorCoordinate.fromLngLat(modelOrigin, modelAltitude);
+  const t = {
+    translateX: mc.x, translateY: mc.y, translateZ: mc.z,
+    rotateX: modelRotate[0], rotateY: modelRotate[1], rotateZ: modelRotate[2],
+    scale: mc.meterInMercatorCoordinateUnits()
+  };
+  const customLayer = {
+    id: '3d-model', type: 'custom', renderingMode: '3d',
+    onAdd: function (m, gl) {
+      this.camera = new THREE.Camera();
+      this.scene = new THREE.Scene();
+      const l1 = new THREE.DirectionalLight(0xffffff); l1.position.set(0, -70, 100).normalize(); this.scene.add(l1);
+      const l2 = new THREE.DirectionalLight(0xffffff); l2.position.set(0, 70, 100).normalize(); this.scene.add(l2);
+      new THREE.GLTFLoader().load(
+        'https://docs.mapbox.com/mapbox-gl-js/assets/34M_17/34M_17.gltf',
+        (g) => this.scene.add(g.scene));
+      this.map = m;
+      this.renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true });
+      this.renderer.autoClear = false;
+    },
+    render: function (gl, matrix) {
+      const rx = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1,0,0), t.rotateX);
+      const ry = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,1,0), t.rotateY);
+      const rz = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,0,1), t.rotateZ);
+      const m = new THREE.Matrix4().fromArray(matrix);
+      const l = new THREE.Matrix4()
+        .makeTranslation(t.translateX, t.translateY, t.translateZ)
+        .scale(new THREE.Vector3(t.scale, -t.scale, t.scale))
+        .multiply(rx).multiply(ry).multiply(rz);
+      this.camera.projectionMatrix = m.multiply(l);
+      this.renderer.resetState();
+      this.renderer.render(this.scene, this.camera);
+      this.map.triggerRepaint();
+    }
+  };
+  map.on('style.load', () => map.addLayer(customLayer));
+})();
+
+/* ---------- TEST B: car driving along a route (same custom-layer technique) ---------- */
+(function () {
+  // A short route through central London.
+  const routeCoords = [
+    [-0.1425, 51.5010], [-0.1390, 51.5015], [-0.1350, 51.5008],
+    [-0.1310, 51.5020], [-0.1270, 51.5012], [-0.1230, 51.5025]
+  ];
+  const line = turf.lineString(routeCoords);
+  const routeLenKm = turf.length(line, { units: 'kilometers' });
+
+  const map = new mapboxgl.Map({
+    container: 'mapB',
+    style: 'mapbox://styles/mapbox/standard',
+    zoom: 16.5, center: routeCoords[0], pitch: 62, bearing: -20, antialias: true
+  });
+
+  map.on('style.load', () => {
+    map.addSource('route', { type: 'geojson', data: line });
+    map.addLayer({ id: 'route-line', type: 'line', source: 'route',
+      paint: { 'line-color': '#2E75B6', 'line-width': 8, 'line-opacity': 0.9 } });
+
+    // A CORS-enabled car glb (Khronos sample, real-world meter scale).
+    const CAR_URL = 'https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/CesiumMilkTruck/glTF-Binary/CesiumMilkTruck.glb';
+
+    let carScene = null;
+    const state = { lng: routeCoords[0][0], lat: routeCoords[0][1], bearing: 0 };
+
+    const carLayer = {
+      id: 'car-3d', type: 'custom', renderingMode: '3d',
+      onAdd: function (m, gl) {
+        this.camera = new THREE.Camera();
+        this.scene = new THREE.Scene();
+        const l1 = new THREE.DirectionalLight(0xffffff, 1.1); l1.position.set(0, -70, 100).normalize(); this.scene.add(l1);
+        const l2 = new THREE.DirectionalLight(0xffffff, 1.1); l2.position.set(0, 70, 100).normalize(); this.scene.add(l2);
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        new THREE.GLTFLoader().load(CAR_URL, (g) => {
+          carScene = g.scene;
+          this.scene.add(carScene);
+          document.getElementById('badgeB').textContent = 'Test B: car model loaded ✓';
+        }, undefined, (err) => {
+          document.getElementById('badgeB').textContent = 'Test B: car model FAILED to load ✗';
+        });
+        this.map = m;
+        this.renderer = new THREE.WebGLRenderer({ canvas: m.getCanvas(), context: gl, antialias: true });
+        this.renderer.autoClear = false;
+      },
+      render: function (gl, matrix) {
+        if (!carScene) { this.map.triggerRepaint(); return; }
+        const mc = mapboxgl.MercatorCoordinate.fromLngLat([state.lng, state.lat], 0);
+        const scale = mc.meterInMercatorCoordinateUnits();
+        // Base rotate so model sits upright (glTF Y-up -> Mapbox Z-up).
+        const rx = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(1,0,0), Math.PI / 2);
+        // Heading: rotate around Z by travel bearing.
+        const rz = new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(0,0,1), -state.bearing * Math.PI / 180);
+        const m = new THREE.Matrix4().fromArray(matrix);
+        const l = new THREE.Matrix4()
+          .makeTranslation(mc.x, mc.y, mc.z)
+          .scale(new THREE.Vector3(scale, -scale, scale))
+          .multiply(rz).multiply(rx);
+        this.camera.projectionMatrix = m.multiply(l);
+        this.renderer.resetState();
+        this.renderer.render(this.scene, this.camera);
+        this.map.triggerRepaint();
+      }
+    };
+    map.addLayer(carLayer);
+
+    // Drive the car along the route on a loop.
+    let dist = 0;
+    const step = routeLenKm / 600; // ~600 frames per loop
+    function animate() {
+      dist += step;
+      if (dist > routeLenKm) dist = 0;
+      const pt = turf.along(line, dist, { units: 'kilometers' });
+      const ahead = turf.along(line, Math.min(dist + 0.005, routeLenKm), { units: 'kilometers' });
+      state.lng = pt.geometry.coordinates[0];
+      state.lat = pt.geometry.coordinates[1];
+      state.bearing = turf.bearing(pt, ahead);
+      map.triggerRepaint();
+      requestAnimationFrame(animate);
+    }
+    animate();
+  });
+})();
+</script>
+</body>
+</html>

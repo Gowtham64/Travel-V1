@@ -495,7 +495,7 @@ class ApiService {
               'categories': activeCategories,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -507,6 +507,17 @@ class ApiService {
           ),
         );
         if (res.values.any((l) => l.isNotEmpty)) {
+          // Ensure places are sorted by distance from start coordinate
+          if (sampledCoords.isNotEmpty) {
+            final startPt = sampledCoords.first;
+            for (final list in res.values) {
+              list.sort((a, b) {
+                final distA = (a.lat - startPt.lat) * (a.lat - startPt.lat) + (a.lng - startPt.lng) * (a.lng - startPt.lng);
+                final distB = (b.lat - startPt.lat) * (b.lat - startPt.lat) + (b.lng - startPt.lng) * (b.lng - startPt.lng);
+                return distA.compareTo(distB);
+              });
+            }
+          }
           return res;
         }
       }
@@ -568,7 +579,9 @@ class ApiService {
     for (final cat in categories) {
       final terms = categoryQueryMap[cat] ?? [cat];
       for (final pt in samplePoints) {
+        int addedForThisSample = 0;
         for (final term in terms) {
+          if (addedForThisSample >= 3) break;
           try {
             final uri = Uri.parse(
               'https://photon.komoot.io/api/?q=${Uri.encodeComponent(term)}&lat=${pt.lat}&lon=${pt.lng}&limit=8',
@@ -578,6 +591,7 @@ class ApiService {
               final data = jsonDecode(resp.body) as Map<String, dynamic>;
               final features = data['features'] as List<dynamic>? ?? [];
               for (final f in features) {
+                if (addedForThisSample >= 3) break;
                 final geom = f['geometry'] as Map<String, dynamic>?;
                 final coords = geom?['coordinates'] as List<dynamic>?;
                 final props = f['properties'] as Map<String, dynamic>? ?? {};
@@ -640,6 +654,7 @@ class ApiService {
                         categoryType: isTemple ? '🛕 Hindu temple' : (cat == 'attraction' ? '📍 Landmark / Attraction' : (cat == 'viewpoint' ? '🌄 Scenic Viewpoint' : null)),
                       ),
                     );
+                    addedForThisSample++;
                   }
                 }
               }
@@ -647,6 +662,16 @@ class ApiService {
           } catch (_) {}
         }
       }
+    }
+
+    // Sort all categories progressively along the route corridor from origin
+    final origin = coordinates.first;
+    for (final cat in categories) {
+      result[cat]?.sort((a, b) {
+        final distA = distKm(a.lat, a.lng, origin.lat, origin.lng);
+        final distB = distKm(b.lat, b.lng, origin.lat, origin.lng);
+        return distA.compareTo(distB);
+      });
     }
 
     return result;
