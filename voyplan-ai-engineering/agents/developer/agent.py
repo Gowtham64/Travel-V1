@@ -56,19 +56,18 @@ class DeveloperAgent:
         logger.log_event("Running Jest baseline test suite...")
         
         import shutil
-        npm_bin = shutil.which("npm")
-        if not npm_bin:
-            for candidate in ["/opt/render/project/src/.venv/bin/npm", "/usr/local/bin/npm", "/usr/bin/npm", "/opt/render/project/nodes/node/bin/npm"]:
-                if os.path.exists(candidate):
-                    npm_bin = candidate
-                    break
-
-        if npm_bin:
+        node_bin = shutil.which("node")
+        npm_bin = shutil.which("npm") if node_bin else None
+        
+        test_run = None
+        if npm_bin and node_bin:
             test_run = self._run_cmd([npm_bin, "test", "--", "--testPathPattern=destinationBoundaries", "--forceExit", "--silent"], cwd=backend_dir)
-            logger.record_command(f"{npm_bin} test -- --testPathPattern=destinationBoundaries --forceExit", test_run.returncode, test_run.stdout)
-        else:
-            # Server environment without node/npm (e.g. Render Python container): run native spatial regression suite
-            logger.log_event("Node/npm not detected in PATH; executing native spatial boundary regression suite...", level="INFO")
+            if test_run.returncode != 127:
+                logger.record_command(f"{npm_bin} test -- --testPathPattern=destinationBoundaries --forceExit", test_run.returncode, test_run.stdout)
+
+        if test_run is None or test_run.returncode == 127:
+            # Server environment without working node/npm: run native spatial regression suite
+            logger.log_event("Node/npm environment not runnable; executing native spatial boundary regression suite...", level="INFO")
             test_script = os.path.join(self.workspace_path, "voyplan-ai-engineering", "tests", "spatial_validator.py")
             test_run = self._run_cmd([sys.executable, test_script], cwd=self.workspace_path)
             logger.record_command("python3 tests/spatial_validator.py", test_run.returncode, test_run.stdout)
