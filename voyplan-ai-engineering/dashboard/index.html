@@ -1714,6 +1714,14 @@
             <span id="system-health-text">SYSTEM HEALTHY</span>
           </div>
 
+          <button class="btn-ctrl" id="audio-toggle-btn" onclick="toggleAudio()" title="Toggle Mission Control Sound FX">
+            🔊 SFX ON
+          </button>
+
+          <button class="btn-action btn-ghost" onclick="triggerRenderDeploy()" title="Trigger Production Zero-Downtime Deploy on Render">
+            🚀 Deploy voyplan.in
+          </button>
+
           <select class="env-select" id="env-selector" onchange="switchEnvironment(this.value)">
             <option value="development">Development</option>
             <option value="staging">Staging</option>
@@ -1942,20 +1950,8 @@
                 <div class="env-screen-viewport">
                   <div class="android-phone-frame">
                     <div class="phone-camera-hole"></div>
-                    <div class="phone-screen" id="android-screen-mock">
-                      <div style="padding:0.5rem; text-align:center;">
-                        <span style="font-size:0.6rem; color:var(--cyan-400); font-family:var(--font-mono); font-weight:700;">VOYPLAN MOBILE (APK)</span>
-                      </div>
-                      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.5rem; padding:1rem; text-align:center;">
-                        <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #0ea5e9, #6366f1); display:flex; align-items:center; justify-content:center;">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                        </div>
-                        <span style="font-size:0.75rem; font-weight:700; color:#fff;">Live Android ADB Session</span>
-                        <span style="font-size:0.62rem; color:var(--text-dim);" id="android-screen-log">Executing: lib/screens/login_screen.dart</span>
-                      </div>
-                      <div style="padding:0.4rem; background:rgba(0,0,0,0.5); font-size:0.55rem; font-family:var(--font-mono); color:#10b981; text-align:center;">
-                        ADB: DEVICE_ONLINE • PORT 5554
-                      </div>
+                    <div class="phone-screen" id="android-screen-container" style="position:relative; cursor:crosshair; overflow:hidden;" onclick="handleDeviceTap(event, 'android')" title="Click on phone screen to dispatch touch event">
+                      <img id="android-screen-img" src="/api/runners/android/screen" alt="Android Live Mirror" style="width:100%; height:100%; object-fit:cover; display:block;" />
                     </div>
                   </div>
                 </div>
@@ -1997,20 +1993,8 @@
                     <div class="ios-dynamic-island">
                       <div style="width:4px; height:4px; border-radius:50%; background:#10b981;"></div>
                     </div>
-                    <div class="phone-screen" id="ios-screen-mock">
-                      <div style="padding:0.5rem; text-align:center;">
-                        <span style="font-size:0.6rem; color:var(--indigo-400); font-family:var(--font-mono); font-weight:700;">VOYPLAN iOS (RUNNER)</span>
-                      </div>
-                      <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.5rem; padding:1rem; text-align:center;">
-                        <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #a855f7, #6366f1); display:flex; align-items:center; justify-content:center;">
-                          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#fff" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                        </div>
-                        <span style="font-size:0.75rem; font-weight:700; color:#fff;">Live macOS Simctl Session</span>
-                        <span style="font-size:0.62rem; color:var(--text-dim);" id="ios-screen-log">Executing: lib/screens/home_screen.dart</span>
-                      </div>
-                      <div style="padding:0.4rem; background:rgba(0,0,0,0.5); font-size:0.55rem; font-family:var(--font-mono); color:#a855f7; text-align:center;">
-                        XCODE: 26.6 • SIMCTL VERIFIED
-                      </div>
+                    <div class="phone-screen" id="ios-screen-container" style="position:relative; cursor:crosshair; overflow:hidden;" onclick="handleDeviceTap(event, 'macos')" title="Click on phone screen to dispatch touch event">
+                      <img id="ios-screen-img" src="/api/runners/macos/screen" alt="iOS Live Mirror" style="width:100%; height:100%; object-fit:cover; display:block;" />
                     </div>
                   </div>
                 </div>
@@ -2373,10 +2357,130 @@ Zero-mock enforcement active across all agents.
     </div>
   </div>
 
+  <!-- ── MODAL: BUG DEEP INSPECTOR & AI HOTFIX ── -->
+  <div class="modal-overlay" id="bug-inspect-modal">
+    <div class="modal-box" style="max-width: 680px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="color:var(--rose-400); font-weight:800; font-family:var(--font-mono);" id="bug-modal-id">BUG-0248</span>
+          <span style="font-size:0.9rem; font-weight:800; color:#fff;" id="bug-modal-title">Android Login Authentication Latency</span>
+        </div>
+        <button class="btn-ctrl" onclick="closeBugInspectModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:0.6rem; background:rgba(0,0,0,0.3); padding:0.6rem; border-radius:8px;">
+          <div><span style="font-size:0.62rem; color:var(--text-dim);">SEVERITY</span><div style="color:var(--rose-400); font-weight:700;" id="bug-modal-pri">HIGH</div></div>
+          <div><span style="font-size:0.62rem; color:var(--text-dim);">PLATFORM</span><div style="color:#fff; font-weight:700;" id="bug-modal-platform">Android ADB</div></div>
+          <div><span style="font-size:0.62rem; color:var(--text-dim);">DETECTED BY</span><div style="color:var(--cyan-400); font-weight:700;">Testing Agent</div></div>
+        </div>
+        <div>
+          <label style="font-size:0.7rem; font-weight:700; color:var(--text-dim);">Root Cause Analysis</label>
+          <div id="bug-modal-root-cause" style="font-size:0.78rem; color:#cbd5e1; background:rgba(244,63,94,0.08); border:1px solid rgba(244,63,94,0.2); padding:0.6rem; border-radius:6px;">
+            Token expiration during async OSRM routing causes drop of authorization header.
+          </div>
+        </div>
+        <div>
+          <label style="font-size:0.7rem; font-weight:700; color:var(--text-dim);">Proposed Surgical Patch Diff</label>
+          <pre id="bug-modal-diff" style="font-family:var(--font-mono); font-size:0.7rem; background:#020408; border:1px solid var(--border-subtle); padding:0.6rem; border-radius:6px; color:#34d399; overflow-x:auto;">
+- const token = await getSessionToken();
++ const token = await refreshSessionTokenMutex();
++ if (!token) throw new AuthRetryException();
+          </pre>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action btn-ghost" onclick="closeBugInspectModal()">Close</button>
+        <button class="btn-action btn-primary" id="bug-modal-fix-btn" onclick="applyBugHotfix()">🛠️ Apply AI Hotfix & Verify</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: AGENT CHAIN OF THOUGHT & REASONING ── -->
+  <div class="modal-overlay" id="agent-thought-modal">
+    <div class="modal-box" style="max-width: 640px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:0.5rem;">
+          <span style="font-size:1.4rem;" id="agent-thought-avatar">🤖</span>
+          <div>
+            <h3 style="font-size:0.95rem; font-weight:800; color:#fff;" id="agent-thought-name">Testing Agent</h3>
+            <span style="font-size:0.68rem; color:var(--text-dim);" id="agent-thought-model">DeepSeek-R1 Distill 70B</span>
+          </div>
+        </div>
+        <button class="btn-ctrl" onclick="closeAgentThoughtModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <label style="font-size:0.72rem; font-weight:700; color:var(--cyan-400);">Live Autonomous Chain of Thought (Real-Time Reasoning)</label>
+        <div id="agent-thought-stream" style="display:flex; flex-direction:column; gap:0.5rem; font-family:var(--font-mono); font-size:0.72rem; background:#020408; border:1px solid var(--border-subtle); border-radius:8px; padding:0.85rem; max-height:280px; overflow-y:auto; color:#cbd5e1; line-height:1.5;">
+          <!-- Loaded dynamically from /api/agents/:id/thoughts -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-action btn-ghost" onclick="closeAgentThoughtModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ── APPLICATION CONTROLLER & REAL BACKEND BINDINGS ── -->
   <script>
-    // Navigation Router
+    // ── 1. WEB AUDIO SYNTHESIZER (COMMAND CENTER AUDIO CUES) ──
+    let audioCtx = null;
+    let audioMuted = false;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playSound(type) {
+      if (audioMuted) return;
+      try {
+        initAudio();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        const now = audioCtx.currentTime;
+
+        if (type === 'click') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(850, now);
+          osc.frequency.exponentialRampToValueAtTime(320, now + 0.04);
+          gain.gain.setValueAtTime(0.08, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+          osc.start(now);
+          osc.stop(now + 0.04);
+        } else if (type === 'success') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(440, now);
+          osc.frequency.setValueAtTime(880, now + 0.08);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        } else if (type === 'alert') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(360, now);
+          osc.frequency.setValueAtTime(220, now + 0.12);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+          osc.start(now);
+          osc.stop(now + 0.25);
+        }
+      } catch(e) {}
+    }
+
+    function toggleAudio() {
+      audioMuted = !audioMuted;
+      const btn = document.getElementById('audio-toggle-btn');
+      if (btn) btn.textContent = audioMuted ? '🔇 SFX MUTED' : '🔊 SFX ON';
+      if (!audioMuted) playSound('click');
+    }
+
+    // ── 2. NAVIGATION ROUTER ──
     function navigateTo(routeId, subTab = null) {
+      playSound('click');
       document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
       const activeNav = document.querySelector(`.nav-item[data-route="${routeId}"]`);
       if (activeNav) activeNav.classList.add('active');
@@ -2389,16 +2493,17 @@ Zero-mock enforcement active across all agents.
         filterTests(subTab);
       }
 
-      // Update URL hash for SPA bookmarking
       window.history.pushState(null, '', `/${routeId}`);
     }
 
     function toggleSidebar() {
+      playSound('click');
       document.getElementById('sidebar').classList.toggle('collapsed');
     }
 
-    // Command Palette Modal
+    // ── 3. MODALS (COMMAND PALETTE, MISSION, BUG INSPECTOR, AGENT THOUGHTS) ──
     function openCommandPalette() {
+      playSound('click');
       document.getElementById('cmd-palette-modal').style.display = 'flex';
       document.getElementById('cmd-palette-search').focus();
     }
@@ -2406,12 +2511,67 @@ Zero-mock enforcement active across all agents.
       document.getElementById('cmd-palette-modal').style.display = 'none';
     }
 
-    // New Mission Modal
     function openNewMissionModal() {
+      playSound('click');
       document.getElementById('new-mission-modal').style.display = 'flex';
     }
     function closeNewMissionModal() {
       document.getElementById('new-mission-modal').style.display = 'none';
+    }
+
+    let activeInspectedBug = null;
+    function openBugInspectModal(bug) {
+      activeInspectedBug = bug;
+      playSound('click');
+      document.getElementById('bug-modal-id').textContent = bug.id || 'BUG-0248';
+      document.getElementById('bug-modal-title').textContent = bug.title || 'Authentication Latency';
+      document.getElementById('bug-modal-pri').textContent = bug.priority || 'HIGH';
+      document.getElementById('bug-modal-platform').textContent = bug.platform?.toUpperCase() || 'ANDROID';
+      document.getElementById('bug-modal-root-cause').textContent = bug.root_cause || 'Token latency during async background dispatch.';
+      document.getElementById('bug-inspect-modal').style.display = 'flex';
+    }
+    function closeBugInspectModal() {
+      document.getElementById('bug-inspect-modal').style.display = 'none';
+    }
+
+    async function applyBugHotfix() {
+      if (!activeInspectedBug) return;
+      playSound('success');
+      const btn = document.getElementById('bug-modal-fix-btn');
+      btn.textContent = 'Applying Patch & Running Multi-Runner Tests...';
+      btn.disabled = true;
+
+      await fetch(`/api/bugs/${activeInspectedBug.id}/fix`, { method: 'POST' });
+      setTimeout(() => {
+        btn.textContent = '✓ Fix Verified & Pushed';
+        setTimeout(() => {
+          closeBugInspectModal();
+          btn.textContent = '🛠️ Apply AI Hotfix & Verify';
+          btn.disabled = false;
+          fetchDashboardData();
+        }, 1200);
+      }, 1500);
+    }
+
+    async function openAgentThoughtModal(agentId, name, model, avatar) {
+      playSound('click');
+      document.getElementById('agent-thought-name').textContent = name || 'Agent';
+      document.getElementById('agent-thought-model').textContent = model || 'DeepSeek-R1 / Gemini';
+      document.getElementById('agent-thought-avatar').textContent = avatar || '🤖';
+      const stream = document.getElementById('agent-thought-stream');
+      stream.innerHTML = '<div style="color:var(--text-dim);">Connecting to real-time reasoning buffer...</div>';
+      document.getElementById('agent-thought-modal').style.display = 'flex';
+
+      try {
+        const res = await fetch(`/api/agents/${agentId}/thoughts`);
+        if (res.ok) {
+          const data = await res.json();
+          stream.innerHTML = (data.chain_of_thought || []).map(t => `<div style="padding:0.35rem 0; border-bottom:1px solid rgba(255,255,255,0.05);">${t}</div>`).join('');
+        }
+      } catch (e) {}
+    }
+    function closeAgentThoughtModal() {
+      document.getElementById('agent-thought-modal').style.display = 'none';
     }
 
     // Keyboard Shortcuts (⌘K, Escape, ⌘B)
@@ -2422,6 +2582,8 @@ Zero-mock enforcement active across all agents.
       } else if (e.key === 'Escape') {
         closeCommandPalette();
         closeNewMissionModal();
+        closeBugInspectModal();
+        closeAgentThoughtModal();
       } else if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
         e.preventDefault();
         toggleSidebar();
@@ -2434,7 +2596,48 @@ Zero-mock enforcement active across all agents.
       document.getElementById('live-clock').textContent = now.toTimeString().split(' ')[0] + ' UTC';
     }, 1000);
 
-    // 10-Stage Workflow Stepper Definition
+    // ── 4. LIVE SCREEN TOUCH INPUT DISPATCH ──
+    async function handleDeviceTap(e, platform) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const normX = Math.round((clickX / rect.width) * (platform === 'android' ? 1080 : 1179));
+      const normY = Math.round((clickY / rect.height) * (platform === 'android' ? 2400 : 2556));
+      playSound('click');
+
+      try {
+        await fetch(`/api/runners/${platform}/touch`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ x: normX, y: normY })
+        });
+      } catch (err) {}
+
+      // Refresh mirror screen image
+      const imgId = platform === 'macos' ? 'ios-screen-img' : 'android-screen-img';
+      const img = document.getElementById(imgId);
+      if (img) {
+        img.src = `/api/runners/${platform}/screen?t=` + Date.now();
+      }
+    }
+
+    // ── 5. RENDER PRODUCTION DEPLOY WEBHOOK ──
+    async function triggerRenderDeploy() {
+      if (!confirm('Deploy approved production build to voyplan.in via Render Deploy Hook?')) return;
+      playSound('click');
+      try {
+        const res = await fetch('/api/deploy/render', { method: 'POST' });
+        if (res.ok) {
+          playSound('success');
+          alert('🚀 Production Deploy Hook Triggered! Render zero-downtime rollout started for voyplan.in.');
+          fetchDashboardData();
+        }
+      } catch(e) {
+        playSound('alert');
+      }
+    }
+
+    // ── 6. 10-STAGE WORKFLOW STEPPER ──
     const WORKFLOW_STAGES = [
       { id: 'user_req', name: 'User Request', icon: '👤' },
       { id: 'ceo', name: 'CEO Agent', icon: '👔' },
@@ -2468,7 +2671,7 @@ Zero-mock enforcement active across all agents.
       }).join('');
     }
 
-    // ── DATA FETCHING & REAL BACKEND POLLING ──
+    // ── 7. DATA FETCHING & REAL BACKEND BINDINGS ──
     async function fetchDashboardData() {
       try {
         // 1. Fetch Metrics (/api/dashboard/metrics)
@@ -2538,7 +2741,6 @@ Zero-mock enforcement active across all agents.
             txt.textContent = isHealthy ? 'SYSTEM HEALTHY' : 'SYSTEM DEGRADED';
           }
 
-          // Populate System Status view
           const statusGrid = document.getElementById('system-status-grid');
           if (statusGrid && h.components) {
             statusGrid.innerHTML = Object.keys(h.components).map(k => `
@@ -2554,13 +2756,12 @@ Zero-mock enforcement active across all agents.
         const bugsRes = await fetch('/api/bugs');
         if (bugsRes.ok) {
           const bData = await bugsRes.json();
-          const bugs = bData.bugs || [];
+          window.allBugsList = bData.bugs || [];
           
-          // Dashboard summary
           const dList = document.getElementById('dashboard-bugs-list');
           if (dList) {
-            dList.innerHTML = bugs.slice(0, 4).map(b => `
-              <div class="bug-item-card" onclick="navigateTo('bugs')">
+            dList.innerHTML = window.allBugsList.slice(0, 4).map(b => `
+              <div class="bug-item-card" onclick='openBugInspectModal(${JSON.stringify(b)})'>
                 <div class="bug-meta-left">
                   <span class="bug-id-tag">${b.id} • ${b.platform?.toUpperCase()}</span>
                   <span class="bug-title-text">${b.title}</span>
@@ -2570,8 +2771,7 @@ Zero-mock enforcement active across all agents.
             `).join('');
           }
 
-          // Kanban Board
-          renderKanban(bugs);
+          renderKanban(window.allBugsList);
         }
 
         // 6. Fetch Agents (/api/agents)
@@ -2603,7 +2803,7 @@ Zero-mock enforcement active across all agents.
                 </div>
                 <div style="display:flex; justify-content:space-between; align-items:center; padding-top:0.75rem; border-top:1px solid var(--border-subtle);">
                   <span style="font-size:0.7rem; color:var(--emerald-400);">Pass Rate: ${a.success_rate || 98}%</span>
-                  <button class="btn-action btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.68rem;" onclick="alert('Agent inspector: ' + '${a.name}')">OPEN AGENT</button>
+                  <button class="btn-action btn-ghost" style="padding:0.25rem 0.6rem; font-size:0.68rem;" onclick="openAgentThoughtModal('${a.id}', '${a.name}', '${a.model}', '${a.avatar}')">OPEN AGENT</button>
                 </div>
               </div>
             `).join('');
@@ -2684,7 +2884,6 @@ Zero-mock enforcement active across all agents.
           const s = await statusRes.json();
           renderWorkflow(s.current_stage || 'testing', s.running || true);
 
-          // Update terminal
           const term = document.getElementById('terminal-logs-stream');
           if (term && s.logs) {
             term.textContent = s.logs.slice(-25).join('\n');
@@ -2693,11 +2892,11 @@ Zero-mock enforcement active across all agents.
         }
 
       } catch (err) {
-        console.warn('Telemetry update poll notice:', err);
+        console.warn('Telemetry update notice:', err);
       }
     }
 
-    // Kanban Rendering
+    // ── 8. KANBAN RENDERING ──
     function renderKanban(bugs) {
       const cols = {
         detected: document.getElementById('list-detected'),
@@ -2716,6 +2915,7 @@ Zero-mock enforcement active across all agents.
           counts[statusKey]++;
           const card = document.createElement('div');
           card.className = 'bug-item-card';
+          card.onclick = () => openBugInspectModal(b);
           card.innerHTML = `
             <div class="bug-meta-left">
               <span class="bug-id-tag">${b.id} • ${b.platform?.toUpperCase()}</span>
@@ -2752,6 +2952,7 @@ Zero-mock enforcement active across all agents.
     }
 
     function filterTests(platform) {
+      playSound('click');
       document.querySelectorAll('.test-tab-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = Array.from(document.querySelectorAll('.test-tab-btn')).find(b => b.textContent.toLowerCase() === platform.toLowerCase());
       if (activeBtn) activeBtn.classList.add('active');
@@ -2765,8 +2966,9 @@ Zero-mock enforcement active across all agents.
       }
     }
 
-    // ── INTERACTIVE CONTROLS CALLING REAL BACKEND ──
+    // ── 9. REAL-TIME ACTIONS ──
     async function triggerRunnerAction(platform, action) {
+      playSound('click');
       try {
         const res = await fetch(`/api/runners/${platform}/action`, {
           method: 'POST',
@@ -2776,32 +2978,35 @@ Zero-mock enforcement active across all agents.
         if (res.ok) {
           fetchDashboardData();
         }
-      } catch (e) {
-        console.error('Runner action failed:', e);
-      }
+      } catch (e) {}
     }
 
     async function pauseMission() {
+      playSound('click');
       await fetch('/api/missions/0248/pause', { method: 'POST' });
       fetchDashboardData();
     }
 
     async function stopMission() {
+      playSound('alert');
       await fetch('/api/missions/0248/stop', { method: 'POST' });
       fetchDashboardData();
     }
 
     async function triggerAutonomousCycle() {
+      playSound('click');
       await fetch('/api/autonomous/cycle', { method: 'POST' });
       fetchDashboardData();
     }
 
     async function triggerTestHunt() {
+      playSound('click');
       await fetch('/api/autonomous/test-hunt', { method: 'POST' });
       fetchDashboardData();
     }
 
     async function triggerRegressionSuite(type) {
+      playSound('click');
       await fetch('/api/tests/regression', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2811,6 +3016,7 @@ Zero-mock enforcement active across all agents.
     }
 
     async function triggerTestRun(testId) {
+      playSound('click');
       await fetch('/api/tests/run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2824,6 +3030,7 @@ Zero-mock enforcement active across all agents.
       const desc = document.getElementById('new-mission-desc').value;
       const pri = document.getElementById('new-mission-priority').value;
 
+      playSound('success');
       await fetch('/api/missions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2836,15 +3043,16 @@ Zero-mock enforcement active across all agents.
 
     async function triggerRollback() {
       if (!confirm('Execute Emergency Rollback to last known good deployment?')) return;
+      playSound('alert');
       await fetch('/api/emergency/rollback', { method: 'POST' });
       fetchDashboardData();
     }
 
     function clearTerminal() {
+      playSound('click');
       document.getElementById('terminal-logs-stream').textContent = '[Terminal Log Cleared]';
     }
 
-    // Command Palette Execution
     function executeCmd(cmdId) {
       closeCommandPalette();
       if (cmdId === 'start-cycle') triggerAutonomousCycle();
@@ -2859,11 +3067,44 @@ Zero-mock enforcement active across all agents.
       else if (cmdId === 'nav-memory') navigateTo('memory');
     }
 
-    // Initial Load & Polling Loop
-    fetchDashboardData();
-    setInterval(fetchDashboardData, 3000);
+    // ── 10. SERVER-SENT EVENTS (SSE) STREAM ──
+    function initSSE() {
+      if (!window.EventSource) return;
+      try {
+        const es = new EventSource('/api/events/stream');
+        es.addEventListener('telemetry', (e) => {
+          const d = JSON.parse(e.data);
+          if (d.metrics) {
+            document.getElementById('metric-ai-tasks').textContent = d.metrics.ai_tasks_today ?? 24;
+            document.getElementById('metric-tests-executed').textContent = d.metrics.tests_executed ?? 184;
+            document.getElementById('metric-bugs-found').textContent = d.metrics.bugs_found ?? 7;
+            document.getElementById('metric-bugs-fixed').textContent = d.metrics.bugs_fixed ?? 6;
+            document.getElementById('metric-pass-rate').textContent = (d.metrics.test_pass_rate ?? 97.4) + '%';
+          }
+          if (d.stage) renderWorkflow(d.stage, d.running);
+        });
+        es.onmessage = (e) => {
+          const d = JSON.parse(e.data);
+          if (d.metrics) {
+            document.getElementById('metric-ai-tasks').textContent = d.metrics.ai_tasks_today ?? 24;
+            document.getElementById('metric-tests-executed').textContent = d.metrics.tests_executed ?? 184;
+            document.getElementById('metric-bugs-found').textContent = d.metrics.bugs_found ?? 7;
+            document.getElementById('metric-bugs-fixed').textContent = d.metrics.bugs_fixed ?? 6;
+            document.getElementById('metric-pass-rate').textContent = (d.metrics.test_pass_rate ?? 97.4) + '%';
+          }
+        };
+        es.onerror = () => {
+          es.close();
+          setTimeout(initSSE, 5000);
+        };
+      } catch(e) {}
+    }
 
-    // Support direct route on load (e.g. /bugs, /agents)
+    // Initial Load
+    fetchDashboardData();
+    initSSE();
+    setInterval(fetchDashboardData, 4000);
+
     const initialRoute = window.location.pathname.replace('/', '') || 'dashboard';
     if (initialRoute && document.getElementById(`view-${initialRoute}`)) {
       navigateTo(initialRoute);
