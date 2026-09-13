@@ -1,9 +1,38 @@
 {
-  "task": "124",
-  "issue": "124",
-  "title": "[AUTO-DETECTED BUG] Security Vulnerability in body-parser (moderate)",
-  "expected_behavior": "Update body-parser to safe version",
+  "issue": "202",
+  "problem": "Drivers are not warned in real-time when their calculated route polyline intersects high precipitation radar polygons during monsoon seasons.",
+  "root_cause": "Lack of geospatial intersection checking between active navigation route polylines and real-time precipitation radar polygon feeds/layers.",
   "affected_files": [
-    "voyplan-ai-engineering/tests/e2e/package.json"
+    "voyplan-ai-engineering/orchestrator_daemon.py",
+    "app/main.dart.js",
+    "web/app/main.dart.js"
+  ],
+  "architecture": "Geospatial service daemon layer that periodically fetches radar polygon hazards, matches them against active route polylines using spatial intersection algorithms, and triggers real-time UI/push warnings.",
+  "recommended_solution": "Implement a spatial intersection module in the backend orchestrator using Turf.js or Python shapely to evaluate route polylines against high-precipitation polygons, and emit real-time hazard alerts to the client app.",
+  "risks": [
+    "High latency from frequent polygon-polyline spatial queries.",
+    "False positive hazard alerts due to outdated radar polygon feeds."
+  ],
+  "acceptance_criteria": [
+    "System successfully detects intersections between a route polyline and high precipitation radar polygons.",
+    "Real-time alerts are pushed to the driver when a hazard intersection is identified.",
+    "Performance remains within acceptable limits (<200ms check time)."
+  ],
+  "test_cases": [
+    {
+      "name": "test_route_polygon_intersection_positive",
+      "type": "unit",
+      "description": "Verify that a route polyline passing directly through a high-precipitation polygon triggers a hazard warning."
+    },
+    {
+      "name": "test_route_polygon_intersection_negative",
+      "type": "unit",
+      "description": "Verify that a route polyline entirely outside precipitation polygons triggers no warnings."
+    },
+    {
+      "name": "test_realtime_monsoon_hazard_alert_e2e",
+      "type": "e2e",
+      "description": "Simulate a live navigation session entering a monsoon radar polygon and confirm the UI displays the hazard warning."
+    }
   ]
 }

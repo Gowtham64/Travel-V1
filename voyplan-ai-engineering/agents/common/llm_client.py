@@ -54,12 +54,12 @@ class LLMClient:
         defaults = {
             "ollama": "qwen2.5-coder:latest",
             "openai": "gpt-4o",
-            "gemini": "gemini-1.5-flash",
+            "gemini": "gemini-flash-lite-latest",
             "groq": "llama-3.3-70b-versatile",
             "openrouter": "meta-llama/llama-3.3-70b-instruct:free",
             "anthropic": "claude-3-5-sonnet-20241022",
         }
-        return defaults.get(provider, "gemini-1.5-flash")
+        return defaults.get(provider, "gemini-flash-lite-latest")
 
     def query(self, system_prompt: str, user_prompt: str, expect_json: bool = True) -> Dict[str, Any]:
         """Dispatches query to the configured provider, falling back if offline."""
@@ -108,22 +108,50 @@ class LLMClient:
         key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
         if not key:
             raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY is not configured")
-        
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={key}"
-        body: Dict[str, Any] = {
-            "systemInstruction": {"parts": [{"text": system}]},
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2}
-        }
-        if expect_json:
-            body["generationConfig"]["responseMimeType"] = "application/json"
-            
-        data = json.dumps(body).encode("utf-8")
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            res_json = json.loads(resp.read().decode("utf-8"))
-            text = res_json["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(text) if expect_json else {"text": text}
+
+        # Models ordered by availability and latency
+        candidate_models = [self.model, "gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest"]
+        # Deduplicate while preserving order
+        seen = set()
+        models_to_try = []
+        for m in candidate_models:
+            clean = "gemini-flash-lite-latest" if ("1.5" in m or "2.5-flash" == m) else m
+            if clean not in seen:
+                seen.add(clean)
+                models_to_try.append(clean)
+
+        last_error = None
+        for model_name in models_to_try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={key}"
+            body: Dict[str, Any] = {
+                "systemInstruction": {"parts": [{"text": system}]},
+                "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.2}
+            }
+            if expect_json:
+                body["generationConfig"]["responseMimeType"] = "application/json"
+
+            data = json.dumps(body).encode("utf-8")
+            req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+            try:
+                with urllib.request.urlopen(req, timeout=45) as resp:
+                    res_json = json.loads(resp.read().decode("utf-8"))
+                    text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    return json.loads(text) if expect_json else {"text": text}
+            except urllib.error.HTTPError as e:
+                last_error = e
+                # If 503 or 404, try next candidate model
+                if e.code in [503, 404, 429]:
+                    continue
+                else:
+                    raise
+            except Exception as e:
+                last_error = e
+                continue
+
+        if last_error:
+            raise last_error
+        raise RuntimeError("All candidate Gemini models failed to generate response")
 
     def _call_openai_compat(self, system: str, prompt: str, expect_json: bool) -> Dict[str, Any]:
         if self.provider == "groq":

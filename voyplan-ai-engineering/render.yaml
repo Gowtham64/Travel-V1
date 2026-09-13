@@ -11,7 +11,9 @@ services:
       - key: MODEL_PROVIDER
         value: gemini
       - key: MODEL_NAME
-        value: gemini-1.5-flash
+        value: gemini-flash-lite-latest
+      - key: GEMINI_API_KEY
+        sync: false
       - key: GOOGLE_API_KEY
         sync: false
       - key: PORT
