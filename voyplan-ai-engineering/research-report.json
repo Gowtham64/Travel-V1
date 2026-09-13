@@ -1,50 +1,9 @@
 {
-  "task": "201",
-  "issue": "201",
-  "type": "feature",
-  "problem": "Issue #201: Dynamic Fuel & Toll Calculator",
-  "current_behavior": "Current system behavior for task: Calculate highway toll charges and fuel consumption",
-  "expected_behavior": "Satisfy requirements for: Dynamic Fuel & Toll Calculator",
-  "frontend_impact": [],
-  "backend_impact": [
-    "backend/src/services/budgetService.js",
-    "backend/src/services/tollService.js"
-  ],
-  "database_impact": [
-    "Schema verified - standard data models maintained"
-  ],
-  "api_impact": [
-    "Ensure valid request/response contracts for Dynamic Fuel & Toll Calculator"
-  ],
-  "existing_features_affected": [
-    "Core platform parity maintained"
-  ],
-  "root_cause": "Requirement or defect in target component: backend/src/services/budgetService.js, backend/src/services/tollService.js",
+  "task": "124",
+  "issue": "124",
+  "title": "[AUTO-DETECTED BUG] Security Vulnerability in body-parser (moderate)",
+  "expected_behavior": "Update body-parser to safe version",
   "affected_files": [
-    "backend/src/services/budgetService.js",
-    "backend/src/services/tollService.js"
-  ],
-  "architecture": "VoyPlan Component Architecture: budgetService.js, tollService.js",
-  "recommended_solution": "Implement changes satisfying: Dynamic Fuel & Toll Calculator. Modify backend/src/services/budgetService.js, backend/src/services/tollService.js.",
-  "technical_design": "Update code logic in backend/src/services/budgetService.js, backend/src/services/tollService.js to fulfill task specifications.",
-  "implementation_plan": [
-    "1. Update source code in backend/src/services/budgetService.js",
-    "1. Update source code in backend/src/services/tollService.js",
-    "2. Run syntax checks and multi-platform regression test suite."
-  ],
-  "risks": [
-    "Potential regressions in dependent modules if contract changes."
-  ],
-  "acceptance_criteria": [
-    "1. Code changes for 'Dynamic Fuel & Toll Calculator' compile and pass syntax verification.",
-    "2. Target files (budgetService.js, tollService.js) are updated.",
-    "3. Automated multi-platform test suites pass without regressions."
-  ],
-  "test_cases": [
-    {
-      "name": "Test: Dynamic Fuel & Toll Calculator",
-      "type": "unit",
-      "description": "Verify implementation of Dynamic Fuel & Toll Calculator in backend/src/services/budgetService.js, backend/src/services/tollService.js."
-    }
+    "voyplan-ai-engineering/tests/e2e/package.json"
   ]
 }

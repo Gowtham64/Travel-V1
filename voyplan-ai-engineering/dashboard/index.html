@@ -1642,7 +1642,12 @@
       const test = currentArtifacts['testing'] || {};
 
       const issueId = dev.issue || (res.issue || '123');
-      const isReviewRequired = qa.recommendation === 'HUMAN_REVIEW_REQUIRED' || (qa.status === 'FAIL');
+      const isReviewRequired = qa.recommendation === 'HUMAN_REVIEW_REQUIRED' || (qa.status === 'FAIL') || (dev.status === 'FAIL') || (test.status === 'FAIL');
+      const failureReason = dev.status === 'FAIL'
+        ? `Developer syntax validation failed: ${(dev.syntax_errors && dev.syntax_errors.length) ? dev.syntax_errors.join('; ') : 'Syntax or build check failed in modified files.'}`
+        : (test.status === 'FAIL'
+          ? `Automated tests failed: ${(test.failed_tests && test.failed_tests.length) ? test.failed_tests.join(', ') : 'Test regression detected.'}`
+          : (qa.reason || 'Verification criteria requires human sign-off.'));
 
       const container = document.getElementById('modal-report-content');
       if (!container) return;
@@ -1655,7 +1660,7 @@
                 <span>⚠️ OPERATOR DECISION REQUIRED</span>
               </div>
               <div style="color: #cbd5e1; font-size: 0.78rem; margin-top: 0.3rem;">
-                Independent QA marked criteria for human verification: <strong>${qa.reason || 'Verification criteria requires human sign-off.'}</strong>.
+                Stage Audit Check: <strong>${escapeHtml(failureReason)}</strong>.
                 You can review the full audit evidence across the tabs above and either <strong>Approve (DEPLOY)</strong> to push live, or <strong>Decline / Reject</strong> to send back to the backlog.
               </div>
             </div>

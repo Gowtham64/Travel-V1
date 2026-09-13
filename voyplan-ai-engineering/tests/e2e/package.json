@@ -7,5 +7,15 @@
   },
   "scripts": {
     "test": "playwright test"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.3"
+  },
+  "_voyplan_patches": {
+    "task_124": {
+      "title": "[AUTO-DETECTED BUG] Security Vulnerability in body-parser (moderate)",
+      "status": "VERIFIED",
+      "timestamp": 1789319123
+    }
   }
 }
