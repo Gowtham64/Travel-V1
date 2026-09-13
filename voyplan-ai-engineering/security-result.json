@@ -1,7 +1,7 @@
 {
-  "task_id": "task-verify-models",
+  "task_id": "125",
   "status": "PASS_WITH_WARNINGS",
-  "scanned_files": 669,
+  "scanned_files": 674,
   "secrets_detected": 1,
   "high_severity_vulnerabilities": 3,
   "findings": [
@@ -10,7 +10,11 @@
   "ai_security_assessment": {
     "security_status": "FAIL",
     "risk_level": "HIGH",
-    "notes": "Hardcoded private key detected in agent.py and 3 high severity NPM CVEs found."
+    "notes": [
+      "Hardcoded private key found in agent.py \u2013 secret leakage and potential unauthorized access.",
+      "3 high severity CVEs detected in NPM dependencies \u2013 may allow remote code execution or privilege escalation.",
+      "Large codebase scanned (674 files) \u2013 increased attack surface; recommend thorough review for SQL injection, auth bypass, and XSS vulnerabilities."
+    ]
   },
   "recommendation": "REVIEW_VULNERABILITIES"
 }

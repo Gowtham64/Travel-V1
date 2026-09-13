@@ -13,6 +13,7 @@ services:
       - MODEL_PROVIDER=${MODEL_PROVIDER:-ollama}
       - MODEL_NAME=${MODEL_NAME:-qwen2.5-coder:latest}
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - MACOS_RUNNER_URL=${MACOS_RUNNER_URL:-https://github.com/Gowtham64/Travel-V1}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     command: ["--issue", "123", "--title", "Fix AI Planner Random Locations"]

@@ -1,8 +1,8 @@
 {
   "status": "WAITING_APPROVAL",
   "environment": "staging",
-  "deployment_id": "deploy-1789321497",
-  "release_notes": "Deployment ID `deploy-1789321497` for TASK ID `task-verify-models` has been successfully promoted from the `main` branch to the staging environment. All system models have been verified and are ready for initial staging validation.",
+  "deployment_id": "deploy-1789326904",
+  "release_notes": "Staging deployment **deploy-1789326904** of VoyPlan has been successfully completed on branch **HEAD**. The release includes the latest feature updates and critical bug fixes, ready for QA testing.",
   "staging_smoke_tests": "PASS",
   "human_approval_received": false,
   "production_smoke_tests": "PENDING",

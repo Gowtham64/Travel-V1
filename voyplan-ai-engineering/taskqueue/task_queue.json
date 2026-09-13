@@ -14,6 +14,18 @@
       "created_at": "2026-09-13 23:44:25",
       "updated_at": "2026-09-13 23:44:48",
       "retry_count": 0
+    },
+    {
+      "id": "125",
+      "title": "[R&D FEATURE SPEC] Dynamic Fuel Cost Splitter with Toll Fare Aggregator",
+      "description": "Calculate exact toll plaza fares via Fastag API and split fuel costs among passengers based on mileage. Requirements: Frontend ['mobile/lib/screens/budget_screen.dart'], Backend ['backend/src/services/budgetService.js', 'backend/src/services/fuelPriceProvider.js'].",
+      "priority": "P3",
+      "status": "NEW",
+      "type": "feature",
+      "locked_resources": [],
+      "created_at": "2026-09-14 00:21:14",
+      "updated_at": "2026-09-14 00:21:14",
+      "retry_count": 0
     }
   ],
   "stats": {}

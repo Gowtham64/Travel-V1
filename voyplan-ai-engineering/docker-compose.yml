@@ -19,6 +19,7 @@ services:
       - MODEL_PROVIDER=${MODEL_PROVIDER:-gemini}
       - MODEL_NAME=${MODEL_NAME:-gemini-1.5-flash}
       - OLLAMA_BASE_URL=http://ollama:11434
+      - MACOS_RUNNER_URL=${MACOS_RUNNER_URL:-https://github.com/Gowtham64/Travel-V1}
     depends_on:
       - ai-dashboard
     command: ["python3", "voyplan-ai-engineering/orchestrator_daemon.py"]
@@ -34,6 +35,8 @@ services:
       - "3050:3050"
     volumes:
       - .:/workspace/voyplan-ai-engineering:rw
+    environment:
+      - MACOS_RUNNER_URL=${MACOS_RUNNER_URL:-https://github.com/Gowtham64/Travel-V1}
     command: ["python3", "voyplan-ai-engineering/dashboard/server.py"]
 
   # 3. Agent Isolation Sandbox: OpenHands Workspace Sandbox

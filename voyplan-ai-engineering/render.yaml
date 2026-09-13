@@ -19,7 +19,7 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: MACOS_RUNNER_URL
-        sync: false
+        value: https://github.com/Gowtham64/Travel-V1
       - key: PORT
         value: 3050
       - key: PRODUCTION_URL

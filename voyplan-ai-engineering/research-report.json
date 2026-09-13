@@ -1,26 +1,43 @@
 {
-  "issue": "[AUTO-DETECTED BUG] Security Vulnerability in baseline-browser-mapping (moderate)",
-  "problem": "An automated dependency scan detected a moderate vulnerability in the 'baseline-browser-mapping' package within the dependency tree, requiring remediation.",
-  "root_cause": "Outdated or vulnerable transitively or directly referenced Node.js package 'baseline-browser-mapping' present in the environment or lockfiles.",
+  "issue": "125",
+  "problem": "Lack of automated toll fare aggregation via Fastag API and dynamic fuel cost splitting based on vehicle mileage among passengers within the budget planning features.",
+  "root_cause": "Budget and expense tracking services currently only handle static manual entries without integration for real-time fuel price lookups, toll aggregators, or per-passenger split distribution logic.",
   "affected_files": [
-    "package.json",
-    "package-lock.json"
+    "mobile/lib/screens/budget_screen.dart",
+    "backend/src/services/budgetService.js",
+    "backend/src/services/fuelPriceProvider.js"
   ],
-  "architecture": "Node.js / JavaScript dependency management system utilizing npm for package resolution and auditing.",
-  "recommended_solution": "Run 'npm audit fix' or manually update the vulnerable package 'baseline-browser-mapping' to a secure version in package.json and regenerate package-lock.json.",
+  "architecture": "Backend service architecture utilizing a new fuel price provider provider/service and a Fastag API integration module within budgetService.js to compute total trip transit expenses, which are then surfaced through the mobile budget screen interface for passenger cost splitting.",
+  "recommended_solution": "Implement fuelPriceProvider.js to fetch current local fuel rates based on route coordinates/region, build a toll fare aggregator utilizing Fastag API specs in budgetService.js, and update budget_screen.dart to provide interactive passenger mileage/cost splitting controls.",
   "risks": [
-    "Potential breaking changes if updating the package requires major version shifts.",
-    "Lockfile conflicts if multiple contributors update dependencies simultaneously."
+    "External Fastag or fuel price API rate limits or downtime",
+    "Inaccurate vehicle mileage inputs leading to unfair cost splits",
+    "UI layout overflow on mobile when displaying complex split breakdowns"
   ],
   "acceptance_criteria": [
-    "npm audit reports zero moderate or higher vulnerabilities regarding baseline-browser-mapping.",
-    "All existing build and test suites pass successfully after the dependency update."
+    "Fuel costs are accurately calculated using distance, vehicle mileage, and real-time fuel prices.",
+    "Toll plaza fares are successfully aggregated via the Fastag API integration.",
+    "Total travel expenses (fuel + tolls) are dynamically split among passengers based on configured shares.",
+    "The Flutter mobile budget screen reflects real-time updates when passengers or vehicle details change."
   ],
   "test_cases": [
     {
-      "name": "test_npm_audit_security",
+      "name": "test_fuel_cost_calculation",
       "type": "unit",
-      "description": "Run 'npm audit --production' to verify no moderate or higher vulnerabilities exist in dependencies."
+      "name_slug": "test_fuel_cost_calculation",
+      "description": "Verify that fuelCostProvider computes correct fuel expenses given distance, fuel efficiency, and regional fuel prices."
+    },
+    {
+      "name": "test_toll_fare_aggregation",
+      "type": "integration",
+      "name_slug": "test_toll_fare_aggregation",
+      "description": "Validate that budgetService successfully queries the Fastag API mock/stub and aggregates total route tolls."
+    },
+    {
+      "name": "test_budget_screen_split_ui",
+      "type": "e2e",
+      "name_slug": "test_budget_screen_split_ui",
+      "description": "Confirm that budget_screen.dart correctly displays passenger cost splits and updates dynamically upon user input modifications."
     }
   ]
 }
