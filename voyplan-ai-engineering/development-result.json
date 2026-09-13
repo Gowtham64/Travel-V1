@@ -1,16 +1,14 @@
 {
-  "status": "PASS",
+  "status": "FAIL",
   "developer_agent": "Google Antigravity Autonomous Coder",
-  "issue": "203",
-  "branch": "ai/fix/203-autonomous-patch",
-  "commit": "2b0110e",
-  "files_changed": [
-    "voyplan-ai-engineering/orchestrator_daemon.py"
-  ],
-  "diff_summary": "voyplan-ai-engineering/agents/security/agent.py | 151 ++++++------\n voyplan-ai-engineering/orchestrator.py          | 302 ++++++++++++------------\n voyplan-ai-engineering/orchestrator_daemon.py   |   5 +\n voyplan-ai-engineering/research-report.json     |  40 ++--\n 4 files changed, 250 insertions(+), 248 deletions(-)",
+  "issue": "[AUTO-DETECTED BUG] Security Vulnerability in baseline-browser-mapping (moderate)",
+  "branch": "ai/fix/[AUTO-DETECTED BUG] Security Vulnerability in baseline-browser-mapping (moderate)-autonomous-patch",
+  "commit": "HEAD",
+  "files_changed": [],
+  "diff_summary": "",
   "syntax_verified": true,
   "syntax_errors": [],
   "build_passed": true,
-  "model_used": "gemini-flash-latest",
-  "notes": "Real code modified in: voyplan-ai-engineering/orchestrator_daemon.py."
+  "model_used": "qwen/qwen3.6-27b",
+  "notes": "Real code modified in: None."
 }

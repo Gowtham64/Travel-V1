@@ -1,34 +1,26 @@
 {
-  "issue": "203",
-  "problem": "Autonomous highway refueling stops fail to synchronize dynamically with computed route polygon boundaries, leading to out-of-bounds or missed fueling options during autonomous trip planning.",
-  "root_cause": "The geospatial query handler lacks a real-time boundary polygon intersection check against the active route geometry when fetching candidate refueling stops from the Mapbox store locator / geospatial pipeline.",
+  "issue": "[AUTO-DETECTED BUG] Security Vulnerability in baseline-browser-mapping (moderate)",
+  "problem": "An automated dependency scan detected a moderate vulnerability in the 'baseline-browser-mapping' package within the dependency tree, requiring remediation.",
+  "root_cause": "Outdated or vulnerable transitively or directly referenced Node.js package 'baseline-browser-mapping' present in the environment or lockfiles.",
   "affected_files": [
-    "voyplan-ai-engineering/orchestrator_daemon.py",
-    ".agents/skills/mapbox-geospatial-operations/SKILL.md",
-    "Dockerfile.ai",
-    "voyplan-ai-engineering/requirements.txt"
+    "package.json",
+    "package-lock.json"
   ],
-  "architecture": "VoyPlan AI orchestrator daemon coordinates geospatial tools and map matching, leveraging spatial queries to filter points of interest along dynamic route corridors bounded by polygon geometries.",
-  "recommended_solution": "Implement a dynamic polygon intersection filter within the orchestrator daemon's refueling candidate retrieval pipeline using Mapbox geospatial operations to ensure stops strictly fall inside or within tolerance of the active route polygon boundary.",
+  "architecture": "Node.js / JavaScript dependency management system utilizing npm for package resolution and auditing.",
+  "recommended_solution": "Run 'npm audit fix' or manually update the vulnerable package 'baseline-browser-mapping' to a secure version in package.json and regenerate package-lock.json.",
   "risks": [
-    "Increased computational overhead for frequent polygon intersection checks on long routes.",
-    "Potential empty result sets if route boundary tolerance is configured too restrictively."
+    "Potential breaking changes if updating the package requires major version shifts.",
+    "Lockfile conflicts if multiple contributors update dependencies simultaneously."
   ],
   "acceptance_criteria": [
-    "Candidate refueling stops returned by the AI planner strictly intersect or fall within the active route polygon boundary.",
-    "Dynamic updates to the route boundary automatically trigger a re-sync of refueling polygons.",
-    "Unit and integration tests validate spatial containment accuracy under various route geometries."
+    "npm audit reports zero moderate or higher vulnerabilities regarding baseline-browser-mapping.",
+    "All existing build and test suites pass successfully after the dependency update."
   ],
   "test_cases": [
     {
-      "name": "test_refueling_polygon_sync_containment",
+      "name": "test_npm_audit_security",
       "type": "unit",
-      "description": "Verify that candidate stops outside the route polygon boundary are filtered out while those inside are retained."
-    },
-    {
-      "name": "test_dynamic_route_boundary_update",
-      "type": "integration",
-      "description": "Simulate a dynamic route recalculation and ensure refueling stops re-sync correctly with the new boundary polygon."
+      "description": "Run 'npm audit --production' to verify no moderate or higher vulnerabilities exist in dependencies."
     }
   ]
 }

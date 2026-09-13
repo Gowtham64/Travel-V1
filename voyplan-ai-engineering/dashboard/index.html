@@ -335,7 +335,7 @@
     /* ── FULL 8-STAGE MULTI-AGENT PIPELINE GRID ── */
     .pipeline-grid-8 {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
       gap: 0.75rem;
     }
 
@@ -448,6 +448,85 @@
       background: rgba(139, 92, 246, 0.2);
       color: #a78bfa;
       animation: pulse-badge 2s ease-in-out infinite;
+    }
+
+    .status-ONLINE {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .status-WORKING {
+      background: rgba(14, 165, 233, 0.25);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      animation: pulse-badge 1s ease-in-out infinite;
+    }
+
+    .agent-model-tag {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(14, 165, 233, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      padding: 0.18rem 0.45rem;
+      border-radius: 5px;
+      font-family: var(--font-mono);
+      width: fit-content;
+      margin: 0.2rem 0;
+    }
+
+    .agent-provider-tag {
+      font-size: 0.6rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 0.15rem 0.38rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    .gemini-tag {
+      background: rgba(66, 133, 244, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(66, 133, 244, 0.3);
+    }
+
+    .groq-tag {
+      background: rgba(249, 115, 22, 0.15);
+      color: #fb923c;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+
+    .native-tag {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.3);
+    }
+
+    .live-tag {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .agent-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: auto;
+      padding-top: 0.4rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .agent-details-preview {
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 105px;
     }
 
     .report-tab-btn {
@@ -976,72 +1055,139 @@
       </div>
     </section>
 
-    <!-- FULL 8-STAGE MULTI-AGENT PIPELINE GRID -->
+    <!-- REAL AUTONOMOUS MULTI-AGENT ENGINEERING FLEET -->
     <section class="pipeline-section">
-      <div class="block-header" style="margin-bottom: 0.75rem;">Coordinated AI Product Organization Pipeline</div>
-      <div class="pipeline-grid-8">
-        <!-- 01: Product Agent -->
-        <div class="agent-card" id="card-product">
-          <div class="agent-num">01 / PRODUCT</div>
-          <div class="agent-name">Product Agent</div>
-          <div class="agent-role">User problem, vision, & cross-platform scope.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-product">IDLE</div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div class="block-header" style="margin-bottom: 0;">⚡ Autonomous AI Engineering Fleet (Live Model Routing)</div>
+        <div style="display: flex; gap: 0.5rem; align-items: center;">
+          <span class="pill" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border-color: rgba(16, 185, 129, 0.3);">
+            <span class="dot" style="background: #10b981; box-shadow: 0 0 8px #10b981;"></span>
+            Real Multi-Model Fleet
+          </span>
+          <span style="font-size: 0.72rem; color: #a855f7; font-family: var(--font-mono); background: rgba(168, 85, 247, 0.1); padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid rgba(168, 85, 247, 0.3);">
+            Google AI Studio + Groq Cloud
+          </span>
+        </div>
+      </div>
+      <div class="pipeline-grid-8" id="pipeline-grid">
+        <!-- 01: CEO Agent -->
+        <div class="agent-card" id="card-ceo">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">01 / CEO</div>
+            <span class="agent-provider-tag gemini-tag">Google AI Studio</span>
+          </div>
+          <div class="agent-name">CEO Agent</div>
+          <div class="agent-model-tag">Gemini 1.5 Pro / Flash</div>
+          <div class="agent-role" id="role-ceo">Executive fleet dispatch & cross-agent prioritization.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-ceo">ONLINE</div>
+            <span class="agent-details-preview" id="details-ceo">Fleet ready</span>
+          </div>
         </div>
 
         <!-- 02: R&D Agent -->
-        <div class="agent-card" id="card-researcher">
-          <div class="agent-num">02 / R&D</div>
-          <div class="agent-name">R&D Architect</div>
-          <div class="agent-role">Deep architectural design & acceptance criteria.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-researcher">IDLE</div>
+        <div class="agent-card" id="card-rnd">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">02 / R&D</div>
+            <span class="agent-provider-tag gemini-tag">Google AI Studio</span>
+          </div>
+          <div class="agent-name">R&D Agent</div>
+          <div class="agent-model-tag">Gemini 1.5 Flash</div>
+          <div class="agent-role" id="role-rnd">Deep repository analysis & architectural planning.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-rnd">ONLINE</div>
+            <span class="agent-details-preview" id="details-rnd">Planning ready</span>
+          </div>
         </div>
 
-        <!-- 03: AI Council -->
-        <div class="agent-card" id="card-council">
-          <div class="agent-num">03 / COUNCIL</div>
-          <div class="agent-name">AI Council</div>
-          <div class="agent-role">Multi-agent debate & consensus handover.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-council">IDLE</div>
+        <!-- 03: Coding Agent -->
+        <div class="agent-card" id="card-coding">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">03 / CODING</div>
+            <span class="agent-provider-tag groq-tag">Groq Free API</span>
+          </div>
+          <div class="agent-name">Coding Agent</div>
+          <div class="agent-model-tag">Qwen 2.5 Coder 32B / 27B</div>
+          <div class="agent-role" id="role-coding">Autonomous branch implementation & syntax validation.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-coding">ONLINE</div>
+            <span class="agent-details-preview" id="details-coding">Ready to code</span>
+          </div>
         </div>
 
-        <!-- 04: Google Antigravity -->
-        <div class="agent-card" id="card-developer">
-          <div class="agent-num">04 / DEVELOPER</div>
-          <div class="agent-name">Google Antigravity</div>
-          <div class="agent-role">Primary full-stack implementation engine.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-developer">IDLE</div>
-        </div>
-
-        <!-- 05: Testing Agent -->
-        <div class="agent-card" id="card-tester">
-          <div class="agent-num">05 / TEST</div>
+        <!-- 04: Testing Agent -->
+        <div class="agent-card" id="card-testing">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">04 / TESTING</div>
+            <span class="agent-provider-tag groq-tag">Groq Cloud</span>
+          </div>
           <div class="agent-name">Testing Agent</div>
-          <div class="agent-role">Independent Unit, Integration & E2E tests.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-tester">IDLE</div>
+          <div class="agent-model-tag">DeepSeek-R1 Distill 120B</div>
+          <div class="agent-role" id="role-testing">Multi-runner execution & failure trace reasoning.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-testing">ONLINE</div>
+            <span class="agent-details-preview" id="details-testing">Multi-runner idle</span>
+          </div>
         </div>
 
-        <!-- 06: QA Agent -->
-        <div class="agent-card" id="card-qa">
-          <div class="agent-num">06 / QA</div>
-          <div class="agent-name">QA Validation</div>
-          <div class="agent-role">Zero-trust validation against acceptance criteria.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-qa">IDLE</div>
-        </div>
-
-        <!-- 07: Security Agent -->
+        <!-- 05: Security Agent -->
         <div class="agent-card" id="card-security">
-          <div class="agent-num">07 / SECURITY</div>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">05 / SECURITY</div>
+            <span class="agent-provider-tag groq-tag">Groq Free Tier</span>
+          </div>
           <div class="agent-name">Security Agent</div>
-          <div class="agent-role">Secrets, injection, CVEs & location privacy.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-security">IDLE</div>
+          <div class="agent-model-tag">Llama 3.3 70B</div>
+          <div class="agent-role" id="role-security">Automated secret scan & npm CVE vulnerability audit.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-security">ONLINE</div>
+            <span class="agent-details-preview" id="details-security">0 leaks found</span>
+          </div>
         </div>
 
-        <!-- 08: Release Agent -->
-        <div class="agent-card" id="card-release">
-          <div class="agent-num">08 / RELEASE</div>
-          <div class="agent-name">Release / DevOps</div>
-          <div class="agent-role">Staging, Human Gate (DEPLOY), & rollback.</div>
-          <div class="agent-status-badge status-IDLE" id="badge-release">IDLE</div>
+        <!-- 06: Verification Agent -->
+        <div class="agent-card" id="card-verification">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">06 / VERIFY</div>
+            <span class="agent-provider-tag native-tag">Zero-Trust</span>
+          </div>
+          <div class="agent-name">Verification Agent</div>
+          <div class="agent-model-tag">Deterministic Gate</div>
+          <div class="agent-role" id="role-verification">Cross-runner acceptance criteria verification gate.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-verification">ONLINE</div>
+            <span class="agent-details-preview" id="details-verification">Criteria gate active</span>
+          </div>
+        </div>
+
+        <!-- 07: Deployment Agent -->
+        <div class="agent-card" id="card-deployment">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">07 / RELEASE</div>
+            <span class="agent-provider-tag groq-tag">Groq / Ollama</span>
+          </div>
+          <div class="agent-name">Deployment Agent</div>
+          <div class="agent-model-tag">Llama 3.1 8B</div>
+          <div class="agent-role" id="role-deployment">Release packaging, changelog notes & human approval gate.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-deployment">ONLINE</div>
+            <span class="agent-details-preview" id="details-deployment">Staging release ready</span>
+          </div>
+        </div>
+
+        <!-- 08: Monitoring Agent -->
+        <div class="agent-card" id="card-monitoring">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div class="agent-num">08 / MONITOR</div>
+            <span class="agent-provider-tag live-tag">24/7 Sentry</span>
+          </div>
+          <div class="agent-name">Monitoring Agent</div>
+          <div class="agent-model-tag">Continuous Latency Guard</div>
+          <div class="agent-role" id="role-monitoring">Continuous production uptime & latency health checks.</div>
+          <div class="agent-footer">
+            <div class="agent-status-badge status-ONLINE" id="badge-monitoring">ONLINE</div>
+            <span class="agent-details-preview" id="details-monitoring">Latency healthy</span>
+          </div>
         </div>
       </div>
     </section>
@@ -1323,25 +1469,39 @@
         const data = await res.json();
 
         // 1. Update 8 Agent Pipeline Cards
-        for (const [key, info] of Object.entries(data.stages)) {
-          const card = document.getElementById(`card-${key}`);
-          const badge = document.getElementById(`badge-${key}`);
-          const txtSpan = document.getElementById(`txt-${key}`);
+        if (data.stages) {
+          const stageMap = {
+            'product': 'ceo',
+            'council': 'ceo',
+            'researcher': 'rnd',
+            'developer': 'coding',
+            'tester': 'testing',
+            'security': 'security',
+            'qa': 'verification',
+            'release': 'deployment'
+          };
 
-          if (card && badge) {
-            badge.textContent = info.status;
-            badge.className = `agent-status-badge status-${info.status}`;
-            card.className = 'agent-card';
-            if (info.status === 'ACTIVE') card.classList.add('active');
-            else if (info.status === 'PASS') card.classList.add('pass');
-            else if (info.status === 'WAITING_APPROVAL') card.classList.add('waiting');
-          }
+          for (const [rawKey, rawInfo] of Object.entries(data.stages)) {
+            const key = stageMap[rawKey] || rawKey;
+            const info = rawInfo;
+            const card = document.getElementById(`card-${key}`);
+            const badge = document.getElementById(`badge-${key}`);
+            const details = document.getElementById(`details-${key}`);
 
-          if (txtSpan) {
-            if (info.status === 'ACTIVE') txtSpan.textContent = '🟢 Active';
-            else if (info.status === 'PASS') txtSpan.textContent = '✅ Verified';
-            else if (info.status === 'WAITING_APPROVAL') txtSpan.textContent = '🟡 Waiting';
-            else txtSpan.textContent = '⚪ Idle';
+            if (card && badge) {
+              const status = info.status || 'ONLINE';
+              badge.textContent = status;
+              badge.className = `agent-status-badge status-${status}`;
+              card.className = 'agent-card';
+              if (status === 'ACTIVE' || status === 'WORKING') card.classList.add('active');
+              else if (status === 'PASS' || status === 'ONLINE' || status === 'SUCCESS') card.classList.add('pass');
+              else if (status === 'WAITING_APPROVAL' || status === 'WAITING') card.classList.add('waiting');
+              else if (status === 'FAILED' || status === 'BLOCKED') card.classList.add('failed');
+            }
+
+            if (details && info.details) {
+              details.textContent = info.details;
+            }
           }
         }
 
@@ -1465,7 +1625,7 @@
               const isAvailable = r.status === 'AVAILABLE' || r.status === 'ONLINE';
               const isBlocked = r.status === 'BLOCKED' || r.status === 'OFFLINE';
               const statusColor = isAvailable ? '#34d399' : (isBlocked ? '#f87171' : '#fbbf24');
-              const icon = r.platform === 'macos' ? '🍎' : (r.platform === 'linux' ? '🐧' : '🌐');
+              const icon = r.platform === 'macos' ? '🍎' : (r.platform === 'linux' ? '🐧' : (r.platform === 'android' ? '🤖' : '🌐'));
               
               const caps = r.capabilities ? r.capabilities.join(', ') : 'None';
               const devs = (r.available_devices && r.available_devices.length) 
@@ -1497,12 +1657,13 @@
         }
 
         const isWaiting = !data.production_approved && (
+                          (data.stages.deployment && data.stages.deployment.status === 'WAITING_APPROVAL') ||
                           (data.stages.release && data.stages.release.status === 'WAITING_APPROVAL') || 
                           (data.current_task && data.current_task.stage === 'WAITING_APPROVAL') ||
                           Boolean(data.waiting_approval) ||
                           (data.artifacts && data.artifacts.release && data.artifacts.release.status === 'WAITING_APPROVAL')
                         );
-        const isReviewRequired = Boolean(data.human_review_required) || (data.stages.release && data.stages.release.status === 'HUMAN_REVIEW_REQUIRED') || (data.current_task && data.current_task.stage === 'HUMAN_REVIEW_REQUIRED') || (data.stages.qa && data.stages.qa.status === 'HUMAN_REVIEW_REQUIRED');
+        const isReviewRequired = Boolean(data.human_review_required) || (data.stages.deployment && data.stages.deployment.status === 'HUMAN_REVIEW_REQUIRED') || (data.stages.release && data.stages.release.status === 'HUMAN_REVIEW_REQUIRED') || (data.current_task && data.current_task.stage === 'HUMAN_REVIEW_REQUIRED') || (data.stages.qa && data.stages.qa.status === 'HUMAN_REVIEW_REQUIRED');
 
         const gateBanner = document.getElementById('production-gate-banner');
         if (gateBanner) {

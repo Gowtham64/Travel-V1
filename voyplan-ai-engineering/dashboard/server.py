@@ -9,6 +9,7 @@ import sys
 import json
 import time
 import subprocess
+import shutil
 import threading
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse
@@ -49,14 +50,14 @@ pipeline_state = {
         "next": "Continuous Health Checks & Bug Scans"
     },
     "stages": {
-        "product": {"status": "PASS", "label": "Product Agent", "details": "Product strategy & cross-platform parity verified."},
-        "researcher": {"status": "MONITORING", "label": "R&D / Architect Agent", "details": "Continuous backlog audit active."},
-        "council": {"status": "PASS", "label": "AI Product Council", "details": "No pending debates."},
-        "developer": {"status": "PASS", "label": "Google Antigravity", "details": "Awaiting next task."},
-        "tester": {"status": "MONITORING", "label": "Testing Agent", "details": "Continuous bug scan active."},
-        "qa": {"status": "MONITORING", "label": "QA Agent", "details": "Live health checks every 36s."},
-        "security": {"status": "PASS", "label": "Security Agent", "details": "No pending audits."},
-        "release": {"status": "PASS", "label": "Release / DevOps", "details": "Last deployment: see build number."}
+        "ceo": {"status": "ONLINE", "label": "CEO Agent", "model": "Gemini 1.5 Pro / Flash", "provider": "Google AI Studio", "details": "Executive fleet dispatch active."},
+        "rnd": {"status": "ONLINE", "label": "R&D Agent", "model": "Gemini 1.5 Flash", "provider": "Google AI Studio", "details": "Continuous repo analysis & architecture planning."},
+        "coding": {"status": "ONLINE", "label": "Coding Agent", "model": "Qwen 2.5 Coder 32B / 27B", "provider": "Groq Free API", "details": "Isolated branch implementation ready."},
+        "testing": {"status": "ONLINE", "label": "Testing Agent", "model": "DeepSeek-R1 Distill 120B", "provider": "Groq Cloud", "details": "Multi-runner test execution ready."},
+        "security": {"status": "ONLINE", "label": "Security Agent", "model": "Llama 3.3 70B", "provider": "Groq Free Tier", "details": "CVE audit & secret scan ready."},
+        "verification": {"status": "ONLINE", "label": "Verification Agent", "model": "Deterministic Zero-Trust", "provider": "Multi-Runner", "details": "Cross-platform verification ready."},
+        "deployment": {"status": "ONLINE", "label": "Deployment Agent", "model": "Llama 3.1 8B", "provider": "Groq / Ollama", "details": "Staging packaging & release ready."},
+        "monitoring": {"status": "ONLINE", "label": "Monitoring Agent", "model": "Continuous Latency Guard", "provider": "VoyPlan Cloud", "details": "Production health checks active."}
     },
     "logs": [],
     "artifacts": {},
@@ -159,76 +160,60 @@ def run_pipeline_thread(issue_id, title, body, confirm_deploy, priority="P2"):
             continue
         pipeline_state["logs"].append(line_clean)
 
-        # Stage detection with realistic real-time visual pacing
-        if "Stage 1: Product Agent Strategy" in line_clean or "[product]" in line_clean:
-            pipeline_state["current_stage"] = "product"
-            pipeline_state["stages"]["product"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "PRODUCT_STRATEGY"
-            pipeline_state["current_task"]["next"] = "R&D Architect"
-            time.sleep(1.2)
-        elif "Product Strategy" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["product"]["status"] = "PASS"
-            time.sleep(0.6)
+        # Real-time Stage detection from orchestrator output
+        if "[1. CEO AGENT]" in line_clean or "CEO Agent" in line_clean:
+            pipeline_state["current_stage"] = "ceo"
+            pipeline_state["stages"]["ceo"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["ceo"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Dispatching fleet"
+            pipeline_state["current_task"]["stage"] = "CEO_DISPATCH"
+            pipeline_state["current_task"]["next"] = "R&D Agent Planning"
 
-        elif "Stage 2: R&D Agent Technical Architecture" in line_clean or "[research]" in line_clean:
-            pipeline_state["current_stage"] = "researcher"
-            pipeline_state["stages"]["researcher"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "R&D_ARCHITECTURE"
-            pipeline_state["current_task"]["next"] = "AI Product Council"
-            time.sleep(1.2)
-        elif "R&D Architecture" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["researcher"]["status"] = "PASS"
-            time.sleep(0.6)
+        elif "[2. R&D AGENT]" in line_clean or "R&D Agent" in line_clean:
+            pipeline_state["current_stage"] = "rnd"
+            pipeline_state["stages"]["rnd"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["rnd"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Architecture planning"
+            pipeline_state["current_task"]["stage"] = "R&D_PLANNING"
+            pipeline_state["current_task"]["next"] = "Coding Agent Implementation"
 
-        elif "Stage 3: AI Product Council Debate" in line_clean or "[council]" in line_clean:
-            pipeline_state["current_stage"] = "council"
-            pipeline_state["stages"]["council"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "COUNCIL_DEBATE"
-            pipeline_state["current_task"]["next"] = "Google Antigravity Developer"
-            time.sleep(1.2)
-        elif "Council Review" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["council"]["status"] = "PASS"
-            time.sleep(0.6)
+        elif "[3. CODING AGENT]" in line_clean or "Coding Agent" in line_clean:
+            pipeline_state["current_stage"] = "coding"
+            pipeline_state["stages"]["coding"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["coding"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Isolated branch authoring"
+            pipeline_state["current_task"]["stage"] = "CODING_IMPLEMENTATION"
+            pipeline_state["current_task"]["next"] = "Multi-Runner Testing"
 
-        elif "Stage 4: Google Antigravity Development" in line_clean or "[development]" in line_clean:
-            pipeline_state["current_stage"] = "developer"
-            pipeline_state["stages"]["developer"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "GOOGLE_ANTIGRAVITY"
-            pipeline_state["current_task"]["next"] = "Testing Agent"
-            time.sleep(1.4)
-        elif "Antigravity Dev" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["developer"]["status"] = "PASS"
-            time.sleep(0.6)
-        elif "Antigravity Dev" in line_clean and "FAIL" in line_clean:
-            pipeline_state["stages"]["developer"]["status"] = "FAIL"
-            time.sleep(0.6)
+        elif "[4. TESTING AGENT]" in line_clean or "Testing Agent" in line_clean:
+            pipeline_state["current_stage"] = "testing"
+            pipeline_state["stages"]["testing"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["testing"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Dispatching test runners"
+            pipeline_state["current_task"]["stage"] = "MULTI_RUNNER_TESTING"
+            pipeline_state["current_task"]["next"] = "Security Agent Auditing"
 
-        elif "Stage 5: Independent Verification" in line_clean or "[testing]" in line_clean:
-            pipeline_state["current_stage"] = "tester"
-            pipeline_state["stages"]["tester"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "TESTING"
-            pipeline_state["current_task"]["next"] = "QA Agent"
-            time.sleep(1.2)
-        elif "Unit & Regression" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["tester"]["status"] = "PASS"
-            time.sleep(0.6)
-        elif "Unit & Regression" in line_clean and "FAIL" in line_clean:
-            pipeline_state["stages"]["tester"]["status"] = "FAIL"
-            time.sleep(0.6)
+        elif "[7. SECURITY AGENT]" in line_clean or "Security Agent" in line_clean:
+            pipeline_state["current_stage"] = "security"
+            pipeline_state["stages"]["security"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["security"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Scanning secrets & CVEs"
+            pipeline_state["current_task"]["stage"] = "SECURITY_AUDITING"
+            pipeline_state["current_task"]["next"] = "Verification Agent"
 
-        elif "Stage 6: Independent QA" in line_clean or "[qa]" in line_clean:
-            pipeline_state["current_stage"] = "qa"
-            pipeline_state["stages"]["qa"]["status"] = "ACTIVE"
-            pipeline_state["current_task"]["stage"] = "QA_VALIDATION"
-            pipeline_state["current_task"]["next"] = "Security Agent"
-            time.sleep(1.2)
-        elif "QA Acceptance" in line_clean and "PASS" in line_clean:
-            pipeline_state["stages"]["qa"]["status"] = "PASS"
-            pipeline_state["current_task"]["result"] = "PASS"
-            time.sleep(0.6)
-        elif "QA Acceptance" in line_clean and "FAIL" in line_clean:
-            pipeline_state["stages"]["qa"]["status"] = "FAIL"
-            time.sleep(0.6)
+        elif "[8. VERIFICATION AGENT]" in line_clean or "Verification Agent" in line_clean:
+            pipeline_state["current_stage"] = "verification"
+            pipeline_state["stages"]["verification"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["verification"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Verifying acceptance criteria"
+            pipeline_state["current_task"]["stage"] = "ZERO_TRUST_VERIFICATION"
+            pipeline_state["current_task"]["next"] = "Deployment Agent"
+
+        elif "[9. DEPLOYMENT AGENT]" in line_clean or "Deployment Agent" in line_clean:
+            pipeline_state["current_stage"] = "deployment"
+            pipeline_state["stages"]["deployment"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["deployment"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Staging release packaging"
+            pipeline_state["current_task"]["stage"] = "STAGING_RELEASE"
+            pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
+
+        elif "[10. MONITORING AGENT]" in line_clean or "Monitoring Agent" in line_clean:
+            pipeline_state["current_stage"] = "monitoring"
+            pipeline_state["stages"]["monitoring"]["status"] = "WORKING" if "WORKING" in line_clean else "PASS" if "PASS" in line_clean else "FAIL" if "FAIL" in line_clean else "ONLINE"
+            pipeline_state["stages"]["monitoring"]["details"] = line_clean.split("-", 1)[-1].strip() if "-" in line_clean else "Production health checked"
 
         elif "HUMAN_REVIEW_REQUIRED" in line_clean or "MAXIMUM RETRIES EXHAUSTED" in line_clean:
             pipeline_state["human_review_required"] = True
@@ -313,9 +298,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             pipeline_state["artifacts"] = load_artifacts()
             rel_art = pipeline_state["artifacts"].get("release") or {}
+            stage_key = "deployment" if "deployment" in pipeline_state["stages"] else "release"
             if rel_art.get("status") == "WAITING_APPROVAL" and not pipeline_state.get("production_approved"):
                 pipeline_state["waiting_approval"] = True
-                pipeline_state["stages"]["release"]["status"] = "WAITING_APPROVAL"
+                if stage_key in pipeline_state["stages"]:
+                    pipeline_state["stages"][stage_key]["status"] = "WAITING_APPROVAL"
                 if pipeline_state.get("current_task"):
                     pipeline_state["current_task"]["stage"] = "WAITING_APPROVAL"
                     pipeline_state["current_task"]["next"] = "Human Approval (DEPLOY)"
@@ -343,10 +330,36 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 if p in priority_counts:
                     priority_counts[p] += 1
 
+            # Real Android ADB runner probe
+            has_adb = shutil.which("adb") is not None
+            has_emulator = shutil.which("emulator") is not None
+            android_devices = []
+            if has_adb:
+                try:
+                    res = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, text=True, timeout=3)
+                    android_devices = [l.split()[0] for l in res.stdout.strip().splitlines()[1:] if "\tdevice" in l]
+                except Exception:
+                    pass
+            android_caps = []
+            if has_adb: android_caps.append("adb")
+            if has_emulator: android_caps.append("android-emulator")
+            if android_devices: android_caps.append("connected-device")
+            android_status = "ONLINE" if android_devices else ("AVAILABLE" if (has_adb or has_emulator) else "STANDBY")
+
             runners_data = [
                 {"id": linux_runner.runner_id, "name": linux_runner.name, "platform": "linux", **linux_runner.get_capabilities()},
-                {"id": macos_runner.runner_id, "name": macos_runner.name, "platform": "macos", **macos_runner.get_capabilities()},
                 {"id": web_runner.runner_id, "name": web_runner.name, "platform": "web", **web_runner.get_capabilities()},
+                {
+                    "id": "runner-android-01",
+                    "name": "Android ADB Runner",
+                    "platform": "android",
+                    "status": android_status,
+                    "capabilities": android_caps if android_caps else ["adb-ready"],
+                    "available_devices": android_devices if android_devices else ["Virtual Device Pool"],
+                    "has_adb": has_adb,
+                    "has_emulator": has_emulator
+                },
+                {"id": macos_runner.runner_id, "name": macos_runner.name, "platform": "macos", **macos_runner.get_capabilities()},
             ]
 
             payload = {

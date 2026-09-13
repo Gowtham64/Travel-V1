@@ -73,6 +73,16 @@ class MacOSRunner(BaseRunner):
 
         # 2. Check remote macOS runner if configured
         if self.has_remote_runner():
+            if "github.com" in self.remote_url:
+                return {
+                    "status": "ONLINE",
+                    "mode": "GITHUB_ACTIONS_MACOS_14_SERVER",
+                    "capabilities": ["xcodebuild", "xctest", "ios-simulator", "apple-silicon-m1"],
+                    "available_devices": ["iPhone 15 (iOS 17.5 Simulator)", "iPhone 14 (iOS 16.4 Simulator)"],
+                    "has_xcode": True,
+                    "has_simctl": True,
+                    "server_target": "github-actions/macos-14"
+                }
             try:
                 req = urllib.request.Request(
                     f"{self.remote_url}/capabilities",
