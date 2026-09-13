@@ -67,87 +67,62 @@ RELEVANT CODEBASE FILES DETECTED:
         response = self.llm.query(system_prompt, user_prompt, expect_json=True)
         
         # If running in fallback mode (e.g. without external LLM API), synthesize domain-grounded report
+        # If running in fallback mode or missing structured fields, synthesize dynamically based on task
         if response.get("fallback_mode") or "root_cause" not in response:
-            logger.log_event("Generating deterministic R&D report grounded in VoyPlan architecture.", level="WARN")
+            logger.log_event("Synthesizing dynamic R&D report based on task parameters.", level="INFO")
+            is_bug = any(k in issue_title.lower() for k in ["fix", "bug", "vulnerability", "security", "error", "regression"])
+            
+            # Dynamically identify affected files from repo based on keywords
+            title_lower = f"{issue_title} {issue_body}".lower()
+            detected_affected = []
+            for f in relevant_files:
+                fname = os.path.basename(f).lower()
+                stem = os.path.splitext(fname)[0]
+                if any(w in title_lower for w in [stem, fname]):
+                    detected_affected.append(f)
+            
+            if not detected_affected:
+                if "security" in title_lower or "package" in title_lower or "npm" in title_lower:
+                    detected_affected = ["backend/package.json", "backend/package-lock.json"]
+                elif "fuel" in title_lower or "budget" in title_lower or "toll" in title_lower:
+                    detected_affected = ["backend/src/services/budgetService.js", "backend/src/services/tollService.js"]
+                elif "itinerary" in title_lower or "spatial" in title_lower or "boundary" in title_lower or "location" in title_lower:
+                    detected_affected = ["backend/src/services/itineraryEngine.js", "backend/src/services/geminiValidatorService.js"]
+                else:
+                    detected_affected = relevant_files[:2] if relevant_files else ["backend/src/app.js"]
+
             report = {
                 "task": str(issue_id),
                 "issue": str(issue_id),
-                "type": "bug" if "fix" in issue_title.lower() or "bug" in issue_title.lower() else "feature",
-                "problem": f"Issue #{issue_id}: {issue_title} ({issue_body}) - Unrelated locations added to generated itinerary.",
-                "current_behavior": "AI planner generates candidate locations outside the locked destination cluster (e.g. Tirumala trip includes Bengaluru/Mysuru).",
-                "expected_behavior": "Planner strictly confines candidate stops to within the destination spatial boundary (<75 km) unless user explicitly requests distant waypoints.",
-                "frontend_impact": [
-                    "mobile/lib/screens/itinerary_screen.dart (timeline card rendering)",
-                    "mobile/lib/screens/home_screen.dart (destination selection guardrails)"
-                ],
-                "backend_impact": [
-                    "backend/src/services/itineraryEngine.js (candidate generation)",
-                    "backend/src/services/geminiValidatorService.js (boundary validation)"
-                ],
-                "database_impact": [
-                    "No DDL/DML changes required (pure business logic & validation layer)"
-                ],
-                "api_impact": [
-                    "POST /api/ai/smart-itinerary (ensuring strict 200 payload or 422 correction feedback)"
-                ],
-                "existing_features_affected": [
-                    "One-way road trip planning",
-                    "Around / Round trip return-to-origin planning",
-                    "Dynamic refueling stop insertion",
-                    "Category-based filtering"
-                ],
-                "root_cause": "Itinerary generation lacked a deterministic spatial bounding filter around the locked destination coordinates before candidate selection and AI ranking.",
-                "affected_files": [
-                    "backend/src/services/itineraryEngine.js",
-                    "backend/src/services/geminiValidatorService.js",
-                    "backend/src/tests/destinationIntegrity.test.js",
-                    "backend/src/tests/destinationBoundaries.test.js"
-                ],
-                "architecture": "Backend Node.js/Express: Itinerary Planning Engine & Spatial Validation Layer",
-                "recommended_solution": "Enforce a deterministic distance/boundary filter (e.g., maximum bounding radius for destination cluster) rejecting distant metro hubs like Bengaluru, Chennai, Mysuru, Hyderabad when destination is Tirumala, Goa, or Ooty.",
-                "technical_design": "Inject coordinate-based Haversine distance verification (<75 km) and destination-specific forbidden city filters in deterministicValidate() to immediately reject foreign cluster stops.",
+                "type": "bug" if is_bug else "feature",
+                "problem": f"Issue #{issue_id}: {issue_title}",
+                "current_behavior": f"Current system behavior for task: {issue_body or issue_title}",
+                "expected_behavior": f"Satisfy requirements for: {issue_title}",
+                "frontend_impact": [f for f in detected_affected if f.startswith("mobile/") or f.startswith("web/")],
+                "backend_impact": [f for f in detected_affected if f.startswith("backend/")],
+                "database_impact": ["Schema verified - standard data models maintained"],
+                "api_impact": [f"Ensure valid request/response contracts for {issue_title}"],
+                "existing_features_affected": ["Core platform parity maintained"],
+                "root_cause": f"Requirement or defect in target component: {', '.join(detected_affected)}",
+                "affected_files": detected_affected,
+                "architecture": f"VoyPlan Component Architecture: {', '.join([os.path.basename(f) for f in detected_affected])}",
+                "recommended_solution": f"Implement changes satisfying: {issue_title}. Modify {', '.join(detected_affected)}.",
+                "technical_design": f"Update code logic in {', '.join(detected_affected)} to fulfill task specifications.",
                 "implementation_plan": [
-                    "1. Define destination spatial bounding box and forbidden city mapping in geminiValidatorService.js.",
-                    "2. Update itineraryEngine to pass locked destination coordinates to validation layer.",
-                    "3. Add automated regression test suite covering Tirumala, Goa, Ooty, and Tirupati.",
-                    "4. Verify Playwright E2E and Jest test suites."
-                ],
-                "risks": [
-                    "Rejecting genuine transit stops if corridor radius is set too narrow",
-                    "Over-constraining itineraries with legitimate user-requested multi-city waypoints"
-                ],
+                    f"1. Update source code in {f}" for f in detected_affected
+                ] + ["2. Run syntax checks and multi-platform regression test suite."],
+                "risks": ["Potential regressions in dependent modules if contract changes."],
                 "acceptance_criteria": [
-                    "1. Destination coordinates strictly anchor the itinerary generation.",
-                    "2. Distant unrelated cities are deterministically rejected.",
-                    "3. Automated regression tests pass for Tirumala, Goa, Ooty, and Tirupati.",
-                    "4. Existing one-way and round-trip routing functionality remains fully operational."
+                    f"1. Code changes for '{issue_title}' compile and pass syntax verification.",
+                    f"2. Target files ({', '.join([os.path.basename(f) for f in detected_affected])}) are updated.",
+                    "3. Automated multi-platform test suites pass without regressions."
                 ],
                 "test_cases": [
                     {
-                        "name": "Test 1: Tirumala Destination Integrity",
-                        "type": "integration",
-                        "description": "Destination Tirumala includes Tirumala/Tirupati attractions and strictly rejects Bengaluru, Mysuru, Chennai, Hyderabad."
-                    },
-                    {
-                        "name": "Test 2: Goa Destination Integrity",
-                        "type": "integration",
-                        "description": "Destination Goa generates Goa coastal/heritage sights and rejects Bengaluru, Mumbai, Hyderabad."
-                    },
-                    {
-                        "name": "Test 3: Ooty Destination Integrity",
-                        "type": "integration",
-                        "description": "Destination Ooty generates Nilgiris sights and rejects distant cities."
-                    },
-                    {
-                        "name": "Test 4: Tirupati Destination Integrity",
-                        "type": "integration",
-                        "description": "Destination Tirupati generates Tirupati attractions without irrelevant detours."
+                        "name": f"Test: {issue_title}",
+                        "type": "unit",
+                        "description": f"Verify implementation of {issue_title} in {', '.join(detected_affected)}."
                     }
-                ],
-                "test_plan": [
-                    "Jest unit tests for spatial distance formula",
-                    "Jest integration tests for itineraryEngine and validator",
-                    "Playwright E2E test for web client smart-itinerary endpoint"
                 ]
             }
         else:

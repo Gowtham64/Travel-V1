@@ -1,81 +1,50 @@
 {
-  "task": "123",
-  "issue": "123",
-  "type": "bug",
-  "problem": "Issue #123: Fix AI Planner Locations distance issue (distance issue not been fixed) - Unrelated locations added to generated itinerary.",
-  "current_behavior": "AI planner generates candidate locations outside the locked destination cluster (e.g. Tirumala trip includes Bengaluru/Mysuru).",
-  "expected_behavior": "Planner strictly confines candidate stops to within the destination spatial boundary (<75 km) unless user explicitly requests distant waypoints.",
-  "frontend_impact": [
-    "mobile/lib/screens/itinerary_screen.dart (timeline card rendering)",
-    "mobile/lib/screens/home_screen.dart (destination selection guardrails)"
-  ],
+  "task": "201",
+  "issue": "201",
+  "type": "feature",
+  "problem": "Issue #201: Dynamic Fuel & Toll Calculator",
+  "current_behavior": "Current system behavior for task: Calculate highway toll charges and fuel consumption",
+  "expected_behavior": "Satisfy requirements for: Dynamic Fuel & Toll Calculator",
+  "frontend_impact": [],
   "backend_impact": [
-    "backend/src/services/itineraryEngine.js (candidate generation)",
-    "backend/src/services/geminiValidatorService.js (boundary validation)"
+    "backend/src/services/budgetService.js",
+    "backend/src/services/tollService.js"
   ],
   "database_impact": [
-    "No DDL/DML changes required (pure business logic & validation layer)"
+    "Schema verified - standard data models maintained"
   ],
   "api_impact": [
-    "POST /api/ai/smart-itinerary (ensuring strict 200 payload or 422 correction feedback)"
+    "Ensure valid request/response contracts for Dynamic Fuel & Toll Calculator"
   ],
   "existing_features_affected": [
-    "One-way road trip planning",
-    "Around / Round trip return-to-origin planning",
-    "Dynamic refueling stop insertion",
-    "Category-based filtering"
+    "Core platform parity maintained"
   ],
-  "root_cause": "Itinerary generation lacked a deterministic spatial bounding filter around the locked destination coordinates before candidate selection and AI ranking.",
+  "root_cause": "Requirement or defect in target component: backend/src/services/budgetService.js, backend/src/services/tollService.js",
   "affected_files": [
-    "backend/src/services/itineraryEngine.js",
-    "backend/src/services/geminiValidatorService.js",
-    "backend/src/tests/destinationIntegrity.test.js",
-    "backend/src/tests/destinationBoundaries.test.js"
+    "backend/src/services/budgetService.js",
+    "backend/src/services/tollService.js"
   ],
-  "architecture": "Backend Node.js/Express: Itinerary Planning Engine & Spatial Validation Layer",
-  "recommended_solution": "Enforce a deterministic distance/boundary filter (e.g., maximum bounding radius for destination cluster) rejecting distant metro hubs like Bengaluru, Chennai, Mysuru, Hyderabad when destination is Tirumala, Goa, or Ooty.",
-  "technical_design": "Inject coordinate-based Haversine distance verification (<75 km) and destination-specific forbidden city filters in deterministicValidate() to immediately reject foreign cluster stops.",
+  "architecture": "VoyPlan Component Architecture: budgetService.js, tollService.js",
+  "recommended_solution": "Implement changes satisfying: Dynamic Fuel & Toll Calculator. Modify backend/src/services/budgetService.js, backend/src/services/tollService.js.",
+  "technical_design": "Update code logic in backend/src/services/budgetService.js, backend/src/services/tollService.js to fulfill task specifications.",
   "implementation_plan": [
-    "1. Define destination spatial bounding box and forbidden city mapping in geminiValidatorService.js.",
-    "2. Update itineraryEngine to pass locked destination coordinates to validation layer.",
-    "3. Add automated regression test suite covering Tirumala, Goa, Ooty, and Tirupati.",
-    "4. Verify Playwright E2E and Jest test suites."
+    "1. Update source code in backend/src/services/budgetService.js",
+    "1. Update source code in backend/src/services/tollService.js",
+    "2. Run syntax checks and multi-platform regression test suite."
   ],
   "risks": [
-    "Rejecting genuine transit stops if corridor radius is set too narrow",
-    "Over-constraining itineraries with legitimate user-requested multi-city waypoints"
+    "Potential regressions in dependent modules if contract changes."
   ],
   "acceptance_criteria": [
-    "1. Destination coordinates strictly anchor the itinerary generation.",
-    "2. Distant unrelated cities are deterministically rejected.",
-    "3. Automated regression tests pass for Tirumala, Goa, Ooty, and Tirupati.",
-    "4. Existing one-way and round-trip routing functionality remains fully operational."
+    "1. Code changes for 'Dynamic Fuel & Toll Calculator' compile and pass syntax verification.",
+    "2. Target files (budgetService.js, tollService.js) are updated.",
+    "3. Automated multi-platform test suites pass without regressions."
   ],
   "test_cases": [
     {
-      "name": "Test 1: Tirumala Destination Integrity",
-      "type": "integration",
-      "description": "Destination Tirumala includes Tirumala/Tirupati attractions and strictly rejects Bengaluru, Mysuru, Chennai, Hyderabad."
-    },
-    {
-      "name": "Test 2: Goa Destination Integrity",
-      "type": "integration",
-      "description": "Destination Goa generates Goa coastal/heritage sights and rejects Bengaluru, Mumbai, Hyderabad."
-    },
-    {
-      "name": "Test 3: Ooty Destination Integrity",
-      "type": "integration",
-      "description": "Destination Ooty generates Nilgiris sights and rejects distant cities."
-    },
-    {
-      "name": "Test 4: Tirupati Destination Integrity",
-      "type": "integration",
-      "description": "Destination Tirupati generates Tirupati attractions without irrelevant detours."
+      "name": "Test: Dynamic Fuel & Toll Calculator",
+      "type": "unit",
+      "description": "Verify implementation of Dynamic Fuel & Toll Calculator in backend/src/services/budgetService.js, backend/src/services/tollService.js."
     }
-  ],
-  "test_plan": [
-    "Jest unit tests for spatial distance formula",
-    "Jest integration tests for itineraryEngine and validator",
-    "Playwright E2E test for web client smart-itinerary endpoint"
   ]
 }

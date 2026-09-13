@@ -1,7 +1,7 @@
 {
-  "issue_id": "123",
-  "title": "Fix AI Planner Locations distance issue",
+  "issue_id": "200",
+  "title": "Add Waypoint Boundary Guard",
   "decision": "APPROVED",
   "developer": "Google Antigravity",
-  "timestamp": "2026-09-13 01:10:35"
+  "timestamp": "2026-09-13 22:15:06"
 }

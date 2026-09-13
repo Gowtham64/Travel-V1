@@ -1,9 +1,9 @@
 {
-  "issue_id": "123",
-  "title": "Fix AI Planner Locations distance issue",
+  "issue_id": "200",
+  "title": "Add Waypoint Boundary Guard",
   "product_alignment": "HIGH_PRIORITY_STRATEGIC",
-  "user_problem_solved": "Uncertain or hallucinated stops break traveler trust and cause real-world detours.",
-  "target_persona": "Pilgrimage traveler & Family roadtripper",
+  "user_problem_solved": "Product defect impacting traveler experience or system safety.",
+  "target_persona": "All VoyPlan mobile & web travelers",
   "cross_platform_parity": {
     "web": "Must provide interactive visual confirmation, clear warnings on invalid inputs, and real-time map updates.",
     "android": "Must update local Hive cache and notify connected Android Auto head unit via CarNavState bridge.",
@@ -14,5 +14,5 @@
   "complexity_risk": "MEDIUM: Must protect existing trip creation and saved trips while adding deterministic boundary validation.",
   "product_approval": "APPROVED",
   "recommendation": "PROCEED_TO_COUNCIL_DEBATE",
-  "timestamp": "2026-09-13 01:10:34"
+  "timestamp": "2026-09-13 22:15:04"
 }
