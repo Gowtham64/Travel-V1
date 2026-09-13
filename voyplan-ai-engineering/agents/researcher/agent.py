@@ -19,9 +19,9 @@ from agents.common.logger import AgentLogger
 from agents.common.workspace import resolve_workspace
 
 class ResearchAgent:
-    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
+    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None, role: str = "rnd"):
         self.workspace_path = resolve_workspace(workspace_path)
-        self.llm = LLMClient(provider=model_provider, model=model_name)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role=role)
 
     def analyze_issue(self, issue_id: str, issue_title: str, issue_body: str) -> Dict[str, Any]:
         logger = AgentLogger("research", issue_id)

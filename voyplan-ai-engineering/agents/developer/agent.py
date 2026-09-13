@@ -26,9 +26,9 @@ from agents.common.logger import AgentLogger
 from agents.common.workspace import resolve_workspace
 
 class DeveloperAgent:
-    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
+    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None, role: str = "coding"):
         self.workspace_path = resolve_workspace(workspace_path)
-        self.llm = LLMClient(provider=model_provider, model=model_name)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role=role)
 
     def _run_cmd(self, cmd: List[str], cwd: str = None) -> subprocess.CompletedProcess:
         cwd = cwd or self.workspace_path

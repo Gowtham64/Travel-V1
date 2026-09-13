@@ -21,7 +21,7 @@ from state.database import StateDB
 
 class CodingAgent:
     def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
-        self.dev = DeveloperAgent(workspace_path=workspace_path, model_provider=model_provider, model_name=model_name)
+        self.dev = DeveloperAgent(workspace_path=workspace_path, model_provider=model_provider, model_name=model_name, role="coding")
         self.db = StateDB()
 
     def implement_feature(self, research_report_path: str = None, feedback: Dict[str, Any] = None) -> Dict[str, Any]:

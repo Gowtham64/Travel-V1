@@ -1,5 +1,5 @@
 {
-  "task_id": "203",
+  "task_id": "task-verify-models",
   "status": "PASS_WITH_WARNINGS",
   "scanned_files": 669,
   "secrets_detected": 1,
@@ -7,5 +7,10 @@
   "findings": [
     "Hardcoded private key detected in agent.py"
   ],
+  "ai_security_assessment": {
+    "security_status": "FAIL",
+    "risk_level": "HIGH",
+    "notes": "Hardcoded private key detected in agent.py and 3 high severity NPM CVEs found."
+  },
   "recommendation": "REVIEW_VULNERABILITIES"
 }

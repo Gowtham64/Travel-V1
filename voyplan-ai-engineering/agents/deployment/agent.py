@@ -18,13 +18,15 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from agents.common.llm_client import LLMClient
 from agents.common.logger import AgentLogger
 from agents.common.workspace import resolve_workspace
 from state.database import StateDB
 
 class DeploymentAgent:
-    def __init__(self, workspace_path: str = None):
+    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None, role: str = "deployment"):
         self.workspace_path = resolve_workspace(workspace_path)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role=role)
         self.db = StateDB()
         self.logger = AgentLogger("deployment", "fleet")
 
@@ -58,10 +60,22 @@ class DeploymentAgent:
             }
 
         deployment_id = f"deploy-{int(time.time())}"
+        
+        # Formulate release notes via LLM (Llama 3.1 8B via Ollama/Groq or Gemini fallback)
+        release_notes = "Automated release build"
+        try:
+            sys_prompt = "You are the Deployment Agent for VoyPlan. Generate a concise 2-sentence release summary for staging deployment."
+            user_prompt = f"TASK ID: {task_id}\nBranch: {branch_name or 'HEAD'}\nDeployment ID: {deployment_id}"
+            llm_res = self.llm.query(sys_prompt, user_prompt, expect_json=False)
+            release_notes = llm_res.get("text", release_notes)
+        except Exception:
+            pass
+
         summary = {
             "status": "WAITING_APPROVAL",
             "environment": "staging",
             "deployment_id": deployment_id,
+            "release_notes": release_notes,
             "staging_smoke_tests": "PASS",
             "human_approval_received": False,
             "production_smoke_tests": "PENDING",

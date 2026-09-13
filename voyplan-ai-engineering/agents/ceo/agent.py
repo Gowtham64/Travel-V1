@@ -32,7 +32,7 @@ from state.database import StateDB
 class CEOAgent:
     def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
         self.workspace_path = resolve_workspace(workspace_path)
-        self.llm = LLMClient(provider=model_provider, model=model_name)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role="ceo")
         self.db = StateDB()
         self.logger = AgentLogger("ceo", "fleet")
 

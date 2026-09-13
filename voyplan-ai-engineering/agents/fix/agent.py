@@ -23,10 +23,10 @@ from agents.coding.agent import CodingAgent
 from state.database import StateDB
 
 class FixAgent:
-    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
+    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None, role: str = "coding"):
         self.workspace_path = resolve_workspace(workspace_path)
         self.coding_agent = CodingAgent(workspace_path=self.workspace_path, model_provider=model_provider, model_name=model_name)
-        self.llm = LLMClient(provider=model_provider, model=model_name)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role=role)
         self.db = StateDB()
         self.logger = AgentLogger("fix", "fleet")
 

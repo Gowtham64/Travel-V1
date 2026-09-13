@@ -10,10 +10,91 @@ import urllib.error
 from typing import Dict, Any, Optional
 
 class LLMClient:
-    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
+    ROLE_MAPPING = {
+        "ceo": {
+            "primary_provider": "gemini",
+            "primary_model": "gemini-flash-lite-latest",
+            "description": "Gemini 1.5 Pro / Flash via Google AI Studio (Free Tier)"
+        },
+        "rnd": {
+            "primary_provider": "gemini",
+            "primary_model": "gemini-flash-lite-latest",
+            "description": "Gemini 1.5 Flash via Google AI Studio (Free Tier)"
+        },
+        "coding": {
+            "groq_model": "deepseek-r1-distill-qwen-32b",
+            "openrouter_model": "qwen/qwen-2.5-coder-32b-instruct:free",
+            "ollama_model": "qwen2.5-coder:32b",
+            "gemini_model": "gemini-flash-lite-latest",
+            "description": "Qwen 2.5 Coder 32B / DeepSeek-V3 via Groq Free API / OpenRouter"
+        },
+        "testing": {
+            "groq_model": "deepseek-r1-distill-llama-70b",
+            "ollama_model": "deepseek-r1:14b",
+            "gemini_model": "gemini-flash-lite-latest",
+            "description": "DeepSeek-R1 (Distill 70B/14B) via Groq / Ollama"
+        },
+        "security": {
+            "groq_model": "llama-3.3-70b-versatile",
+            "gemini_model": "gemini-flash-lite-latest",
+            "description": "Llama 3.3 70B via Groq Cloud Free Tier"
+        },
+        "deployment": {
+            "ollama_model": "llama3.1:8b",
+            "groq_model": "llama-3.1-8b-instant",
+            "gemini_model": "gemini-flash-lite-latest",
+            "description": "Llama 3.1 8B via Ollama / Groq Free Tier"
+        }
+    }
+
+    def __init__(self, provider: Optional[str] = None, model: Optional[str] = None, role: Optional[str] = None):
         self._load_env_fallback()
+        self.role = (role or "").lower()
+        self.ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+
+        # Resolve provider and model based on role if specified
+        resolved_provider = provider
+        resolved_model = model
+
+        if self.role in self.ROLE_MAPPING:
+            cfg = self.ROLE_MAPPING[self.role]
+            if self.role in ["ceo", "rnd"]:
+                resolved_provider = "gemini"
+                resolved_model = cfg["primary_model"]
+            elif self.role == "coding":
+                if os.environ.get("GROQ_API_KEY"):
+                    resolved_provider = "groq"
+                    resolved_model = cfg["groq_model"]
+                elif os.environ.get("OPENROUTER_API_KEY"):
+                    resolved_provider = "openrouter"
+                    resolved_model = cfg["openrouter_model"]
+                else:
+                    resolved_provider = "gemini"
+                    resolved_model = cfg["gemini_model"]
+            elif self.role == "testing":
+                if os.environ.get("GROQ_API_KEY"):
+                    resolved_provider = "groq"
+                    resolved_model = cfg["groq_model"]
+                else:
+                    resolved_provider = "gemini"
+                    resolved_model = cfg["gemini_model"]
+            elif self.role == "security":
+                if os.environ.get("GROQ_API_KEY"):
+                    resolved_provider = "groq"
+                    resolved_model = cfg["groq_model"]
+                else:
+                    resolved_provider = "gemini"
+                    resolved_model = cfg["gemini_model"]
+            elif self.role == "deployment":
+                if os.environ.get("GROQ_API_KEY"):
+                    resolved_provider = "groq"
+                    resolved_model = cfg["groq_model"]
+                else:
+                    resolved_provider = "gemini"
+                    resolved_model = cfg["gemini_model"]
+
         self.provider = (
-            provider 
+            resolved_provider 
             or os.environ.get("MODEL_PROVIDER") 
             or ("gemini" if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
                 else "groq" if os.environ.get("GROQ_API_KEY")
@@ -23,8 +104,7 @@ class LLMClient:
                 else "ollama")
         ).lower()
         
-        self.model = model or os.environ.get("MODEL_NAME") or self._default_model(self.provider)
-        self.ollama_base_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.model = resolved_model or os.environ.get("MODEL_NAME") or self._default_model(self.provider)
 
     @staticmethod
     def _load_env_fallback():

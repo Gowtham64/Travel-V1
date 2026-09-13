@@ -17,13 +17,15 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 if BASE_DIR not in sys.path:
     sys.path.insert(0, BASE_DIR)
 
+from agents.common.llm_client import LLMClient
 from agents.common.logger import AgentLogger
 from agents.common.workspace import resolve_workspace
 from state.database import StateDB
 
 class SecurityAgent:
-    def __init__(self, workspace_path: str = None):
+    def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None, role: str = "security"):
         self.workspace_path = resolve_workspace(workspace_path)
+        self.llm = LLMClient(provider=model_provider, model=model_name, role=role)
         self.db = StateDB()
         self.logger = AgentLogger("security", "fleet")
 
@@ -73,6 +75,15 @@ class SecurityAgent:
             except Exception:
                 pass
 
+        # 3. LLM Security Assessment (Llama 3.3 70B via Groq Cloud Free Tier / Gemini fallback)
+        llm_assessment = {}
+        try:
+            sys_prompt = "You are the Security Agent for VoyPlan. Analyze potential security vectors: SQL injection, auth bypass, secret leaks, XSS. Return JSON with 'security_status' ('PASS' or 'FAIL'), 'risk_level' ('LOW'|'MEDIUM'|'HIGH'), and 'notes'."
+            user_prompt = f"TASK ID: {task_id}\nScanned files: {scanned_files}\nSecrets detected: {secrets_detected}\nNPM High CVEs: {vuln_count}\nFindings: {findings}"
+            llm_assessment = self.llm.query(sys_prompt, user_prompt, expect_json=True)
+        except Exception:
+            pass
+
         status = "PASS" if secrets_detected == 0 and vuln_count == 0 else "PASS_WITH_WARNINGS"
         summary = {
             "task_id": task_id,
@@ -81,6 +92,7 @@ class SecurityAgent:
             "secrets_detected": secrets_detected,
             "high_severity_vulnerabilities": vuln_count,
             "findings": findings,
+            "ai_security_assessment": llm_assessment,
             "recommendation": "PROCEED" if status == "PASS" else "REVIEW_VULNERABILITIES"
         }
 

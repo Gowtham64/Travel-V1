@@ -19,7 +19,7 @@ from state.database import StateDB
 
 class RndAgent:
     def __init__(self, workspace_path: str = None, model_provider: str = None, model_name: str = None):
-        self.researcher = ResearchAgent(workspace_path=workspace_path, model_provider=model_provider, model_name=model_name)
+        self.researcher = ResearchAgent(workspace_path=workspace_path, model_provider=model_provider, model_name=model_name, role="rnd")
         self.db = StateDB()
 
     def research(self, issue_id: str, title: str, body: str) -> Dict[str, Any]:
