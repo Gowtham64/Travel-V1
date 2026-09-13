@@ -69,8 +69,8 @@ jobs:
       - name: Run AI Engineering Orchestrator
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets['OPENAI_API_KEY'] }}
+          ANTHROPIC_API_KEY: ${{ secrets['ANTHROPIC_API_KEY'] }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number || '123' }}
           ISSUE_TITLE: ${{ github.event.issue.title || 'Automated Issue Execution' }}
