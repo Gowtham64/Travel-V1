@@ -45,7 +45,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   final _currentFuelCtrl = TextEditingController(text: '30');
   final _mileageCtrl = TextEditingController(text: '15');
 
-  String _tripType = 'around'; // 'around' (Round Trip) or 'one_way' (One-Way Trip)
+  final String _tripType = 'around'; // Smart AI Planner is always round trip
   int _searchRadiusKm = 25;
   int? _nextSearchRadiusKm;
   int? _placesFoundCount;
@@ -1497,7 +1497,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text('Set your start date & time — the AI schedules everything, breaks included.',
               style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
-          _tripTypeBadge(),
           _placeField(
             _startLocCtrl,
             '🛫 Starting Location (Origin & return)',
@@ -1714,82 +1713,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
               const SizedBox(width: 8),
               Text(_itinerary.isEmpty ? 'GENERATE ITINERARY' : 'REGENERATE'),
             ]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _tripTypeBadge() {
-    final isRound = _tripType == 'around';
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _tripType = 'around'),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: isRound ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: isRound ? Border.all(color: AppColors.accentLight.withValues(alpha: 0.6)) : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.sync_rounded, color: isRound ? AppColors.accentLight : Colors.white60, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Round Trip',
-                      style: TextStyle(
-                        color: isRound ? Colors.white : Colors.white60,
-                        fontWeight: isRound ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: InkWell(
-              onTap: () => setState(() => _tripType = 'one_way'),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: !isRound ? AppColors.accentLight.withValues(alpha: 0.22) : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: !isRound ? Border.all(color: AppColors.accentLight.withValues(alpha: 0.6)) : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.arrow_forward_rounded, color: !isRound ? AppColors.accentLight : Colors.white60, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      'One-Way Trip',
-                      style: TextStyle(
-                        color: !isRound ? Colors.white : Colors.white60,
-                        fontWeight: !isRound ? FontWeight.bold : FontWeight.normal,
-                        fontSize: 12.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           ),
         ],
       ),
@@ -2406,7 +2329,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        _tripType == 'around' ? '🔄 Round Trip' : '➡️ One-Way',
+                        '🔄 Round Trip',
                         style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
