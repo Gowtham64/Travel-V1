@@ -22,9 +22,18 @@ if BASE_DIR not in sys.path:
 
 from taskqueue.queue_manager import QueueManager, PRIORITY_WEIGHTS
 from agents.researcher.autonomous_scanner import AutonomousScanner
+from state.database import StateDB
+from runners.linux_runner import LinuxRunner
+from runners.macos_runner import MacOSRunner
+from runners.web_runner import WebRunner
 
 queue_mgr = QueueManager()
 scanner = AutonomousScanner()
+state_db = StateDB()
+workspace_path = os.path.abspath(os.path.join(BASE_DIR, ".."))
+linux_runner = LinuxRunner(workspace_path)
+macos_runner = MacOSRunner(workspace_path)
+web_runner = WebRunner(workspace_path)
 
 # Global execution state
 pipeline_state = {
@@ -334,13 +343,21 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 if p in priority_counts:
                     priority_counts[p] += 1
 
+            runners_data = [
+                {"id": linux_runner.runner_id, "name": linux_runner.name, "platform": "linux", **linux_runner.get_capabilities()},
+                {"id": macos_runner.runner_id, "name": macos_runner.name, "platform": "macos", **macos_runner.get_capabilities()},
+                {"id": web_runner.runner_id, "name": web_runner.name, "platform": "web", **web_runner.get_capabilities()},
+            ]
+
             payload = {
                 **pipeline_state,
                 "priority_counts": priority_counts,
                 "stats": stats,
                 "tasks": tasks,
                 "proposals": load_proposals(),
-                "resource_locks": queue_mgr.resource_locks
+                "resource_locks": queue_mgr.resource_locks,
+                "fleet": state_db.get_fleet_summary(),
+                "runners": runners_data
             }
 
             self.wfile.write(json.dumps(payload).encode("utf-8"))

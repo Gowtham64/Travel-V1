@@ -35,7 +35,10 @@ test-results/
 playwright-report/
 blob-report/
 playwright/.cache/
-test-memory/
+# Databases
+*.db
+*.sqlite3
 
 # OS
 .DS_Store
+

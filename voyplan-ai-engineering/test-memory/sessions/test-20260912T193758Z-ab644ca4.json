@@ -1,0 +1,67 @@
+{
+  "session_id": "test-20260912T193758Z-ab644ca4",
+  "platform": "web/backend",
+  "environment": "local/unconfigured",
+  "persona": "independent real-traveler exploratory tester",
+  "pages_discovered": [],
+  "features_discovered": [
+    "backend regression suite",
+    "web itinerary E2E"
+  ],
+  "actions_performed": [
+    {
+      "action": "Spatial Boundary Regression Suite (Deterministic)",
+      "status": "PASS"
+    }
+  ],
+  "journeys_tested": [
+    "Spatial boundary and destination integrity regression coverage"
+  ],
+  "passed": [
+    "Spatial Boundary Regression Suite (Deterministic)"
+  ],
+  "failed": [],
+  "blocked": [
+    "Web E2E: no STAGING_URL or PRODUCTION_URL was configured; no real UI was tested"
+  ],
+  "unknown": [
+    "Android journey: no APK/device evidence supplied",
+    "iOS journey: no IPA/simulator evidence supplied",
+    "Database persistence: no isolated test database credentials or record identifier supplied"
+  ],
+  "bugs": [],
+  "root_causes": [],
+  "api_validation": [],
+  "database_validation": [],
+  "screenshots": [],
+  "traces": [],
+  "regression_tests_created": [],
+  "next_actions": [
+    "Provide a staging URL and install Playwright browsers to execute the web journey.",
+    "Attach Android and iOS device sessions for equivalent real-human journeys.",
+    "Provide a disposable test account and staging database access for save/reload validation."
+  ],
+  "evidence": [
+    {
+      "timestamp": "2026-09-12T19:37:58.423679+00:00",
+      "command": "/Applications/Xcode.app/Contents/Developer/usr/bin/python3 /Users/gowtham/Downloads/downloads /travel-app/voyplan-ai-engineering/tests/spatial_validator.py",
+      "exit_code": 0,
+      "stdout": "======================================================================\nVoyPlan Destination Boundary & Integrity Regression Test Suite\n======================================================================\n\n[TEST 1] Destination = Tirumala (Anchoring & Contamination Rejection)\n  \u2705 Passed: Accepted 2 local stops; Rejected 3 distant cities.\n\n[TEST 2] Destination = Goa (Panaji/Baga Beach vs Mumbai & Hyderabad)\n  \u2705 Passed: Accepted Goa local stops; Rejected Mumbai and Hyderabad.\n\n[TEST 3] Destination = Ooty (Nilgiris vs Chennai & Bengaluru)\n  \u2705 Passed: Accepted Nilgiris local stops; Rejected Chennai and Bengaluru.\n\n[TEST 4] Routing Engine Integrity (One-Way & Round-Trip Leg Calculation)\n  \u2705 Passed: One-way and round-trip routing distance verified (205.5 km).\n\n======================================================================\nSummary: 4/4 test suites passed (100% SUCCESS)\nDeterministic destination integrity verified across all test scenarios.\n======================================================================\n",
+      "stderr": ""
+    }
+  ],
+  "started_at": "2026-09-12T19:37:58.423632+00:00",
+  "ended_at": "2026-09-12T19:37:58.445889+00:00",
+  "status": "PASS",
+  "branch": "ai/fix/123-destination-integrity",
+  "commit": "HEAD",
+  "tests_run": [
+    "Spatial Boundary Regression Suite (Deterministic)"
+  ],
+  "passed_count": 1,
+  "failed_count": 0,
+  "failed_tests": [],
+  "errors": [],
+  "regressions": [],
+  "recommendation": "PROCEED_TO_QA"
+}

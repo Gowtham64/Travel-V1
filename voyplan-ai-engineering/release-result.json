@@ -1,10 +1,9 @@
 {
   "status": "WAITING_APPROVAL",
   "environment": "staging",
-  "deployment_id": "deploy-20260913011035",
+  "deployment_id": "deploy-1789320715",
   "staging_smoke_tests": "PASS",
   "human_approval_received": false,
   "production_smoke_tests": "PENDING",
-  "rollback_triggered": false,
-  "message": "Deployment paused at approval gate. Run with confirmation keyword 'DEPLOY' to proceed."
+  "message": "Staging smoke passed. Awaiting human approval (DEPLOY) for production."
 }

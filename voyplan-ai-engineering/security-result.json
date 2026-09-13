@@ -1,15 +1,11 @@
 {
-  "issue_id": "123",
-  "status": "PASS",
-  "checks": {
-    "secrets_leak_check": "PASS",
-    "injection_check": "PASS",
-    "location_privacy_check": "PASS",
-    "auth_boundary_check": "PASS",
-    "dependency_vulnerabilities": "PASS"
-  },
-  "findings": [],
-  "location_privacy_cleared": true,
-  "recommendation": "PROCEED_TO_STAGING",
-  "timestamp": "2026-09-13 01:10:35"
+  "task_id": "203",
+  "status": "PASS_WITH_WARNINGS",
+  "scanned_files": 669,
+  "secrets_detected": 1,
+  "high_severity_vulnerabilities": 3,
+  "findings": [
+    "Hardcoded private key detected in agent.py"
+  ],
+  "recommendation": "REVIEW_VULNERABILITIES"
 }

@@ -1,38 +1,34 @@
 {
-  "issue": "202",
-  "problem": "Drivers are not warned in real-time when their calculated route polyline intersects high precipitation radar polygons during monsoon seasons.",
-  "root_cause": "Lack of geospatial intersection checking between active navigation route polylines and real-time precipitation radar polygon feeds/layers.",
+  "issue": "203",
+  "problem": "Autonomous highway refueling stops fail to synchronize dynamically with computed route polygon boundaries, leading to out-of-bounds or missed fueling options during autonomous trip planning.",
+  "root_cause": "The geospatial query handler lacks a real-time boundary polygon intersection check against the active route geometry when fetching candidate refueling stops from the Mapbox store locator / geospatial pipeline.",
   "affected_files": [
     "voyplan-ai-engineering/orchestrator_daemon.py",
-    "app/main.dart.js",
-    "web/app/main.dart.js"
+    ".agents/skills/mapbox-geospatial-operations/SKILL.md",
+    "Dockerfile.ai",
+    "voyplan-ai-engineering/requirements.txt"
   ],
-  "architecture": "Geospatial service daemon layer that periodically fetches radar polygon hazards, matches them against active route polylines using spatial intersection algorithms, and triggers real-time UI/push warnings.",
-  "recommended_solution": "Implement a spatial intersection module in the backend orchestrator using Turf.js or Python shapely to evaluate route polylines against high-precipitation polygons, and emit real-time hazard alerts to the client app.",
+  "architecture": "VoyPlan AI orchestrator daemon coordinates geospatial tools and map matching, leveraging spatial queries to filter points of interest along dynamic route corridors bounded by polygon geometries.",
+  "recommended_solution": "Implement a dynamic polygon intersection filter within the orchestrator daemon's refueling candidate retrieval pipeline using Mapbox geospatial operations to ensure stops strictly fall inside or within tolerance of the active route polygon boundary.",
   "risks": [
-    "High latency from frequent polygon-polyline spatial queries.",
-    "False positive hazard alerts due to outdated radar polygon feeds."
+    "Increased computational overhead for frequent polygon intersection checks on long routes.",
+    "Potential empty result sets if route boundary tolerance is configured too restrictively."
   ],
   "acceptance_criteria": [
-    "System successfully detects intersections between a route polyline and high precipitation radar polygons.",
-    "Real-time alerts are pushed to the driver when a hazard intersection is identified.",
-    "Performance remains within acceptable limits (<200ms check time)."
+    "Candidate refueling stops returned by the AI planner strictly intersect or fall within the active route polygon boundary.",
+    "Dynamic updates to the route boundary automatically trigger a re-sync of refueling polygons.",
+    "Unit and integration tests validate spatial containment accuracy under various route geometries."
   ],
   "test_cases": [
     {
-      "name": "test_route_polygon_intersection_positive",
+      "name": "test_refueling_polygon_sync_containment",
       "type": "unit",
-      "description": "Verify that a route polyline passing directly through a high-precipitation polygon triggers a hazard warning."
+      "description": "Verify that candidate stops outside the route polygon boundary are filtered out while those inside are retained."
     },
     {
-      "name": "test_route_polygon_intersection_negative",
-      "type": "unit",
-      "description": "Verify that a route polyline entirely outside precipitation polygons triggers no warnings."
-    },
-    {
-      "name": "test_realtime_monsoon_hazard_alert_e2e",
-      "type": "e2e",
-      "description": "Simulate a live navigation session entering a monsoon radar polygon and confirm the UI displays the hazard warning."
+      "name": "test_dynamic_route_boundary_update",
+      "type": "integration",
+      "description": "Simulate a dynamic route recalculation and ensure refueling stops re-sync correctly with the new boundary polygon."
     }
   ]
 }
