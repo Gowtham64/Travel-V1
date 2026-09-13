@@ -22,26 +22,26 @@ class LLMClient:
             "description": "Gemini 1.5 Flash via Google AI Studio (Free Tier)"
         },
         "coding": {
-            "groq_model": "deepseek-r1-distill-qwen-32b",
+            "groq_model": "qwen/qwen3.6-27b",
             "openrouter_model": "qwen/qwen-2.5-coder-32b-instruct:free",
             "ollama_model": "qwen2.5-coder:32b",
             "gemini_model": "gemini-flash-lite-latest",
             "description": "Qwen 2.5 Coder 32B / DeepSeek-V3 via Groq Free API / OpenRouter"
         },
         "testing": {
-            "groq_model": "deepseek-r1-distill-llama-70b",
+            "groq_model": "openai/gpt-oss-120b",
             "ollama_model": "deepseek-r1:14b",
             "gemini_model": "gemini-flash-lite-latest",
             "description": "DeepSeek-R1 (Distill 70B/14B) via Groq / Ollama"
         },
         "security": {
-            "groq_model": "llama-3.3-70b-versatile",
+            "groq_model": "openai/gpt-oss-120b",
             "gemini_model": "gemini-flash-lite-latest",
             "description": "Llama 3.3 70B via Groq Cloud Free Tier"
         },
         "deployment": {
             "ollama_model": "llama3.1:8b",
-            "groq_model": "llama-3.1-8b-instant",
+            "groq_model": "openai/gpt-oss-20b",
             "gemini_model": "gemini-flash-lite-latest",
             "description": "Llama 3.1 8B via Ollama / Groq Free Tier"
         }
@@ -247,7 +247,7 @@ class LLMClient:
         if not key:
             raise ValueError(f"API key for {self.provider} is not configured")
             
-        body = {
+        body: Dict[str, Any] = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": system},
@@ -255,13 +255,14 @@ class LLMClient:
             ],
             "temperature": 0.2
         }
-        if expect_json:
-            body["response_format"] = {"type": "json_object"}
-            
+        if self.provider == "groq":
+            body["max_tokens"] = 800
+
         data = json.dumps(body).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {key}"
+            "Authorization": f"Bearer {key}",
+            "User-Agent": "VoyPlan-AI-Agent/1.0"
         }
         if self.provider == "openrouter":
             headers["HTTP-Referer"] = "https://voyplan.in"
@@ -271,7 +272,20 @@ class LLMClient:
         with urllib.request.urlopen(req, timeout=60) as resp:
             res_json = json.loads(resp.read().decode("utf-8"))
             content = res_json["choices"][0]["message"]["content"]
-            return json.loads(content) if expect_json else {"text": content}
+            if expect_json:
+                clean = content.strip()
+                # Strip thinking tags if returned by reasoning models
+                if "<think>" in clean and "</think>" in clean:
+                    clean = clean.split("</think>", 1)[-1].strip()
+                if clean.startswith("```json"):
+                    clean = clean[7:]
+                if clean.startswith("```"):
+                    clean = clean[3:]
+                if clean.endswith("```"):
+                    clean = clean[:-3]
+                clean = clean.strip()
+                return json.loads(clean)
+            return {"text": content}
 
     def _call_anthropic(self, system: str, prompt: str, expect_json: bool) -> Dict[str, Any]:
         key = os.environ.get("ANTHROPIC_API_KEY")
