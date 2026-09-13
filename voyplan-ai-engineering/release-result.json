@@ -1,8 +1,8 @@
 {
   "status": "WAITING_APPROVAL",
   "environment": "staging",
-  "deployment_id": "deploy-1789326904",
-  "release_notes": "Staging deployment **deploy-1789326904** of VoyPlan has been successfully completed on branch **HEAD**. The release includes the latest feature updates and critical bug fixes, ready for QA testing.",
+  "deployment_id": "deploy-1789327534",
+  "release_notes": "Staging deployment of branch **HEAD** (Task ID\u202f125) has begun under **Deployment ID\u202fdeploy\u20111789327534**. The rollout will be monitored for stability and performance before promotion to production.",
   "staging_smoke_tests": "PASS",
   "human_approval_received": false,
   "production_smoke_tests": "PENDING",

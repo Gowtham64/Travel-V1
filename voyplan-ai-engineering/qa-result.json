@@ -2,10 +2,10 @@
   "status": "PASS",
   "task_id": "125",
   "requirements": [
-    "Backend accurately fetches toll fares via Fastag API for specified routes.",
-    "Fuel costs are correctly calculated based on distance, fuel prices, and vehicle mileage.",
-    "Expenses are split accurately among all listed passengers.",
-    "Frontend budget screen displays itemized toll fares, fuel costs, and per-passenger breakdowns clearly."
+    "Backend accurately calculates fuel consumption and cost based on vehicle mileage and route distance.",
+    "Fastag API successfully aggregates total toll plaza fares along the planned route.",
+    "Cost breakdown is correctly split among participating passengers.",
+    "Mobile budget screen displays the itemized fuel and toll expenses dynamically."
   ],
   "verified": [
     "Code changes compile cleanly and pass pre-flight syntax checks.",

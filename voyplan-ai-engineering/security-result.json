@@ -10,11 +10,7 @@
   "ai_security_assessment": {
     "security_status": "FAIL",
     "risk_level": "HIGH",
-    "notes": [
-      "Hardcoded private key found in agent.py \u2013 secret leakage and potential unauthorized access.",
-      "3 high severity CVEs detected in NPM dependencies \u2013 may allow remote code execution or privilege escalation.",
-      "Large codebase scanned (674 files) \u2013 increased attack surface; recommend thorough review for SQL injection, auth bypass, and XSS vulnerabilities."
-    ]
+    "notes": "Hardcoded private key found in agent.py indicates a secret leak and potential authentication bypass. Additionally, three high\u2011severity NPM CVEs were detected, increasing the attack surface. Immediate remediation is required: remove the hardcoded key, rotate any compromised credentials, and address the high\u2011severity vulnerabilities."
   },
   "recommendation": "REVIEW_VULNERABILITIES"
 }

@@ -1,43 +1,40 @@
 {
   "issue": "125",
-  "problem": "Lack of automated toll fare aggregation via Fastag API and dynamic fuel cost splitting based on vehicle mileage among passengers within the budget planning features.",
-  "root_cause": "Budget and expense tracking services currently only handle static manual entries without integration for real-time fuel price lookups, toll aggregators, or per-passenger split distribution logic.",
+  "problem": "Lack of automated toll fare aggregation via Fastag API and dynamic fuel cost splitting based on passenger mileage within the VoyPlan budget system.",
+  "root_cause": "Absence of backend service integrations for real-time fuel price updates and Fastag toll plaza fare calculation, along with corresponding frontend UI components in the mobile budget screen.",
   "affected_files": [
     "mobile/lib/screens/budget_screen.dart",
     "backend/src/services/budgetService.js",
     "backend/src/services/fuelPriceProvider.js"
   ],
-  "architecture": "Backend service architecture utilizing a new fuel price provider provider/service and a Fastag API integration module within budgetService.js to compute total trip transit expenses, which are then surfaced through the mobile budget screen interface for passenger cost splitting.",
-  "recommended_solution": "Implement fuelPriceProvider.js to fetch current local fuel rates based on route coordinates/region, build a toll fare aggregator utilizing Fastag API specs in budgetService.js, and update budget_screen.dart to provide interactive passenger mileage/cost splitting controls.",
+  "architecture": "The feature integrates a backend Node.js microservice (`budgetService.js`) powered by an external fuel price provider (`fuelPriceProvider.js`) to pull live rates and calculate distance-based fuel consumption. It interfaces with the Fastag API for toll aggregation, while exposing endpoints consumed by the Flutter frontend (`budget_screen.dart`) to render dynamic splits across passengers.",
+  "recommended_solution": "Implement `fuelPriceProvider.js` to fetch current fuel rates, update `budgetService.js` to compute precise distance-based fuel splits and aggregate Fastag toll fares, and update `budget_screen.dart` to display the detailed breakdown and passenger cost shares.",
   "risks": [
-    "External Fastag or fuel price API rate limits or downtime",
-    "Inaccurate vehicle mileage inputs leading to unfair cost splits",
-    "UI layout overflow on mobile when displaying complex split breakdowns"
+    "Fastag API rate limits or downtime affecting toll fare calculations.",
+    "Discrepancies in vehicle mileage specifications leading to inaccurate fuel cost splits.",
+    "Network latency issues on mobile devices when fetching real-time budget updates."
   ],
   "acceptance_criteria": [
-    "Fuel costs are accurately calculated using distance, vehicle mileage, and real-time fuel prices.",
-    "Toll plaza fares are successfully aggregated via the Fastag API integration.",
-    "Total travel expenses (fuel + tolls) are dynamically split among passengers based on configured shares.",
-    "The Flutter mobile budget screen reflects real-time updates when passengers or vehicle details change."
+    "Backend successfully fetches live fuel prices via `fuelPriceProvider.js`.",
+    "Toll plaza fares are accurately calculated and aggregated using the Fastag API integration.",
+    "Fuel costs are correctly split among passengers based on vehicle mileage and trip distance.",
+    "Frontend `budget_screen.dart` displays the breakdown of toll fees and individual passenger shares clearly."
   ],
   "test_cases": [
     {
-      "name": "test_fuel_cost_calculation",
+      "name": "test_fuel_price_provider_fetch",
       "type": "unit",
-      "name_slug": "test_fuel_cost_calculation",
-      "description": "Verify that fuelCostProvider computes correct fuel expenses given distance, fuel efficiency, and regional fuel prices."
+      "description": "Verify that `fuelPriceProvider.js` correctly retrieves current fuel prices from the target data source."
     },
     {
-      "name": "test_toll_fare_aggregation",
-      "type": "integration",
-      "name_slug": "test_toll_fare_aggregation",
-      "description": "Validate that budgetService successfully queries the Fastag API mock/stub and aggregates total route tolls."
+      "name": "test_budget_service_split_calculation",
+      "type": "unit",
+      "description": "Validate that `budgetService.js` accurately computes total fuel consumption, incorporates toll fares from Fastag, and splits costs proportionally among passengers."
     },
     {
-      "name": "test_budget_screen_split_ui",
-      "type": "e2e",
-      "name_slug": "test_budget_screen_split_ui",
-      "description": "Confirm that budget_screen.dart correctly displays passenger cost splits and updates dynamically upon user input modifications."
+      "name": "test_budget_screen_ui_rendering",
+      "type": "widget",
+      "description": "Ensure `budget_screen.dart` correctly displays the toll aggregate and individual passenger cost splits without layout overflows."
     }
   ]
 }
