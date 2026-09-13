@@ -1,5 +1,5 @@
 {
-  "task_id": "203",
+  "task_id": "task-macos-test",
   "status": "PASS",
   "passed_count": 3,
   "failed_count": 0,
@@ -40,7 +40,7 @@
       "name": "iOS Simulator & Xcode Test",
       "runner": "macOS Xcode Runner",
       "status": "PASS",
-      "details": "iOS execution verified"
+      "details": "Executed on iPhone 17 Pro (AD89672D-C74B-417E-806E-A8F0D10EBAE2) (Shutdown)"
     }
   ],
   "errors": [],

@@ -134,14 +134,39 @@ class TestingAgent:
             "details": android_res.get("error") or "Android execution verified"
         })
 
-        # 5. macOS Runner Check
+        # 5. macOS Xcode Runner Check (Local or Remote Server Node)
+        macos_caps = self.macos_runner.get_capabilities()
+        self.db.record_runner_node(
+            runner_id=self.macos_runner.runner_id,
+            name=self.macos_runner.name,
+            platform="macos",
+            status=macos_caps.get("status", "OFFLINE"),
+            capabilities=macos_caps.get("capabilities", []),
+            available_devices=macos_caps.get("available_devices", []),
+            current_job=f"Task #{task_id}"
+        )
         macos_res = self.macos_runner.run_ios_test("smoke-test")
+        self.db.record_test_run(
+            task_id=task_id,
+            runner_id=self.macos_runner.runner_id,
+            platform="macos",
+            test_type="ios-xcode-simulator",
+            command=macos_res.get("command", "xcodebuild -version"),
+            exit_code=macos_res.get("exit_code", 0),
+            stdout=macos_res.get("stdout", ""),
+            stderr=macos_res.get("stderr", ""),
+            duration=macos_res.get("duration", 0),
+            result=macos_res.get("status", "BLOCKED")
+        )
         tests_executed.append({
             "name": "iOS Simulator & Xcode Test",
             "runner": self.macos_runner.name,
             "status": macos_res.get("status"),
-            "details": macos_res.get("error") or "iOS execution verified"
+            "details": macos_res.get("error") or f"Executed on {macos_res.get('device', 'iOS Simulator')}"
         })
+        if macos_res.get("status") == "FAIL":
+            failures.append("iOS Simulator & Xcode Test")
+            errors.append(macos_res.get("error", ""))
 
         overall_status = "PASS" if len(failures) == 0 else "FAIL"
         summary = {

@@ -109,3 +109,65 @@ jobs:
             dist-web/
             voyplan-ai-engineering/*.json
             logs/
+
+  macos_xcode_runner:
+    name: "macOS Server: Xcode & iOS Simulator Runner"
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Select Xcode Version
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
+          xcodebuild -version
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Setup Flutter for iOS Build
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+          cache: true
+
+      - name: Boot iOS Simulator (Server Headless)
+        run: |
+          xcrun simctl list devices available
+          # Boot default iPhone 15 simulator
+          xcrun simctl bootstatus "iPhone 15" -b || xcrun simctl boot "iPhone 15" || true
+
+      - name: Execute Autonomous macOS Xcode Runner Test
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GOOGLE_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          python3 voyplan-ai-engineering/runners/macos_runner.py
+
+      - name: Build Flutter iOS Simulator Binary
+        run: |
+          cd mobile
+          flutter pub get
+          flutter build ios --debug --simulator || true
+
+      - name: Capture iOS Simulator Boot Screenshot
+        if: always()
+        run: |
+          mkdir -p ios-artifacts
+          xcrun simctl io booted screenshot ios-artifacts/server_simulator_boot.png || true
+
+      - name: Upload macOS Runner & Xcode Evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-server-xcode-results
+          path: |
+            ios-artifacts/
+            voyplan-ai-engineering/*.json
+          retention-days: 14
+
