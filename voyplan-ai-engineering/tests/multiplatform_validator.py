@@ -152,11 +152,14 @@ def test_android_platform(workspace_path):
 
     # 2. Mobile API endpoints used by Android App
     try:
-        req = urllib.request.Request(f"{BACKEND_URL}/api/fuel?vehicle_type=car")
+        req = urllib.request.Request(f"{BACKEND_URL}/api/fuel/prices?location=Bengaluru&fuelType=petrol")
         with urllib.request.urlopen(req, timeout=15) as resp:
-            log(f"Android Mobile API Contract (/api/fuel): 200 OK", "PASS")
+            data = json.loads(resp.read().decode("utf-8"))
+            assert data.get("price"), "Missing price in fuel API response"
+            log(f"Android Mobile API Contract (/api/fuel/prices): 200 OK (₹{data.get('price')}/L)", "PASS")
     except Exception as e:
-        log(f"Android Mobile API Contract: Verified via mock fallback", "PASS")
+        log(f"Android Mobile API Contract Error: {e}", "FAIL")
+        return False
 
     return True
 
