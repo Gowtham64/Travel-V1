@@ -56,7 +56,7 @@ class QAAgent:
 
         if len(failed) == 0 and test_passed:
             status = "PASS"
-            reason = "All acceptance criteria verified against deterministic destination regression test suite."
+            reason = f"All {len(verified)} acceptance criteria verified against automated tests and syntax checks."
             recommendation = "PROCEED_TO_STAGING"
         else:
             status = "FAIL"
