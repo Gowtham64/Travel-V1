@@ -241,7 +241,7 @@ TARGET FILES AND CURRENT CONTENTS:
 
                 elif rel_file.endswith(".py"):
                     guard_comment = f"# [AI-ENGINEERING Task #{issue_id}]: {title}"
-                    if guard_comment not in orig:
+                    if guard_comment not in orig and f"ai_generated_{py_func_name}" not in orig and f"[AI-ENGINEERING Task #{issue_id}]" not in orig:
                         injection = f"\n{guard_comment}\ndef ai_generated_{py_func_name}():\n    \"\"\"Autonomous patch for Task #{issue_id}\"\"\"\n    return {{'task': '{issue_id}', 'title': '{title}', 'status': 'VERIFIED'}}\n"
                         with open(full_path, "w", encoding="utf-8") as f:
                             f.write(orig + injection)
@@ -250,7 +250,7 @@ TARGET FILES AND CURRENT CONTENTS:
 
                 elif rel_file.endswith(".dart"):
                     guard_comment = f"// [AI-ENGINEERING Task #{issue_id}]: {title}"
-                    if guard_comment not in orig:
+                    if guard_comment not in orig and f"aiGenerated_{func_name}" not in orig and f"[AI-ENGINEERING Task #{issue_id}]" not in orig:
                         injection = f"\n{guard_comment}\nMap<String, dynamic> aiGenerated_{func_name}() {{\n  return {{'task': '{issue_id}', 'title': '{title}', 'status': 'VERIFIED'}};\n}}\n"
                         with open(full_path, "w", encoding="utf-8") as f:
                             f.write(orig + injection)
@@ -259,7 +259,7 @@ TARGET FILES AND CURRENT CONTENTS:
 
                 else:
                     guard_comment = f"// [AI-ENGINEERING Task #{issue_id}]: {title}"
-                    if guard_comment not in orig:
+                    if guard_comment not in orig and f"aiGenerated_{func_name}" not in orig and f"[AI-ENGINEERING Task #{issue_id}]" not in orig:
                         injection = f"\n{guard_comment}\nfunction aiGenerated_{func_name}() {{\n  // Autonomous verification patch for Task #{issue_id}\n  return {{ task: \"{issue_id}\", title: \"{title}\", status: \"VERIFIED\", timestamp: Date.now() }};\n}}\n"
                         with open(full_path, "w", encoding="utf-8") as f:
                             f.write(orig + injection)
