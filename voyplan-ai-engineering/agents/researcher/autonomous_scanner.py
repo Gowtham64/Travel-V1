@@ -95,26 +95,38 @@ class AutonomousScanner:
 
         # 2. Automated Test Regression Check
         self.logger.info("Executing background regression test suite...")
+        import shutil
+        node_bin = shutil.which("node")
+        npm_bin = shutil.which("npm") if node_bin else None
+        if not (npm_bin and node_bin):
+            self.logger.info("Node/npm not available in current container; skipping Jest regression scan.")
+            return detected
+
         try:
             test_proc = subprocess.run(
-                ["npm", "test", "--", "src/tests/destinationBoundaries.test.js", "--forceExit"],
+                [npm_bin, "test", "--", "src/tests/destinationBoundaries.test.js", "--forceExit"],
                 cwd=self.backend_path,
                 capture_output=True,
                 text=True,
                 timeout=45
             )
-            if test_proc.returncode != 0:
+            # Avoid queuing false alarms if Jest is missing from environment (exit code 127)
+            if test_proc.returncode != 0 and test_proc.returncode != 127 and "jest: not found" not in test_proc.stderr:
                 title = "[AUTO-DETECTED BUG] Regression in Destination Boundaries Suite"
                 desc = f"Automated CI health scan detected failing unit tests in destinationBoundaries.test.js. Output:\n{test_proc.stderr[:300]}"
-                task = self.queue_mgr.add_task(
-                    title=title,
-                    description=desc,
-                    priority="P1",
-                    task_type="bug",
-                    locked_resources=["backend/src/services/geminiValidatorService.js"]
-                )
-                detected.append(task)
-                self.logger.warn(f"Auto-detected test regression: {title}")
+                
+                # Deduplication check: do not queue if already present
+                existing_tasks = self.queue_mgr.get_all().get("tasks", [])
+                if not any("Regression in Destination Boundaries Suite" in t.get("title", "") for t in existing_tasks):
+                    task = self.queue_mgr.add_task(
+                        title=title,
+                        description=desc,
+                        priority="P1",
+                        task_type="bug",
+                        locked_resources=["backend/src/services/geminiValidatorService.js"]
+                    )
+                    detected.append(task)
+                    self.logger.warn(f"Auto-detected test regression: {title}")
         except Exception as e:
             self.logger.warn(f"Test scan error: {e}")
 

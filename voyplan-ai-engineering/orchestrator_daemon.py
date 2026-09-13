@@ -78,6 +78,12 @@ class AutonomousDaemon:
             test_res = self.tester.test()
             self.queue_mgr.increment_stat("tests_executed", test_res.get("passed_count", 4))
 
+            # Self-healing retry if tests failed
+            if test_res.get("status") == "FAIL" and dev_res.get("status") == "PASS":
+                print(f" [24/7 DAEMON] ⚠️ Test failures detected. Triggering self-healing developer retry...")
+                dev_res = self.developer.develop(feedback={"test_failures": test_res.get("bugs", [])})
+                test_res = self.tester.test()
+
             # ── STAGE 4: QA ──
             self.queue_mgr.update_task_status(task_id, "QA")
             print(f" [24/7 DAEMON] QA Agent validating acceptance criteria...")

@@ -86,6 +86,18 @@ class TestingAgent:
         node_bin = shutil.which("node")
         npm_bin = shutil.which("npm") if node_bin else None
 
+        # 1. Verify syntax of all changed files
+        files_changed = dev_result.get("files_changed", [])
+        for rel in files_changed:
+            full = self.workspace_path / rel
+            if not full.exists():
+                continue
+            ext = full.suffix.lower()
+            if ext in [".js", ".mjs"] and node_bin:
+                self._run_check(f"Syntax Check: {rel}", [node_bin, "--check", str(full)], self.workspace_path, logger, report, 30)
+            elif ext == ".py":
+                self._run_check(f"Syntax Check: {rel}", [sys.executable, "-m", "py_compile", str(full)], self.workspace_path, logger, report, 30)
+
         test_executed = False
         if npm_bin and node_bin and (backend_dir / "package.json").exists():
             test_status = self._run_check("Backend Jest regression suite", [npm_bin, "test", "--", "--runInBand", "--forceExit"], backend_dir, logger, report, 300)
