@@ -1,0 +1,36 @@
+{
+    "name": "Voyplan",
+    "short_name": "Voyplan",
+    "start_url": ".",
+    "scope": ".",
+    "display": "standalone",
+    "background_color": "#0f766e",
+    "theme_color": "#0f766e",
+    "description": "Voyplan — plan the whole road trip: route, stops, tolls, fuel, weather and live navigation.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

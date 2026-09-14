@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Install Voyplan on iPhone — Step-by-step (Sideloadly)</title>
+    <meta name="description" content="Complete step-by-step guide to install the Voyplan iPhone app for free using Sideloadly on your Mac or Windows PC.">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #05070a;
+            --bg-2: #0a0f14;
+            --card: rgba(255, 255, 255, 0.04);
+            --ink: #f6f4ee;
+            --muted: rgba(246, 244, 238, 0.64);
+            --faint: rgba(246, 244, 238, 0.10);
+            --line: rgba(246, 244, 238, 0.12);
+            --teal: #2dd4bf;
+            --coral: #ff7a4d;
+            --gold: #f5c563;
+            --font-heading: 'Fraunces', serif;
+            --font-body: 'Inter', sans-serif;
+            --font-mono: 'IBM Plex Mono', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body {
+            background: radial-gradient(1200px 600px at 50% -10%, #10171f 0%, var(--bg) 60%);
+            color: var(--ink);
+            font-family: var(--font-body);
+            line-height: 1.65;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+        .wrap { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem; }
+
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0 2rem; }
+        .brand { display: flex; align-items: center; gap: 0.6rem; font-family: var(--font-heading); font-weight: 700; font-size: 1.25rem; letter-spacing: -0.02em; text-decoration: none; color: var(--ink); }
+        .brand .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 14px var(--teal); }
+        .back { color: var(--muted); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
+        .back:hover { color: var(--ink); }
+
+        h1 { font-family: var(--font-heading); font-weight: 600; font-size: clamp(2rem, 6vw, 3rem); line-height: 1.05; letter-spacing: -0.02em; margin-bottom: 0.75rem; }
+        .lede { color: var(--muted); font-size: 1.05rem; max-width: 58ch; }
+
+        .eyebrow { font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.3em; font-size: 0.7rem; color: var(--teal); margin-bottom: 1rem; }
+
+        .dl {
+            display: inline-flex; align-items: center; gap: 0.7rem; margin: 1.6rem 0 0.4rem;
+            background: linear-gradient(135deg, var(--teal), #14b8a6); color: #05201d;
+            font-weight: 700; font-size: 1.05rem; text-decoration: none;
+            padding: 0.95rem 1.6rem; border-radius: 100px;
+            box-shadow: 0 10px 30px rgba(45, 212, 191, 0.28);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .dl:hover { transform: translateY(-2px); box-shadow: 0 14px 38px rgba(45, 212, 191, 0.4); }
+        .dl svg { width: 22px; height: 22px; }
+        .dl small { display: block; font-weight: 600; font-size: 0.72rem; opacity: 0.75; letter-spacing: 0.02em; }
+        .dl-note { color: var(--muted); font-size: 0.85rem; }
+
+        .callout {
+            margin: 2.2rem 0; padding: 1.1rem 1.3rem; border-radius: 14px;
+            background: rgba(245, 197, 99, 0.08); border: 1px solid rgba(245, 197, 99, 0.28);
+            font-size: 0.95rem; color: #f3e6c9;
+        }
+        .callout b { color: var(--gold); }
+
+        h2 { font-family: var(--font-heading); font-weight: 600; font-size: 1.5rem; margin: 2.6rem 0 0.4rem; letter-spacing: -0.01em; }
+        .sub { color: var(--muted); margin-bottom: 1.2rem; }
+
+        .need { display: grid; grid-template-columns: 1fr; gap: 0.55rem; margin: 0.5rem 0 0; }
+        .need li { list-style: none; display: flex; gap: 0.6rem; align-items: flex-start; color: var(--muted); }
+        .need li svg { flex: 0 0 auto; width: 18px; height: 18px; color: var(--teal); margin-top: 3px; }
+        .need li b { color: var(--ink); font-weight: 600; }
+
+        ol.steps { list-style: none; counter-reset: s; margin-top: 0.5rem; }
+        ol.steps > li {
+            counter-increment: s; position: relative;
+            padding: 1.1rem 1.2rem 1.1rem 3.4rem; margin-bottom: 0.85rem;
+            background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+        }
+        ol.steps > li::before {
+            content: counter(s); position: absolute; left: 1rem; top: 1rem;
+            width: 1.7rem; height: 1.7rem; border-radius: 50%;
+            background: linear-gradient(135deg, var(--teal), #0ea5a0); color: #04211f;
+            font-weight: 800; font-size: 0.9rem; display: flex; align-items: center; justify-content: center;
+        }
+        ol.steps h3 { font-family: var(--font-body); font-size: 1.02rem; font-weight: 700; margin-bottom: 0.25rem; }
+        ol.steps p { color: var(--muted); font-size: 0.95rem; }
+        ol.steps p + p { margin-top: 0.4rem; }
+        .os { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--coral); background: rgba(255,122,77,0.1); padding: 1px 7px; border-radius: 5px; margin-right: 6px; }
+        code, .path { font-family: var(--font-mono); font-size: 0.86em; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 6px; color: #cfeee9; }
+        .settings-path { display: inline-block; margin-top: 0.3rem; }
+
+        details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 0.4rem 1rem; margin-bottom: 0.6rem; }
+        details summary { cursor: pointer; font-weight: 600; padding: 0.6rem 0; list-style: none; }
+        details summary::-webkit-details-marker { display: none; }
+        details summary::before { content: "▸ "; color: var(--teal); }
+        details[open] summary::before { content: "▾ "; }
+        details p { color: var(--muted); font-size: 0.92rem; padding: 0 0 0.7rem; }
+
+        .foot { margin-top: 3rem; padding-top: 1.6rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.92rem; }
+        .foot a { color: var(--teal); text-decoration: none; font-weight: 600; }
+        .foot a:hover { text-decoration: underline; }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="topbar">
+            <a class="brand" href="index.html"><span class="dot"></span> Voyplan</a>
+            <a class="back" href="index.html">← Back to home</a>
+        </div>
+
+        <p class="eyebrow">iPhone / iPad · Free install</p>
+        <h1>Install Voyplan on your iPhone</h1>
+        <p class="lede">Apple doesn't allow one-tap installs from a website like Android does — so you install it once from your computer using a free tool called <b>Sideloadly</b>. It takes about 5 minutes.</p>
+
+        <a class="dl" href="Voyplan.ipa" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
+            <span>Download the app file<small>Voyplan.ipa · ~20 MB</small></span>
+        </a>
+        <p class="dl-note">Save this <span class="path">Voyplan.ipa</span> file on your computer — you'll load it into Sideloadly in Step 4.</p>
+
+        <div class="callout">
+            <b>Good to know:</b> This uses a <b>free Apple ID</b>, so the app stays active for <b>7 days</b>. When it stops opening, just repeat Step 4 to refresh it (your data is kept). No payment, no jailbreak.
+        </div>
+
+        <h2>What you'll need</h2>
+        <ul class="need">
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>A <b>Mac or Windows PC</b> and a <b>USB cable</b>.</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>A <b>free Apple ID</b> (your normal one works; a spare Apple ID is fine too).</span></li>
+            <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg><span>The <b>Voyplan.ipa</b> file from the button above.</span></li>
+        </ul>
+
+        <h2>Step-by-step</h2>
+        <p class="sub">Follow these in order. The <span class="os">Win</span> notes only apply to Windows PCs.</p>
+        <ol class="steps">
+            <li>
+                <h3>Download the app file</h3>
+                <p>Tap <b>“Download the app file”</b> above and save <span class="path">Voyplan.ipa</span> somewhere easy to find (e.g. your Downloads folder).</p>
+            </li>
+            <li>
+                <h3>Install Sideloadly on your computer</h3>
+                <p>Go to <b>sideloadly.io</b>, download Sideloadly for your system, and install it.</p>
+                <p><span class="os">Win</span> Also install <b>iTunes</b> and <b>iCloud</b> from <b>apple.com</b> (the Apple website versions, not the Microsoft Store versions) — Sideloadly needs their drivers.</p>
+            </li>
+            <li>
+                <h3>Connect your iPhone</h3>
+                <p>Plug the iPhone into the computer with the cable. Unlock it, and if it asks, tap <b>Trust This Computer</b> and enter your passcode.</p>
+            </li>
+            <li>
+                <h3>Sign &amp; install with Sideloadly</h3>
+                <p>Open <b>Sideloadly</b>. Drag <span class="path">Voyplan.ipa</span> into the Sideloadly window (into the “IPA” box).</p>
+                <p>Enter your <b>Apple ID</b> email in the Apple account field, then click <b>Start</b>. Enter your Apple ID password when asked. <span style="opacity:.75;">(If you use two-factor auth, you may need an app-specific password from appleid.apple.com.)</span></p>
+                <p>Wait until Sideloadly shows <b>“Done”</b> — Voyplan now appears on your home screen (it may look greyed out until the next step).</p>
+            </li>
+            <li>
+                <h3>Trust the app on your iPhone</h3>
+                <p>On the iPhone open <b>Settings → General → VPN &amp; Device Management</b> (older iOS: <b>Profiles &amp; Device Management</b>).</p>
+                <p class="settings-path">Tap your <b>Apple ID / Developer App</b> entry → tap <b>Trust “…”</b> → confirm <b>Trust</b>.</p>
+            </li>
+            <li>
+                <h3>Open Voyplan 🎉</h3>
+                <p>Launch <b>Voyplan</b> from the home screen. That's it — plan trips, budgets, bookings and your travel gallery, right on your iPhone.</p>
+            </li>
+        </ol>
+
+        <h2>Keeping it working</h2>
+        <p class="sub">With a free Apple ID, the signature lasts <b>7 days</b>. When Voyplan won't open, just <b>repeat Step 4</b> (plug in, drag the same <span class="path">Voyplan.ipa</span>, Start). Your saved trips and photos stay on the device.</p>
+
+        <h2>Troubleshooting</h2>
+        <details>
+            <summary>Sideloadly can't find my iPhone</summary>
+            <p>Make sure the phone is unlocked and you tapped <b>Trust This Computer</b>. On Windows, confirm <b>iTunes</b> (from apple.com) is installed and can see the phone. Try a different USB cable/port.</p>
+        </details>
+        <details>
+            <summary>“Unable to install” / signing failed</summary>
+            <p>Double-check the Apple ID email/password. If you have two-factor authentication, create an <b>app-specific password</b> at appleid.apple.com and use that in Sideloadly. A free Apple ID can have at most <b>3 sideloaded apps</b> at once — remove old ones if needed.</p>
+        </details>
+        <details>
+            <summary>The app icon is there but won't open</summary>
+            <p>You missed <b>Step 5</b> — go to <b>Settings → General → VPN &amp; Device Management</b> and tap <b>Trust</b> on your Apple ID entry.</p>
+        </details>
+        <details>
+            <summary>It stopped working after a week</summary>
+            <p>That's the normal 7-day free-signing limit. Repeat <b>Step 4</b> to re-sign it; nothing is lost.</p>
+        </details>
+
+        <div class="foot">
+            <p>Don't want to install anything? Open <a href="app/">the web app</a> in <b>Safari</b>, then <b>Share → Add to Home Screen</b> to use Voyplan full-screen like an app — free, instant, no expiry.</p>
+            <p style="margin-top:0.8rem;">Android user? <a href="Voyplan.apk">Download the APK</a> · <a href="index.html">Back to Voyplan home</a></p>
+        </div>
+    </div>
+</body>
+
+</html>
