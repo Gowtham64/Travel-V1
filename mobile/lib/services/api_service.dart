@@ -1303,7 +1303,7 @@ class ApiService {
               'searchRadiusKm': searchRadiusKm,
             }),
           )
-          .timeout(const Duration(seconds: 45));
+          .timeout(const Duration(seconds: 90));
 
       if (response.statusCode == 200) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -1923,7 +1923,7 @@ class ApiService {
         else if (pair.contains('hyderabad')) estimatedKm = 570.0;
         else if (pair.contains('mangaluru') || pair.contains('mangalore')) estimatedKm = 350.0;
         else if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 250.0;
-        else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 145.0;
+        else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 143.5;
         else if (pair.contains('coorg') || pair.contains('madikeri')) estimatedKm = 265.0;
         else if (pair.contains('ooty')) estimatedKm = 280.0;
         else if (pair.contains('chennai')) estimatedKm = 350.0;

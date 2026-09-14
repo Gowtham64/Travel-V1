@@ -1197,7 +1197,7 @@ function buildFallbackSmartItinerary({
       else if (pair.includes("hyderabad")) estimatedKm = 570.0;
       else if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 350.0;
       else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
-      else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 145.0;
+      else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 143.5;
       else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 265.0;
       else if (pair.includes("ooty")) estimatedKm = 280.0;
       else if (pair.includes("chennai")) estimatedKm = 350.0;
