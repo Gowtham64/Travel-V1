@@ -1,8 +1,8 @@
 {
   "status": "WAITING_APPROVAL",
   "environment": "staging",
-  "deployment_id": "deploy-1789327534",
-  "release_notes": "Staging deployment of branch **HEAD** (Task ID\u202f125) has begun under **Deployment ID\u202fdeploy\u20111789327534**. The rollout will be monitored for stability and performance before promotion to production.",
+  "deployment_id": "deploy-1789330179",
+  "release_notes": "Staging deployment of branch **HEAD** (Task ID\u202f125) has been initiated under Deployment ID **deploy-1789330179**. The deployment is currently in progress and will be monitored to ensure a successful rollout.",
   "staging_smoke_tests": "PASS",
   "human_approval_received": false,
   "production_smoke_tests": "PENDING",

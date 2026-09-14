@@ -1,7 +1,7 @@
 {
   "task_id": "125",
   "status": "PASS_WITH_WARNINGS",
-  "scanned_files": 674,
+  "scanned_files": 675,
   "secrets_detected": 1,
   "high_severity_vulnerabilities": 3,
   "findings": [
@@ -10,7 +10,7 @@
   "ai_security_assessment": {
     "security_status": "FAIL",
     "risk_level": "HIGH",
-    "notes": "Hardcoded private key found in agent.py indicates a secret leak and potential authentication bypass. Additionally, three high\u2011severity NPM CVEs were detected, increasing the attack surface. Immediate remediation is required: remove the hardcoded key, rotate any compromised credentials, and address the high\u2011severity vulnerabilities."
+    "notes": "Critical secret leak detected: a hardcoded private key in agent.py. Additionally, 3 high\u2011severity NPM CVEs were found. These issues indicate a high risk of unauthorized access and potential exploitation. Immediate remediation required: remove the hardcoded key, rotate any compromised credentials, and address the high\u2011severity CVEs."
   },
   "recommendation": "REVIEW_VULNERABILITIES"
 }
