@@ -4837,7 +4837,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     Text(
                       _activeStopHighlight?.name == (widget.end.name ?? "Destination")
                           ? "Arrived!"
-                          : "$remainingMinutes min left",
+                          : (remainingMinutes >= 60
+                              ? '${remainingMinutes ~/ 60}h ${remainingMinutes % 60}m left'
+                              : '$remainingMinutes min left'),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,

@@ -54,6 +54,17 @@ class TripDateTime {
     return '$h12:${m.toString().padLeft(2, '0')} $ampm';
   }
 
+  /// Formats duration in minutes into a clean human-readable representation:
+  /// e.g. 327 -> "5 hr 27 min", 60 -> "1 hr", 45 -> "45 min", 120 -> "2 hr".
+  static String formatDuration(int minutes) {
+    if (minutes <= 0) return '0 min';
+    if (minutes < 60) return '$minutes min';
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (m == 0) return '$h hr';
+    return '$h hr $m min';
+  }
+
   /// Parses any time string into total minutes from midnight (0..1439).
   ///
   /// Handles:

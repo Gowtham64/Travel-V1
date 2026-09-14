@@ -28,6 +28,7 @@ import 'bookings_screen.dart';
 import 'active_trip_screen.dart';
 import 'gallery_screen.dart';
 import '../services/auth_guard.dart';
+import '../utils/trip_date_time.dart';
 
 /// A standalone day-by-day trip planner (no route/plan required). Opens directly
 /// for a "vacation" style trip: organise days, search & add places, see them as
@@ -1170,7 +1171,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
     final km = _haversineKm(a.lat!, a.lng!, b.lat!, b.lng!);
     final mins = (km / (speedKmh <= 0 ? 40 : speedKmh) * 60).round();
     final kmStr = km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0);
-    return '≈ $kmStr km · ${mins < 1 ? 1 : mins} min';
+    return '≈ $kmStr km · ${TripDateTime.formatDuration(mins)}';
   }
 
   /// Real road leg if we have it (OSRM), otherwise a straight-line estimate at
@@ -1314,7 +1315,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
         if (routes != null && routes.isNotEmpty) {
           final km = (routes[0]['distance'] as num) / 1000.0;
           final mins = ((routes[0]['duration'] as num) / 60).round();
-          final label = '${km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0)} km · ${mins < 1 ? 1 : mins} min';
+          final label = '${km < 10 ? km.toStringAsFixed(1) : km.toStringAsFixed(0)} km · ${TripDateTime.formatDuration(mins)}';
           if (mounted) setState(() => _legCache[key] = label);
         }
       }

@@ -52,6 +52,16 @@ void main() {
       }
     });
 
+    test('formatDuration formats minutes into clean hours and minutes representation', () {
+      expect(TripDateTime.formatDuration(327), '5 hr 27 min');
+      expect(TripDateTime.formatDuration(60), '1 hr');
+      expect(TripDateTime.formatDuration(120), '2 hr');
+      expect(TripDateTime.formatDuration(90), '1 hr 30 min');
+      expect(TripDateTime.formatDuration(45), '45 min');
+      expect(TripDateTime.formatDuration(1), '1 min');
+      expect(TripDateTime.formatDuration(0), '0 min');
+    });
+
     test('Day 1 itinerary re-anchoring accurately starts Day 1 at user start time', () {
       final mockDays = [
         {

@@ -2845,10 +2845,10 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     
     final meta = <String>[];
     if (isLeg) {
-      if (b.travelMin > 0) meta.add('${_travelEmoji(b.travelMode)} ${b.travelMin} min');
+      if (b.travelMin > 0) meta.add('${_travelEmoji(b.travelMode)} ${TripDateTime.formatDuration(b.travelMin)}');
       if (b.distanceKm > 0) meta.add('${b.distanceKm.toStringAsFixed(1)} km');
     } else {
-      if (b.durationMin > 0) meta.add('${b.durationMin} min');
+      if (b.durationMin > 0) meta.add(TripDateTime.formatDuration(b.durationMin));
     }
     final displayPlace = LocationHelper.cleanString(b.place);
     final displayTitle = LocationHelper.cleanString(b.title);
