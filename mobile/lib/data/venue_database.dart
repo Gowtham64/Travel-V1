@@ -327,6 +327,170 @@ class VenueDatabase {
       address: 'Moira, Bardez, Goa',
       priceRange: '₹₹₹',
     ),
+    // ==========================================
+    // MUMBAI & MAHARASHTRA CIRCUIT
+    // ==========================================
+    RecommendedVenue(
+      name: 'Kyani & Co. Heritage Irani Cafe',
+      type: 'breakfast',
+      rating: 4.6,
+      specialty: 'Authentic Bun Maska, Parsi Akuri on Toast & Heritage Irani Chai',
+      city: 'Mumbai',
+      address: 'Opposite Metro Cinema, Marine Lines, Mumbai',
+    ),
+    RecommendedVenue(
+      name: 'Cafe Mondegar Colaba Promenade',
+      type: 'coffee',
+      rating: 4.6,
+      specialty: 'Iconic Mario Miranda Murals, Filter Coffee & Continental Breakfast',
+      city: 'Mumbai',
+      address: 'Metro House, Colaba Causeway, Mumbai',
+    ),
+    RecommendedVenue(
+      name: 'Shree Thaker Bhojanalay Pure Veg Dining',
+      type: 'lunch',
+      rating: 4.8,
+      specialty: 'Legendary Gujarati & Maharashtrian Royal Thali with Fresh Ghee Rotis & Sweets',
+      city: 'Mumbai',
+      address: 'Building No. 31, Dadiseth Agyari Lane, Kalbadevi, Mumbai',
+    ),
+    RecommendedVenue(
+      name: 'Mahesh Lunch Home Iconic Coastal Dining',
+      type: 'dinner',
+      rating: 4.7,
+      specialty: 'Celebrated Coastal Curries, Mangalorean Delicacies & Fresh Seafood',
+      city: 'Mumbai',
+      address: '8-B, Cawasji Patel Street, Fort, Mumbai',
+    ),
+    RecommendedVenue(
+      name: 'The Taj Mahal Palace, Mumbai',
+      type: 'hotel',
+      rating: 4.9,
+      specialty: 'Historic 5-Star Luxury Heritage Landmark facing the Gateway of India',
+      city: 'Mumbai',
+      address: 'Apollo Bunder, Colaba, Mumbai',
+      priceRange: '₹₹₹',
+    ),
+    RecommendedVenue(
+      name: 'Trident Hotel Nariman Point',
+      type: 'hotel',
+      rating: 4.7,
+      specialty: 'Panoramic views of Marine Drive Queen\'s Necklace & 24/7 hospitality',
+      city: 'Mumbai',
+      address: 'Nariman Point, Marine Drive, Mumbai',
+      priceRange: '₹₹₹',
+    ),
+
+    // ==========================================
+    // BENGALURU & KARNATAKA METRO CIRCUIT
+    // ==========================================
+    RecommendedVenue(
+      name: 'Vidyarthi Bhavan Gandhi Bazaar',
+      type: 'breakfast',
+      rating: 4.7,
+      specialty: 'Crispy Butter Masala Dosa, Kesari Bath & Traditional Filter Coffee',
+      city: 'Bengaluru',
+      address: 'Gandhi Bazaar Main Road, Basavanagudi, Bengaluru',
+    ),
+    RecommendedVenue(
+      name: 'Brahmins Coffee Bar',
+      type: 'coffee',
+      rating: 4.8,
+      specialty: 'Steaming Hot Idlis, Crispy Vada with Coconut Chutney & Degree Coffee',
+      city: 'Bengaluru',
+      address: 'Near Shankar Mutt, Shankarpuram, Bengaluru',
+    ),
+    RecommendedVenue(
+      name: 'Mavalli Tiffin Room (MTR) Lalbagh',
+      type: 'lunch',
+      rating: 4.7,
+      specialty: 'Iconic Karnataka Silver Plate Thali, Bisibelebath & Chandrahara',
+      city: 'Bengaluru',
+      address: '14 Lalbagh Main Road, Bengaluru',
+    ),
+    RecommendedVenue(
+      name: 'Karavalli at The Gateway Hotel',
+      type: 'dinner',
+      rating: 4.8,
+      specialty: 'Traditional Coastal Seafood, Appams, Stew & South Indian Delicacies',
+      city: 'Bengaluru',
+      address: 'Residency Road, Bengaluru',
+    ),
+    RecommendedVenue(
+      name: 'The Leela Palace Bengaluru',
+      type: 'hotel',
+      rating: 4.9,
+      specialty: 'Opulent Royal Palace Architecture, Lush Gardens & 5-Star Luxury Suites',
+      city: 'Bengaluru',
+      address: 'HAL Old Airport Road, Kodihalli, Bengaluru',
+      priceRange: '₹₹₹',
+    ),
+
+    // ==========================================
+    // DELHI / NCR CIRCUIT
+    // ==========================================
+    RecommendedVenue(
+      name: 'Saravana Bhavan Janpath',
+      type: 'breakfast',
+      rating: 4.6,
+      specialty: 'Ghee Roast Dosa, Mini Tiffin Platter & Authentic Filter Coffee',
+      city: 'Delhi',
+      address: 'Janpath, Connaught Place, New Delhi',
+    ),
+    RecommendedVenue(
+      name: 'Gulati Restaurant Pandara Road',
+      type: 'lunch',
+      rating: 4.7,
+      specialty: 'Legendary Dal Makhani, Butter Paneer & Classic North Indian Curries',
+      city: 'Delhi',
+      address: '6, Pandara Road Market, New Delhi',
+    ),
+    RecommendedVenue(
+      name: 'Bukhara - ITC Maurya',
+      type: 'dinner',
+      rating: 4.9,
+      specialty: 'World-Renowned Dal Bukhara, Sikandari Raan & Tandoori Specialties',
+      city: 'Delhi',
+      address: 'ITC Maurya, Diplomatic Enclave, Chanakyapuri, New Delhi',
+    ),
+    RecommendedVenue(
+      name: 'The Imperial New Delhi',
+      type: 'hotel',
+      rating: 4.8,
+      specialty: 'Historic Art Deco Colonial Luxury Hotel with High Tea Verandah',
+      city: 'Delhi',
+      address: 'Janpath Lane, Connaught Place, New Delhi',
+      priceRange: '₹₹₹',
+    ),
+
+    // ==========================================
+    // PUNE & LONAVALA CIRCUIT
+    // ==========================================
+    RecommendedVenue(
+      name: 'Vaishali Restaurant FC Road',
+      type: 'breakfast',
+      rating: 4.7,
+      specialty: 'Famous SPDP, Mysore Masala Dosa, Filter Coffee & Youth Vibe',
+      city: 'Pune',
+      address: 'Fergusson College Road, Shivajinagar, Pune',
+    ),
+    RecommendedVenue(
+      name: 'Shreyas Pure Veg Dining Deccan',
+      type: 'lunch',
+      rating: 4.7,
+      specialty: 'Authentic Maharashtrian Thali, Kothimbir Vadi, Puran Poli & Aamras',
+      city: 'Pune',
+      address: 'Apte Road, Deccan Gymkhana, Pune',
+    ),
+    RecommendedVenue(
+      name: 'The Ritz-Carlton, Pune',
+      type: 'hotel',
+      rating: 4.8,
+      specialty: 'Golf Course views, 5-star opulent stay & signature wellness spa',
+      city: 'Pune',
+      address: 'Golf Course Square, Airport Road, Yerawada, Pune',
+      priceRange: '₹₹₹',
+    ),
   ];
 
   /// Get best matching venue for destination and type
@@ -335,13 +499,26 @@ class VenueDatabase {
     required String type, // 'breakfast' | 'coffee' | 'lunch' | 'dinner' | 'hotel'
     String highwayRoute = '',
   }) {
-    final query = '$destination $highwayRoute'.toLowerCase();
+    final cleanDest = destination.split(',').first.trim().toLowerCase();
+    final query = '$cleanDest $destination $highwayRoute'.toLowerCase();
 
     // 1. Try exact destination + type match
     final matches = allVenues.where((v) {
       if (v.type != type && !(type == 'coffee' && v.type == 'breakfast')) return false;
       final vCity = v.city.toLowerCase();
       final vAddr = v.address.toLowerCase();
+      if (query.contains('mumbai') || query.contains('bombay')) {
+        return vCity.contains('mumbai') || vAddr.contains('mumbai');
+      }
+      if (query.contains('bengaluru') || query.contains('bangalore')) {
+        return vCity.contains('bengaluru') || vCity.contains('bangalore') || vAddr.contains('bengaluru');
+      }
+      if (query.contains('delhi')) {
+        return vCity.contains('delhi') || vAddr.contains('delhi');
+      }
+      if (query.contains('pune')) {
+        return vCity.contains('pune') || vAddr.contains('pune');
+      }
       if (query.contains('goa')) {
         return vCity.contains('goa') || vAddr.contains('goa');
       }
@@ -360,52 +537,54 @@ class VenueDatabase {
       if (query.contains('varanasi') || query.contains('kashi')) {
         return vCity.contains('varanasi');
       }
-      return vCity.contains(destination.toLowerCase()) || vAddr.contains(destination.toLowerCase());
+      return vCity.contains(cleanDest) || cleanDest.contains(vCity) || vAddr.contains(cleanDest);
     }).toList();
 
     if (matches.isNotEmpty) {
       return matches.first;
     }
 
+    final cityTitle = destination.split(',').first.trim();
+
     // 2. Synthesize a premium venue for any destination
     switch (type) {
       case 'breakfast':
       case 'coffee':
         return RecommendedVenue(
-          name: '$destination Traditional Filter Coffee & Tiffin Plaza',
+          name: '$cityTitle Traditional Filter Coffee & Tiffin Plaza',
           type: type,
           rating: 4.7,
           specialty: 'Crispy Dosa, Steaming Ghee Idli & Signature Filter Coffee',
-          city: destination,
-          address: 'Highway Rest Plaza / Main Promenade, $destination',
+          city: cityTitle,
+          address: 'Highway Rest Plaza / Main Promenade, $cityTitle',
         );
       case 'lunch':
         return RecommendedVenue(
-          name: '$destination Celebrated Heritage Veg Restaurant',
+          name: '$cityTitle Celebrated Heritage Veg Restaurant',
           type: 'lunch',
           rating: 4.7,
           specialty: 'Authentic Royal Thali Meals & Traditional Sweet Specialties',
-          city: destination,
-          address: 'Heritage Temple Ring Road, $destination',
+          city: cityTitle,
+          address: 'Heritage Temple Ring Road, $cityTitle',
         );
       case 'dinner':
         return RecommendedVenue(
-          name: '$destination Royal Courtyard Dining',
+          name: '$cityTitle Royal Courtyard Dining',
           type: 'dinner',
           rating: 4.6,
           specialty: 'Multi-Cuisine Pure Veg Thali & Warm Regional Specialties',
-          city: destination,
-          address: 'City Center Promenade, $destination',
+          city: cityTitle,
+          address: 'City Center Promenade, $cityTitle',
         );
       case 'hotel':
       default:
         return RecommendedVenue(
-          name: '$destination Grand Heritage Stay & Suites',
+          name: '$cityTitle Grand Heritage Stay & Suites',
           type: 'hotel',
           rating: 4.7,
           specialty: 'Luxury Pilgrim Suites, 24/7 Front Desk & Safe Car Parking',
-          city: destination,
-          address: 'Central Pilgrimage Boulevard, $destination',
+          city: cityTitle,
+          address: 'Central Pilgrimage Boulevard, $cityTitle',
           priceRange: '₹₹₹',
         );
     }

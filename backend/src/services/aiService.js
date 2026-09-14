@@ -1161,7 +1161,7 @@ function buildFallbackSmartItinerary({
   const startCoords = resolveLocationCoords(startLocation);
   const destCoords = resolveLocationCoords(destination);
 
-  let estimatedKm = 145.0;
+  let estimatedKm = 220.0;
   let travelMode = "drive";
   let isOverseas = false;
 
@@ -1181,10 +1181,16 @@ function buildFallbackSmartItinerary({
   } else {
     // String-based fallback heuristics
     const pair = `${startName} ${destName}`.toLowerCase();
-    if (pair.includes("mandya") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
-      estimatedKm = 345.0;
-    } else if (pair.includes("maddur") && pair.includes("goa")) {
-      estimatedKm = 560.0;
+    if (pair.includes("maddur") || pair.includes("mandya")) {
+      if (pair.includes("mumbai")) estimatedKm = 1020.0;
+      else if (pair.includes("delhi")) estimatedKm = 2170.0;
+      else if (pair.includes("goa")) estimatedKm = 560.0;
+      else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 345.0;
+      else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 65.0;
+      else if (pair.includes("bengaluru") || pair.includes("bangalore")) estimatedKm = 85.0;
+      else if (pair.includes("hyderabad")) estimatedKm = 650.0;
+      else if (pair.includes("chennai")) estimatedKm = 430.0;
+      else if (pair.includes("pune")) estimatedKm = 875.0;
     } else if (pair.includes("bengaluru") || pair.includes("bangalore")) {
       if (pair.includes("mumbai")) estimatedKm = 985.0;
       else if (pair.includes("delhi")) estimatedKm = 2150.0;
@@ -1203,12 +1209,15 @@ function buildFallbackSmartItinerary({
       else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 120.0;
       else if (pair.includes("ooty")) estimatedKm = 125.0;
       else if (pair.includes("wayanad")) estimatedKm = 140.0;
+      else if (pair.includes("mumbai")) estimatedKm = 1060.0;
+      else if (pair.includes("goa")) estimatedKm = 620.0;
     } else if (pair.includes("mumbai")) {
       if (pair.includes("pune")) estimatedKm = 150.0;
       else if (pair.includes("goa")) estimatedKm = 585.0;
       else if (pair.includes("lonavala")) estimatedKm = 85.0;
       else if (pair.includes("shirdi")) estimatedKm = 240.0;
       else if (pair.includes("mahabaleshwar")) estimatedKm = 260.0;
+      else if (pair.includes("delhi")) estimatedKm = 1420.0;
     }
   }
 

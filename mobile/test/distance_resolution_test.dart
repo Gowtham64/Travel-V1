@@ -64,6 +64,45 @@ void main() {
       expect(travelBlock.distanceKm!, isNot(equals(145.0)));
     });
 
+    test('VenueDatabase returns authentic curated Mumbai venues instead of synthesized dummy', () {
+      final lunch = VenueDatabase.getBestVenue(destination: 'Mumbai, Maharashtra, India', type: 'lunch');
+      expect(lunch.name, contains('Shree Thaker Bhojanalay'));
+      expect(lunch.rating, greaterThanOrEqualTo(4.7));
+
+      final hotel = VenueDatabase.getBestVenue(destination: 'Mumbai, Maharashtra, India', type: 'hotel');
+      expect(hotel.name, contains('The Taj Mahal Palace'));
+      expect(hotel.priceRange, equals('₹₹₹'));
+
+      final dinner = VenueDatabase.getBestVenue(destination: 'Mumbai, Maharashtra, India', type: 'dinner');
+      expect(dinner.name, contains('Mahesh Lunch Home'));
+    });
+
+    test('aiSmartItinerary calculates realistic ~1020 km distance for Maddur to Mumbai (NOT 145 km)', () async {
+      final apiService = ApiService();
+      final res = await apiService.aiSmartItinerary(
+        destination: 'Mumbai, Maharashtra, India',
+        startLocation: 'Main Road 57, Maddur, 571419, India',
+        places: ['Gateway of India', 'Marine Drive'],
+        durationDays: 3,
+        startTime: '08:00',
+      );
+
+      expect(res.days, isNotEmpty);
+      final day1 = res.days.first;
+      expect(day1.blocks, isNotEmpty);
+
+      final travelBlock = day1.blocks.firstWhere((b) => b.type == 'travel');
+      expect(travelBlock.travelMode, equals('drive'));
+      expect(travelBlock.distanceKm, isNotNull);
+      // Maddur to Mumbai is ~980 to 1100 km, definitely NOT 145.0 km
+      expect(travelBlock.distanceKm!, greaterThan(900));
+      expect(travelBlock.distanceKm!, lessThan(1200));
+      expect(travelBlock.distanceKm!, isNot(equals(145.0)));
+
+      // Day 1 Drive duration is paced and definitely NOT 145 mins
+      expect(travelBlock.durationMin, isNot(equals(145)));
+    });
+
     test('aiSmartItinerary detects overseas route (India to Philippines) as flight > 4,500 km', () async {
       final apiService = ApiService();
       final res = await apiService.aiSmartItinerary(

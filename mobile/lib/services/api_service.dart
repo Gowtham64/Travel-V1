@@ -1349,7 +1349,9 @@ class ApiService {
           );
         }
       }
-    } catch (_) {}
+    } catch (e, st) {
+      debugPrint('[API] smart-itinerary remote call failed, using high-precision local engine: $e\n$st');
+    }
 
     // Fallback: Built-in Smart Itinerary & Budget Generator
     final fb = _generateFallbackSmartItinerary(
@@ -1935,18 +1937,25 @@ class ApiService {
         else if (pair.contains('wayanad')) estimatedKm = 140.0;
         else if (pair.contains('goa')) estimatedKm = 620.0;
       } else if (pair.contains('mumbai')) {
-        if (pair.contains('pune')) estimatedKm = 150.0;
+        if (pair.contains('maddur') || pair.contains('mandya')) estimatedKm = 1020.0;
+        else if (pair.contains('pune')) estimatedKm = 150.0;
         else if (pair.contains('goa')) estimatedKm = 585.0;
         else if (pair.contains('lonavala')) estimatedKm = 85.0;
         else if (pair.contains('shirdi')) estimatedKm = 240.0;
         else if (pair.contains('mahabaleshwar')) estimatedKm = 260.0;
+        else if (pair.contains('delhi')) estimatedKm = 1420.0;
       } else if (pair.contains('pune') && pair.contains('goa')) {
         estimatedKm = 450.0;
       } else if (pair.contains('maddur') || pair.contains('mandya')) {
-        if (pair.contains('goa')) estimatedKm = 560.0;
+        if (pair.contains('mumbai')) estimatedKm = 1020.0;
+        else if (pair.contains('delhi')) estimatedKm = 2170.0;
+        else if (pair.contains('goa')) estimatedKm = 560.0;
         else if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 345.0;
         else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 65.0;
         else if (pair.contains('bengaluru') || pair.contains('bangalore')) estimatedKm = 85.0;
+        else if (pair.contains('hyderabad')) estimatedKm = 650.0;
+        else if (pair.contains('chennai')) estimatedKm = 430.0;
+        else if (pair.contains('pune')) estimatedKm = 875.0;
       }
     }
 
