@@ -1,5 +1,5 @@
 const express = require("express");
-const { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
+const { recommendStops, searchPlaces, travelOptions, ask, buildItinerary, smartItinerary, buildFallbackSmartItinerary, listModels, AiConfigError, PROVIDER, ACTIVE_MODEL } = require("../services/aiService");
 const { groundItinerary, geocode } = require("../services/itineraryGeo");
 const itineraryEngine = require("../services/itineraryEngine");
 const { validateItineraryWithGemini } = require("../services/geminiValidatorService");
@@ -391,6 +391,27 @@ router.post("/smart-itinerary", async (req, res) => {
       },
     }));
   } catch (err) {
+    console.warn("[SMART PLANNER] ItineraryEngine error:", err.message, "- generating smart fallback");
+    try {
+      const fb = buildFallbackSmartItinerary({
+        destination: b.destination,
+        startLocation: b.startLocation,
+        durationDays: Number(b.durationDays) || 1,
+        startTime: b.startTime || "08:00",
+        places: Array.isArray(b.places) ? b.places : [],
+        preferences: [b.preferences, b.customPreferences].filter(Boolean).join(". "),
+        travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+        selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories : (Array.isArray(b.categories) ? b.categories : []),
+      });
+      if (fb && fb.days && fb.days.length > 0) {
+        return res.json(cleanObjectStrings({
+          ...fb,
+          status: "APPROVED",
+        }));
+      }
+    } catch (fbErr) {
+      console.error("[SMART PLANNER] Fallback generator failed:", fbErr.message);
+    }
     handleError(res, err);
   }
 });

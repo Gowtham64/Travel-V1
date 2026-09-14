@@ -830,8 +830,17 @@ class ApiService {
     {'name': 'Tirupati, Andhra Pradesh, India', 'lat': 13.6288, 'lng': 79.4192},
     {'name': 'Tirumala, Tirupati, Andhra Pradesh, India', 'lat': 13.6833, 'lng': 79.3500},
     {'name': 'Bengaluru, Karnataka, India', 'lat': 12.9716, 'lng': 77.5946},
+    {'name': 'Maddur, Karnataka, India', 'lat': 12.5844, 'lng': 77.0453},
+    {'name': 'Channapatna, Karnataka, India', 'lat': 12.6518, 'lng': 77.2089},
+    {'name': 'Ramanagara, Karnataka, India', 'lat': 12.7209, 'lng': 77.2799},
     {'name': 'Mandya, Karnataka, India', 'lat': 12.5244, 'lng': 76.8967},
     {'name': 'Mysuru (Mysore), Karnataka, India', 'lat': 12.2958, 'lng': 76.6394},
+    {'name': 'Tumakuru (Tumkur), Karnataka, India', 'lat': 13.3379, 'lng': 77.1173},
+    {'name': 'Hassan, Karnataka, India', 'lat': 13.0033, 'lng': 76.1004},
+    {'name': 'Chikmagalur, Karnataka, India', 'lat': 13.3153, 'lng': 75.7754},
+    {'name': 'Hubballi (Hubli), Karnataka, India', 'lat': 15.3647, 'lng': 75.1240},
+    {'name': 'Belagavi (Belgaum), Karnataka, India', 'lat': 15.8497, 'lng': 74.4977},
+    {'name': 'Shimoga (Shivamogga), Karnataka, India', 'lat': 13.9299, 'lng': 75.5681},
     {'name': 'Madurai, Tamil Nadu, India', 'lat': 9.9252, 'lng': 78.1198},
     {'name': 'Rameshwaram, Tamil Nadu, India', 'lat': 9.2876, 'lng': 79.3129},
     {'name': 'Srirangapatna, Karnataka, India', 'lat': 12.4237, 'lng': 76.6947},
@@ -851,8 +860,10 @@ class ApiService {
     {'name': 'Puri, Odisha, India', 'lat': 19.8135, 'lng': 85.8312},
     {'name': 'Amritsar, Punjab, India', 'lat': 31.6340, 'lng': 74.8723},
     {'name': 'Chennai, Tamil Nadu, India', 'lat': 13.0827, 'lng': 80.2707},
+    {'name': 'Coimbatore, Tamil Nadu, India', 'lat': 11.0168, 'lng': 76.9558},
     {'name': 'Hyderabad, Telangana, India', 'lat': 17.3850, 'lng': 78.4867},
     {'name': 'Mumbai, Maharashtra, India', 'lat': 19.0760, 'lng': 72.8777},
+    {'name': 'Pune, Maharashtra, India', 'lat': 18.5204, 'lng': 73.8567},
     {'name': 'Delhi / New Delhi, India', 'lat': 28.6139, 'lng': 77.2090},
     {'name': 'Goa, India', 'lat': 15.2993, 'lng': 74.1240},
     {'name': 'Ooty, Tamil Nadu, India', 'lat': 11.4102, 'lng': 76.6950},
@@ -906,22 +917,41 @@ class ApiService {
       final name = p['name'] as String;
       final lowerName = name.toLowerCase();
       final primaryName = lowerName.split(',').first.trim();
-      if (lowerName.startsWith(q) || primaryName == q) {
+      if (lowerName.startsWith(q) || primaryName == q || (q.length >= 3 && primaryName.startsWith(q))) {
         addResult(name, (p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
         curatedCount++;
-        if (curatedCount >= 2) break; // Allow room for Photon / Mapbox suggestions
+        if (curatedCount >= 3) break; // Allow room for Photon / Mapbox suggestions
       }
     }
 
-    // Tier 2: Photon (OpenStreetMap Komoot) - Fast global typeahead
+    // Tier 2: Photon (OpenStreetMap Komoot) - Fast global typeahead with domestic prioritization
     try {
       final photonUri = Uri.parse(
-        'https://photon.komoot.io/api/?q=${Uri.encodeComponent(q)}&limit=6&lat=20.5937&lon=78.9629',
+        'https://photon.komoot.io/api/?q=${Uri.encodeComponent(q)}&limit=10&lat=20.5937&lon=78.9629',
       );
       final res = await http.get(photonUri).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final features = (data['features'] as List?) ?? [];
+
+        // Prioritize domestic results (countrycode == 'IN' or country == 'India')
+        // so domestic destinations (e.g. Goa, India) always rank above foreign homonyms
+        // (e.g. Goa, Philippines) unless the user explicitly typed the foreign country.
+        final userSearchedCountry = q.contains('philippine') || q.contains('burkina') || q.contains('indonesia') || q.contains('cameroon');
+        if (!userSearchedCountry) {
+          features.sort((a, b) {
+            final propsA = (a as Map)['properties'] as Map<String, dynamic>? ?? {};
+            final propsB = (b as Map)['properties'] as Map<String, dynamic>? ?? {};
+            final ccA = (propsA['countrycode'] ?? '').toString().toUpperCase();
+            final ccB = (propsB['countrycode'] ?? '').toString().toUpperCase();
+            final isDomA = ccA == 'IN' || (propsA['country'] ?? '').toString().toLowerCase() == 'india';
+            final isDomB = ccB == 'IN' || (propsB['country'] ?? '').toString().toLowerCase() == 'india';
+            if (isDomA && !isDomB) return -1;
+            if (!isDomA && isDomB) return 1;
+            return 0;
+          });
+        }
+
         for (final f in features) {
           final props = f['properties'] as Map<String, dynamic>?;
           final geom = f['geometry'] as Map<String, dynamic>?;
@@ -1648,6 +1678,15 @@ class ApiService {
       const _FallbackAttraction(name: 'Pykara Waterfalls & Lake Speed Boating', city: 'Near Ooty', rating: '4.7', durationMin: 90, highlight: 'Pristine tiered waterfalls and tranquil speed boat lake cruises', categories: ['Rivers, Lakes & Waterfalls', 'Nature & Forests', 'Instagrammable / Photography Spots']),
       const _FallbackAttraction(name: 'Nilgiri Mountain Railway Toy Train', city: 'Ooty / Coonoor', rating: '4.8', durationMin: 120, highlight: 'UNESCO Heritage vintage steam train winding through mist and tunnels', categories: ['Historical & Heritage Places', 'Famous / Must-Visit Places', 'Cultural Places']),
 
+      // --- Goa & Coastal Highlights ---
+      const _FallbackAttraction(name: 'Calangute & Baga Beach Strip', city: 'Goa', rating: '4.7', durationMin: 120, highlight: 'Vibrant golden sand shoreline, water sports shacks & sunset sea breeze', categories: ['Beaches', 'Famous / Must-Visit Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Fort Aguada & Portuguese Lighthouse', city: 'Goa', rating: '4.7', durationMin: 90, highlight: '17th-century Portuguese coastal fortress overlooking Arabian Sea', categories: ['Forts & Palaces', 'Historical & Heritage Places', 'Viewpoints & Scenic Places']),
+      const _FallbackAttraction(name: 'Dudhsagar Waterfalls & Jeep Safari', city: 'Goa', rating: '4.8', durationMin: 210, highlight: 'Four-tiered milky mountain waterfall in lush Bhagwan Mahavir Sanctuary', categories: ['Rivers, Lakes & Waterfalls', 'Nature & Forests', 'Hills & Mountains']),
+      const _FallbackAttraction(name: 'Basilica of Bom Jesus & Old Goa Churches', city: 'Goa', rating: '4.8', durationMin: 75, highlight: 'UNESCO World Heritage baroque cathedral & sacred relics of St. Francis Xavier', categories: ['Historical & Heritage Places', 'Cultural Places', 'Monuments & Landmarks']),
+      const _FallbackAttraction(name: 'Palolem Beach & Butterfly Island', city: 'Goa', rating: '4.8', durationMin: 120, highlight: 'Crescent-shaped tranquil white sand bay with dolphin boat tours', categories: ['Beaches', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Chapora Fort (Dil Chahta Hai Vista)', city: 'Goa', rating: '4.7', durationMin: 60, highlight: 'Dramatic cliffside ramparts with panoramic sunset view of Vagator Beach', categories: ['Forts & Palaces', 'Viewpoints & Scenic Places', 'Instagrammable / Photography Spots']),
+      const _FallbackAttraction(name: 'Anjuna Flea Market & Beach Promenade', city: 'Goa', rating: '4.6', durationMin: 90, highlight: 'Bustling bohemian flea market with handicrafts, spices, live music & beach cafes', categories: ['Famous Markets & Local Places', 'Cultural Places']),
+
       // --- Bengaluru ---
       const _FallbackAttraction(name: 'Bangalore Palace & Royal Grounds', city: 'Bengaluru', rating: '4.7', durationMin: 120, highlight: 'Wodeyar Tudor-style fortified turrets, royal ballrooms & manicured lawns', categories: ['Forts & Palaces', 'Historical & Heritage Places', 'Famous / Must-Visit Places']),
       const _FallbackAttraction(name: 'Lalbagh Botanical Garden & Glass House', city: 'Bengaluru', rating: '4.8', durationMin: 120, highlight: 'Victorian Glass House, lotus lake and 3000-million-year peninsular rock', categories: ['Nature & Forests', 'Famous City Attractions', 'Instagrammable / Photography Spots']),
@@ -1791,54 +1830,129 @@ class ApiService {
       return chosen;
     }
 
-    // Realistic highway distance estimation
-    double estimatedKm = 145.0;
-    final pair = '$startName $destName'.toLowerCase();
-    if (pair.contains('bengaluru') || pair.contains('bangalore')) {
-      if (pair.contains('mumbai')) {
-        estimatedKm = 985.0;
-      } else if (pair.contains('delhi')) {
-        estimatedKm = 2150.0;
-      } else if (pair.contains('hyderabad')) {
-        estimatedKm = 570.0;
-      } else if (pair.contains('mangaluru') || pair.contains('mangalore')) {
-        estimatedKm = 350.0;
-      } else if (pair.contains('tirupati') || pair.contains('tirumala')) {
-        estimatedKm = 250.0;
-      } else if (pair.contains('mysore') || pair.contains('mysuru')) {
-        estimatedKm = 145.0;
-      } else if (pair.contains('coorg') || pair.contains('madikeri')) {
-        estimatedKm = 265.0;
-      } else if (pair.contains('ooty')) {
-        estimatedKm = 280.0;
-      } else if (pair.contains('chennai')) {
-        estimatedKm = 350.0;
-      } else if (pair.contains('goa')) {
-        estimatedKm = 560.0;
-      } else if (pair.contains('hampi')) {
-        estimatedKm = 340.0;
-      }
-    } else if (pair.contains('mysore') || pair.contains('mysuru')) {
-      if (pair.contains('mangaluru') || pair.contains('mangalore')) {
-        estimatedKm = 255.0;
-      } else if (pair.contains('tirupati') || pair.contains('tirumala')) {
-        estimatedKm = 385.0;
-      } else if (pair.contains('coorg') || pair.contains('madikeri')) {
-        estimatedKm = 120.0;
-      } else if (pair.contains('ooty')) {
-        estimatedKm = 125.0;
-      } else if (pair.contains('wayanad')) {
-        estimatedKm = 140.0;
-      }
-    } else if (pair.contains('mumbai')) {
-      if (pair.contains('pune')) estimatedKm = 150.0;
-      else if (pair.contains('goa')) estimatedKm = 585.0;
-      else if (pair.contains('lonavala')) estimatedKm = 85.0;
-      else if (pair.contains('shirdi')) estimatedKm = 240.0;
-      else if (pair.contains('mahabaleshwar')) estimatedKm = 260.0;
+    // Coordinate resolution and geodesic distance estimation
+    double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+      const r = 6371.0;
+      final dLat = (lat2 - lat1) * (math.pi / 180.0);
+      final dLon = (lon2 - lon1) * (math.pi / 180.0);
+      final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+          math.cos(lat1 * (math.pi / 180.0)) * math.cos(lat2 * (math.pi / 180.0)) *
+          math.sin(dLon / 2) * math.sin(dLon / 2);
+      final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+      return r * c;
     }
 
-    final totalDriveMin = (estimatedKm / 60.0 * 60).round();
+    (double, double)? resolveCoords(String name) {
+      final n = name.toLowerCase().trim();
+      if (n.isEmpty) return null;
+      if (n.contains('philippines')) {
+        return (13.6218, 123.1948); // Camarines Sur, Philippines
+      }
+      for (final p in _curatedPlaces) {
+        final pName = (p['name'] as String).toLowerCase();
+        final pFirst = pName.split(',').first.trim();
+        final pClean = pFirst.replaceAll(RegExp(r'\s*\([^)]*\)'), '').trim();
+        if (n == pFirst || n == pClean || n == pName || pFirst == n || pClean == n) {
+          return ((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
+        }
+        if (n.contains(pClean) || pClean.contains(n) || pFirst.contains(n)) {
+          if (!n.contains('philippines') && !n.contains('usa') && !n.contains('uk') && !n.contains('europe')) {
+            return ((p['lat'] as num).toDouble(), (p['lng'] as num).toDouble());
+          }
+        }
+      }
+      return null;
+    }
+
+    double? startLat = startLoc.latitude;
+    double? startLng = startLoc.longitude;
+    double? destLat = destLoc.latitude;
+    double? destLng = destLoc.longitude;
+
+    if (startLat == null || startLng == null) {
+      final found = resolveCoords(startName);
+      if (found != null) {
+        startLat = found.$1;
+        startLng = found.$2;
+      }
+    }
+    if (destLat == null || destLng == null) {
+      final found = resolveCoords(destName);
+      if (found != null) {
+        destLat = found.$1;
+        destLng = found.$2;
+      }
+    }
+
+    double? directDistKm;
+    if (startLat != null && startLng != null && destLat != null && destLng != null) {
+      directDistKm = haversineKm(startLat, startLng, destLat, destLng);
+    }
+
+    final pair = '$startName $destName'.toLowerCase();
+    final bool isHilly = pair.contains('ooty') ||
+        pair.contains('coorg') ||
+        pair.contains('madikeri') ||
+        pair.contains('wayanad') ||
+        pair.contains('munnar') ||
+        pair.contains('chikmagalur') ||
+        pair.contains('kodaikanal');
+
+    final bool isOverseas = directDistKm != null && directDistKm > 2500.0;
+    double estimatedKm;
+
+    if (isOverseas) {
+      // Direct transcontinental or trans-oceanic flight distance
+      estimatedKm = (directDistKm * 10).round() / 10.0;
+    } else if (directDistKm != null && directDistKm > 0) {
+      // Realistic road winding factor: ~1.28x on highway plains, ~1.35x in hill ghats
+      final windingFactor = isHilly ? 1.35 : 1.28;
+      estimatedKm = (directDistKm * windingFactor * 10).round() / 10.0;
+    } else {
+      // Fallback for completely unknown coordinates based on corridor heuristic
+      estimatedKm = 180.0;
+    }
+
+    // Precision calibration for famous corridor expressways (domestic road trips only)
+    if (!isOverseas) {
+      if (pair.contains('bengaluru') || pair.contains('bangalore')) {
+        if (pair.contains('mumbai')) estimatedKm = 985.0;
+        else if (pair.contains('delhi')) estimatedKm = 2150.0;
+        else if (pair.contains('hyderabad')) estimatedKm = 570.0;
+        else if (pair.contains('mangaluru') || pair.contains('mangalore')) estimatedKm = 350.0;
+        else if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 250.0;
+        else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 145.0;
+        else if (pair.contains('coorg') || pair.contains('madikeri')) estimatedKm = 265.0;
+        else if (pair.contains('ooty')) estimatedKm = 280.0;
+        else if (pair.contains('chennai')) estimatedKm = 350.0;
+        else if (pair.contains('goa')) estimatedKm = 560.0;
+        else if (pair.contains('hampi')) estimatedKm = 340.0;
+      } else if (pair.contains('mysore') || pair.contains('mysuru')) {
+        if (pair.contains('mangaluru') || pair.contains('mangalore')) estimatedKm = 255.0;
+        else if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 385.0;
+        else if (pair.contains('coorg') || pair.contains('madikeri')) estimatedKm = 120.0;
+        else if (pair.contains('ooty')) estimatedKm = 125.0;
+        else if (pair.contains('wayanad')) estimatedKm = 140.0;
+        else if (pair.contains('goa')) estimatedKm = 620.0;
+      } else if (pair.contains('mumbai')) {
+        if (pair.contains('pune')) estimatedKm = 150.0;
+        else if (pair.contains('goa')) estimatedKm = 585.0;
+        else if (pair.contains('lonavala')) estimatedKm = 85.0;
+        else if (pair.contains('shirdi')) estimatedKm = 240.0;
+        else if (pair.contains('mahabaleshwar')) estimatedKm = 260.0;
+      } else if (pair.contains('pune') && pair.contains('goa')) {
+        estimatedKm = 450.0;
+      } else if (pair.contains('maddur') || pair.contains('mandya')) {
+        if (pair.contains('goa')) estimatedKm = 560.0;
+        else if (pair.contains('tirupati') || pair.contains('tirumala')) estimatedKm = 345.0;
+        else if (pair.contains('mysore') || pair.contains('mysuru')) estimatedKm = 65.0;
+        else if (pair.contains('bengaluru') || pair.contains('bangalore')) estimatedKm = 85.0;
+      }
+    }
+
+    final totalDriveMin = isOverseas
+        ? ((estimatedKm / 700.0) * 60 + 180).round()
+        : math.max(30, (estimatedKm / 55.0 * 60).round());
 
     int parseMinutes(String t) => TripDateTime.parseMinutes(t);
     String formatMin(int totalMin) => TripDateTime.formatMinutes(totalMin);
@@ -1890,18 +2004,20 @@ class ApiService {
         final startMin = parseMinutes(startTime);
         int cur = startMin;
 
-        final driveMin = totalDriveMin > 360 ? 300 : totalDriveMin;
+        final driveMin = isOverseas ? totalDriveMin : (totalDriveMin > 360 ? 300 : totalDriveMin);
         blocks.add(TimelineBlock(
           start: formatMin(cur),
           end: formatMin(cur + driveMin),
           type: 'travel',
-          title: 'Drive from $startName to $destName',
+          title: isOverseas ? 'Flight / Travel from $startName to $destName' : 'Drive from $startName to $destName',
           place: destName,
           durationMin: driveMin,
           travelMin: driveMin,
           distanceKm: estimatedKm,
-          travelMode: 'drive',
-          reason: 'Highway journey with optimal route pacing',
+          travelMode: isOverseas ? 'flight' : 'drive',
+          reason: isOverseas
+              ? 'Transcontinental journey pacing (${estimatedKm.round()} km)'
+              : 'Highway journey with optimal route pacing (${estimatedKm.toStringAsFixed(1)} km)',
         ));
         cur += driveMin;
 
@@ -2163,19 +2279,21 @@ class ApiService {
           reason: 'Settle bills and prepare for return journey',
         ));
 
-        // Return Drive
-        final retDriveMin = totalDriveMin > 360 ? 300 : totalDriveMin;
+        // Return Drive / Flight
+        final retDriveMin = isOverseas ? totalDriveMin : (totalDriveMin > 360 ? 300 : totalDriveMin);
         blocks.add(TimelineBlock(
           start: '02:00 PM',
           end: formatMin(840 + retDriveMin),
           type: 'return',
-          title: 'Return Drive back to $startName',
+          title: isOverseas ? 'Return Flight back to $startName' : 'Return Drive back to $startName',
           place: startName,
           durationMin: retDriveMin,
           travelMin: retDriveMin,
           distanceKm: estimatedKm,
-          travelMode: 'drive',
-          reason: 'Safe return journey completing the round trip circuit',
+          travelMode: isOverseas ? 'flight' : 'drive',
+          reason: isOverseas
+              ? 'Safe return flight completing the journey (${estimatedKm.round()} km)'
+              : 'Safe return journey completing the round trip circuit (${estimatedKm.toStringAsFixed(1)} km)',
         ));
       }
 

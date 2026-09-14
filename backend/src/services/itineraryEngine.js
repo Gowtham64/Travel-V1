@@ -78,36 +78,7 @@ function format24h(min) {
   return `${h24.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
-const MAJOR_CITIES = {
-  bengaluru: { lat: 12.9716, lng: 77.5946, name: "Bengaluru", city: "Bengaluru", state: "Karnataka", country: "India" },
-  bangalore: { lat: 12.9716, lng: 77.5946, name: "Bengaluru", city: "Bengaluru", state: "Karnataka", country: "India" },
-  mysuru: { lat: 12.2958, lng: 76.6394, name: "Mysuru", city: "Mysuru", state: "Karnataka", country: "India" },
-  mysore: { lat: 12.2958, lng: 76.6394, name: "Mysuru", city: "Mysuru", state: "Karnataka", country: "India" },
-  tirupati: { lat: 13.6288, lng: 79.4192, name: "Tirupati", city: "Tirupati", state: "Andhra Pradesh", country: "India" },
-  tirumala: { lat: 13.6833, lng: 79.3473, name: "Tirumala", city: "Tirupati", state: "Andhra Pradesh", country: "India" },
-  coorg: { lat: 12.4244, lng: 75.7382, name: "Madikeri (Coorg)", city: "Coorg", state: "Karnataka", country: "India" },
-  madikeri: { lat: 12.4244, lng: 75.7382, name: "Madikeri (Coorg)", city: "Coorg", state: "Karnataka", country: "India" },
-  ooty: { lat: 11.4102, lng: 76.6950, name: "Ooty", city: "Ooty", state: "Tamil Nadu", country: "India" },
-  chennai: { lat: 13.0827, lng: 80.2707, name: "Chennai", city: "Chennai", state: "Tamil Nadu", country: "India" },
-  hyderabad: { lat: 17.3850, lng: 78.4867, name: "Hyderabad", city: "Hyderabad", state: "Telangana", country: "India" },
-  mumbai: { lat: 19.0760, lng: 72.8777, name: "Mumbai", city: "Mumbai", state: "Maharashtra", country: "India" },
-  goa: { lat: 15.2993, lng: 74.1240, name: "Goa", city: "Goa", state: "Goa", country: "India" },
-  delhi: { lat: 28.6139, lng: 77.2090, name: "Delhi", city: "Delhi", state: "Delhi", country: "India" },
-  srirangapatna: { lat: 12.4237, lng: 76.6853, name: "Srirangapatna", city: "Srirangapatna", state: "Karnataka", country: "India" },
-  madurai: { lat: 9.9252, lng: 78.1198, name: "Madurai", city: "Madurai", state: "Tamil Nadu", country: "India" },
-  tiruchirappalli: { lat: 10.7905, lng: 78.7047, name: "Tiruchirappalli", city: "Tiruchirappalli", state: "Tamil Nadu", country: "India" },
-  trichy: { lat: 10.7905, lng: 78.7047, name: "Tiruchirappalli", city: "Tiruchirappalli", state: "Tamil Nadu", country: "India" },
-  thanjavur: { lat: 10.7870, lng: 79.1378, name: "Thanjavur", city: "Thanjavur", state: "Tamil Nadu", country: "India" },
-  dindigul: { lat: 10.3673, lng: 77.9803, name: "Dindigul", city: "Dindigul", state: "Tamil Nadu", country: "India" },
-  rameswaram: { lat: 9.2876, lng: 79.3129, name: "Rameswaram", city: "Rameswaram", state: "Tamil Nadu", country: "India" },
-  kodaikanal: { lat: 10.2381, lng: 77.4892, name: "Kodaikanal", city: "Kodaikanal", state: "Tamil Nadu", country: "India" },
-  pondicherry: { lat: 11.9416, lng: 79.8083, name: "Puducherry", city: "Puducherry", state: "Puducherry", country: "India" },
-  salem: { lat: 11.6643, lng: 78.1460, name: "Salem", city: "Salem", state: "Tamil Nadu", country: "India" },
-  vellore: { lat: 12.9165, lng: 79.1325, name: "Vellore", city: "Vellore", state: "Tamil Nadu", country: "India" },
-  tirunelveli: { lat: 8.7139, lng: 77.7567, name: "Tirunelveli", city: "Tirunelveli", state: "Tamil Nadu", country: "India" },
-  kanyakumari: { lat: 8.0883, lng: 77.5385, name: "Kanyakumari", city: "Kanyakumari", state: "Tamil Nadu", country: "India" },
-  coimbatore: { lat: 11.0168, lng: 76.9558, name: "Coimbatore", city: "Coimbatore", state: "Tamil Nadu", country: "India" },
-};
+const { MAJOR_CITIES } = require("../data/majorCities");
 
 /**
  * Safely extracts a clean string name from any location representation.
@@ -736,6 +707,9 @@ async function planItinerary(params = {}) {
 
   const isAroundTrip = String(tripType).toLowerCase() !== "one_way";
   const searchRadius = Math.max(5, Math.min(Number(searchRadiusKm) || 25, 100));
+  const destNameLower = (lockedDestination.name || "").toLowerCase();
+  const isDestGoa = destNameLower.includes("goa") || (lockedDestination.state || "").toLowerCase() === "goa";
+  const effectiveDestRadius = isDestGoa ? Math.max(searchRadius, 65) : searchRadius;
   const totalDays = Math.max(1, Math.min(Number(durationDays) || 1, 14));
   const startMinutes = parseMinutes(startTime);
 
@@ -781,14 +755,14 @@ async function planItinerary(params = {}) {
     for (const cp of curatedPlaces) {
       const distToDest = haversineDistanceKm(lockedDestination, cp);
       const distToStart = haversineDistanceKm(startPt, cp);
-      const isNearDest = distToDest <= searchRadius;
+      const isNearDest = distToDest <= effectiveDestRadius || (isDestGoa && (cp.state || "").toLowerCase() === "goa");
       const isNearStart = isLocalTrip && distToStart <= searchRadius;
       const corridorDetour = distToStart + distToDest - directDist;
       const isAlongCorridor =
         !isLocalTrip &&
         directDist > 50 &&
         distToStart > 30 &&
-        distToDest > searchRadius &&
+        distToDest > effectiveDestRadius &&
         distToStart <= directDist * 1.05 &&
         distToDest <= directDist * 1.05 &&
         corridorDetour <= maxCorridorDetourKm;
@@ -823,7 +797,7 @@ async function planItinerary(params = {}) {
       categoryPriorities,
       baseAxisStart: startPt,
       baseAxisEnd: lockedDestination,
-      searchRadiusKm: searchRadius,
+      searchRadiusKm: effectiveDestRadius,
       correctionFeedback,
     });
 
@@ -895,9 +869,9 @@ async function planItinerary(params = {}) {
       const distToDest = haversineDistanceKm(lockedDestination, stop);
       const distToStart = haversineDistanceKm(startPt, stop);
       const corridorDetour = distToStart + distToDest - directDist;
-      const inDestRadius = distToDest <= searchRadius;
+      const inDestRadius = distToDest <= effectiveDestRadius || (isDestGoa && (stop.state || "").toLowerCase() === "goa");
       const inLocalRadius = isLocalTrip && distToStart <= searchRadius;
-      const inCorridor = !isLocalTrip && distToStart > 25 && distToDest > searchRadius && corridorDetour <= maxCorridorDetourKm;
+      const inCorridor = !isLocalTrip && distToStart > 25 && distToDest > effectiveDestRadius && corridorDetour <= maxCorridorDetourKm;
       return inDestRadius || inLocalRadius || inCorridor || stop.isUserSpecified;
     });
   // Step 5: Stop Partitioning (Transit Corridor vs Destination Area)
@@ -907,7 +881,7 @@ async function planItinerary(params = {}) {
 
   for (const s of candidateStops) {
     const dDest = haversineDistanceKm(lockedDestination, s);
-    if (dDest <= searchRadius || isLocalTrip) {
+    if (dDest <= effectiveDestRadius || (isDestGoa && (s.state || "").toLowerCase() === "goa") || isLocalTrip) {
       destAreaStops.push(s);
     } else {
       midwayOutboundStops.push(s);
@@ -995,7 +969,7 @@ async function planItinerary(params = {}) {
     // Route through stops of the day
     for (let sIdx = 0; sIdx < dayStops.length; sIdx++) {
       const stop = dayStops[sIdx];
-      const isStopInDestArea = haversineDistanceKm(lockedDestination, stop) <= searchRadius;
+      const isStopInDestArea = haversineDistanceKm(lockedDestination, stop) <= effectiveDestRadius || (isDestGoa && (stop.state || "").toLowerCase() === "goa");
 
       // On Day 1, if transitioning from midway to destination area, insert Destination Arrival Block
       if (isFirstDay && !destArrivalAdded && isStopInDestArea) {
@@ -1189,8 +1163,31 @@ async function planItinerary(params = {}) {
       if (currentMin >= 1260 && sIdx < dayStops.length - 1) break;
     }
 
-    // If Day 1 had no midway stops, ensure Destination Arrival Block is explicitly added
+    // If Day 1 had no midway stops, ensure Outward Travel & Destination Arrival Blocks are explicitly added
     if (isFirstDay && !destArrivalAdded) {
+      const destLeg = await routeBetweenPoints(prevLoc, lockedDestination);
+      if (destLeg && destLeg.distanceKm > 1) {
+        blocks.push({
+          id: `d1_travel_to_dest`,
+          day: 1,
+          sequence: blocks.length,
+          type: "travel",
+          title: `Drive to Destination: ${lockedDestination.name}`,
+          place: lockedDestination.name,
+          travelMode: "drive",
+          lat: lockedDestination.lat,
+          lng: lockedDestination.lng,
+          start: formatMinutes(currentMin),
+          end: formatMinutes(currentMin + destLeg.travelMin),
+          durationMin: 0,
+          travelMin: destLeg.travelMin,
+          distanceKm: destLeg.distanceKm,
+          reason: `Road journey to primary destination (${destLeg.distanceKm} km)`,
+        });
+        currentMin += destLeg.travelMin;
+        cumulativeTripKm += destLeg.distanceKm;
+      }
+
       blocks.push({
         id: `d1_dest_arrival`,
         day: 1,
@@ -1220,6 +1217,7 @@ async function planItinerary(params = {}) {
       });
       currentMin += 30;
       prevLoc = lockedDestination;
+      destArrivalAdded = true;
     }
 
     // Dinner Window
@@ -1416,7 +1414,7 @@ async function planItinerary(params = {}) {
     isAroundTrip,
     startMinutes,
     candidateMap,
-    searchRadiusKm: searchRadius,
+    searchRadiusKm: effectiveDestRadius,
     selectedCategories,
   });
 
@@ -1558,10 +1556,14 @@ function validateItineraryQuality({
           throw new Error(`Quality Gate Failed: Unrecognized placeId "${b.placeId}" for block "${b.title}"`);
         }
         // Geographic constraint check
+        const destNameLower = (destination?.name || "").toLowerCase();
+        const isDestGoa = destNameLower.includes("goa") || (destination?.state || "").toLowerCase() === "goa";
+        const effectiveRadius = isDestGoa ? Math.max(searchRadiusKm, 65) : searchRadiusKm;
+
         const distToDest = haversineDistanceKm(destination, b);
         const distToStart = haversineDistanceKm(startLocation, b);
         const corridorDetour = distToStart + distToDest - directDist;
-        const inDestRadius = distToDest <= searchRadiusKm;
+        const inDestRadius = distToDest <= effectiveRadius || (isDestGoa && (b.state || "").toLowerCase() === "goa");
         const inLocalRadius = isLocalTrip && distToStart <= searchRadiusKm;
         const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadiusKm && corridorDetour <= 20;
 
@@ -1590,4 +1592,5 @@ module.exports = {
   normalizeCanonicalLocation,
   validateItineraryQuality,
   CATEGORY_DURATIONS,
+  MAJOR_CITIES,
 };

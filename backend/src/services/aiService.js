@@ -1,5 +1,7 @@
 const axios = require("axios");
 const CURATED_PLACES = require("../data/curatedPlaces.json");
+const { haversineDistanceKm } = require("../utils/geo");
+const { MAJOR_CITIES } = require("../data/majorCities");
 
 // Provider-agnostic AI. Set AI_PROVIDER = gemini | groq | openrouter to force one,
 // otherwise auto-detect from whichever key is present. Gemini is preferred when
@@ -867,6 +869,13 @@ const CURATED_VENUES = {
     lunch: { name: "Hotel Original Vinayaka Mylari", city: "Mysuru", rating: "4.8", specialty: "World-Famous Butter Mylari Dosa with Fresh White Butter" },
     dinner: { name: "Hotel Dasaprakash Heritage Restaurant", city: "Mysuru", rating: "4.6", specialty: "Traditional Mysuru Royal Thali Meals" },
     hotel: { name: "Grand Mercure Mysuru (Accor)", city: "Mysuru", rating: "4.7", specialty: "Luxury 5-Star Stay overlooking Chamundi Hills" },
+  },
+  goa: {
+    coffee: { name: "Cafe Bodega at Sunaparanta", city: "Altinho, Panaji, Goa", rating: "4.7", specialty: "Artisan European Pastries, Waffles & Handcrafted Coffee" },
+    breakfast: { name: "Infantaria Heritage Cafe & Bakery", city: "Calangute, Goa", rating: "4.6", specialty: "Goan Poi, Bebinca, Fresh Croissants & English Breakfast" },
+    lunch: { name: "Ritz Classic Panjim Heritage", city: "Panaji, Goa", rating: "4.8", specialty: "Legendary Goan Fish Curry Thali, Prawn Curry & Veg Thali" },
+    dinner: { name: "The Fisherman's Wharf", city: "Salcete / Panaji, Goa", rating: "4.7", specialty: "Riverfront Goan Coastal Curries, Balchão & Live Music" },
+    hotel: { name: "Taj Fort Aguada Resort & Spa", city: "Sinquerim, Candolim, Goa", rating: "4.8", specialty: "5-Star Luxury Beachfront Heritage Stay overlooking the Arabian Sea" },
   }
 };
 
@@ -884,6 +893,9 @@ function getBestCuratedVenue(dest, type) {
   }
   if (d.includes("mysore") || d.includes("mysuru") || d.includes("mandya") || d.includes("srirangapatna")) {
     return CURATED_VENUES.mysuru[type] || CURATED_VENUES.mysuru.lunch;
+  }
+  if (d.includes("goa") || d.includes("panaji") || d.includes("calangute") || d.includes("candolim") || d.includes("margao") || d.includes("baga")) {
+    return CURATED_VENUES.goa[type] || CURATED_VENUES.goa.lunch;
   }
   return {
     name: `${cleanCity} Traditional ${type === 'hotel' ? 'Comfort Stay & Suites' : type === 'coffee' ? 'Filter Coffee & Refreshment Lounge' : 'Regional Dining Restaurant'}`,
@@ -925,6 +937,45 @@ function resolveCategoriesForPlace(t, selectedCategories) {
     return { categories: matches, match: matches[0] };
   }
   return { categories: placeCats, match: placeCats[0] };
+}
+
+function resolveLocationCoords(loc) {
+  if (!loc) return null;
+  if (typeof loc === "object") {
+    const lat = Number(loc.lat ?? loc.latitude);
+    const lng = Number(loc.lng ?? loc.longitude);
+    if (!isNaN(lat) && !isNaN(lng) && (lat !== 0 || lng !== 0)) {
+      return { lat, lng };
+    }
+  }
+  const str = (typeof loc === "object" ? (loc.name || loc.city || "") : String(loc)).toLowerCase();
+
+  // Explicit country / foreign homonym overrides
+  if (str.includes("philippines")) {
+    return { lat: 13.6218, lng: 123.1948 }; // Camarines Sur, Philippines
+  }
+
+  // 1. Check MAJOR_CITIES
+  if (MAJOR_CITIES) {
+    for (const [key, coords] of Object.entries(MAJOR_CITIES)) {
+      if (str.includes(key) || key.includes(str.split(",")[0].trim())) {
+        return coords;
+      }
+    }
+  }
+
+  // 2. Check CURATED_PLACES
+  if (Array.isArray(CURATED_PLACES)) {
+    for (const p of CURATED_PLACES) {
+      const pName = (p.name || "").toLowerCase();
+      const pCity = (p.city || "").toLowerCase();
+      if ((pName && str.includes(pName)) || (pCity && str.includes(pCity))) {
+        if (p.lat && p.lng) return { lat: p.lat, lng: p.lng };
+        if (p.latitude && p.longitude) return { lat: p.latitude, lng: p.longitude };
+      }
+    }
+  }
+  return null;
 }
 
 function buildFallbackSmartItinerary({
@@ -1106,38 +1157,64 @@ function buildFallbackSmartItinerary({
     return chosen;
   }
 
-  // Realistic highway distance estimation
+  // Dynamic highway / transit distance estimation
+  const startCoords = resolveLocationCoords(startLocation);
+  const destCoords = resolveLocationCoords(destination);
+
   let estimatedKm = 145.0;
-  const pair = `${startName} ${destName}`.toLowerCase();
-  if (pair.includes("mandya") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
-    estimatedKm = 345.0;
-  } else if (pair.includes("bengaluru") || pair.includes("bangalore")) {
-    if (pair.includes("mumbai")) estimatedKm = 985.0;
-    else if (pair.includes("delhi")) estimatedKm = 2150.0;
-    else if (pair.includes("hyderabad")) estimatedKm = 570.0;
-    else if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 350.0;
-    else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
-    else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 145.0;
-    else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 265.0;
-    else if (pair.includes("ooty")) estimatedKm = 280.0;
-    else if (pair.includes("chennai")) estimatedKm = 350.0;
-    else if (pair.includes("goa")) estimatedKm = 560.0;
-    else if (pair.includes("hampi")) estimatedKm = 340.0;
-  } else if (pair.includes("mysore") || pair.includes("mysuru")) {
-    if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 255.0;
-    else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 385.0;
-    else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 120.0;
-    else if (pair.includes("ooty")) estimatedKm = 125.0;
-    else if (pair.includes("wayanad")) estimatedKm = 140.0;
-  } else if (pair.includes("mumbai")) {
-    if (pair.includes("pune")) estimatedKm = 150.0;
-    else if (pair.includes("goa")) estimatedKm = 585.0;
-    else if (pair.includes("lonavala")) estimatedKm = 85.0;
-    else if (pair.includes("shirdi")) estimatedKm = 240.0;
-    else if (pair.includes("mahabaleshwar")) estimatedKm = 260.0;
+  let travelMode = "drive";
+  let isOverseas = false;
+
+  if (startCoords && destCoords) {
+    const directKm = haversineDistanceKm(startCoords, destCoords);
+    if (directKm > 2500) {
+      isOverseas = true;
+      travelMode = "flight";
+      estimatedKm = Math.round(directKm);
+    } else {
+      const isHilly = /coorg|madikeri|ooty|munnar|kodaikanal|wayanad|chikmagalur|sakleshpur|shimla|manali|darjeeling/i.test(
+        `${startName} ${destName}`
+      );
+      const roadFactor = isHilly ? 1.35 : 1.28;
+      estimatedKm = Math.max(15, Math.round(directKm * roadFactor));
+    }
+  } else {
+    // String-based fallback heuristics
+    const pair = `${startName} ${destName}`.toLowerCase();
+    if (pair.includes("mandya") && (pair.includes("tirupati") || pair.includes("tirumala"))) {
+      estimatedKm = 345.0;
+    } else if (pair.includes("maddur") && pair.includes("goa")) {
+      estimatedKm = 560.0;
+    } else if (pair.includes("bengaluru") || pair.includes("bangalore")) {
+      if (pair.includes("mumbai")) estimatedKm = 985.0;
+      else if (pair.includes("delhi")) estimatedKm = 2150.0;
+      else if (pair.includes("hyderabad")) estimatedKm = 570.0;
+      else if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 350.0;
+      else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 250.0;
+      else if (pair.includes("mysore") || pair.includes("mysuru")) estimatedKm = 145.0;
+      else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 265.0;
+      else if (pair.includes("ooty")) estimatedKm = 280.0;
+      else if (pair.includes("chennai")) estimatedKm = 350.0;
+      else if (pair.includes("goa")) estimatedKm = 560.0;
+      else if (pair.includes("hampi")) estimatedKm = 340.0;
+    } else if (pair.includes("mysore") || pair.includes("mysuru")) {
+      if (pair.includes("mangaluru") || pair.includes("mangalore")) estimatedKm = 255.0;
+      else if (pair.includes("tirupati") || pair.includes("tirumala")) estimatedKm = 385.0;
+      else if (pair.includes("coorg") || pair.includes("madikeri")) estimatedKm = 120.0;
+      else if (pair.includes("ooty")) estimatedKm = 125.0;
+      else if (pair.includes("wayanad")) estimatedKm = 140.0;
+    } else if (pair.includes("mumbai")) {
+      if (pair.includes("pune")) estimatedKm = 150.0;
+      else if (pair.includes("goa")) estimatedKm = 585.0;
+      else if (pair.includes("lonavala")) estimatedKm = 85.0;
+      else if (pair.includes("shirdi")) estimatedKm = 240.0;
+      else if (pair.includes("mahabaleshwar")) estimatedKm = 260.0;
+    }
   }
 
-  const totalDriveMin = Math.round((estimatedKm / 55.0) * 60);
+  const totalDriveMin = isOverseas
+    ? Math.max(180, Math.round(180 + (estimatedKm / 800.0) * 60))
+    : Math.round((estimatedKm / 55.0) * 60);
 
   const coffeeHighway = getBestCuratedVenue(destName, "coffee");
   const breakfastVenue = getBestCuratedVenue(destName, "breakfast");
@@ -1157,13 +1234,13 @@ function buildFallbackSmartItinerary({
         start: formatMin(cur),
         end: formatMin(cur + totalDriveMin),
         type: "travel",
-        title: `Drive from ${startName} to ${destName}`,
+        title: isOverseas ? `Flight from ${startName} to ${destName}` : `Drive from ${startName} to ${destName}`,
         place: destName,
         durationMin: totalDriveMin,
         travelMin: totalDriveMin,
         distanceKm: estimatedKm,
-        travelMode: "drive",
-        reason: "Scenic highway drive with optimal route pacing",
+        travelMode: travelMode,
+        reason: isOverseas ? "Direct commercial flight connecting travel regions" : "Scenic highway drive with optimal route pacing",
         grounded: true
       });
       cur += totalDriveMin;
@@ -1421,7 +1498,22 @@ function buildFallbackSmartItinerary({
       });
 
       let cur = 840;
-      if (totalDriveMin > 180) {
+      if (isOverseas) {
+        blocks.push({
+          start: formatMin(cur),
+          end: formatMin(cur + totalDriveMin),
+          type: "travel",
+          title: `Return Flight to ${startName}`,
+          place: startName,
+          durationMin: totalDriveMin,
+          travelMin: totalDriveMin,
+          distanceKm: estimatedKm,
+          travelMode: "flight",
+          reason: "Direct flight returning home",
+          grounded: true
+        });
+        cur += totalDriveMin;
+      } else if (totalDriveMin > 180) {
         const ret1 = Math.round(totalDriveMin * 0.5);
         const ret2 = totalDriveMin - ret1;
         const dist1 = Math.round(estimatedKm * 0.5);

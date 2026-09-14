@@ -10,13 +10,24 @@ function toRad(deg) {
 }
 
 /**
- * Great-circle distance between two {lat, lng} points, in kilometers.
+ * Great-circle distance between two points, in kilometers.
+ * Accepts either (p1, p2) with {lat, lng} or (lat1, lng1, lat2, lng2).
  */
-function haversineDistanceKm(a, b) {
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
+function haversineDistanceKm(a, b, c, d) {
+  let p1, p2;
+  if (typeof a === "object" && typeof b === "object" && a !== null && b !== null) {
+    p1 = a;
+    p2 = b;
+  } else if (typeof a === "number" && typeof b === "number" && typeof c === "number" && typeof d === "number") {
+    p1 = { lat: a, lng: b };
+    p2 = { lat: c, lng: d };
+  } else {
+    return 0;
+  }
+  const dLat = toRad(p2.lat - p1.lat);
+  const dLng = toRad(p2.lng - p1.lng);
+  const lat1 = toRad(p1.lat);
+  const lat2 = toRad(p2.lat);
 
   const sinDLat = Math.sin(dLat / 2);
   const sinDLng = Math.sin(dLng / 2);
@@ -25,8 +36,8 @@ function haversineDistanceKm(a, b) {
     sinDLat * sinDLat +
     Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
 
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  return EARTH_RADIUS_KM * c;
+  const cVal = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return EARTH_RADIUS_KM * cVal;
 }
 
 /**

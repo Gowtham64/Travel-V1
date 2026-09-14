@@ -119,8 +119,14 @@ class TripHistoryItem {
       startAddress: startName,
       endAddress: endName,
       waypoints: wpNames,
-      distanceKm: (endPt['distanceKm'] as num?)?.toDouble() ?? 145.0,
-      durationMinutes: (endPt['durationMinutes'] as num?)?.toInt() ?? 150,
+      distanceKm: (row['distance_km'] as num?)?.toDouble() ??
+          (endPt['distanceKm'] as num?)?.toDouble() ??
+          (row['totalDistanceKm'] as num?)?.toDouble() ??
+          0.0,
+      durationMinutes: (row['duration_minutes'] as num?)?.toInt() ??
+          (endPt['durationMinutes'] as num?)?.toInt() ??
+          (row['totalDurationMin'] as num?)?.toInt() ??
+          0,
       vehicleType: row['vehicle_type']?.toString() ?? 'car',
       fuelCost: (endPt['fuelCost'] as num?)?.toDouble() ?? 0.0,
       tollCost: (endPt['tollCost'] as num?)?.toDouble() ?? 0.0,

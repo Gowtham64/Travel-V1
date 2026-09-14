@@ -280,6 +280,51 @@ class VenueDatabase {
       specialty: '18th-century Maratha Palace on Darbhanga Ghat with private boat check-in',
       city: 'Varanasi',
       address: 'Darbhanga Ghat, Varanasi',
+    ),
+    // ==========================================
+    // GOA & COASTAL HIGHWAY CIRCUIT
+    // ==========================================
+    RecommendedVenue(
+      name: 'Cafe Bodega Heritage Bakery & Cafe',
+      type: 'coffee',
+      rating: 4.7,
+      specialty: 'Artisanal Brewed Coffee, Fresh Croissants & Mediterranean Breakfast',
+      city: 'Altinho, Panaji, Goa',
+      address: 'Sunaparanta Centre for the Arts, Altinho, Panaji',
+    ),
+    RecommendedVenue(
+      name: 'Ritz Classic Heritage Dining',
+      type: 'lunch',
+      rating: 4.8,
+      specialty: 'Authentic Goan Fish Curry Thali, Sol Kadi, Prawn Balchao & Vegetarian Thali',
+      city: 'Panaji, Goa',
+      address: '18th June Road, Panaji, Goa',
+    ),
+    RecommendedVenue(
+      name: "Fisherman's Wharf Waterfront Dining",
+      type: 'dinner',
+      rating: 4.8,
+      specialty: 'Riverside Goan Delicacies, Live Music & Arabian Sea Breeze',
+      city: 'Cavelossim / Panaji, Goa',
+      address: 'Mobor Beach Road, Cavelossim, Goa',
+      priceRange: '₹₹₹',
+    ),
+    RecommendedVenue(
+      name: 'Taj Fort Aguada Resort & Spa',
+      type: 'hotel',
+      rating: 4.9,
+      specialty: '5-Star Luxury Portuguese Heritage Beachfront Resort overlooking Arabian Sea',
+      city: 'Candolim, North Goa',
+      address: 'Sinquerim Beach, Candolim, Goa',
+      priceRange: '₹₹₹',
+    ),
+    RecommendedVenue(
+      name: 'The Postcard Moira Luxury Boutique Stay',
+      type: 'hotel',
+      rating: 4.8,
+      specialty: '300-year-old restored Portuguese villa amidst lush banana plantations',
+      city: 'Moira, North Goa',
+      address: 'Moira, Bardez, Goa',
       priceRange: '₹₹₹',
     ),
   ];
@@ -297,6 +342,9 @@ class VenueDatabase {
       if (v.type != type && !(type == 'coffee' && v.type == 'breakfast')) return false;
       final vCity = v.city.toLowerCase();
       final vAddr = v.address.toLowerCase();
+      if (query.contains('goa')) {
+        return vCity.contains('goa') || vAddr.contains('goa');
+      }
       if (query.contains('tirupati') || query.contains('tirumala')) {
         return vCity.contains('tirupati') || vCity.contains('tirumala') || vCity.contains('kolar') || vCity.contains('mulbagal');
       }
