@@ -78,7 +78,9 @@ class _ProfileMenuSheet extends StatelessWidget {
           _Item('activities', 'Activities', Icons.local_activity_outlined),
         ]),
         _Section('🗺️', 'AI Itinerary', [
-          _Item('generate', 'Generate New Trip', Icons.auto_awesome_rounded, accent: Voy.violet, trailing: _pill('AI', Voy.violet)),
+          _Item('smart_ai', 'Smart AI Road Trip Planner', Icons.psychology_rounded, accent: Voy.pink, trailing: _badge('NEW', Voy.pink)),
+          _Item('generate', 'One-Way Route Planner', Icons.auto_awesome_rounded, accent: Voy.violet, trailing: _pill('AI', Voy.violet)),
+          const _Item('drafts', 'Day-by-Day Organizer', Icons.calendar_view_day_rounded, accent: Voy.brand),
           const _Item('my_itineraries', 'My Itineraries', Icons.event_note_rounded, accent: Voy.violet),
           const _Item('import', 'Import', Icons.file_download_outlined, accent: Voy.violet),
           const _Item('export_pdf', 'Export PDF', Icons.picture_as_pdf_outlined, accent: Voy.violet),

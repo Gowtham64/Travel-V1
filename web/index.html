@@ -755,6 +755,76 @@
             display: none !important;
         }
 
+        .auth-user-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(34, 197, 94, 0.15);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            padding: 5px 14px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            color: #4ade80;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .auth-user-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+        }
+
+        .auth-logged-in-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.85rem;
+            margin-top: 1.2rem;
+        }
+
+        .btn-auth-ai-planner {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 9px;
+            width: 100%;
+            padding: 0.95rem 1.2rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.28), rgba(236, 72, 153, 0.28));
+            border: 1px solid rgba(168, 85, 247, 0.55);
+            border-radius: 14px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 0.98rem;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.25);
+        }
+
+        .btn-auth-ai-planner:hover {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.45), rgba(236, 72, 153, 0.45));
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4);
+            color: #fff;
+        }
+
+        .btn-auth-signout {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.88rem;
+            cursor: pointer;
+            padding: 0.4rem;
+            text-align: center;
+            transition: color 0.2s ease;
+        }
+
+        .btn-auth-signout:hover {
+            color: #f87171;
+            text-decoration: underline;
+        }
+
         /* ─────────────  MARQUEE  ───────────── */
         .marquee {
             border-top: 1px solid var(--line);
@@ -1108,6 +1178,771 @@
             transform: translateY(0);
         }
 
+        /* ─────────────  SMART AI PLANNER  ───────────── */
+        .ai-planner-section {
+            padding: 5rem 0 6rem;
+            position: relative;
+            background: radial-gradient(circle at 50% 15%, rgba(45, 212, 191, 0.07) 0%, transparent 65%);
+        }
+
+        .ai-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1.1rem;
+            border-radius: 999px;
+            background: rgba(45, 212, 191, 0.1);
+            border: 1px solid rgba(45, 212, 191, 0.3);
+            color: var(--teal);
+            font-size: 0.85rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .ai-planner-card {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(28px) saturate(140%);
+            -webkit-backdrop-filter: blur(28px) saturate(140%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 28px;
+            padding: 2.2rem;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 3.5rem;
+        }
+
+        .planner-mode-tabs {
+            display: inline-flex;
+            gap: 0.4rem;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 0.35rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 1.4rem;
+        }
+
+        .mode-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.55rem 1.2rem;
+            border-radius: 999px;
+            font-family: var(--font-body);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--muted);
+            background: transparent;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .mode-tab:hover {
+            color: #fff;
+        }
+
+        .mode-tab.active {
+            background: linear-gradient(135deg, rgba(45, 212, 191, 0.22), rgba(45, 212, 191, 0.06));
+            border-color: rgba(45, 212, 191, 0.4);
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(45, 212, 191, 0.15);
+        }
+
+        .prompt-textarea-wrap {
+            position: relative;
+            margin-bottom: 1.2rem;
+        }
+
+        .prompt-textarea-wrap textarea {
+            width: 100%;
+            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            padding: 1.2rem 1.4rem;
+            color: #fff;
+            font-family: var(--font-body);
+            font-size: 1.1rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .prompt-textarea-wrap textarea:focus {
+            border-color: var(--teal);
+            background: rgba(0, 0, 0, 0.58);
+            box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+        }
+
+        .prompt-corner-hint {
+            position: absolute;
+            bottom: 0.9rem;
+            right: 1.2rem;
+            font-size: 0.76rem;
+            color: rgba(255, 255, 255, 0.35);
+            pointer-events: none;
+        }
+
+        .suggestion-chips-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+            margin-bottom: 1.6rem;
+        }
+
+        .chips-label {
+            font-size: 0.85rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+
+        .chips-list {
+            display: flex;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+        }
+
+        .chip-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.82);
+            font-family: var(--font-body);
+            font-size: 0.86rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .chip-btn:hover {
+            background: rgba(45, 212, 191, 0.14);
+            border-color: rgba(45, 212, 191, 0.45);
+            color: #fff;
+            transform: translateY(-1px);
+        }
+
+        /* Wizard Mode Styles */
+        .wizard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.6rem;
+        }
+
+        .wizard-field label {
+            display: block;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--muted);
+            margin-bottom: 0.45rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .wizard-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            background: rgba(0, 0, 0, 0.42);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 14px;
+            padding: 0 0.95rem;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .wizard-input-wrap:focus-within {
+            border-color: var(--teal);
+            background: rgba(0, 0, 0, 0.58);
+            box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
+        }
+
+        .wiz-icon {
+            font-size: 1.05rem;
+            flex-shrink: 0;
+        }
+
+        .wizard-input-wrap input,
+        .wizard-input-wrap select {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: var(--font-body);
+            font-size: 0.95rem;
+            padding: 0.85rem 0;
+        }
+
+        .wizard-input-wrap select {
+            cursor: pointer;
+        }
+
+        .wizard-input-wrap select option {
+            background: #0f151b;
+            color: #fff;
+        }
+
+        /* Action Row */
+        .planner-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.2rem;
+            padding-top: 1.2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .planner-info-note {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            color: var(--muted);
+            font-size: 0.86rem;
+        }
+
+        .planner-info-note svg {
+            color: var(--teal);
+            flex-shrink: 0;
+        }
+
+        .btn-build-trip {
+            background: linear-gradient(100deg, var(--teal), #14b8a6, var(--teal-deep));
+            color: #04211d;
+            border: none;
+            border-radius: 16px;
+            padding: 0.95rem 1.8rem;
+            font-family: var(--font-body);
+            font-size: 1.02rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            box-shadow: 0 10px 30px rgba(45, 212, 191, 0.32);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, filter 0.2s ease;
+        }
+
+        .btn-build-trip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 16px 40px rgba(45, 212, 191, 0.45);
+            filter: brightness(1.08);
+        }
+
+        .btn-build-trip:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-pulse {
+            animation: btnGlow 0.8s ease;
+        }
+
+        @keyframes btnGlow {
+            0%, 100% { box-shadow: 0 10px 30px rgba(45, 212, 191, 0.32); }
+            50% { box-shadow: 0 0 35px rgba(45, 212, 191, 0.8); }
+        }
+
+        /* Loading State */
+        .planner-loading-state {
+            padding: 3rem 1rem;
+            text-align: center;
+        }
+
+        .loading-road-animation {
+            position: relative;
+            width: 220px;
+            height: 36px;
+            margin: 0 auto 1.4rem;
+        }
+
+        .road-line {
+            position: absolute;
+            bottom: 6px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, rgba(45, 212, 191, 0.8), transparent);
+            border-radius: 2px;
+        }
+
+        .road-car {
+            position: absolute;
+            top: 0;
+            font-size: 1.5rem;
+            animation: driveCar 2s ease-in-out infinite;
+        }
+
+        @keyframes driveCar {
+            0% { left: 0%; transform: scaleX(1); }
+            50% { left: 80%; transform: scaleX(1); }
+            51% { transform: scaleX(-1); }
+            99% { left: 0%; transform: scaleX(-1); }
+            100% { left: 0%; transform: scaleX(1); }
+        }
+
+        .planner-loading-state h4 {
+            font-family: var(--font-heading);
+            font-size: 1.4rem;
+            color: #fff;
+            margin-bottom: 0.4rem;
+        }
+
+        .planner-loading-state p {
+            color: var(--muted);
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .loading-progress-bar {
+            max-width: 320px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 999px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .loading-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--teal), var(--coral));
+            width: 20%;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        /* Itinerary Results */
+        .planner-results-state {
+            margin-top: 2rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .itinerary-header-card {
+            background: linear-gradient(135deg, rgba(45, 212, 191, 0.08), rgba(255, 122, 77, 0.04));
+            border: 1px solid rgba(45, 212, 191, 0.28);
+            border-radius: 22px;
+            padding: 1.8rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .itinerary-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--teal);
+            letter-spacing: 0.08em;
+            margin-bottom: 0.6rem;
+            font-weight: 600;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--teal);
+            box-shadow: 0 0 10px var(--teal);
+            animation: pulseGlow 1.5s infinite;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.3); }
+        }
+
+        .itinerary-title-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.2rem;
+            margin-bottom: 1.4rem;
+            flex-wrap: wrap;
+        }
+
+        .itinerary-title-row h3 {
+            font-family: var(--font-heading);
+            font-size: 1.8rem;
+            color: #fff;
+            margin-bottom: 0.2rem;
+        }
+
+        .itinerary-subtitle {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .btn-open-app {
+            background: var(--teal);
+            color: #04211d;
+            padding: 0.65rem 1.2rem;
+            border-radius: 12px;
+            font-size: 0.92rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 6px 20px rgba(45, 212, 191, 0.3);
+        }
+
+        .btn-open-app:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.08);
+            box-shadow: 0 8px 24px rgba(45, 212, 191, 0.45);
+        }
+
+        .itinerary-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.9rem;
+            padding-top: 1.2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 0.85rem;
+            text-align: center;
+        }
+
+        .metric-icon {
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 0.2rem;
+        }
+
+        .metric-label {
+            font-size: 0.74rem;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 0.2rem;
+        }
+
+        .metric-val {
+            font-family: var(--font-heading);
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        /* Timeline Days */
+        .itinerary-days-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .itinerary-day-card {
+            background: rgba(255, 255, 255, 0.035);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 1.6rem;
+            transition: border-color 0.2s ease;
+        }
+
+        .itinerary-day-card:hover {
+            border-color: rgba(45, 212, 191, 0.3);
+        }
+
+        .day-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            margin-bottom: 1.3rem;
+            padding-bottom: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .day-badge {
+            background: rgba(45, 212, 191, 0.15);
+            border: 1px solid rgba(45, 212, 191, 0.35);
+            color: var(--teal);
+            font-weight: 700;
+            font-size: 0.82rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            letter-spacing: 0.03em;
+        }
+
+        .day-card-header h4 {
+            font-family: var(--font-heading);
+            font-size: 1.25rem;
+            color: #fff;
+        }
+
+        .day-timeline {
+            position: relative;
+            padding-left: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+        }
+
+        .day-timeline::before {
+            content: "";
+            position: absolute;
+            left: 0.6rem;
+            top: 0.4rem;
+            bottom: 0.4rem;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .timeline-step {
+            position: relative;
+        }
+
+        .timeline-dot {
+            position: absolute;
+            left: -1.75rem;
+            top: 0.3rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--teal);
+            border: 2px solid var(--bg);
+            box-shadow: 0 0 8px var(--teal);
+        }
+
+        .timeline-time {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: var(--teal);
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+        }
+
+        .timeline-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            margin-bottom: 0.3rem;
+            flex-wrap: wrap;
+        }
+
+        .step-title {
+            font-weight: 700;
+            color: #fff;
+            font-size: 1.02rem;
+        }
+
+        .step-tag {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--muted);
+            font-size: 0.75rem;
+            padding: 0.18rem 0.55rem;
+            border-radius: 999px;
+        }
+
+        .step-desc {
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.55;
+            margin-bottom: 0.3rem;
+        }
+
+        .step-duration {
+            display: inline-block;
+            font-size: 0.78rem;
+            color: rgba(255, 255, 255, 0.45);
+        }
+
+        /* Itinerary Footer */
+        .itinerary-footer-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.2rem;
+            padding-top: 1.4rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            flex-wrap: wrap;
+        }
+
+        .itinerary-footer-copy {
+            color: var(--muted);
+            font-size: 0.9rem;
+            max-width: 480px;
+        }
+
+        .itinerary-footer-btns {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-copy-itinerary {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            border-radius: 12px;
+            padding: 0.75rem 1.2rem;
+            font-family: var(--font-body);
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: background 0.2s ease;
+        }
+
+        .btn-copy-itinerary:hover {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .btn-primary-app {
+            background: linear-gradient(100deg, var(--teal), var(--teal-deep));
+            color: #04211d;
+            border-radius: 12px;
+            padding: 0.75rem 1.3rem;
+            font-family: var(--font-body);
+            font-size: 0.92rem;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: 0 6px 20px rgba(45, 212, 191, 0.3);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .btn-primary-app:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(45, 212, 191, 0.45);
+        }
+
+        /* Curated Routes */
+        .curated-section {
+            margin-top: 2rem;
+        }
+
+        .curated-divider {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            margin-bottom: 2rem;
+            color: var(--muted);
+            font-size: 0.92rem;
+            font-weight: 500;
+        }
+
+        .curated-divider::before,
+        .curated-divider::after {
+            content: "";
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.12);
+        }
+
+        .curated-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.2rem;
+        }
+
+        .curated-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            padding: 1.6rem;
+            cursor: pointer;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .curated-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(45, 212, 191, 0.4);
+            box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.025));
+        }
+
+        .curated-card-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            margin-bottom: 0.9rem;
+        }
+
+        .curated-tag {
+            background: rgba(45, 212, 191, 0.12);
+            color: var(--teal);
+            font-size: 0.76rem;
+            font-weight: 700;
+            padding: 0.2rem 0.6rem;
+            border-radius: 999px;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+
+        .curated-time {
+            font-size: 0.8rem;
+            color: var(--muted);
+        }
+
+        .curated-card h3 {
+            font-family: var(--font-heading);
+            font-size: 1.35rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .curated-card p {
+            font-size: 0.92rem;
+            color: var(--muted);
+            line-height: 1.55;
+            margin-bottom: 1.4rem;
+            flex: 1;
+        }
+
+        .curated-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-top: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .curated-est {
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--gold);
+            font-weight: 600;
+        }
+
+        .curated-arrow {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: var(--teal);
+            transition: transform 0.2s ease;
+        }
+
+        .curated-card:hover .curated-arrow {
+            transform: translateX(3px);
+        }
+
         /* ─────────────  RESPONSIVE  ───────────── */
         @media (max-width: 940px) {
             #hero {
@@ -1155,6 +1990,7 @@
         <nav class="container">
             <a href="#" class="logo"><img class="logo-mark" src="favicon.svg" alt="Voyplan logo" width="32" height="32">Voyplan</a>
             <ul class="nav-links">
+                <li><a href="#ai-planner">AI Planner</a></li>
                 <li><a href="#features">Features</a></li>
                 <li><a href="#preview">Experience</a></li>
                 <li><a href="#get-app">Get the App</a></li>
@@ -1240,67 +2076,93 @@
                     </div>
 
                     <div class="auth-card">
-                        <h2 id="auth-title">Welcome Back</h2>
-                        <p class="auth-sub" id="auth-subtitle">Log in to continue exploring</p>
+                        <!-- Authenticated view shown when user has an active session -->
+                        <div id="auth-authenticated-container" class="hide">
+                            <div class="auth-user-pill">
+                                <span class="auth-user-status-dot"></span>
+                                <span id="auth-user-greeting">Signed In</span>
+                            </div>
+                            <h2 id="auth-welcome-name">Ready for your trip?</h2>
+                            <p class="auth-sub" style="margin-bottom: 1.2rem;">You're logged into VoyPlan. Build an instant AI itinerary below or launch the full navigation app.</p>
 
-                        <!-- Name field (sign-up only) -->
-                        <div class="auth-field hide" id="name-field">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                            <input type="text" id="auth-name" placeholder="Full Name" autocomplete="name">
+                            <div class="auth-logged-in-actions">
+                                <a href="#ai-planner" class="btn-auth-ai-planner" id="btn-scroll-ai-planner">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                                    <span>✨ Plan AI Road Trip Below &darr;</span>
+                                </a>
+                                <button type="button" class="btn-primary" id="btn-auth-open-app" style="margin-top: 0;">
+                                    <span>Open VoyPlan App &rarr;</span>
+                                </button>
+                                <button type="button" class="btn-auth-signout" id="btn-auth-signout">
+                                    Sign out of VoyPlan
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="auth-field">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                            <input type="text" id="auth-identifier" placeholder="Email or Phone Number"
-                                autocomplete="username">
+                        <!-- Form container shown when user is not logged in -->
+                        <div id="auth-form-container">
+                            <h2 id="auth-title">Welcome Back</h2>
+                            <p class="auth-sub" id="auth-subtitle">Log in to continue exploring</p>
+
+                            <!-- Name field (sign-up only) -->
+                            <div class="auth-field hide" id="name-field">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                <input type="text" id="auth-name" placeholder="Full Name" autocomplete="name">
+                            </div>
+
+                            <div class="auth-field">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="12" cy="7" r="4"></circle>
+                                </svg>
+                                <input type="text" id="auth-identifier" placeholder="Email or Phone Number"
+                                    autocomplete="username">
+                            </div>
+
+                            <div class="auth-field">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                    stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                                </svg>
+                                <input type="password" id="auth-password" placeholder="Password"
+                                    autocomplete="current-password">
+                            </div>
+
+                            <button class="btn-primary" id="auth-submit">Log In</button>
+
+                            <button class="auth-toggle" id="auth-toggle">Need an account? <span>Sign Up</span></button>
+
+                            <div class="auth-divider">OR</div>
+
+                            <button class="btn-google" id="auth-google">
+                                <svg width="18" height="18" viewBox="0 0 48 48">
+                                    <path fill="#FFC107"
+                                        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z">
+                                    </path>
+                                    <path fill="#FF3D00"
+                                        d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z">
+                                    </path>
+                                    <path fill="#4CAF50"
+                                        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z">
+                                    </path>
+                                    <path fill="#1976D2"
+                                        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z">
+                                    </path>
+                                </svg>
+                                Sign in with Google
+                            </button>
+
+                            <div class="auth-msg" id="auth-msg"></div>
+
+                            <a class="auth-guest" href="https://voyplan.in/app/?guest=true">Continue as
+                                guest &rarr;</a>
                         </div>
-
-                        <div class="auth-field">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                            </svg>
-                            <input type="password" id="auth-password" placeholder="Password"
-                                autocomplete="current-password">
-                        </div>
-
-                        <button class="btn-primary" id="auth-submit">Log In</button>
-
-                        <button class="auth-toggle" id="auth-toggle">Need an account? <span>Sign Up</span></button>
-
-                        <div class="auth-divider">OR</div>
-
-                        <button class="btn-google" id="auth-google">
-                            <svg width="18" height="18" viewBox="0 0 48 48">
-                                <path fill="#FFC107"
-                                    d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z">
-                                </path>
-                                <path fill="#FF3D00"
-                                    d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z">
-                                </path>
-                                <path fill="#4CAF50"
-                                    d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z">
-                                </path>
-                                <path fill="#1976D2"
-                                    d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z">
-                                </path>
-                            </svg>
-                            Sign in with Google
-                        </button>
-
-                        <div class="auth-msg" id="auth-msg"></div>
-
-                        <a class="auth-guest" href="https://voyplan.in/app/?guest=true">Continue as
-                            guest &rarr;</a>
                     </div>
                 </div>
             </div>
@@ -1320,6 +2182,199 @@
                 <span>City to city</span><span>Weekend escapes</span><span>Epic road trips</span>
             </div>
         </div>
+
+        <!-- Smart AI Planner -->
+        <section id="ai-planner" class="block ai-planner-section">
+            <div class="container">
+                <div class="section-head center reveal">
+                    <div class="ai-pill">✨ Instant AI Itineraries</div>
+                    <h2>Plan your road trip in seconds.</h2>
+                    <p>Type it the way you'd say it out loud — stops, budget, vibe, days, or who's coming along.</p>
+                </div>
+
+                <div class="ai-planner-card reveal" id="planner-box">
+                    <!-- Mode Selector -->
+                    <div class="planner-mode-tabs" role="tablist">
+                        <button type="button" class="mode-tab active" id="tab-describe" data-mode="describe" role="tab" aria-selected="true">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            Describe it
+                        </button>
+                        <button type="button" class="mode-tab" id="tab-wizard" data-mode="wizard" role="tab" aria-selected="false">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                            Quick wizard
+                        </button>
+                    </div>
+
+                    <!-- Mode: Describe it -->
+                    <div class="planner-input-panel" id="panel-describe">
+                        <div class="prompt-textarea-wrap">
+                            <textarea id="ai-prompt-input" rows="3" placeholder="e.g. 3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies with coffee plantation stops"></textarea>
+                            <div class="prompt-corner-hint">
+                                <span>Press Enter or click Build</span>
+                            </div>
+                        </div>
+
+                        <!-- Suggestion Chips -->
+                        <div class="suggestion-chips-row">
+                            <span class="chips-label">Try asking:</span>
+                            <div class="chips-list">
+                                <button type="button" class="chip-btn" data-prompt="Weekend bike ride from Chennai to Pondicherry via ECR, relaxed pace with French cafes">
+                                    <span class="chip-icon">🏍️</span> Weekend bike ride Chennai → Pondi
+                                </button>
+                                <button type="button" class="chip-btn" data-prompt="5-day adventure road trip from Delhi to Manali with mountain passes and river cafes">
+                                    <span class="chip-icon">⛰️</span> 5-day Delhi → Manali
+                                </button>
+                                <button type="button" class="chip-btn" data-prompt="3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies">
+                                    <span class="chip-icon">☕</span> 3-day Bangalore → Coorg
+                                </button>
+                                <button type="button" class="chip-btn" data-prompt="4-day coastal road trip from Mumbai to Goa via NH66 with konkan seafood and sunset beaches">
+                                    <span class="chip-icon">🏖️</span> 4-day coastal Mumbai → Goa
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mode: Quick Wizard -->
+                    <div class="planner-input-panel hide" id="panel-wizard">
+                        <div class="wizard-grid">
+                            <div class="wizard-field">
+                                <label for="wiz-origin">Starting From</label>
+                                <div class="wizard-input-wrap">
+                                    <span class="wiz-icon">📍</span>
+                                    <input type="text" id="wiz-origin" placeholder="e.g. Bangalore, Mumbai, Delhi" value="Bangalore">
+                                </div>
+                            </div>
+                            <div class="wizard-field">
+                                <label for="wiz-dest">Destination</label>
+                                <div class="wizard-input-wrap">
+                                    <span class="wiz-icon">🏁</span>
+                                    <input type="text" id="wiz-dest" placeholder="e.g. Coorg, Goa, Manali" value="Coorg">
+                                </div>
+                            </div>
+                            <div class="wizard-field">
+                                <label for="wiz-days">Duration</label>
+                                <div class="wizard-input-wrap">
+                                    <span class="wiz-icon">📅</span>
+                                    <select id="wiz-days">
+                                        <option value="1">1 Day (Quick Escapade)</option>
+                                        <option value="2">2 Days (Weekend Trip)</option>
+                                        <option value="3" selected>3 Days (Long Weekend)</option>
+                                        <option value="4">4 Days (Mini Vacation)</option>
+                                        <option value="5">5 Days (Extended Expedition)</option>
+                                        <option value="7">7 Days (Grand Road Trip)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="wizard-field">
+                                <label for="wiz-vibe">Travel Style &amp; Vibe</label>
+                                <div class="wizard-input-wrap">
+                                    <span class="wiz-icon">✨</span>
+                                    <select id="wiz-vibe">
+                                        <option value="Scenic & Nature" selected>Scenic &amp; Nature</option>
+                                        <option value="Food & Culinary">Food &amp; Culinary Trails</option>
+                                        <option value="Adventure & Thrill">Adventure &amp; Thrill</option>
+                                        <option value="Heritage & Temples">Heritage &amp; Culture</option>
+                                        <option value="Relaxed & Leisure">Relaxed &amp; Leisure</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Build Action Row -->
+                    <div class="planner-action-bar">
+                        <div class="planner-info-note">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                            <span>Live distance, toll estimates, and real-time stops calibrated for Indian highways</span>
+                        </div>
+                        <button type="button" class="btn-build-trip" id="btn-build-trip">
+                            <span class="btn-sparkle">✨</span>
+                            <span class="btn-text">Build my road trip</span>
+                            <svg class="btn-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Loading State View -->
+                    <div class="planner-loading-state hide" id="planner-loading">
+                        <div class="loading-road-animation">
+                            <div class="road-car">🚗</div>
+                            <div class="road-line"></div>
+                        </div>
+                        <h4 id="loading-step-title">Analyzing highway corridor &amp; terrain…</h4>
+                        <p id="loading-step-desc">Identifying scenic viewpoints, fuel pumps &amp; culinary pitstops</p>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="loading-progress-fill"></div>
+                        </div>
+                    </div>
+
+                    <!-- Results Container -->
+                    <div class="planner-results-state hide" id="planner-results">
+                        <!-- Filled dynamically by JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Curated Classic Section -->
+                <div class="curated-section reveal">
+                    <div class="curated-divider">
+                        <span>Or try a curated classic — one tap</span>
+                    </div>
+
+                    <div class="curated-grid">
+                        <div class="curated-card" data-route="blr-coorg" data-prompt="3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies with coffee plantation stops">
+                            <div class="curated-card-top">
+                                <span class="curated-tag">Coffee Hills</span>
+                                <span class="curated-time">3 Days • ~260 km</span>
+                            </div>
+                            <h3>Bangalore → Coorg</h3>
+                            <p>Coffee hills, misty ghats &amp; Tibetan settlements. Sunset at Raja's Seat and authentic Kodava pork curry.</p>
+                            <div class="curated-footer">
+                                <span class="curated-est">Est. ₹12,000</span>
+                                <span class="curated-arrow">Build &rarr;</span>
+                            </div>
+                        </div>
+
+                        <div class="curated-card" data-route="bom-goa" data-prompt="4-day coastal road trip from Mumbai to Goa via NH66 with konkan seafood and sunset beaches">
+                            <div class="curated-card-top">
+                                <span class="curated-tag">Coastal Highway</span>
+                                <span class="curated-time">4 Days • ~580 km</span>
+                            </div>
+                            <h3>Mumbai → Goa</h3>
+                            <p>Iconic NH66 coastal highway, konkan seafood feasts, ancient sea forts &amp; breezy Arabian Sea sunsets.</p>
+                            <div class="curated-footer">
+                                <span class="curated-est">Est. ₹18,000</span>
+                                <span class="curated-arrow">Build &rarr;</span>
+                            </div>
+                        </div>
+
+                        <div class="curated-card" data-route="del-manali" data-prompt="5-day adventure road trip from Delhi to Manali with mountain passes, river cafes, and scenic viewpoints">
+                            <div class="curated-card-top">
+                                <span class="curated-tag">Himalayan Pass</span>
+                                <span class="curated-time">5 Days • ~530 km</span>
+                            </div>
+                            <h3>Delhi → Manali</h3>
+                            <p>Himalayan climbs, Beas river valleys, pine forests, Rohtang heights &amp; Old Manali riverside wood-fired pizzas.</p>
+                            <div class="curated-footer">
+                                <span class="curated-est">Est. ₹22,000</span>
+                                <span class="curated-arrow">Build &rarr;</span>
+                            </div>
+                        </div>
+
+                        <div class="curated-card" data-route="maa-pondi" data-prompt="Weekend bike ride from Chennai to Pondicherry via ECR, relaxed pace with French cafes and beach sunrise">
+                            <div class="curated-card-top">
+                                <span class="curated-tag">Weekend Ride</span>
+                                <span class="curated-time">2 Days • ~160 km</span>
+                            </div>
+                            <h3>Chennai → Pondicherry</h3>
+                            <p>Scenic East Coast Road (ECR), Mahabalipuram shore temples, French white town bakeries &amp; sunrise surfing.</p>
+                            <div class="curated-footer">
+                                <span class="curated-est">Est. ₹8,000</span>
+                                <span class="curated-arrow">Build &rarr;</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
         <!-- Features -->
         <section id="features" class="block">
@@ -1529,7 +2584,474 @@
             });
 
             initAuth();
+            initAiPlanner();
         });
+
+        // ── Smart AI Planner ────────────────────────────────────────────────
+        function initAiPlanner() {
+            const tabs = document.querySelectorAll('.mode-tab');
+            const panelDescribe = document.getElementById('panel-describe');
+            const panelWizard = document.getElementById('panel-wizard');
+            const promptInput = document.getElementById('ai-prompt-input');
+            const buildBtn = document.getElementById('btn-build-trip');
+            const loadingBox = document.getElementById('planner-loading');
+            const resultsBox = document.getElementById('planner-results');
+            const loadingTitle = document.getElementById('loading-step-title');
+            const loadingDesc = document.getElementById('loading-step-desc');
+            const loadingProgress = document.getElementById('loading-progress-fill');
+            const chipButtons = document.querySelectorAll('.chip-btn');
+            const curatedCards = document.querySelectorAll('.curated-card');
+
+            let activeMode = 'describe';
+
+            // Tab toggling
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const mode = tab.getAttribute('data-mode');
+                    activeMode = mode;
+                    tabs.forEach(t => {
+                        t.classList.toggle('active', t === tab);
+                        t.setAttribute('aria-selected', t === tab ? 'true' : 'false');
+                    });
+                    if (mode === 'describe') {
+                        panelDescribe.classList.remove('hide');
+                        panelWizard.classList.add('hide');
+                    } else {
+                        panelDescribe.classList.add('hide');
+                        panelWizard.classList.remove('hide');
+                    }
+                });
+            });
+
+            // Chip buttons auto-fill prompt
+            chipButtons.forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const text = chip.getAttribute('data-prompt');
+                    if (text) {
+                        if (activeMode !== 'describe') {
+                            document.getElementById('tab-describe').click();
+                        }
+                        promptInput.value = text;
+                        promptInput.focus();
+                        highlightBuildBtn();
+                    }
+                });
+            });
+
+            // Curated route cards
+            curatedCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    const prompt = card.getAttribute('data-prompt');
+                    if (prompt) {
+                        if (activeMode !== 'describe') {
+                            document.getElementById('tab-describe').click();
+                        }
+                        promptInput.value = prompt;
+                        const box = document.getElementById('planner-box');
+                        if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        executeBuildTrip();
+                    }
+                });
+            });
+
+            // Enter key on prompt textarea submits
+            promptInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    executeBuildTrip();
+                }
+            });
+
+            buildBtn.addEventListener('click', () => {
+                executeBuildTrip();
+            });
+
+            function highlightBuildBtn() {
+                buildBtn.classList.add('btn-pulse');
+                setTimeout(() => buildBtn.classList.remove('btn-pulse'), 1200);
+            }
+
+            // Parsing helper for natural language prompt
+            function parsePrompt(text) {
+                const lower = text.toLowerCase();
+                let origin = "Bangalore";
+                let dest = "Coorg";
+                let days = 3;
+                let budget = "₹15,000";
+                let vibe = "Scenic & Nature";
+
+                // Days
+                const dayMatch = lower.match(/(\d+)\s*[- ]?day/);
+                if (dayMatch) {
+                    days = parseInt(dayMatch[1], 10);
+                } else if (lower.includes('weekend')) {
+                    days = 2;
+                }
+
+                // Origin / Destination
+                const routeMatch = lower.match(/(?:from\s+)?([a-z\s]+?)\s*(?:to|→|-)\s*([a-z\s]+?)(?:under|with|via|for|$|\.|\,)/i);
+                if (routeMatch) {
+                    const candOrigin = routeMatch[1].trim();
+                    const candDest = routeMatch[2].trim();
+                    if (candOrigin.length > 2 && candOrigin.length < 30) origin = capitalizeWords(candOrigin);
+                    if (candDest.length > 2 && candDest.length < 30) dest = capitalizeWords(candDest);
+                }
+
+                // Budget
+                const budgetMatch = text.match(/(?:₹|rs\.?|inr)\s*([\d,]+(?:k|lakh)?)|under\s*([\d,]+(?:k)?)/i);
+                if (budgetMatch) {
+                    budget = budgetMatch[0].toUpperCase();
+                }
+
+                // Vibe
+                if (lower.includes('food') || lower.includes('eat') || lower.includes('culinary')) vibe = "Foodie & Culinary";
+                else if (lower.includes('bike') || lower.includes('ride') || lower.includes('adventure')) vibe = "Biker & Adventure";
+                else if (lower.includes('coast') || lower.includes('beach')) vibe = "Coastal & Sunsets";
+                else if (lower.includes('temple') || lower.includes('heritage')) vibe = "Heritage & Pilgrimage";
+                else if (lower.includes('relax') || lower.includes('chill')) vibe = "Relaxed Leisure";
+
+                return { origin, dest, days: Math.max(1, Math.min(days, 10)), budget, vibe };
+            }
+
+            function capitalizeWords(str) {
+                return str.replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            const loadingSteps = [
+                { title: "Analyzing highway corridors & bypasses…", desc: "Checking NH & SH road conditions and route elevation", progress: 25 },
+                { title: "Pinpointing curated scenic viewpoints…", desc: "Filtering verified food spots, viewpoints, and photo stops", progress: 55 },
+                { title: "Computing tolls, fuel & pacing…", desc: "Balancing driving hours with relaxed morning & evening breaks", progress: 85 },
+                { title: "Finalizing your cinematic itinerary…", desc: "Generating day-by-day timeline and VoyPlan live route", progress: 100 }
+            ];
+
+            async function executeBuildTrip() {
+                let tripParams = {};
+                if (activeMode === 'describe') {
+                    const promptText = promptInput.value.trim();
+                    if (!promptText) {
+                        promptInput.focus();
+                        promptInput.placeholder = "⚠️ Please type a trip prompt (e.g. 3-day drive from Bangalore to Coorg)";
+                        return;
+                    }
+                    tripParams = parsePrompt(promptText);
+                    tripParams.rawPrompt = promptText;
+                } else {
+                    const wizOrigin = document.getElementById('wiz-origin').value.trim() || "Bangalore";
+                    const wizDest = document.getElementById('wiz-dest').value.trim() || "Coorg";
+                    const wizDays = parseInt(document.getElementById('wiz-days').value, 10) || 3;
+                    const wizVibe = document.getElementById('wiz-vibe').value;
+                    tripParams = {
+                        origin: capitalizeWords(wizOrigin),
+                        dest: capitalizeWords(wizDest),
+                        days: wizDays,
+                        budget: `₹${(wizDays * 4500).toLocaleString('en-IN')}`,
+                        vibe: wizVibe,
+                        rawPrompt: `${wizDays}-day road trip from ${wizOrigin} to ${wizDest} for ${wizVibe}`
+                    };
+                }
+
+                buildBtn.disabled = true;
+                resultsBox.classList.add('hide');
+                loadingBox.classList.remove('hide');
+
+                let stepIdx = 0;
+                loadingProgress.style.width = '15%';
+                const interval = setInterval(() => {
+                    if (stepIdx < loadingSteps.length) {
+                        loadingTitle.innerHTML = loadingSteps[stepIdx].title;
+                        loadingDesc.innerHTML = loadingSteps[stepIdx].desc;
+                        loadingProgress.style.width = loadingSteps[stepIdx].progress + '%';
+                        stepIdx++;
+                    }
+                }, 500);
+
+                try {
+                    const itineraryData = await fetchOrGenerateItinerary(tripParams);
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        loadingBox.classList.add('hide');
+                        renderItineraryResults(itineraryData, tripParams);
+                        resultsBox.classList.remove('hide');
+                        buildBtn.disabled = false;
+                        resultsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 400);
+                } catch (err) {
+                    console.error("AI Planner error:", err);
+                    clearInterval(interval);
+                    const fallbackData = generateRichLocalItinerary(tripParams);
+                    loadingBox.classList.add('hide');
+                    renderItineraryResults(fallbackData, tripParams);
+                    resultsBox.classList.remove('hide');
+                    buildBtn.disabled = false;
+                    resultsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+            }
+
+            async function fetchOrGenerateItinerary(params) {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+                try {
+                    const res = await fetch('https://travel-v1-mzia.onrender.com/api/ai/smart-itinerary', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            startLocation: params.origin,
+                            destination: params.dest,
+                            durationDays: params.days,
+                            mode: params.vibe.toLowerCase().includes('relax') ? 'relaxed' : 'balanced',
+                            preferences: params.rawPrompt
+                        }),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.days && data.days.length > 0) {
+                            return formatBackendResponse(data, params);
+                        }
+                    }
+                } catch (e) {
+                    console.log("[VoyPlan AI Planner] Using client itinerary generator:", e.message);
+                }
+                return generateRichLocalItinerary(params);
+            }
+
+            function formatBackendResponse(data, params) {
+                const daysList = (data.days || []).map((d, i) => {
+                    const activities = (d.activities || d.blocks || []).map(act => ({
+                        time: act.startTime || act.time || (act.period === 'morning' ? '09:00 AM' : act.period === 'afternoon' ? '01:30 PM' : '05:30 PM'),
+                        title: act.name || act.placeName || act.title || "Scenic Stop",
+                        tag: act.category || "Sightseeing",
+                        desc: act.description || act.notes || act.reason || "Curated stop along the route with parking and scenic views.",
+                        duration: act.durationMin ? `${act.durationMin} mins` : "1 hr stop"
+                    }));
+                    return {
+                        dayNum: i + 1,
+                        title: d.theme || d.title || `Day ${i + 1} • Road to ${params.dest}`,
+                        activities: activities.length ? activities : generateDayActivities(params, i + 1)
+                    };
+                });
+
+                const totalDist = data.totalDistanceKm || (data.route && data.route.distanceKm) || estimateDistance(params.origin, params.dest);
+                const fuelCost = data.budget?.fuelCost || Math.round(totalDist * 8.5);
+                const tollCost = data.budget?.tollCost || Math.round(totalDist * 1.2);
+
+                return {
+                    origin: params.origin,
+                    dest: params.dest,
+                    days: params.days,
+                    vibe: params.vibe,
+                    totalKm: Math.round(totalDist),
+                    fuelCost: `₹${fuelCost.toLocaleString('en-IN')}`,
+                    tollCost: `₹${tollCost.toLocaleString('en-IN')}`,
+                    totalBudget: params.budget || `₹${(fuelCost + tollCost + params.days * 3500).toLocaleString('en-IN')}`,
+                    daysList
+                };
+            }
+
+            function generateRichLocalItinerary(params) {
+                const dist = estimateDistance(params.origin, params.dest);
+                const fuelVal = Math.round(dist * 8.2);
+                const tollVal = Math.round(dist * 1.3);
+                const daysList = [];
+
+                for (let d = 1; d <= params.days; d++) {
+                    daysList.push({
+                        dayNum: d,
+                        title: getDayTheme(params.origin, params.dest, d, params.days),
+                        activities: generateDayActivities(params, d)
+                    });
+                }
+
+                return {
+                    origin: params.origin,
+                    dest: params.dest,
+                    days: params.days,
+                    vibe: params.vibe,
+                    totalKm: dist,
+                    fuelCost: `₹${fuelVal.toLocaleString('en-IN')}`,
+                    tollCost: `₹${tollVal.toLocaleString('en-IN')}`,
+                    totalBudget: params.budget && params.budget.includes('₹') ? params.budget : `₹${(fuelVal + tollVal + params.days * 3200).toLocaleString('en-IN')}`,
+                    daysList
+                };
+            }
+
+            function estimateDistance(orig, dest) {
+                const key = `${orig.toLowerCase()}_${dest.toLowerCase()}`;
+                const known = {
+                    'bangalore_coorg': 260,
+                    'mumbai_goa': 585,
+                    'delhi_manali': 530,
+                    'chennai_pondicherry': 160,
+                    'bangalore_mysore': 145,
+                    'bangalore_ooty': 280,
+                    'pune_goa': 450,
+                    'delhi_jaipur': 280,
+                    'delhi_agra': 230
+                };
+                if (known[key]) return known[key];
+                for (let k in known) {
+                    if (key.includes(k.split('_')[1])) return known[k];
+                }
+                return 320;
+            }
+
+            function getDayTheme(orig, dest, day, totalDays) {
+                if (day === 1) return `Day 1 • Departure from ${orig} & Gateway Drive`;
+                if (day === totalDays) return `Day ${day} • Scenic Highlights & Return Journey`;
+                if (day === 2 && totalDays > 2) return `Day 2 • Deep Dive into ${dest} Valley`;
+                return `Day ${day} • Exploring ${dest} Trails & Local Flavours`;
+            }
+
+            function generateDayActivities(params, day) {
+                const dest = params.dest;
+                if (day === 1) {
+                    return [
+                        { time: "07:30 AM", title: `Early Departure from ${params.origin}`, tag: "Drive Start", desc: `Beat the city morning rush. Fuel up and hit the open expressway.`, duration: "1h 30m drive" },
+                        { time: "09:30 AM", title: "Highway Breakfast & Filter Coffee", tag: "Food & Refresh", desc: "Crispy benne dosas, hot idli vadas & steaming South Indian filter kaapi.", duration: "45 mins stop" },
+                        { time: "01:30 PM", title: `Arrival at ${dest} Gateway`, tag: "Arrival", desc: "Check into your scenic stay amidst greenery. Freshen up and recharge.", duration: "1h break" },
+                        { time: "05:00 PM", title: "Sunset Viewpoint & Twilight Walk", tag: "Scenic View", desc: "Watch the golden hour dip behind misty ridges with panoramic hill vistas.", duration: "1h 30m" },
+                        { time: "08:00 PM", title: "Campfire & Authentic Regional Dinner", tag: "Culinary", desc: "Traditional regional delicacies cooked with fresh local spices by the hearth.", duration: "Dinner" }
+                    ];
+                } else if (day === params.days) {
+                    return [
+                        { time: "08:00 AM", title: "Sunrise Walk & Plantation Breakfast", tag: "Nature", desc: "Fresh estate air, guided coffee or tea plantation walk, and hearty breakfast.", duration: "1h 30m" },
+                        { time: "11:00 AM", title: "Historic Fort & Waterfall Pitstop", tag: "Sightseeing", desc: "Capture final viewpoint photos, buy artisanal local spices, honey and chocolates.", duration: "1h 15m" },
+                        { time: "01:30 PM", title: "Celebratory Highway Lunch", tag: "Food", desc: "Famous highway dhaba feast with local flatbreads and rich curries.", duration: "1h stop" },
+                        { time: "06:30 PM", title: `Smooth Drive Back to ${params.origin}`, tag: "Return", desc: `Arrive relaxed with memories of an unforgettable cinematic road trip!`, duration: "Final Arrival" }
+                    ];
+                } else {
+                    return [
+                        { time: "08:30 AM", title: `Hidden Waterfalls & Forest Trail`, tag: "Adventure", desc: `Brisk trek to secluded natural cascades surrounded by dense tropical foliage.`, duration: "2h 30m" },
+                        { time: "01:00 PM", title: "Riverside Bistro & Local Specialities", tag: "Foodie Trail", desc: "Farm-to-table lunch featuring fresh farm harvest and local delicacies.", duration: "1h stop" },
+                        { time: "04:30 PM", title: "Monastery & Heritage Architecture", tag: "Culture", desc: "Intricate wood carvings, peaceful prayer halls, and Tibetan souvenir shops.", duration: "1h 45m" },
+                        { time: "07:30 PM", title: "Stargazing & Barbeque Night", tag: "Leisure", desc: "Clear mountain night sky, cozy acoustic tunes, and grill under the stars.", duration: "Night" }
+                    ];
+                }
+            }
+
+            function renderItineraryResults(data, params) {
+                const sessionFrag = (window.currentAuthSession && window.currentAuthSession.refresh_token) 
+                    ? '#sb_refresh=' + encodeURIComponent(window.currentAuthSession.refresh_token) 
+                    : '';
+                const appDeepLink = `${APP_URL}?guest=true&start=${encodeURIComponent(data.origin)}&dest=${encodeURIComponent(data.dest)}&days=${data.days}${sessionFrag}`;
+
+                let daysHtml = data.daysList.map(d => `
+                    <div class="itinerary-day-card">
+                        <div class="day-card-header">
+                            <span class="day-badge">Day ${d.dayNum}</span>
+                            <h4>${d.title}</h4>
+                        </div>
+                        <div class="day-timeline">
+                            ${d.activities.map(a => `
+                                <div class="timeline-step">
+                                    <div class="timeline-time">${a.time}</div>
+                                    <div class="timeline-dot"></div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-heading">
+                                            <span class="step-title">${a.title}</span>
+                                            <span class="step-tag">${a.tag}</span>
+                                        </div>
+                                        <p class="step-desc">${a.desc}</p>
+                                        <span class="step-duration">⏱️ ${a.duration}</span>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `).join('');
+
+                resultsBox.innerHTML = `
+                    <div class="itinerary-header-card">
+                        <div class="itinerary-eyebrow">
+                            <span class="pulse-dot"></span>
+                            <span>AI ROAD TRIP PLAN READY</span>
+                        </div>
+                        <div class="itinerary-title-row">
+                            <div>
+                                <h3>${data.origin} &rarr; ${data.dest}</h3>
+                                <p class="itinerary-subtitle">${data.days} Days • ~${data.totalKm} km • ${data.vibe} Road Trip</p>
+                            </div>
+                            <div class="itinerary-actions-top">
+                                <a href="${appDeepLink}" class="btn-open-app">
+                                    <span>Launch in VoyPlan</span>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="itinerary-metrics-grid">
+                            <div class="metric-box">
+                                <span class="metric-icon">🚗</span>
+                                <div class="metric-label">Estimated Drive</div>
+                                <div class="metric-val">~${data.totalKm} km</div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-icon">⛽</span>
+                                <div class="metric-label">Estimated Fuel</div>
+                                <div class="metric-val">${data.fuelCost}</div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-icon">🛣️</span>
+                                <div class="metric-label">FASTag Tolls</div>
+                                <div class="metric-val">${data.tollCost}</div>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-icon">💳</span>
+                                <div class="metric-label">Est. Budget</div>
+                                <div class="metric-val">${data.totalBudget}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="itinerary-days-container">
+                        ${daysHtml}
+                    </div>
+
+                    <div class="itinerary-footer-bar">
+                        <div class="itinerary-footer-copy">
+                            <span>Ready to roll? Open live turn-by-turn GPS navigation and custom stop discovery in VoyPlan.</span>
+                        </div>
+                        <div class="itinerary-footer-btns">
+                            <button type="button" class="btn-copy-itinerary" id="btn-copy-itinerary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                                <span id="copy-btn-label">Copy Itinerary</span>
+                            </button>
+                            <a href="${appDeepLink}" class="btn-primary-app">
+                                <span>Open Full GPS Navigation &rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                `;
+
+                const copyBtn = document.getElementById('btn-copy-itinerary');
+                if (copyBtn) {
+                    copyBtn.addEventListener('click', () => {
+                        let text = `🚗 Voyplan AI Road Trip: ${data.origin} to ${data.dest}\n`;
+                        text += `Duration: ${data.days} Days | Distance: ~${data.totalKm} km | Budget: ${data.totalBudget}\n\n`;
+                        data.daysList.forEach(d => {
+                            text += `--- ${d.title} ---\n`;
+                            d.activities.forEach(a => {
+                                text += `• ${a.time} - ${a.title} (${a.tag}): ${a.desc}\n`;
+                            });
+                            text += `\n`;
+                        });
+                        text += `Planned on Voyplan — https://voyplan.in`;
+
+                        navigator.clipboard.writeText(text).then(() => {
+                            const lbl = document.getElementById('copy-btn-label');
+                            if (lbl) {
+                                lbl.textContent = "Copied to Clipboard! ✓";
+                                setTimeout(() => lbl.textContent = "Copy Itinerary", 2500);
+                            }
+                        }).catch(() => {
+                            alert("Itinerary copied!");
+                        });
+                    });
+                }
+            }
+        }
 
         // ── Landing-page login card ──────────────────────────────────────────
         const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
@@ -1603,6 +3125,67 @@
                 }
             }
 
+            let currentSession = null;
+
+            function showAuthenticated(session) {
+                currentSession = session;
+                window.currentAuthSession = session;
+                const formEl = document.getElementById('auth-form-container');
+                const authEl = document.getElementById('auth-authenticated-container');
+                const greetingEl = document.getElementById('auth-user-greeting');
+                const nameEl = document.getElementById('auth-welcome-name');
+                const navCta = document.querySelector('.nav-cta a');
+
+                if (formEl) formEl.classList.add('hide');
+                if (authEl) authEl.classList.remove('hide');
+
+                const user = session?.user;
+                const email = user?.email || 'Traveller';
+                const fullName = user?.user_metadata?.full_name || email.split('@')[0];
+                const capitalized = fullName ? (fullName.charAt(0).toUpperCase() + fullName.slice(1)) : 'Traveller';
+
+                if (greetingEl) greetingEl.textContent = `Signed in as ${email}`;
+                if (nameEl) nameEl.textContent = `Welcome, ${capitalized}! 👋`;
+
+                if (navCta) {
+                    navCta.textContent = 'App Dashboard →';
+                    navCta.href = APP_URL + (session?.refresh_token ? '#sb_refresh=' + encodeURIComponent(session.refresh_token) : '');
+                }
+            }
+
+            function showLoginForm() {
+                currentSession = null;
+                window.currentAuthSession = null;
+                const formEl = document.getElementById('auth-form-container');
+                const authEl = document.getElementById('auth-authenticated-container');
+                const navCta = document.querySelector('.nav-cta a');
+
+                if (formEl) formEl.classList.remove('hide');
+                if (authEl) authEl.classList.add('hide');
+                if (navCta) {
+                    navCta.textContent = 'Sign In';
+                    navCta.href = '#hero';
+                }
+                renderMode();
+            }
+
+            const btnOpenApp = document.getElementById('btn-auth-open-app');
+            if (btnOpenApp) {
+                btnOpenApp.addEventListener('click', () => {
+                    goToApp(currentSession);
+                });
+            }
+
+            const btnSignout = document.getElementById('btn-auth-signout');
+            if (btnSignout) {
+                btnSignout.addEventListener('click', async () => {
+                    try {
+                        await sb.auth.signOut();
+                    } catch (_) {}
+                    showLoginForm();
+                });
+            }
+
             els.toggle.addEventListener('click', () => {
                 isSignUp = !isSignUp;
                 renderMode();
@@ -1626,8 +3209,8 @@
                         });
                         if (error) throw error;
                         if (data.session) {
-                            setMsg('Account created! Redirecting…', 'success');
-                            goToApp(data.session);
+                            setMsg('Account created! Welcome to VoyPlan.', 'success');
+                            showAuthenticated(data.session);
                         } else {
                             // Email confirmation is enabled on the project.
                             setMsg('Check your email to confirm your account, then log in.', 'success');
@@ -1637,24 +3220,26 @@
                     } else {
                         const { data, error } = await sb.auth.signInWithPassword(creds);
                         if (error) throw error;
-                        setMsg('Welcome! Redirecting…', 'success');
-                        goToApp(data.session);
+                        setMsg('Welcome back!', 'success');
+                        showAuthenticated(data.session);
                     }
                 } catch (err) {
                     setMsg(err.message || 'Something went wrong. Please try again.', 'error');
+                } finally {
                     setBusy(false);
                 }
             });
 
             // Enter key submits.
             [els.identifier, els.password, els.name].forEach(input => {
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') els.submit.click();
-                });
+                if (input) {
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') els.submit.click();
+                    });
+                }
             });
 
-            // Google OAuth redirects straight into the app (an allow-listed redirect URL);
-            // supabase_flutter picks up the returning session automatically.
+            // Google OAuth redirects into the app or back
             els.google.addEventListener('click', async () => {
                 setBusy(true, 'Opening Google…');
                 try {
@@ -1669,11 +3254,12 @@
                 }
             });
 
-            // If the user already has a valid session on this origin, skip the form.
+            // If the user already has a valid session on this origin, show the authenticated view
             sb.auth.getSession().then(({ data }) => {
                 if (data && data.session) {
-                    setMsg('Already signed in — redirecting…', 'success');
-                    goToApp(data.session);
+                    showAuthenticated(data.session);
+                } else {
+                    showLoginForm();
                 }
             });
 

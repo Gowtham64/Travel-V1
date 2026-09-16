@@ -26,7 +26,18 @@ import 'trip_screen.dart';
 /// meal/rest breaks, travel time and per-block reasoning — then lets you nudge it
 /// (regenerate, optimise, more sightseeing, less travel, pace mode…).
 class SmartItineraryScreen extends StatefulWidget {
-  const SmartItineraryScreen({super.key});
+  final String? initialDestination;
+  final String? initialStartLocation;
+  final int? initialDays;
+  final String? initialVibe;
+
+  const SmartItineraryScreen({
+    super.key,
+    this.initialDestination,
+    this.initialStartLocation,
+    this.initialDays,
+    this.initialVibe,
+  });
 
   @override
   State<SmartItineraryScreen> createState() => _SmartItineraryScreenState();
@@ -109,8 +120,27 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialDestination != null && widget.initialDestination!.isNotEmpty) {
+      _destCtrl.text = widget.initialDestination!;
+    }
+    if (widget.initialStartLocation != null && widget.initialStartLocation!.isNotEmpty) {
+      _startLocCtrl.text = widget.initialStartLocation!;
+    }
+    if (widget.initialDays != null && widget.initialDays! > 0) {
+      _days = widget.initialDays!;
+    }
+    if (widget.initialVibe != null && widget.initialVibe!.isNotEmpty) {
+      _prefsCtrl.text = widget.initialVibe!;
+    }
+
     SharedPreferences.getInstance().then((prefs) {
       if (mounted) setState(() => _homeLocation = prefs.getString(_homePrefsKey));
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_destCtrl.text.trim().isNotEmpty && _startLocCtrl.text.trim().isNotEmpty) {
+        _generate();
+      }
     });
   }
 
@@ -819,8 +849,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     ));
   }
 
-  Future<void> _start() => _openDayPlanner();
-
   /// Start full turn-by-turn driving navigation directly from the AI itinerary.
   Future<void> _startNavigation() async {
     if (!AuthGuard.ensure(context, action: 'start navigation')) return;
@@ -834,97 +862,119 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
       final dest = _destCtrl.text.trim();
       final start = _startLocCtrl.text.trim();
 
-      // Assemble route chain: start -> waypoints -> end
-      GeoPoint finalStart;
-      GeoPoint finalEnd;
-      final waypoints = <GeoPoint>[];
-
+      GeoPoint? startCoord;
       if (_navigationRoute != null) {
         final orig = _navigationRoute!.origin;
-        final destObj = _navigationRoute!.destination;
-        finalStart = GeoPoint(
+        startCoord = GeoPoint(
           lat: orig.lat,
           lng: orig.lng,
           name: (orig.name?.isNotEmpty == true) ? orig.name! : (start.isNotEmpty ? start : 'Start'),
         );
-        finalEnd = GeoPoint(
+      } else if (start.isNotEmpty) {
+        try {
+          startCoord = await _api.geocode(start);
+        } catch (_) {}
+      }
+      if (startCoord == null) {
+        try {
+          final pos = await _currentPosition();
+          startCoord = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: start.isNotEmpty ? start : 'My Location');
+        } catch (_) {}
+      }
+      startCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: start.isNotEmpty ? start : 'Start');
+
+      GeoPoint? destCoord;
+      if (_navigationRoute != null) {
+        final destObj = _navigationRoute!.destination;
+        destCoord = GeoPoint(
           lat: destObj.lat,
           lng: destObj.lng,
           name: (destObj.name?.isNotEmpty == true) ? destObj.name! : (dest.isNotEmpty ? dest : 'Destination'),
         );
-        for (final wp in _navigationRoute!.waypoints) {
-          waypoints.add(GeoPoint(
-            lat: wp.lat,
-            lng: wp.lng,
-            name: wp.name ?? '',
-          ));
+      } else if (dest.isNotEmpty) {
+        try {
+          destCoord = await _api.geocode(dest);
+        } catch (_) {}
+      }
+      destCoord ??= GeoPoint(lat: 12.9716, lng: 77.5946, name: dest.isNotEmpty ? dest : 'Destination');
+
+      // Extract ALL itinerary stop points across all days (activities, meals, check-ins, coffee, fuel, etc.)
+      final allItineraryStops = <GeoPoint>[];
+      for (final d in _itinerary) {
+        for (final b in d.blocks) {
+          // Skip transit/driving legs and start points
+          if (b.type == 'travel' || b.type == 'return' || b.type == 'start') continue;
+
+          double? lat = b.lat;
+          double? lng = b.lng;
+          if ((lat == null || lng == null || (lat == 0.0 && lng == 0.0)) && b.location != null) {
+            lat = b.location!.lat;
+            lng = b.location!.lng;
+          }
+
+          // If still missing coords, try to geocode on the fly
+          if (lat == null || lng == null || (lat == 0.0 && lng == 0.0)) {
+            final q = b.place.isNotEmpty ? b.place : b.title;
+            if (q.isNotEmpty) {
+              try {
+                final gp = await _api.geocode(q, near: destCoord);
+                lat = gp.lat;
+                lng = gp.lng;
+              } catch (_) {}
+            }
+          }
+
+          if (lat != null && lng != null && (lat != 0.0 || lng != 0.0)) {
+            final name = b.place.isNotEmpty ? b.place : b.title;
+            // Avoid immediately consecutive duplicate coordinate stops
+            if (allItineraryStops.isNotEmpty) {
+              final prev = allItineraryStops.last;
+              if (_haversineKm(prev.lat, prev.lng, lat, lng) < 0.05 && prev.name == name) {
+                continue;
+              }
+            }
+            allItineraryStops.add(GeoPoint(
+              lat: lat,
+              lng: lng,
+              name: name,
+            ));
+          }
+        }
+      }
+
+      final bool isRound = _tripType == 'around' ||
+          (start.isNotEmpty && dest.isNotEmpty && start.toLowerCase() == dest.toLowerCase());
+
+      GeoPoint finalStart = startCoord;
+      GeoPoint finalEnd;
+      final waypoints = <GeoPoint>[];
+
+      if (isRound) {
+        // Round trip: start at origin, end at origin, all itinerary stops are waypoints
+        finalEnd = GeoPoint(lat: startCoord.lat, lng: startCoord.lng, name: 'Return to ${startCoord.name}');
+        for (final s in allItineraryStops) {
+          if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.05) {
+            waypoints.add(s);
+          }
         }
       } else {
-        // Fallback: Resolve start & destination and extract stops
-        GeoPoint? startCoord;
-        if (start.isNotEmpty) {
-          try {
-            startCoord = await _api.geocode(start);
-          } catch (_) {}
-        }
-        if (startCoord == null) {
-          try {
-            final pos = await _currentPosition();
-            startCoord = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: start.isNotEmpty ? start : 'My Location');
-          } catch (_) {}
-        }
-
-        GeoPoint? destCoord;
-        if (dest.isNotEmpty) {
-          try {
-            destCoord = await _api.geocode(dest);
-          } catch (_) {}
-        }
-
-        final allStops = <GeoPoint>[];
-        for (final d in _itinerary) {
-          for (final b in d.blocks) {
-            if (b.lat != null && b.lng != null && (b.lat != 0.0 || b.lng != 0.0)) {
-              if (b.type == 'activity' || b.type == 'fuel' || b.type == 'attraction' || b.type == 'destination' || b.categories.contains('destination_center')) {
-                final isDup = allStops.any((s) => _haversineKm(s.lat, s.lng, b.lat!, b.lng!) < 0.1);
-                if (!isDup) {
-                  allStops.add(GeoPoint(
-                    lat: b.lat!,
-                    lng: b.lng!,
-                    name: b.place.isNotEmpty ? b.place : b.title,
-                  ));
-                }
-              }
+        // One-way trip: all stops before the final stop are waypoints; final stop or dest is destination
+        if (allItineraryStops.isNotEmpty) {
+          final lastStop = allItineraryStops.last;
+          for (int i = 0; i < allItineraryStops.length - 1; i++) {
+            final s = allItineraryStops[i];
+            if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.05) {
+              waypoints.add(s);
             }
           }
-        }
-
-        if (startCoord != null) {
-          finalStart = startCoord;
-          if (destCoord != null) {
-            for (final s in allStops) {
-              if (_haversineKm(finalStart.lat, finalStart.lng, s.lat, s.lng) > 0.2 &&
-                  _haversineKm(destCoord.lat, destCoord.lng, s.lat, s.lng) > 0.2) {
-                waypoints.add(s);
-              }
-            }
-            finalEnd = destCoord;
-          } else if (allStops.isNotEmpty) {
-            waypoints.addAll(allStops.sublist(0, allStops.length - 1));
-            finalEnd = allStops.last;
-          } else {
-            finalEnd = finalStart;
-          }
-        } else if (allStops.length >= 2) {
-          finalStart = allStops.first;
-          waypoints.addAll(allStops.sublist(1, allStops.length - 1));
-          finalEnd = allStops.last;
-        } else if (allStops.length == 1) {
-          finalStart = allStops.first;
-          finalEnd = destCoord ?? allStops.first;
+          finalEnd = lastStop;
         } else {
-          throw Exception('No valid stops or destination found to navigate.');
+          finalEnd = destCoord;
         }
+      }
+
+      if (waypoints.isEmpty && allItineraryStops.length > 1) {
+        waypoints.addAll(allItineraryStops.sublist(0, allItineraryStops.length - 1));
       }
 
       final clampedWaypoints = waypoints.length > 23 ? waypoints.sublist(0, 23) : waypoints;
@@ -936,69 +986,81 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         currentFuelLiters: double.tryParse(_currentFuelCtrl.text.trim()) ?? _vehicle?.tankCapacity ?? 45.0,
       );
 
-      // Consume authoritative TripPlan directly to guarantee zero distance/route discrepancy
+      // Consume authoritative TripPlan directly if it already covers all stops,
+      // otherwise recalculate the road route through all itinerary waypoints.
       TripPlan plan;
-      if (_authoritativeTripPlan != null) {
+      if (_authoritativeTripPlan != null &&
+          _authoritativeTripPlan!.navigationWaypoints.length >= clampedWaypoints.length &&
+          clampedWaypoints.isEmpty) {
         plan = _authoritativeTripPlan!;
-      } else if (_currentRoute != null) {
-        final totalDist = _currentRoute!.distanceKm;
-        final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
-        final fuelLit = totalDist / eff;
-        final fuelCost = _budget?.fuel ?? 0;
-        final tollCost = _budget?.tolls ?? 0;
-        final planJson = <String, dynamic>{
-          'route': {
-            'distanceKm': totalDist,
-            'distanceMeters': _currentRoute!.distanceMeters,
-            'durationMin': _currentRoute!.durationMin,
-            'durationSeconds': _currentRoute!.durationSeconds,
-            'coordinates': _currentRoute!.coordinates.map((c) => c.toJson()).toList(),
-            'avoidedMotorways': _currentRoute!.avoidedMotorways,
-            'legs': _currentRoute!.legs.map((l) => l.toJson()).toList(),
-            'steps': _currentRoute!.steps.map((s) => s.toJson()).toList(),
-            'maneuvers': _currentRoute!.maneuvers,
-            if (_currentRoute!.geometry != null) 'geometry': _currentRoute!.geometry,
-            'provider': _currentRoute!.provider,
-          },
-          'estimatedDays': _days,
-          'fuel': {
-            'needsRefuel': false,
-            'totalDistanceKm': totalDist,
-            'refuelStops': <Map<String, dynamic>>[],
-          },
-          'fuelEstimate': {
-            'requiredLiters': fuelLit,
-            'estimatedFuelCost': fuelCost,
-            'fuelType': vehicle.fuelType,
-            'refuelStopsCount': 0,
-            'totalCost': fuelCost.toDouble(),
-            'vehicleEfficiency': eff,
-          },
-          'toll': {
-            'hasTolls': tollCost > 0,
-            'fastagTollCost': tollCost.toDouble(),
-            'totalTollCost': tollCost.toDouble(),
-            'currency': 'INR',
-          },
-          'budget': _budget?.toJson() ?? {
-            'fuel': fuelCost,
-            'tolls': tollCost,
-            'food': 0,
-            'stay': 0,
-            'activities': 0,
-            'total': fuelCost + tollCost,
-          },
-          'places': <String, dynamic>{},
-          'navigationWaypoints': clampedWaypoints.map((w) => w.toJson()).toList(),
-        };
-        plan = TripPlan.fromJson(planJson);
       } else {
-        plan = await _api.planTrip(
-          start: finalStart,
-          end: finalEnd,
-          waypoints: clampedWaypoints,
-          vehicle: vehicle,
-        );
+        try {
+          plan = await _api.planTrip(
+            start: finalStart,
+            end: finalEnd,
+            waypoints: clampedWaypoints,
+            vehicle: vehicle,
+          );
+        } catch (e) {
+          debugPrint('[NAV] planTrip with all stops failed, fallback to existing route: $e');
+          if (_authoritativeTripPlan != null) {
+            plan = _authoritativeTripPlan!;
+          } else if (_currentRoute != null) {
+            final totalDist = _currentRoute!.distanceKm;
+            final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+            final fuelLit = totalDist / eff;
+            final fuelCost = _budget?.fuel ?? 0;
+            final tollCost = _budget?.tolls ?? 0;
+            final planJson = <String, dynamic>{
+              'route': {
+                'distanceKm': totalDist,
+                'distanceMeters': _currentRoute!.distanceMeters,
+                'durationMin': _currentRoute!.durationMin,
+                'durationSeconds': _currentRoute!.durationSeconds,
+                'coordinates': _currentRoute!.coordinates.map((c) => c.toJson()).toList(),
+                'avoidedMotorways': _currentRoute!.avoidedMotorways,
+                'legs': _currentRoute!.legs.map((l) => l.toJson()).toList(),
+                'steps': _currentRoute!.steps.map((s) => s.toJson()).toList(),
+                'maneuvers': _currentRoute!.maneuvers,
+                if (_currentRoute!.geometry != null) 'geometry': _currentRoute!.geometry,
+                'provider': _currentRoute!.provider,
+              },
+              'estimatedDays': _days,
+              'fuel': {
+                'needsRefuel': false,
+                'totalDistanceKm': totalDist,
+                'refuelStops': <Map<String, dynamic>>[],
+              },
+              'fuelEstimate': {
+                'requiredLiters': fuelLit,
+                'estimatedFuelCost': fuelCost,
+                'fuelType': vehicle.fuelType,
+                'refuelStopsCount': 0,
+                'totalCost': fuelCost.toDouble(),
+                'vehicleEfficiency': eff,
+              },
+              'toll': {
+                'hasTolls': tollCost > 0,
+                'fastagTollCost': tollCost.toDouble(),
+                'totalTollCost': tollCost.toDouble(),
+                'currency': 'INR',
+              },
+              'budget': _budget?.toJson() ?? {
+                'fuel': fuelCost,
+                'tolls': tollCost,
+                'food': 0,
+                'stay': 0,
+                'activities': 0,
+                'total': fuelCost + tollCost,
+              },
+              'places': <String, dynamic>{},
+              'navigationWaypoints': clampedWaypoints.map((w) => w.toJson()).toList(),
+            };
+            plan = TripPlan.fromJson(planJson);
+          } else {
+            rethrow;
+          }
+        }
       }
 
       if (!mounted) return;

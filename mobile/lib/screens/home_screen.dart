@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,6 +14,8 @@ import '../services/trip_extras_store.dart';
 import 'atlas_screen.dart';
 import 'trek_discovery_screen.dart';
 import 'day_planner_screen.dart';
+import 'smart_itinerary_screen.dart';
+import '../utils/landing_redirect.dart';
 import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
@@ -43,7 +46,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _entrance = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100))..forward();
     _ambient = AnimationController(vsync: this, duration: const Duration(seconds: 16))..repeat();
     _loadTrips();
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkWebDeepLinks();
+      });
+    }
   }
+
+  void _checkWebDeepLinks() {
+    try {
+      final uri = Uri.base;
+      final start = uri.queryParameters['start'];
+      final dest = uri.queryParameters['dest'];
+      final days = int.tryParse(uri.queryParameters['days'] ?? '');
+      if ((dest != null && dest.isNotEmpty) || (start != null && start.isNotEmpty)) {
+        _openSmartItinerary(start: start, dest: dest, days: days);
+      }
+    } catch (_) {}
+  }
+
+  void _openSmartItinerary({String? start, String? dest, int? days, String? vibe}) =>
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => SmartItineraryScreen(
+            initialStartLocation: start,
+            initialDestination: dest,
+            initialDays: days,
+            initialVibe: vibe,
+          ),
+        ),
+      );
 
   @override
   void dispose() {
@@ -170,7 +203,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         children: [
                           _stagger(1, _heroCta()),
                           const SizedBox(height: 14),
-                          _stagger(1, _planButtons()),
+                          _stagger(1, _aiPlannerCard()),
+                          const SizedBox(height: 14),
+                          _stagger(2, _planButtons()),
                           const SizedBox(height: 18),
                           _stagger(2, _quickActions()),
                           if (_trips.isNotEmpty) ...[
@@ -294,6 +329,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(width: 11),
         const Text('Voyplan', style: TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
         const Spacer(),
+        if (kIsWeb) ...[
+          _Pressable(
+            onTap: redirectToLanding,
+            child: _glass(
+              radius: 13,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.public_rounded, size: 16, color: Color(0xFFC084FC)),
+                  SizedBox(width: 6),
+                  Text('Landing Page', style: TextStyle(color: Voy.ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ],
         _Pressable(
           onTap: _openProfileMenu,
           child: _glass(
@@ -319,8 +372,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     void go(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
 
     switch (id) {
+      case 'smart_ai':
+        _openSmartItinerary();
+        break;
       case 'generate':
         _planTrip();
+        break;
+      case 'landing_page':
+        if (kIsWeb) redirectToLanding();
         break;
       case 'saved':
       case 'upcoming':
@@ -528,8 +587,185 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Two direct buttons: plan a one-way trip (classic route planner) or a round
-  /// trip (day-by-day vacation planner).
+  /// Dedicated AI Planner feature card matching the web landing page.
+  Widget _aiPlannerCard() {
+    final suggestions = [
+      ('🏍️ Chennai → Pondi', 'Chennai', 'Pondicherry', 2, 'Scenic bike ride'),
+      ('☕ Bangalore → Coorg', 'Bangalore', 'Coorg', 3, 'Coffee hills & waterfalls'),
+      ('🏖️ Mumbai → Goa', 'Mumbai', 'Goa', 4, 'Coastal highway drive'),
+      ('⛰️ Delhi → Manali', 'Delhi', 'Manali', 5, 'Himalayan mountain pass'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF7C3AED).withValues(alpha: 0.24),
+            const Color(0xFFEC4899).withValues(alpha: 0.18),
+            const Color(0xFF3B82F6).withValues(alpha: 0.22),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(
+          color: const Color(0xFFA855F7).withValues(alpha: 0.45),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7C3AED).withValues(alpha: 0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.55)),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('✨', style: TextStyle(fontSize: 12)),
+                          SizedBox(width: 5),
+                          Text(
+                            'INSTANT AI ITINERARIES',
+                            style: TextStyle(
+                              color: Color(0xFFE9D5FF),
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    const Icon(Icons.auto_awesome_rounded, color: Color(0xFFEC4899), size: 18),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Plan your road trip in seconds with AI',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Curated scenic stops, fuel budgets & FASTag tolls computed on the fly.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    fontSize: 13,
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // One-tap quick suggestion chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: suggestions.map((s) {
+                    return InkWell(
+                      onTap: () => _openSmartItinerary(
+                        start: s.$2,
+                        dest: s.$3,
+                        days: s.$4,
+                        vibe: s.$5,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                        ),
+                        child: Text(
+                          s.$1,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                // Direct Launch Button
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _openSmartItinerary(),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF7C3AED), Color(0xFFEC4899)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
+                          SizedBox(width: 8),
+                          Text(
+                            'Open Smart AI Road Trip Planner',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Two direct rows of buttons: plan a one-way trip, discover treks, AI round-trip, or day planner.
   Widget _planButtons() {
     Widget btn(IconData icon, String label, Color c1, Color c2, VoidCallback onTap) {
       return Expanded(
@@ -571,15 +807,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Row(
           children: [
-            btn(Icons.trending_flat_rounded, 'One-way road trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
+            btn(Icons.auto_awesome_rounded, 'Smart AI Itinerary', const Color(0xFF7C3AED), const Color(0xFFEC4899), () => _openSmartItinerary()),
             const SizedBox(width: 12),
-            btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF7C3AED), const Color(0xFF8F81F2), _planRoundTrip),
+            btn(Icons.trending_flat_rounded, 'One-way road trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
           ],
         ),
         const SizedBox(height: 12),
         Row(
           children: [
-            btn(Icons.auto_awesome_rounded, 'AI round-trip planner', const Color(0xFF2E75B6), const Color(0xFF60A5FA), _openDayPlanner),
+            btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF2563EB), const Color(0xFF60A5FA), _planRoundTrip),
+            const SizedBox(width: 12),
+            btn(Icons.calendar_view_day_rounded, 'Day planner', const Color(0xFF4F46E5), const Color(0xFF818CF8), _openDayPlanner),
           ],
         ),
       ],
