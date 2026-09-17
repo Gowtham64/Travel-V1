@@ -103,7 +103,14 @@ async function calculateTripRoute({
     throw new Error("Invalid destination: valid coordinates (lat, lng) are required");
   }
 
-  const isAroundTrip = tripType === "around" || tripType === "round" || tripType === "roundtrip";
+  const cleanTripType = String(tripType || "around").toLowerCase().replace(/[\s_-]/g, "");
+  const isAroundTrip = cleanTripType === "around" ||
+                       cleanTripType === "round" ||
+                       cleanTripType === "roundtrip" ||
+                       cleanTripType === "multidest" ||
+                       cleanTripType === "circuit" ||
+                       cleanTripType === "loop" ||
+                       cleanTripType === "vacation";
   const normStops = (Array.isArray(stops) ? stops : [])
     .map((s, idx) => normalizeLocation(s, `Stop ${idx + 1}`, "activity", idx + 1))
     .filter(Boolean);
@@ -191,7 +198,7 @@ async function calculateTripRoute({
 
   // Toll estimation with round-trip discount support
   let toll = null;
-  const isRoundTrip = tripType === "around" || tripType === "round" || tripType === "roundtrip";
+  const isRoundTrip = isAroundTrip;
   try {
     toll = await getTollEstimate(routeStart, routeEnd, vehicleType, routeResult.coordinates, {
       isRoundTrip,
