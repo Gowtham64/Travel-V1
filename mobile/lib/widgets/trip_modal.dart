@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../config/app_config.dart';
 import '../data/attraction_database.dart';
@@ -398,17 +399,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   Future<void> _initFuelRates() async {
     try {
       final loc = _oneWayOriginCtrl.text.isNotEmpty ? _oneWayOriginCtrl.text : 'Karnataka';
-      final price = FuelPriceService.instance.getFuelPrice(loc);
+      final price = FuelPriceService.instance.getFuelPrice(locationName: loc, fuelType: _fuelType);
       setState(() {
-        if (_fuelType == 'diesel') {
-          _fuelPricePerUnit = price.diesel;
-        } else if (_fuelType == 'cng') {
-          _fuelPricePerUnit = price.cng > 0 ? price.cng : 85.0;
-        } else if (_fuelType == 'ev') {
-          _fuelPricePerUnit = price.evPerKwh > 0 ? price.evPerKwh : 18.0;
-        } else {
-          _fuelPricePerUnit = price.petrol;
-        }
+        _fuelPricePerUnit = price.price > 0 ? price.price : 102.86;
       });
     } catch (_) {}
   }
@@ -540,7 +533,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       });
 
       try {
-        final suggestions = await _api.searchSuggestions(query);
+        final suggestions = await _api.autocompletePlaces(query);
         if (mounted) {
           setState(() {
             if (isOrigin) _originSuggestions = suggestions;
@@ -650,7 +643,19 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       );
 
       // Extract route metadata
-      _oneWayRoute = plan.route;
+      _oneWayRoute = RouteInfo(
+        distanceMeters: plan.distanceMeters,
+        distanceKm: plan.distanceKm,
+        durationSeconds: plan.durationSeconds,
+        durationMin: plan.durationMin,
+        coordinates: plan.coordinates,
+        geometry: plan.geometry,
+        legs: plan.legs,
+        steps: plan.steps,
+        maneuvers: plan.maneuvers,
+        avoidedMotorways: plan.avoidedMotorways,
+        provider: plan.provider ?? 'authoritative',
+      );
       _oneWayDistanceKm = plan.distanceKm;
       _oneWayDurationMin = plan.durationMin;
 
@@ -675,7 +680,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         vehicleType: _vehicleType,
         routeCoordinates: plan.coordinates,
       );
-      _estimatedTollCost = tollEst.totalTollCost;
+      _estimatedTollCost = tollEst.totalAmount ?? tollEst.fastagTollCost ?? 0.0;
 
       // Deterministically generate initial budget
       _generateBudget();
@@ -763,7 +768,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     setState(() => _isLoadingPlaces = true);
 
     try {
-      final queryResults = await _api.aiSearchPlaces(destName);
+      final queryResults = await _api.aiSearchPlaces(query: destName, near: destName);
       final places = <Map<String, dynamic>>[];
 
       for (final p in queryResults) {
@@ -825,15 +830,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       final planPlaces = _selectedPlaces.map((p) => p['name'].toString()).toList();
 
       final res = await _api.aiSmartItinerary(
-        startLocation: originName,
         destination: destName,
-        tripType: 'vacation',
+        startLocation: originName,
+        tripType: 'around',
         durationDays: _vacationDays,
         travellers: _vacationTravelers,
         startDate: _vacationStartDate.toIso8601String().split('T').first,
         startTime: '08:00',
         places: planPlaces,
-        categories: _vacationPlaceTypes.toList(),
+        selectedCategories: _vacationPlaceTypes.toList(),
         mode: _vacationTripStyle.toLowerCase(),
         preferences: 'Budget: $_vacationBudgetTier, Dining: ${_vacationFoodPrefs.join(", ")}',
       );
@@ -855,11 +860,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
         // Populate vacation budget
         if (res.budget != null) {
-          _vacationBudgetTransport = res.budget!.fuel.toDouble() + (res.budget!.tolls?.toDouble() ?? 0.0);
-          _vacationBudgetStay = res.budget!.stay?.toDouble() ?? (2500.0 * (_vacationDays - 1));
-          _vacationBudgetFood = res.budget!.food?.toDouble() ?? (1200.0 * _vacationDays * _vacationTravelers);
-          _vacationBudgetActivities = res.budget!.activities?.toDouble() ?? (1000.0 * _vacationTravelers);
-          _vacationBudgetOther = res.budget!.miscellaneous?.toDouble() ?? 500.0;
+          _vacationBudgetTransport = res.budget!.transport > 0 ? res.budget!.transport.toDouble() : (res.budget!.fuel + res.budget!.tolls).toDouble();
+          _vacationBudgetStay = res.budget!.stay > 0 ? res.budget!.stay.toDouble() : (2500.0 * (_vacationDays - 1));
+          _vacationBudgetFood = res.budget!.food > 0 ? res.budget!.food.toDouble() : (1200.0 * _vacationDays * _vacationTravelers);
+          _vacationBudgetActivities = (1000.0 * _vacationTravelers);
+          _vacationBudgetOther = res.budget!.other > 0 ? res.budget!.other.toDouble() : 500.0;
         } else {
           _vacationBudgetTransport = 4500.0;
           _vacationBudgetStay = 2500.0 * (_vacationDays - 1);
@@ -944,37 +949,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         _scheduledTime.minute,
       ).toIso8601String();
 
-      final res = await _api.saveTrip(
+      final currentToken = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      await _api.saveTrip(
         name: '$originText to $destText (${isOneWay ? "One-Way" : "Vacation"})',
-        startPoint: {'lat': origin.lat, 'lng': origin.lng, 'address': originText},
-        endPoint: {
-          'lat': dest.lat,
-          'lng': dest.lng,
-          'address': destText,
-          'tripType': _activeMode,
-          'status': isScheduled ? 'SCHEDULED' : 'PLANNED',
-          'distanceKm': isOneWay ? _oneWayDistanceKm : (_oneWayDistanceKm * 2),
-          'durationMin': isOneWay ? _oneWayDurationMin : (_oneWayDurationMin * 2),
-          'totalBudget': isOneWay ? _totalOneWayBudget : _totalVacationBudget,
-          'perPersonBudget': isOneWay ? _perPersonOneWayBudget : _perPersonVacationBudget,
-          'travelers': isOneWay ? _oneWayTravelers : _vacationTravelers,
-        },
+        start: GeoPoint(lat: origin.lat, lng: origin.lng, name: originText),
+        end: GeoPoint(lat: dest.lat, lng: dest.lng, name: destText),
+        waypoints: [
+          ..._fuelStops.map((f) => GeoPoint(lat: f.lat, lng: f.lng, name: f.name, isFuelStop: true, refuelStop: f)),
+          ..._addedStops.map((s) => GeoPoint(lat: (s['lat'] as num?)?.toDouble() ?? 0.0, lng: (s['lng'] as num?)?.toDouble() ?? 0.0, name: s['name']?.toString())),
+        ],
         vehicleType: _vehicleType,
-        vehicle: {
-          'name': _selectedVehicle?.name ?? 'My Vehicle',
-          'type': _vehicleType,
-          'fuelType': _fuelType,
-          'mileage': _mileage,
-          'tankCapacity': _tankCapacity,
-          'currentFuel': _currentFuel,
-        },
-        waypoints: _addedStops.map((s) => {
-          'lat': s['lat'],
-          'lng': s['lng'],
-          'name': s['name'],
-          'type': s['category'] ?? 'stop',
-        }).toList(),
-        tripStart: tripStart,
+        token: currentToken,
+        vehicle: Vehicle(
+          type: _vehicleType,
+          efficiencyKmPerLiter: _mileage,
+          tankCapacityLiters: _tankCapacity,
+          currentFuelLiters: _currentFuel,
+          fuelType: _fuelType,
+        ),
+        tripStart: isScheduled ? DateTime.tryParse(tripStart) : null,
       );
 
       _showToast(isScheduled ? 'Trip scheduled successfully!' : 'Trip saved to My Trips!');
@@ -1026,6 +1019,18 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         tolls: const [],
         isEstimated: false,
       ),
+      weather: const RouteWeather(hasAlerts: false, points: []),
+      departureAdvice: const DepartureAdvice(
+        bestOffsetHours: 0,
+        bestLabel: 'now',
+        driestRainPct: 0,
+        nowRainPct: 0,
+        recommendation: 'Clear to drive',
+      ),
+      restStops: const [],
+      itinerary: const [],
+      budget: null,
+      places: const {},
       navigationWaypoints: [
         _oneWayOrigin!,
         ..._fuelStops.map((f) => GeoPoint(lat: f.lat, lng: f.lng, name: f.name, isFuelStop: true, refuelStop: f)),
