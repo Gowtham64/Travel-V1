@@ -7,7 +7,7 @@ development** — new work flows `feature/* → develop → staging → main →
 |-----|-----|--------|----------|---------|------|
 | **Development** | local | `feature/*` | staging (or local) | `localhost:3000` | local |
 | **Staging** | `staging.voyplan.in` | `develop` | **staging project** | staging Render service | Cloudflare Pages |
-| **Production** | `voyplan.in` | `main` | prod project (`dtemayjpttktntooxraa`) | `travel-v1-mzia.onrender.com` | GitHub Pages |
+| **Production** | `voyplan.in` | `main` | prod project (`dtemayjpttktntooxraa`) | `api.voyplan.in` → Render | Cloudflare Pages |
 
 ## Git flow
 ```
@@ -32,7 +32,7 @@ Staging builds show an unmissable **⚠ STAGING — NOT PRODUCTION** banner; pro
 ## CI/CD (.github/workflows)
 - `ci.yml` — PR into develop/main: Flutter analyze + test + web build, backend install + test. Make it a **required status check** on `main` and `develop`.
 - `deploy-staging.yml` — push to `develop` → build (staging config) → Cloudflare Pages. Inert until staging secrets exist.
-- `deploy-production.yml` — **manual only** (Actions → Run workflow, type `DEPLOY`) or a `v*` tag → build (prod config) → gh-pages. This replaces manual `deploy_web.sh` (which still works as a fallback).
+- `deploy-production.yml` — **manual only** (Actions → Run workflow, type `DEPLOY`) or a `v*` tag → build (prod config) → Cloudflare Pages. `deploy_web.sh` is the equivalent explicit/local path.
 
 ---
 
@@ -51,8 +51,9 @@ Staging builds show an unmissable **⚠ STAGING — NOT PRODUCTION** banner; pro
 - Env vars from `backend/.env.staging.example` (staging Supabase URL/key + keys).
 - Copy the service URL (e.g. `https://voyplan-staging.onrender.com`).
 
-### 3. Cloudflare Pages (staging host + PR previews)
+### 3. Cloudflare Pages (production, staging host + PR previews)
 - Cloudflare → Pages → Create project `voyplan-staging` (Direct Upload / connect repo).
+- Create or select the production Pages project; its exact project name is required as `CLOUDFLARE_PROJECT_NAME`.
 - Get **Account ID** and create an **API token** (Pages:Edit).
 
 ### 4. GitHub secrets (Settings → Secrets → Actions)
@@ -60,13 +61,20 @@ Staging builds show an unmissable **⚠ STAGING — NOT PRODUCTION** banner; pro
 MAPBOX_TOKEN                = pk.your_url_restricted_token
 CLOUDFLARE_API_TOKEN        = <cloudflare token>
 CLOUDFLARE_ACCOUNT_ID       = <cloudflare account id>
+CLOUDFLARE_PROJECT_NAME     = <production Pages project name>
+CLOUDFLARE_STAGING_PROJECT_NAME = <staging Pages project name>
 STAGING_SUPABASE_URL        = https://<staging-ref>.supabase.co
 STAGING_SUPABASE_ANON_KEY   = <staging anon key>
 STAGING_BACKEND_URL         = https://<staging-backend>.onrender.com
 ```
 
-### 5. DNS (I do this via the Hostinger API once Cloudflare gives the target)
+### 5. DNS (manual dashboard action)
 - `CNAME staging → voyplan-staging.pages.dev` (Cloudflare Pages target).
+- Add `voyplan.in` and `www.voyplan.in` as custom domains on the production Pages project.
+- Add `api.voyplan.in` as a custom domain on the existing Render Node service. Copy the
+  exact Render hostname from that service's dashboard; do not infer or replace it here.
+- At the DNS provider, point `api` to the Render custom-domain target/record shown by
+  Render. Complete the custom-domain verification in both dashboards.
 
 ---
 
@@ -81,7 +89,7 @@ STAGING_BACKEND_URL         = https://<staging-backend>.onrender.com
 8. Smoke-test `voyplan.in`. If broken, **rollback** (below).
 
 ## Rollback
-- **Web:** Actions → Deploy Production has every prior build; or `git revert` the bad merge on `main` and re-run. gh-pages retains history.
+- **Web:** Re-run the last known-good Cloudflare Pages workflow build, or `git revert` the bad merge on `main` and re-run the production workflow.
 - **DB:** Supabase → Database → Backups (prod). Always back up before a prod migration.
 
 ## Database safety (prod migrations)
