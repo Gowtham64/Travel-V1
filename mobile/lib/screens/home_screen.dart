@@ -514,42 +514,41 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Positioned.fill(child: _aurora()),
           SafeArea(
             child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1360),
-                child: RefreshIndicator(
-                  color: Voy.brand,
-                  backgroundColor: const Color(0xFF111726),
-                  onRefresh: _loadTrips,
-                  child: ListView(
-                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                    padding: EdgeInsets.fromLTRB(
-                      isDesktop ? 28 : 16,
-                      12,
-                      isDesktop ? 28 : 16,
-                      isDesktop ? 60 : 100,
-                    ),
-                    children: [
-                      // Top Navigation Header
-                      _stagger(0, isDesktop ? _buildDesktopHeader() : _buildMobileHeader()),
-                      const SizedBox(height: 18),
+              child: RefreshIndicator(
+                color: Voy.brand,
+                backgroundColor: const Color(0xFF111726),
+                onRefresh: _loadTrips,
+                child: ListView(
+                  physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                  padding: EdgeInsets.fromLTRB(
+                    isDesktop ? 28 : 16,
+                    12,
+                    isDesktop ? 28 : 16,
+                    isDesktop ? 60 : 100,
+                  ),
+                  children: [
+                    // Top Navigation Header
+                    _stagger(0, isDesktop ? _buildDesktopHeader() : _buildMobileHeader()),
+                    const SizedBox(height: 18),
 
-                      // Priority Active Trip HUD (if exists)
-                      if (_activeTrip != null) ...[
-                        _stagger(1, _buildActiveTripHUD()),
-                        const SizedBox(height: 20),
-                      ],
+                    // Priority Active Trip HUD (if exists)
+                    if (_activeTrip != null) ...[
+                      _stagger(1, _buildActiveTripHUD()),
+                      const SizedBox(height: 20),
+                    ],
 
-                      // Hero Section with Embedded Trip Planner
-                      _stagger(2, _buildHeroSection(isDesktop: isDesktop, isTablet: isTablet)),
-                      const SizedBox(height: 24),
+                    // Hero Section with Embedded Trip Planner
+                    _stagger(2, _buildHeroSection(isDesktop: isDesktop, isTablet: isTablet)),
+                    const SizedBox(height: 24),
 
-                      // AI Travel Planner Card
-                      _stagger(3, _buildAIPlannerCard()),
-                      const SizedBox(height: 24),
+                    // AI Travel Planner Card
+                    _stagger(3, _buildAIPlannerCard()),
+                    const SizedBox(height: 24),
 
-                      // Quick Actions (6 Compact Premium Cards)
-                      _stagger(4, _buildQuickActionsGrid(isDesktop: isDesktop, isTablet: isTablet)),
-                      const SizedBox(height: 32),
+                    // Quick Actions (6 Compact Premium Cards)
+                    _stagger(4, _buildQuickActionsGrid(isDesktop: isDesktop, isTablet: isTablet)),
+                    const SizedBox(height: 32),
+
 
                       // Two-Column Layout on Desktop (~70% Main, ~30% Sidebar)
                       if (isDesktop)
@@ -605,10 +604,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         _stagger(10, _buildRoadTripUtilitiesSection()),
                       ],
 
-                      const SizedBox(height: 48),
-                      _buildAppFooter(),
-                    ],
-                  ),
+                    const SizedBox(height: 48),
+                    _buildAppFooter(),
+                  ],
                 ),
               ),
             ),
@@ -760,11 +758,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _desktopNavItem('Home', Icons.home_rounded, isActive: true, onTap: () {}),
               _desktopNavItem('Plan Trip', Icons.add_road_rounded, onTap: () => _planTrip()),
               _desktopNavItem('Trip Inspiration', Icons.auto_awesome_rounded, onTap: () => _openTripInspiration()),
-              _desktopNavItem('My Trips', Icons.bookmark_rounded, onTap: _openSaved),
-              _desktopNavItem('Saved Places', Icons.favorite_rounded, onTap: _openSavedPlaces),
               _desktopNavItem('Explore', Icons.explore_rounded, onTap: _openExplore),
               _desktopNavItem('Vehicles', Icons.directions_car_rounded, onTap: _openVehicles),
-              _desktopNavItem('Tools', Icons.build_rounded, onTap: _showFuelStatusDialog),
             ],
           ),
           const Spacer(),
@@ -2878,34 +2873,78 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildTripInspirationSection() {
     final inspirations = [
       {
-        'title': 'Top 10 Monsoon Road Trips in India',
+        'title': 'Top 10 Monsoon Road Trips',
+        'fullTitle': 'Top 10 Monsoon Road Trips in India',
+        'emoji': '🌧️',
+        'tag': 'MONSOON',
         'desc': 'Lush Western Ghats passes, cascading waterfalls, and misty tea estate trails.',
         'image': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop',
         'dest': 'Coorg',
+        'context': 'Plan a monsoon road trip with waterfalls, lush green landscapes, tea estates, misty ghats, scenic viewpoints, and cozy hotels/homestays. Include breakfast and lunch stops at local eateries. Multi-day circular or one-way route from the user\'s starting point to the Western Ghats.',
       },
       {
         'title': 'Coastal Highway 66 Expedition',
+        'fullTitle': 'Coastal Highway 66 Expedition',
+        'emoji': '🌊',
+        'tag': 'COASTAL',
         'desc': 'Mumbai to Goa coastal drive across sea bridges, pristine beaches, and seafood shacks.',
         'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop',
         'dest': 'Goa',
+        'context': 'Plan a coastal highway road trip along the Konkan coast. Include beach stops, scenic cliff viewpoints, seafood restaurants, coastal forts, overnight beach resorts, and fuel stops. Route should follow the coast from the user\'s origin toward Goa.',
       },
       {
         'title': 'The Royal Rajasthan Circuit',
+        'fullTitle': 'The Royal Rajasthan Circuit',
+        'emoji': '🏰',
+        'tag': 'HERITAGE',
         'desc': 'Golden desert highways through Jaipur, Jodhpur, and Udaipur heritage forts.',
         'image': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=800&auto=format&fit=crop',
         'dest': 'Jaipur',
+        'context': 'Plan a heritage road trip through Rajasthan. Include forts, palaces, heritage hotels (havelis), local Rajasthani cuisine restaurants, desert camps, museums, bazaars, and cultural sites. Multi-city routing through Jaipur, Jodhpur, and Udaipur.',
+      },
+      {
+        'title': 'Himalayan Mountain Pass Drive',
+        'fullTitle': 'Himalayan Mountain Pass Drive',
+        'emoji': '🏔️',
+        'tag': 'MOUNTAINS',
+        'desc': 'Snow-capped passes, pine forests, river valleys, and charming hill stations.',
+        'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop',
+        'dest': 'Manali',
+        'context': 'Plan a Himalayan mountain road trip. Include mountain passes, pine forest stops, river valleys, adventure activities (rafting, trekking points), scenic cafes, mountain hotels/campsites, fuel stops at key towns, and emergency checkpoints. Route toward Manali/Spiti.',
       },
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.explore_outlined, color: Color(0xFF38BDF8), size: 18),
-            SizedBox(width: 8),
-            Text('Trip Inspiration', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+            const Icon(Icons.explore_outlined, color: Color(0xFF38BDF8), size: 18),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text('Trip Inspiration', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: -0.3)),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 11),
+                  SizedBox(width: 4),
+                  Text('AI Powered', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ),
           ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Tap a card → AI plans the complete trip. No trip type selection.',
+          style: TextStyle(color: Color(0xFF64748B), fontSize: 11.5),
         ),
         const SizedBox(height: 14),
         SingleChildScrollView(
@@ -2916,13 +2955,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 padding: const EdgeInsets.only(right: 14),
                 child: _Pressable(
                   onTap: () {
-                    _toController.text = item['dest']!;
-                    _planTrip(dest: item['dest']!);
+                    showTripInspirationModal(
+                      context,
+                      initialDestination: item['dest'],
+                      inspirationTitle: item['fullTitle'],
+                      inspirationEmoji: item['emoji'],
+                      inspirationContext: item['context'],
+                      inspirationImage: item['image'],
+                    );
                   },
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(18),
                     child: Container(
-                      width: 280,
+                      width: 270,
                       decoration: BoxDecoration(
                         color: const Color(0xFF0F1523),
                         borderRadius: BorderRadius.circular(18),
@@ -2931,14 +2976,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(
-                            height: 130,
-                            width: double.infinity,
-                            child: Image.network(
-                              item['image']!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
-                            ),
+                          Stack(
+                            children: [
+                              SizedBox(
+                                height: 130,
+                                width: double.infinity,
+                                child: Image.network(
+                                  item['image']!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
+                                ),
+                              ),
+                              Positioned(
+                                top: 10,
+                                left: 10,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(item['tag']!, style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 9, fontWeight: FontWeight.w900, letterSpacing: 0.5)),
+                                ),
+                              ),
+                            ],
                           ),
                           Padding(
                             padding: const EdgeInsets.all(14),
@@ -2946,23 +3007,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item['title']!,
-                                  style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                                  '${item['emoji']} ${item['title']}',
+                                  style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   item['desc']!,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, height: 1.3),
+                                  style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11, height: 1.3),
                                 ),
-                                const SizedBox(height: 10),
-                                const Row(
-                                  children: [
-                                    Text('Explore route', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w700)),
-                                    SizedBox(width: 4),
-                                    Icon(Icons.arrow_forward_rounded, color: Color(0xFF38BDF8), size: 14),
-                                  ],
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF6366F1)]),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 12),
+                                      SizedBox(width: 5),
+                                      Text('Plan This Trip', style: TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w800)),
+                                      SizedBox(width: 5),
+                                      Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 13),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),

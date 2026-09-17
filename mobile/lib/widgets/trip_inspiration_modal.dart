@@ -14,8 +14,20 @@ Future<void> showTripInspirationModal(
   BuildContext context, {
   String? initialDestination,
   String? initialOrigin,
+  String? inspirationTitle,
+  String? inspirationEmoji,
+  String? inspirationContext,
+  String? inspirationImage,
 }) {
   final isDesktop = MediaQuery.of(context).size.width >= 700;
+  final widget = TripInspirationWidget(
+    initialDestination: initialDestination,
+    initialOrigin: initialOrigin,
+    inspirationTitle: inspirationTitle,
+    inspirationEmoji: inspirationEmoji,
+    inspirationContext: inspirationContext,
+    inspirationImage: inspirationImage,
+  );
   if (isDesktop) {
     return showDialog(
       context: context,
@@ -27,10 +39,7 @@ Future<void> showTripInspirationModal(
           constraints: const BoxConstraints(maxWidth: 820, maxHeight: 860),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
-            child: TripInspirationWidget(
-              initialDestination: initialDestination,
-              initialOrigin: initialOrigin,
-            ),
+            child: widget,
           ),
         ),
       ),
@@ -44,10 +53,7 @@ Future<void> showTripInspirationModal(
         heightFactor: 0.94,
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          child: TripInspirationWidget(
-            initialDestination: initialDestination,
-            initialOrigin: initialOrigin,
-          ),
+          child: widget,
         ),
       ),
     );
@@ -58,10 +64,21 @@ class TripInspirationWidget extends StatefulWidget {
   final String? initialDestination;
   final String? initialOrigin;
 
+  /// When launched from a dashboard card these fields provide AI context.
+  /// The modal will skip the destination picker and use the card's theme.
+  final String? inspirationTitle;    // e.g. "Top 10 Monsoon Road Trips in India"
+  final String? inspirationEmoji;    // e.g. "🌧️"
+  final String? inspirationContext;  // AI planning context (themes, interests)
+  final String? inspirationImage;    // Card hero image URL
+
   const TripInspirationWidget({
     super.key,
     this.initialDestination,
     this.initialOrigin,
+    this.inspirationTitle,
+    this.inspirationEmoji,
+    this.inspirationContext,
+    this.inspirationImage,
   });
 
   @override
@@ -78,9 +95,16 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
   bool _customTravelers = false;
   final _customTravelersCtrl = TextEditingController();
 
+  // Optional filters (shown when opened from an inspiration card)
+  int _duration = 3; // days
+  final Set<String> _selectedInterests = {};
+
   bool _isGenerating = false;
   Map<String, dynamic>? _generatedItinerary;
   List<LatLng> _routePolyline = [];
+
+  /// Whether this was launched from a dashboard inspiration card
+  bool get _isInspirationFlow => widget.inspirationTitle != null;
 
   final List<(String, String, IconData)> _transportModes = [
     ('car', 'Car', Icons.directions_car_rounded),
@@ -101,11 +125,27 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
     ('Jaipur', 'Royal Rajasthan palaces, forts & desert bazaars', 'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=800&auto=format&fit=crop', '3 Days'),
   ];
 
+  final List<(String, String)> _interestOptions = [
+    ('💦', 'Waterfalls'),
+    ('🌄', 'Viewpoints'),
+    ('🏞️', 'Lakes'),
+    ('🛕', 'Temples'),
+    ('🍴', 'Food'),
+    ('🏨', 'Hotels'),
+    ('📸', 'Photography'),
+    ('🌿', 'Nature'),
+    ('🏕️', 'Adventure'),
+    ('🏖️', 'Beaches'),
+    ('🏰', 'Heritage'),
+    ('☕', 'Cafes'),
+  ];
+
   @override
   void initState() {
     super.initState();
     _originCtrl.text = widget.initialOrigin ?? 'Bangalore, Karnataka';
-    _destCtrl.text = widget.initialDestination ?? 'Coorg';
+    _destCtrl.text = widget.initialDestination ?? (_isInspirationFlow ? '' : 'Coorg');
+    if (_isInspirationFlow) _duration = 3;
   }
 
   @override
@@ -144,10 +184,21 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
 
   Future<void> _generateSmartItinerary() async {
     final origin = _originCtrl.text.trim();
-    final destination = _destCtrl.text.trim();
-    if (origin.isEmpty || destination.isEmpty) {
+
+    // In inspiration flow the AI picks the destination; in normal flow the user must provide it
+    final destination = _isInspirationFlow
+        ? (_destCtrl.text.trim().isNotEmpty ? _destCtrl.text.trim() : widget.initialDestination ?? 'the best destination for this inspiration')
+        : _destCtrl.text.trim();
+
+    if (origin.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please provide both starting point and destination.')),
+        const SnackBar(content: Text('Please enter your starting point.')),
+      );
+      return;
+    }
+    if (!_isInspirationFlow && destination.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please provide a destination.')),
       );
       return;
     }
@@ -160,12 +211,25 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
           ? (int.tryParse(_customTravelersCtrl.text.trim()) ?? 2)
           : _travelers;
 
+      // Build AI context string (logged; future: passed to backend)
+      final interestStr = _selectedInterests.isNotEmpty ? _selectedInterests.join(', ') : null;
+      // ignore: unused_local_variable
+      final aiContext = [
+        if (widget.inspirationTitle != null) 'Inspiration: ${widget.inspirationTitle}',
+        if (widget.inspirationContext != null) widget.inspirationContext!,
+        if (interestStr != null) 'User interests: $interestStr',
+        if (_isInspirationFlow) 'Duration: $_duration days',
+      ].join(' | ');
+
+      final numDays = _isInspirationFlow ? _duration : 3;
+
       final daysRes = await _api.aiBuildItinerary(
         start: origin,
         end: destination,
-        days: 3,
+        days: numDays,
         travellers: totalTravelers,
       );
+
 
       final Map<String, dynamic> res;
       if (daysRes.isNotEmpty) {
@@ -378,42 +442,124 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
       color: const Color(0xFF0F172A),
       child: Column(
         children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B).withValues(alpha: 0.8),
-              border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
-                    borderRadius: BorderRadius.circular(10),
+          // ── Header ──────────────────────────────────────────────────────────
+          if (_isInspirationFlow && widget.inspirationImage != null && !_isGenerating && _generatedItinerary == null)
+            SizedBox(
+              height: 130,
+              width: double.infinity,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    widget.inspirationImage!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
                   ),
-                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Trip Inspiration → Smart Itinerary', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900)),
-                      Text('Minimal input • Fully ready AI-crafted road trip', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                    ],
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Colors.transparent, const Color(0xFF0F172A).withValues(alpha: 0.95)],
+                      ),
+                    ),
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
+                  Positioned(
+                    bottom: 14,
+                    left: 20,
+                    right: 52,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 12),
+                                  const SizedBox(width: 4),
+                                  const Text('AI Trip Planner', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${widget.inspirationEmoji ?? '✨'} ${widget.inspirationTitle ?? 'Plan Your Adventure'}',
+                          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900, shadows: [Shadow(blurRadius: 8)]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, shadows: [Shadow(blurRadius: 8)]),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B).withValues(alpha: 0.8),
+                border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      widget.inspirationEmoji ?? '',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isInspirationFlow
+                              ? (widget.inspirationTitle ?? 'Plan Your Adventure')
+                              : 'Trip Inspiration → Smart Itinerary',
+                          style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w900),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          _isInspirationFlow
+                              ? 'Tell us where you start · AI plans everything else'
+                              : 'Minimal input • Fully ready AI-crafted road trip',
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Body
+          // ── Body ────────────────────────────────────────────────────────────
           Expanded(
             child: _isGenerating
                 ? _buildGeneratingState()
@@ -467,8 +613,14 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        // 1. Starting Point
-        const Text('1. STARTING POINT', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        // ── Inspiration context banner (shown only in inspiration flow) ────────
+        if (_isInspirationFlow) ..._buildInspirationBanner(),
+
+        // ── 1. Starting Point ─────────────────────────────────────────────────
+        Text(
+          _isInspirationFlow ? 'STARTING POINT' : '1. STARTING POINT',
+          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+        ),
         const SizedBox(height: 8),
         TextField(
           controller: _originCtrl,
@@ -508,8 +660,11 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
 
         const SizedBox(height: 24),
 
-        // 2. Transportation
-        const Text('2. TRANSPORTATION MODE', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        // ── 2. Transportation ──────────────────────────────────────────────────
+        Text(
+          _isInspirationFlow ? 'TRANSPORTATION' : '2. TRANSPORTATION MODE',
+          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+        ),
         const SizedBox(height: 10),
         Wrap(
           spacing: 10,
@@ -534,8 +689,11 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
 
         const SizedBox(height: 24),
 
-        // 3. Number of Travelers
-        const Text('3. NUMBER OF TRAVELERS', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        // ── 3. Travelers ───────────────────────────────────────────────────────
+        Text(
+          _isInspirationFlow ? 'TRAVELERS' : '3. NUMBER OF TRAVELERS',
+          style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+        ),
         const SizedBox(height: 10),
         Row(
           children: [1, 2, 3, 4, 5].map((cnt) {
@@ -572,122 +730,273 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
           }).toList(),
         ),
 
-        const SizedBox(height: 24),
+        // ── Destination (only when NOT in inspiration flow) ────────────────────
+        if (!_isInspirationFlow) ..._buildDestinationSection(),
 
-        // 4. Destination
-        const Text('4. DESTINATION OR SELECT INSPIRATION', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-        const SizedBox(height: 8),
-        TextField(
-          controller: _destCtrl,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          decoration: InputDecoration(
-            hintText: 'Enter destination or pick below (e.g. Coorg, Goa)',
-            hintStyle: const TextStyle(color: Color(0xFF64748B)),
-            prefixIcon: const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 20),
-            filled: true,
-            fillColor: const Color(0xFF1E293B),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-          ),
-        ),
-        const SizedBox(height: 14),
-
-        // Curated Destination Inspiration Cards
-        SizedBox(
-          height: 140,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _curatedDestinations.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (ctx, idx) {
-              final item = _curatedDestinations[idx];
-              final isSel = _destCtrl.text.trim().toLowerCase() == item.$1.toLowerCase();
-              return InkWell(
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _destCtrl.text = item.$1);
-                },
-                borderRadius: BorderRadius.circular(16),
-                child: Container(
-                  width: 200,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.08), width: isSel ? 2 : 1),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: Stack(
-                      children: [
-                        Image.network(
-                          item.$3,
-                          width: 200,
-                          height: 140,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
-                        ),
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6)),
-                            child: Text(item.$4, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 10,
-                          left: 10,
-                          right: 10,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(item.$1, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
-                              Text(item.$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 10)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
+        // ── Optional filters (only when IN inspiration flow) ──────────────────
+        if (_isInspirationFlow) ..._buildInspirationOptionals(),
 
         const SizedBox(height: 28),
 
-        // Generate CTA
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 4,
-          ),
-          onPressed: _generateSmartItinerary,
-          child: const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Generate Smart Itinerary',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
-              ),
+        // ── Generate CTA ───────────────────────────────────────────────────────
+        Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [Color(0xFF2563EB), Color(0xFF6366F1)]),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 4)),
             ],
+          ),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: _generateSmartItinerary,
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'Generate Complete Itinerary',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w900),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  List<Widget> _buildInspirationBanner() {
+    return [
+      Container(
+        margin: const EdgeInsets.only(bottom: 24),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.25)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: [Color(0xFF38BDF8), Color(0xFF6366F1)]),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 16),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('AI is planning your trip', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                  const SizedBox(height: 2),
+                  Text(
+                    widget.inspirationContext ?? 'Our AI will determine the best route, stops, meals, and stays — no trip type selection needed.',
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, height: 1.35),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildDestinationSection() {
+    return [
+      const SizedBox(height: 24),
+      const Text('4. DESTINATION OR SELECT INSPIRATION', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+      const SizedBox(height: 8),
+      TextField(
+        controller: _destCtrl,
+        style: const TextStyle(color: Colors.white, fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Enter destination or pick below (e.g. Coorg, Goa)',
+          hintStyle: const TextStyle(color: Color(0xFF64748B)),
+          prefixIcon: const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 20),
+          filled: true,
+          fillColor: const Color(0xFF1E293B),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+        ),
+      ),
+      const SizedBox(height: 14),
+      SizedBox(
+        height: 140,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _curatedDestinations.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 12),
+          itemBuilder: (ctx, idx) {
+            final item = _curatedDestinations[idx];
+            final isSel = _destCtrl.text.trim().toLowerCase() == item.$1.toLowerCase();
+            return InkWell(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _destCtrl.text = item.$1);
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                width: 200,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.08), width: isSel ? 2 : 1),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Stack(
+                    children: [
+                      Image.network(
+                        item.$3,
+                        width: 200,
+                        height: 140,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.85)],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(6)),
+                          child: Text(item.$4, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        right: 10,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(item.$1, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800)),
+                            Text(item.$2, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 10)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildInspirationOptionals() {
+    return [
+      const SizedBox(height: 24),
+      Row(
+        children: [
+          const Text('OPTIONAL PREFERENCES', style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(color: const Color(0xFF1E293B), borderRadius: BorderRadius.circular(6)),
+            child: const Text('AI handles the rest', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 9, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+
+      // Duration picker
+      const Text('Duration', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [1, 2, 3, 4, 5].map((d) {
+            final isSel = _duration == d;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.selectionClick();
+                  setState(() => _duration = d);
+                },
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSel ? const Color(0xFF2563EB) : const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  child: Text(
+                    d == 5 ? '5+ Days' : '$d Day${d > 1 ? 's' : ''}',
+                    style: TextStyle(color: isSel ? Colors.white : const Color(0xFF94A3B8), fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+      const SizedBox(height: 16),
+
+      // Interests picker
+      const Text('Interests', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _interestOptions.map((opt) {
+          final isSel = _selectedInterests.contains(opt.$2);
+          return InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() {
+                if (isSel) {
+                  _selectedInterests.remove(opt.$2);
+                } else {
+                  _selectedInterests.add(opt.$2);
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSel ? const Color(0xFF2563EB).withValues(alpha: 0.25) : const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: isSel ? const Color(0xFF38BDF8) : Colors.white.withValues(alpha: 0.1)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(opt.$1, style: const TextStyle(fontSize: 13)),
+                  const SizedBox(width: 5),
+                  Text(opt.$2, style: TextStyle(color: isSel ? Colors.white : const Color(0xFF94A3B8), fontSize: 12, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ];
   }
 
   Widget _buildItineraryResult() {

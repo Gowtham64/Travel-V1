@@ -75,27 +75,32 @@ mv main.dart.js "main.dart.${TIMESTAMP}.js"
 sed -i '' "s/main.dart.js/main.dart.${TIMESTAMP}.js/" flutter_bootstrap.js
 
 # Replace Flutter's generated service worker with a self-destroying "kill
-# switch". Deleting it is NOT enough: a service worker already installed in a
-# visitor's browser keeps serving the old cached app (even through a hard
-# refresh) until it is REPLACED. Serving this instead makes every stuck browser
-# clear its caches and unregister on the next update check, then load fresh.
-cat > flutter_service_worker.js <<'SW'
-self.addEventListener('install', function () { self.skipWaiting(); });
+# switch" that ALSO immediately claims all open clients and navigates them.
+# The NONCE (${TIMESTAMP}) changes on every deploy so the browser's SW
+# registration always detects a byte-change and triggers a new install.
+cat > flutter_service_worker.js << SW
+/* kill-switch-${TIMESTAMP} */
+self.addEventListener('install', function (e) {
+  self.skipWaiting();
+});
 self.addEventListener('activate', function (event) {
   event.waitUntil((async function () {
     try {
       const keys = await caches.keys();
       await Promise.all(keys.map(function (k) { return caches.delete(k); }));
+      await self.clients.claim();
+      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+      clients.forEach(function (c) { c.navigate(c.url); });
       await self.registration.unregister();
-      if (keys.length > 0) {
-        const clients = await self.clients.matchAll({ type: 'window' });
-        clients.forEach(function (c) { c.navigate(c.url); });
-      }
     } catch (e) {}
   })());
 });
 self.addEventListener('fetch', function () {});
 SW
+
+# Inject no-cache meta tags into index.html so the browser never caches
+# the entry point (the HTML doc that bootstraps the Flutter app).
+sed -i '' 's|<head>|<head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">|' index.html
 
 # Stamp the build number into index.html so the on-map HUD can confirm the
 # browser loaded the latest (non-cached) index.html.

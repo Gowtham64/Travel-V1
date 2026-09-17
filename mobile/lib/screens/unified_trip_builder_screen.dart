@@ -1902,4 +1902,86 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
     ];
     return months[month - 1];
   }
+
+  // ── Progress Overlay ──────────────────────────────────────────
+  Widget _generationOverlay() {
+    final stages = [
+      'Route calculated',
+      'Destination analysed',
+      'Attractions found',
+      'Optimizing itinerary',
+      'Fuel safety planning',
+      'Budget calculation',
+    ];
+
+    return Container(
+      color: Colors.black.withValues(alpha: 0.75),
+      child: Center(
+        child: Container(
+          width: 320,
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161B22),
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(width: 44, height: 44, child: CircularProgressIndicator(color: Voy.brand, strokeWidth: 3)),
+              const SizedBox(height: 18),
+              const Text('Crafting Your Perfect Trip', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 16),
+              ...List.generate(stages.length, (idx) {
+                final isPassed = _generationStage > idx;
+                final isCurrent = _generationStage == idx;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Icon(
+                        isPassed ? Icons.check_circle_rounded : (isCurrent ? Icons.radio_button_checked_rounded : Icons.radio_button_unchecked_rounded),
+                        size: 16,
+                        color: isPassed ? Colors.green : (isCurrent ? Voy.brand : const Color(0xFF8B97A7).withValues(alpha: 0.5)),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        stages[idx],
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w500,
+                          color: isPassed ? Colors.white : (isCurrent ? Voy.brand : const Color(0xFF8B97A7)),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _reviewRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(label, style: const TextStyle(color: Color(0xFF8B97A7), fontSize: 12, fontWeight: FontWeight.w700, letterSpacing: 1)),
+          ),
+          Expanded(
+            child: Text(value, style: TextStyle(color: valueColor ?? Colors.white, fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+
 }
