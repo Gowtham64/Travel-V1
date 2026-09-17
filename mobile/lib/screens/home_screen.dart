@@ -508,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Stack(
         children: [
           Container(
-            height: 200,
+            constraints: const BoxConstraints(minHeight: 210),
             width: double.infinity,
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -536,17 +536,38 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 const SizedBox(height: 6),
                 Text('Plan road trips with real routes, tolls, fuel & AI itinerary.', style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13.5)),
                 const SizedBox(height: 18),
-                ElevatedButton.icon(
-                  onPressed: () => _planTrip(),
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                  label: const Text('✨ Plan a Trip', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF1A1240),
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    elevation: 4,
-                  ),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () => _planTrip(tripType: 'one_way'),
+                      icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                      label: const Text('One Way', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: const Color(0xFF1A1240),
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 4,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _planTrip(tripType: 'round_trip'),
+                      icon: const Icon(Icons.sync_alt_rounded, size: 18),
+                      label: const Text('Round Trip / Vacation', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w800)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white.withValues(alpha: 0.22),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: Colors.white.withValues(alpha: 0.45), width: 1.5),
+                        ),
+                        elevation: 0,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
