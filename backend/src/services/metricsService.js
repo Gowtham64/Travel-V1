@@ -15,6 +15,9 @@ const metrics = {
 // Cap the endpoint-hit map so an attacker spraying random URLs (/aaa, /bbb, …)
 // can't grow the heap without bound.
 const MAX_TRACKED_ENDPOINTS = 200;
+const TELEMETRY_CACHE_TTL_MS = 60 * 1000;
+let telemetryCache = null;
+let telemetryRequest = null;
 
 function metricsMiddleware(req, res, next) {
   metrics.totalRequests++;
@@ -86,6 +89,20 @@ function pingEndpoint(url) {
 }
 
 async function getSystemTelemetry() {
+  if (telemetryCache && telemetryCache.expiresAt > Date.now()) return telemetryCache.value;
+  if (telemetryRequest) return telemetryRequest;
+
+  telemetryRequest = collectSystemTelemetry();
+  try {
+    const value = await telemetryRequest;
+    telemetryCache = { value, expiresAt: Date.now() + TELEMETRY_CACHE_TTL_MS };
+    return value;
+  } finally {
+    telemetryRequest = null;
+  }
+}
+
+async function collectSystemTelemetry() {
   const mem = process.memoryUsage();
   const latencies = metrics.latencies;
   const avgLatency = latencies.length > 0 ? (latencies.reduce((a, b) => a + b, 0) / latencies.length).toFixed(1) : 0;

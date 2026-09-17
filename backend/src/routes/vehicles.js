@@ -4,9 +4,39 @@
 
 const express = require('express');
 const axios = require('axios');
+const crypto = require('crypto');
 const router = express.Router();
 const { vehicleDataProvider } = require('../services/vehicleDataProvider');
 const { vehicleSyncService } = require('../services/vehicleSyncService');
+
+// Keep image bytes in memory so repeated vehicle selections do not trigger a
+// new download from Vahan Details. The cache is intentionally bounded and
+// disposable; images are never written to the database or filesystem.
+const IMAGE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const IMAGE_MISS_TTL_MS = 10 * 60 * 1000;
+const MAX_IMAGE_CACHE_ENTRIES = 100;
+const imageCache = new Map();
+const imageRequests = new Map();
+
+function imageCacheKey(kind, brand, model) {
+  return `${kind}:${brand.toLowerCase()}:${model.toLowerCase()}`;
+}
+
+function rememberImage(key, value) {
+  imageCache.delete(key);
+  imageCache.set(key, { ...value, expiresAt: Date.now() + value.ttlMs });
+  while (imageCache.size > MAX_IMAGE_CACHE_ENTRIES) {
+    imageCache.delete(imageCache.keys().next().value);
+  }
+}
+
+function sendCachedImage(res, cached, key) {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+  res.set('ETag', cached.etag);
+  if (res.req.headers['if-none-match'] === cached.etag) return res.status(304).end();
+  return res.type(cached.contentType).send(cached.data);
+}
 
 // Vahan Details does not expose browser CORS headers for its public images.
 // Proxy the selected model image on demand; bytes are never persisted.
@@ -15,6 +45,12 @@ router.get('/image', async (req, res) => {
   const model = String(req.query.model || '').trim();
   const kind = String(req.query.type || '').toLowerCase() === 'motorcycle' ? 'Bikes' : 'Cars';
   if (!brand || !model) return res.status(400).json({ error: 'brand and model are required' });
+  const cacheKey = imageCacheKey(kind, brand, model);
+  const cached = imageCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data ? sendCachedImage(res, cached, cacheKey) : res.status(404).json({ error: 'Vehicle image not found' });
+  }
+  imageCache.delete(cacheKey);
 
   const sourceBrand = brand.toLowerCase() === 'tata motors'
     ? 'Tata'
@@ -35,24 +71,39 @@ router.get('/image', async (req, res) => {
     }
   }
 
-  for (const imageUrl of candidates) {
-    try {
-      const image = await axios.get(imageUrl, {
-        responseType: 'arraybuffer',
-        timeout: 6000,
-        validateStatus: () => true,
-      });
-      const contentType = String(image.headers['content-type'] || '');
-      if (image.status >= 200 && image.status < 300 && contentType.startsWith('image/')) {
-        res.set('Access-Control-Allow-Origin', '*');
-        res.set('Cache-Control', 'public, max-age=3600');
-        return res.type(contentType).send(image.data);
+  const pending = imageRequests.get(cacheKey) || (async () => {
+    for (const imageUrl of candidates) {
+      try {
+        const image = await axios.get(imageUrl, {
+          responseType: 'arraybuffer',
+          timeout: 6000,
+          validateStatus: () => true,
+        });
+        const contentType = String(image.headers['content-type'] || '');
+        if (image.status >= 200 && image.status < 300 && contentType.startsWith('image/')) {
+          const data = Buffer.from(image.data);
+          rememberImage(cacheKey, {
+            data,
+            contentType,
+            etag: `"${crypto.createHash('sha1').update(data).digest('hex')}"`,
+            ttlMs: IMAGE_CACHE_TTL_MS,
+          });
+          return imageCache.get(cacheKey);
+        }
+      } catch (_) {
+        // Try the next naming variant.
       }
-    } catch (_) {
-      // Try the next naming variant.
     }
+    rememberImage(cacheKey, { data: null, ttlMs: IMAGE_MISS_TTL_MS });
+    return imageCache.get(cacheKey);
+  })();
+  imageRequests.set(cacheKey, pending);
+  try {
+    const image = await pending;
+    return image.data ? sendCachedImage(res, image, cacheKey) : res.status(404).json({ error: 'Vehicle image not found' });
+  } finally {
+    if (imageRequests.get(cacheKey) === pending) imageRequests.delete(cacheKey);
   }
-  return res.status(404).json({ error: 'Vehicle image not found' });
 });
 
 // 1. List all vehicle brands

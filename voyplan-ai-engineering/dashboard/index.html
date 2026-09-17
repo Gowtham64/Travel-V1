@@ -3103,7 +3103,9 @@ Zero-mock enforcement active across all agents.
     // Initial Load
     fetchDashboardData();
     initSSE();
-    setInterval(fetchDashboardData, 4000);
+    // Dashboard data is operational telemetry, not a live video stream. A
+    // slower refresh avoids repeatedly transferring the same large payload.
+    setInterval(fetchDashboardData, 30000);
 
     const initialRoute = window.location.pathname.replace('/', '') || 'dashboard';
     if (initialRoute && document.getElementById(`view-${initialRoute}`)) {

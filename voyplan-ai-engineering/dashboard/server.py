@@ -391,6 +391,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "public, max-age=15")
             self.end_headers()
             self.wfile.write(json.dumps(metrics).encode("utf-8"))
             return
@@ -1533,9 +1534,15 @@ def continuous_autonomous_daemon_loop():
             time.sleep(5)
 
 def main():
-    # Start the continuous 24/7 autonomous engine thread
-    auto_thread = threading.Thread(target=continuous_autonomous_daemon_loop, daemon=True)
-    auto_thread.start()
+    # The autonomous engine is expensive and can execute queued work. Keep it
+    # opt-in on hosted deployments; the dashboard/API remains available when
+    # the worker is disabled.
+    if os.environ.get("ENABLE_AUTONOMOUS_ENGINE", "false").lower() in ("1", "true", "yes"):
+        auto_thread = threading.Thread(target=continuous_autonomous_daemon_loop, daemon=True)
+        auto_thread.start()
+        print("🤖 Autonomous background engine enabled.")
+    else:
+        print("⏸️ Autonomous background engine disabled (set ENABLE_AUTONOMOUS_ENGINE=true to enable).")
 
     server = ThreadingHTTPServer(("0.0.0.0", PORT), DashboardHandler)
     print(f"🚀 VoyPlan AI Product Organization Dashboard running on http://localhost:{PORT}")
@@ -1546,4 +1553,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
