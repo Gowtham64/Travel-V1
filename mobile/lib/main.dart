@@ -220,7 +220,11 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
           await Supabase.instance.client.auth.setSession(refreshToken);
         } catch (e) {
           print("Session hand-off failed: $e");
+        } finally {
+          sanitizeBrowserUrl();
         }
+      } else if (uri.toString().contains('sb_refresh=')) {
+        sanitizeBrowserUrl();
       }
     }
 

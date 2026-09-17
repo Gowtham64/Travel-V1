@@ -283,6 +283,9 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
                 ).apply {
                     description = "Live progress of your active trip"
                     setShowBadge(false)
+                    setSound(null, null)
+                    enableVibration(false)
+                    vibrationPattern = longArrayOf(0)
                 }
                 mgr.createNotificationChannel(channel)
             }
@@ -320,6 +323,9 @@ class MainActivity : FlutterActivity(), TextToSpeech.OnInitListener {
             .setContentText(text)
             .setSubText(destination)
             .setOnlyAlertOnce(true)
+            .setSilent(true)
+            .setSound(null)
+            .setVibrate(longArrayOf(0))
             .setOngoing(!arriving)
             .setAutoCancel(arriving)
             .setPriority(NotificationCompat.PRIORITY_LOW)

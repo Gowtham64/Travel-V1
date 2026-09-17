@@ -56,7 +56,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
   final _currentFuelCtrl = TextEditingController(text: '30');
   final _mileageCtrl = TextEditingController(text: '15');
 
-  final String _tripType = 'around'; // Smart AI Planner is always round trip
+  final String _tripType = 'around'; // Smart AI Planner is exclusively a round trip circuit
   int _searchRadiusKm = 25;
   int? _nextSearchRadiusKm;
   int? _placesFoundCount;
@@ -1556,8 +1556,6 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
         children: [
           const Text('Plan a trip with AI', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800)),
           const SizedBox(height: 4),
-          Text('Set your start date & time — the AI schedules everything, breaks included.',
-              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12.5)),
           const SizedBox(height: 14),
           _placeField(
             _startLocCtrl,
@@ -2039,7 +2037,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           Text(
             _placesFoundCount != null
                 ? 'We found $_placesFoundCount relevant places for your selected destination and preferences.'
-                : 'Limited places found strictly matching your selected preferences within ${_searchRadiusKm} km.',
+                : 'Limited places found strictly matching your selected preferences within $_searchRadiusKm km.',
             style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5),
           ),
           const SizedBox(height: 12),
@@ -2390,9 +2388,9 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
                         color: Colors.white.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: Text(
+                      child: const Text(
                         '🔄 Round Trip',
-                        style: const TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
+                        style: TextStyle(color: Colors.white70, fontSize: 10, fontWeight: FontWeight.w600),
                       ),
                     ),
                     if (_totalRouteKm != null) ...[

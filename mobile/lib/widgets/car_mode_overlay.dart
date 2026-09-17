@@ -13,6 +13,14 @@ class CarModeOverlay extends StatefulWidget {
   final VoidCallback onToggleMute;
   final VoidCallback onRecenterMap;
   final VoidCallback onExitCarMode;
+  final String? routeTitle;
+  final String? nextStopName;
+  final double? nextStopDistanceKm;
+  final int? nextStopDurationMin;
+  final VoidCallback? onVisitStop;
+  final VoidCallback? onSkipStop;
+  final double? fuelPercent;
+  final double? nextTollAmount;
 
   const CarModeOverlay({
     super.key,
@@ -24,6 +32,14 @@ class CarModeOverlay extends StatefulWidget {
     required this.onToggleMute,
     required this.onRecenterMap,
     required this.onExitCarMode,
+    this.routeTitle,
+    this.nextStopName,
+    this.nextStopDistanceKm,
+    this.nextStopDurationMin,
+    this.onVisitStop,
+    this.onSkipStop,
+    this.fuelPercent,
+    this.nextTollAmount,
   });
 
   @override
@@ -54,30 +70,45 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
           return SafeArea(
             child: Stack(
               children: [
+                // 0. Top Bar: < Exit | ROUTE TITLE | 🔊
+                Positioned(
+                  top: 8,
+                  left: 14,
+                  right: 14,
+                  child: _topHeaderBar(),
+                ),
+
                 // 1. Top Maneuver & Lane Guidance Banner
                 Positioned(
-                  top: 12,
+                  top: 62,
                   left: 14,
                   right: wide ? null : 14,
                   width: wide ? (c.maxWidth * 0.45).clamp(340.0, 480.0) : null,
                   child: _maneuverCard(),
                 ),
 
-                // 2. Top-Right: Speedometer + Status Chips
-                Positioned(
-                  top: 12,
-                  right: 14,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      if (wide) _speedometer(),
-                      const SizedBox(height: 8),
-                      ..._statusChips(),
-                    ],
+                // 2. Next Stop Floating Card (with [Visit] and [Skip])
+                if (widget.nextStopName != null && widget.nextStopName!.isNotEmpty)
+                  Positioned(
+                    top: wide ? 62 : 185,
+                    left: wide ? null : 14,
+                    right: 14,
+                    width: wide ? 310 : null,
+                    child: _nextStopCard(),
                   ),
-                ),
 
-                // 3. Bottom HUD Bar (Remaining Distance, Time, ETA, Controls)
+                // 3. Status Chips (if wide or if not obstructed)
+                if (wide)
+                  Positioned(
+                    top: 190,
+                    right: 14,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: _statusChips(),
+                    ),
+                  ),
+
+                // 4. Bottom HUD Bar (Remaining Distance, Time, ETA, Controls, Fuel & Tolls)
                 Positioned(
                   left: 14,
                   right: 14,
@@ -88,6 +119,125 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _topHeaderBar() {
+    return _card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      child: Row(
+        children: [
+          InkWell(
+            onTap: widget.onExitCarMode,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+              child: Row(
+                children: [
+                  const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 15),
+                  const SizedBox(width: 4),
+                  Text('Exit', style: TextStyle(color: _sub, fontSize: 13, fontWeight: FontWeight.w700)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              (widget.routeTitle ?? 'VOYPLAN NAVIGATION').toUpperCase(),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: _text, fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.6),
+            ),
+          ),
+          const SizedBox(width: 10),
+          InkWell(
+            onTap: widget.onToggleMute,
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: Icon(
+                widget.speechMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                color: widget.speechMuted ? Colors.grey : _green,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _nextStopCard() {
+    final distKm = widget.nextStopDistanceKm;
+    final durMin = widget.nextStopDurationMin;
+    final distText = distKm != null ? '${distKm.toStringAsFixed(1)} km' : '';
+    final durText = durMin != null && durMin > 0 ? ' • $durMin min' : '';
+
+    return _card(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _purple.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text('NEXT STOP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: _purple)),
+              ),
+              const Spacer(),
+              if (distText.isNotEmpty)
+                Text('$distText$durText', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _sub)),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            widget.nextStopName ?? '',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _text),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
+                  label: const Text('Visit', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                  onPressed: widget.onVisitStop,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _sub,
+                    side: BorderSide(color: _hairline),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.skip_next_rounded, size: 15),
+                  label: const Text('Skip', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  onPressed: widget.onSkipStop,
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -401,6 +551,28 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        _fuelTollRow(),
+      ],
+    );
+  }
+
+  Widget _fuelTollRow() {
+    final fuelStr = widget.fuelPercent != null ? 'Fuel ${(widget.fuelPercent! * 100).round()}%' : 'Fuel OK';
+    final tollStr = widget.nextTollAmount != null && widget.nextTollAmount! > 0
+        ? 'Next Toll ₹${widget.nextTollAmount!.toStringAsFixed(0)}'
+        : (widget.telemetry.hasTollAhead ? 'Toll Ahead' : 'No tolls ahead');
+    return Row(
+      children: [
+        Icon(Icons.local_gas_station_rounded, size: 14, color: _amber),
+        const SizedBox(width: 4),
+        Text(fuelStr, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
+        const SizedBox(width: 10),
+        Text('•', style: TextStyle(color: _sub, fontSize: 11)),
+        const SizedBox(width: 10),
+        Icon(Icons.toll_rounded, size: 14, color: _teal),
+        const SizedBox(width: 4),
+        Text(tollStr, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
       ],
     );
   }

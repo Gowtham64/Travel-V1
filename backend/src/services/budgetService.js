@@ -105,7 +105,7 @@ function estimateBudget({
   // Tolls: exact fastag cost from authoritative route toll calculation
   let tollCost = 0;
   if (toll && toll.hasTolls) {
-    tollCost = toll.fastagTollCost ?? toll.totalAmount ?? toll.minTollCost ?? 0;
+    tollCost = toll.totalTripToll ?? toll.fastagTollCost ?? toll.totalAmount ?? toll.minTollCost ?? 0;
   }
 
   // Transport tickets: flight/train/bus/ferry legs

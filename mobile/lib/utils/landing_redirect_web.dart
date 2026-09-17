@@ -14,3 +14,17 @@ void redirectToLanding() {
     html.window.location.replace(target);
   }
 }
+
+/// Cleanses sensitive session tokens (#sb_refresh=...) from the browser address bar
+/// immediately after session extraction to prevent history leakage.
+void sanitizeBrowserUrl() {
+  try {
+    final loc = html.window.location;
+    final path = loc.pathname ?? '/app/';
+    // Preserve normal query parameters if any (except sensitive token keys)
+    final search = loc.search ?? '';
+    final cleanSearch = search.replaceAll(RegExp(r'[?&]sb_refresh=[^&]+'), '');
+    final cleanUrl = '$path$cleanSearch';
+    html.window.history.replaceState(null, '', cleanUrl);
+  } catch (_) {}
+}

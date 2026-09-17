@@ -31,6 +31,7 @@ import '../services/trip_history_service.dart';
 import '../models/trip_expense_models.dart';
 import '../services/trip_expense_service.dart';
 import '../widgets/trip_expense_dialogs.dart';
+import '../utils/polyline_simplifier.dart';
 
 enum NavCameraMode {
   follow,
@@ -716,7 +717,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     ),
                   ] else ...[
                     Polyline(
-                      points: routePoints,
+                      points: routePoints.length > 200
+                          ? PolylineSimplifier.simplify(
+                              routePoints,
+                              PolylineSimplifier.epsilonForZoom(_mapController.camera.zoom),
+                            )
+                          : routePoints,
                       strokeWidth: 6.0,
                       color: const Color(0xFF0EA5E9),
                       borderColor: const Color(0xFF0369A1),
@@ -3959,6 +3965,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       CarPlatformChannel.updateNavigation(maneuver: maneuver, telemetry: telemetry);
 
+      GeoPoint? upcomingStop;
+      double? upcomingDistKm;
+      int? upcomingDurMin;
+      for (final wp in _currentWaypoints) {
+        final wpId = 'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
+        if (!_visitedStops.contains(wpId) && !_visitedStops.contains(wp.name ?? '')) {
+          final wpLatLng = LatLng(wp.lat, wp.lng);
+          final d = _getDistance(currentPos, wpLatLng) * 111.0;
+          upcomingStop = wp;
+          upcomingDistKm = d;
+          upcomingDurMin = (d / 50.0 * 60).round().clamp(1, 999);
+          break;
+        }
+      }
+
+      final routeTitle = '${widget.startAddress.split(',')[0]} → ${widget.endAddress.split(',')[0]}';
+      final double fuelPct = v.tankCapacityLiters > 0
+          ? (v.currentFuelLiters / v.tankCapacityLiters).clamp(0.0, 1.0)
+          : 0.65;
+
       return Stack(
         fit: StackFit.expand,
         children: [
@@ -3969,6 +3995,50 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               telemetry: telemetry,
               isPlayingAnimation: _isPlayingAnimation,
               speechMuted: _carGuidance.speechMuted,
+              routeTitle: routeTitle,
+              nextStopName: upcomingStop?.name,
+              nextStopDistanceKm: upcomingDistKm,
+              nextStopDurationMin: upcomingDurMin,
+              fuelPercent: fuelPct,
+              nextTollAmount: upcomingToll?.amount,
+              onVisitStop: () {
+                if (upcomingStop != null) {
+                  final wpId = 'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
+                  setState(() {
+                    _visitedStops.add(wpId);
+                    if (upcomingStop!.name != null) _visitedStops.add(upcomingStop!.name!);
+                  });
+                  final name = upcomingStop!.name ?? 'Stop';
+                  _carGuidance.announceManeuver(
+                    ManeuverInstruction(
+                      type: ManeuverType.waypoint,
+                      instruction: '$name visited. Continuing to next stop.',
+                      distanceMeters: 0,
+                      roadName: name,
+                    ),
+                    force: true,
+                  );
+                }
+              },
+              onSkipStop: () {
+                if (upcomingStop != null) {
+                  final wpId = 'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
+                  setState(() {
+                    _visitedStops.add(wpId);
+                    if (upcomingStop!.name != null) _visitedStops.add(upcomingStop!.name!);
+                  });
+                  final name = upcomingStop!.name ?? 'Stop';
+                  _carGuidance.announceManeuver(
+                    ManeuverInstruction(
+                      type: ManeuverType.waypoint,
+                      instruction: '$name skipped. Resuming route to next stop.',
+                      distanceMeters: 0,
+                      roadName: name,
+                    ),
+                    force: true,
+                  );
+                }
+              },
               onTogglePlayPause: () {
                 if (_isPlayingAnimation) {
                   _stopAnimation();

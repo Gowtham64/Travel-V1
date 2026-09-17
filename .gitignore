@@ -34,4 +34,5 @@ live.js
 # Autonomous AI Engineering System (tracked in repo for Render cloud deployment)
 logs/
 *.log
+agents-office/
 

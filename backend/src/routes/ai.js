@@ -456,16 +456,18 @@ router.post("/recalculate-itinerary", async (req, res) => {
         if (!destPoint && (blk.isDestination || blk.isDestinationAnchor) && blk.lat && blk.lng) {
           destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address, placeId: blk.placeId };
         }
-        // Only extract actual stopovers for routing (not meals/rest/coffee sharing coords)
+        // Extract all itinerary stopovers for routing (activities, meals, stays, attractions, fuel)
         if (
           blk.lat && blk.lng &&
-          (blk.type === "activity" || blk.type === "fuel" || blk.type === "attraction" || blk.isDestinationAnchor)
+          blk.type !== "travel" && blk.type !== "return" && blk.type !== "start" &&
+          !blk.isDestination
         ) {
-          const isDup = intermediateStops.some((prev) => {
-            const dLat = (prev.lat - blk.lat) * 111;
-            const dLng = (prev.lng - blk.lng) * 111 * Math.cos((blk.lat * Math.PI) / 180);
-            return Math.sqrt(dLat * dLat + dLng * dLng) < 0.1;
-          });
+          const isDup = intermediateStops.length > 0 &&
+            intermediateStops[intermediateStops.length - 1].name === (blk.place || blk.title) &&
+            Math.sqrt(
+              Math.pow((intermediateStops[intermediateStops.length - 1].lat - blk.lat) * 111, 2) +
+              Math.pow((intermediateStops[intermediateStops.length - 1].lng - blk.lng) * 111 * Math.cos((blk.lat * Math.PI) / 180), 2)
+            ) < 0.05;
           if (!isDup) {
             intermediateStops.push({
               id: blk.id,

@@ -6,7 +6,9 @@ import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
 import '../widgets/app_design.dart';
-import 'trip_planner_screen.dart';
+import '../models/trip_extras.dart';
+import '../services/trip_extras_store.dart';
+import 'unified_trip_builder_screen.dart';
 
 /// AllTrails-style trek discovery, dressed in the app's cinematic design system:
 /// animated background, liquid-glass surfaces, staggered reveals. Search a place,
@@ -520,6 +522,17 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
                 ]),
               ),
               const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: _addToExistingTrip,
+                icon: const Icon(Icons.add_location_alt_rounded, color: Color(0xFF22C55E), size: 18),
+                label: const Text('ADD TO EXISTING TRIP ITINERARY', style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.w700)),
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: Color(0xFF22C55E)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+              const SizedBox(height: 10),
               Text('Trail data from OpenStreetMap. Verify access, permits and conditions before you go.',
                   style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 11.5)),
             ]),
@@ -743,15 +756,73 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
       );
 
   void _planTrip() {
-    final fuel = double.tryParse(_fuelController.text);
     Navigator.of(context).push(MaterialPageRoute(
-      builder: (_) => TripPlannerScreen(
-        initialDestination: widget.trek.toGeoPoint(),
-        initialDestinationLabel: widget.trek.name,
-        initialVehicleId: _vehicle.id,
-        initialTravellers: _travellers,
-        initialCurrentFuelLiters: fuel,
+      builder: (_) => UnifiedTripBuilderScreen(
+        initialTripType: 'round_trip',
+        initialDestination: widget.trek.name,
+        initialVehicle: _vehicle,
+        initialVibe: 'Trekking',
       ),
     ));
+  }
+
+  Future<void> _addToExistingTrip() async {
+    final plans = await TripExtrasStore.savedPlans();
+    if (!mounted) return;
+    if (plans.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No active or draft trips found. Opening trip builder...')),
+      );
+      _planTrip();
+      return;
+    }
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.slate,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Add Trek to Trip Itinerary', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Adds ${widget.trek.name} (recommended duration 2h, activity) to your plan.', style: TextStyle(color: Colors.white70, fontSize: 13)),
+            const SizedBox(height: 14),
+            ...plans.take(5).map((p) {
+              final key = p['key']?.toString() ?? '';
+              final name = p['name']?.toString() ?? 'Trip';
+              return ListTile(
+                leading: const Icon(Icons.route_rounded, color: Color(0xFF22C55E)),
+                title: Text(name, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final store = TripExtrasStore(key);
+                  final days = await store.loadDays();
+                  if (days.isNotEmpty) {
+                    days.first.items.add(PlanItem(
+                      id: 'trek_${DateTime.now().millisecondsSinceEpoch}',
+                      text: widget.trek.name,
+                      time: '11:00 AM',
+                      note: 'Trek (${widget.trek.lengthKm?.toStringAsFixed(1) ?? '2.5'} km, ${widget.trek.difficulty ?? 'Moderate'})',
+                      lat: widget.trek.lat,
+                      lng: widget.trek.lng,
+                      category: 'activity',
+                    ));
+                    await store.saveDays(days, name: name);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Added "${widget.trek.name}" to $name!')),
+                      );
+                    }
+                  }
+                },
+              );
+            }),
+          ],
+        ),
+      ),
+    );
   }
 }

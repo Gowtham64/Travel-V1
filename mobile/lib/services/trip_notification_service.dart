@@ -46,7 +46,12 @@ class TripNotificationService {
     );
   }
 
+  DateTime? _lastNotificationUpdate;
+  double _lastDistanceLeftKm = -1.0;
+  bool _lastArrivingState = false;
+
   /// Update the live notification with the latest ETA / distance / progress / waypoints.
+  /// Throttled to prevent flooding the platform notification subsystem every second.
   Future<void> update({
     required String destination,
     required String etaText,
@@ -61,29 +66,51 @@ class TripNotificationService {
     List<String>? activeStops,
   }) async {
     if (kIsWeb || !_active) return;
-    try {
-      await _channel.invokeMethod('update', {
-        'destination': destination,
-        'eta': etaText,
-        'distanceLeftKm': distanceLeftKm,
-        'progress': progressPercent.clamp(0.0, 1.0),
-        'speedKmh': speedKmh,
-        'arriving': arriving,
-        if (nextStopName != null) 'nextStopName': nextStopName,
-        if (nextStopDistanceKm != null) 'nextStopDistanceKm': nextStopDistanceKm,
-      });
-    } catch (_) {/* no-op */}
-    await LiveActivityService.instance.update(
-      etaText: arriving ? 'Arrived' : etaText,
-      distanceLeftKm: distanceLeftKm,
-      progressPercent: progressPercent.clamp(0.0, 1.0),
-      arriving: arriving,
-      nextStopName: nextStopName,
-      nextStopDistanceKm: nextStopDistanceKm,
-      remainingStopsCount: remainingStopsCount,
-      currentVehicleType: currentVehicleType,
-      activeStops: activeStops,
-    );
+
+    final now = DateTime.now();
+    final bool stateChanged = arriving != _lastArrivingState;
+    final bool distanceChanged = _lastDistanceLeftKm < 0 || (_lastDistanceLeftKm - distanceLeftKm).abs() >= 0.5;
+    final bool timeElapsed = _lastNotificationUpdate == null || now.difference(_lastNotificationUpdate!).inSeconds >= 15;
+    final bool minTimeElapsed = _lastNotificationUpdate == null || now.difference(_lastNotificationUpdate!).inSeconds >= 5;
+
+    // Only invoke native notification channel if:
+    // 1. Arrived / arrival state changed
+    // 2. 15 seconds elapsed
+    // 3. Significant distance change (>= 0.5km) AND at least 5 seconds elapsed
+    final bool shouldUpdatePlatform = arriving || stateChanged || timeElapsed || (distanceChanged && minTimeElapsed);
+
+    if (shouldUpdatePlatform) {
+      _lastNotificationUpdate = now;
+      _lastDistanceLeftKm = distanceLeftKm;
+      _lastArrivingState = arriving;
+
+      try {
+        await _channel.invokeMethod('update', {
+          'destination': destination,
+          'eta': etaText,
+          'distanceLeftKm': distanceLeftKm,
+          'progress': progressPercent.clamp(0.0, 1.0),
+          'speedKmh': speedKmh,
+          'arriving': arriving,
+          if (nextStopName != null) 'nextStopName': nextStopName,
+          if (nextStopDistanceKm != null) 'nextStopDistanceKm': nextStopDistanceKm,
+        });
+      } catch (_) {/* no-op */}
+    }
+
+    if (shouldUpdatePlatform || minTimeElapsed) {
+      await LiveActivityService.instance.update(
+        etaText: arriving ? 'Arrived' : etaText,
+        distanceLeftKm: distanceLeftKm,
+        progressPercent: progressPercent.clamp(0.0, 1.0),
+        arriving: arriving,
+        nextStopName: nextStopName,
+        nextStopDistanceKm: nextStopDistanceKm,
+        remainingStopsCount: remainingStopsCount,
+        currentVehicleType: currentVehicleType,
+        activeStops: activeStops,
+      );
+    }
   }
 
   /// Clear the notification when navigation ends.

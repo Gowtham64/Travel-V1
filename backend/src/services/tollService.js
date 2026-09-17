@@ -252,7 +252,7 @@ function getRateForVehicle(plaza, vehicleKey) {
  * @param {Array<{lat:number,lng:number}>} routeCoordinates - Full route polyline
  * @returns {object} Standardized TollResult
  */
-function calculateRouteTolls(start, end, vehicleKey = "car", routeCoordinates = null) {
+function calculateRouteTolls(start, end, vehicleKey = "car", routeCoordinates = null, options = {}) {
   const coords = Array.isArray(routeCoordinates) ? routeCoordinates : [];
   const detectedPlazas = [];
   const visitedPlazaIds = new Set();
@@ -354,22 +354,38 @@ function calculateRouteTolls(start, end, vehicleKey = "car", routeCoordinates = 
   }
 
   const tollCount = detectedPlazas.length;
+  const isRoundTrip = !!(options && (options.isRoundTrip || options.tripType === "around" || options.tripType === "round"));
+  const durationDays = Number(options?.durationDays) || 1;
+  const returnWithin24Hours = isRoundTrip && durationDays <= 1;
+
   const totalFastagCost = detectedPlazas.reduce((sum, p) => sum + p.amount, 0);
   const totalCashCost = detectedPlazas.reduce((sum, p) => sum + p.cashAmount, 0);
+
+  // NHAI 24-hour return trip discount rule: return leg is ~50% of single journey rate (total 1.5x)
+  // For trips > 24 hours, return leg is full price (total 2x)
+  const returnFastagCost = isRoundTrip
+    ? (returnWithin24Hours ? Math.round(totalFastagCost * 0.5) : totalFastagCost)
+    : 0;
+  const totalTripToll = isRoundTrip ? (totalFastagCost + returnFastagCost) : totalFastagCost;
 
   return {
     hasTolls: tollCount > 0,
     currency: "INR",
-    totalAmount: totalFastagCost,
-    fastagTollCost: totalFastagCost,
-    cashTollCost: totalCashCost,
-    minTollCost: totalFastagCost,
-    maxTollCost: totalCashCost,
+    totalAmount: totalTripToll,
+    fastagTollCost: totalTripToll,
+    singleJourneyToll: totalFastagCost,
+    returnToll: returnFastagCost,
+    totalTripToll: totalTripToll,
+    returnDiscountApplied: returnWithin24Hours,
+    cashTollCost: isRoundTrip ? (totalCashCost * 2) : totalCashCost,
+    minTollCost: totalTripToll,
+    maxTollCost: isRoundTrip ? (totalCashCost * 2) : totalCashCost,
     tollCount: tollCount,
     tollPlazaCount: tollCount,
     tolls: detectedPlazas,
     vehicleClass: vehicleKey,
     isEstimated: coords.length === 0,
+    confidence: coords.length > 0 ? "Confirmed" : "Estimated",
     dataSource: "NHAI Toll Information System (TIS)",
     lastUpdated: new Date().toISOString(),
   };
@@ -379,7 +395,7 @@ function calculateRouteTolls(start, end, vehicleKey = "car", routeCoordinates = 
  * Main toll estimate entrypoint.
  * Queries TollGuru API if key is present, otherwise executes the authoritative NHAI spatial calculation.
  */
-async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates = null) {
+async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates = null, options = {}) {
   const apiKey = process.env.TOLLGURU_API_KEY;
   const tollGuruVehicle = VEHICLE_TYPES[vehicleKey] || VEHICLE_TYPES.car;
 
@@ -403,6 +419,10 @@ async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates 
 
       const route = response.data.routes && response.data.routes[0];
       if (route && route.costs) {
+        const isRoundTrip = !!(options && (options.isRoundTrip || options.tripType === "around" || options.tripType === "round"));
+        const durationDays = Number(options?.durationDays) || 1;
+        const returnWithin24Hours = isRoundTrip && durationDays <= 1;
+
         const fastagCost = route.costs.minimumTollCost ?? route.costs.tag ?? 0;
         const cashCost = route.costs.cash ?? (fastagCost * 2);
         const tollsList = (route.tolls || []).map((t, idx) => ({
@@ -420,20 +440,30 @@ async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates 
           dataSource: "TollGuru Verified API",
         }));
 
+        const returnFastagCost = isRoundTrip
+          ? (returnWithin24Hours ? Math.round(fastagCost * 0.5) : fastagCost)
+          : 0;
+        const totalTripToll = isRoundTrip ? (fastagCost + returnFastagCost) : fastagCost;
+
         return {
           hasTolls: route.summary?.hasTolls ?? (fastagCost > 0),
           currency: response.data.summary?.currency || "INR",
-          totalAmount: fastagCost,
-          fastagTollCost: fastagCost,
-          cashTollCost: cashCost,
-          minTollCost: fastagCost,
-          maxTollCost: route.costs.maximumTollCost ?? cashCost,
+          totalAmount: totalTripToll,
+          fastagTollCost: totalTripToll,
+          singleJourneyToll: fastagCost,
+          returnToll: returnFastagCost,
+          totalTripToll: totalTripToll,
+          returnDiscountApplied: returnWithin24Hours,
+          cashTollCost: isRoundTrip ? (cashCost * 2) : cashCost,
+          minTollCost: totalTripToll,
+          maxTollCost: route.costs.maximumTollCost ?? (isRoundTrip ? cashCost * 2 : cashCost),
           fuelCost: route.costs.fuel ?? null,
           tollCount: tollsList.length,
           tollPlazaCount: tollsList.length,
           tolls: tollsList,
           vehicleClass: vehicleKey,
           isEstimated: false,
+          confidence: "Confirmed",
           dataSource: "TollGuru API",
           lastUpdated: new Date().toISOString(),
         };
@@ -444,7 +474,7 @@ async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates 
   }
 
   // Fallback to high-precision NHAI spatial calculator
-  return calculateRouteTolls(start, end, vehicleKey, routeCoordinates);
+  return calculateRouteTolls(start, end, vehicleKey, routeCoordinates, options);
 }
 
 module.exports = {

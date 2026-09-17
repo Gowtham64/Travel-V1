@@ -14,17 +14,20 @@ const { normalizeCategory, isDeceptivePlace } = require("./geminiValidatorServic
  */
 const CATEGORY_DURATIONS = {
   viewpoints: 30,
-  temples: 55,
+  temples: 60,
+  treks: 120,
+  trekking: 120,
+  food: 45,
   historical_heritage: 85,
   forts_palaces: 90,
   museums: 75,
   waterfalls_rivers: 60,
-  hills_mountains: 45,
+  hills_mountains: 60,
   beaches: 60,
   wildlife_national_parks: 90,
   nature_forests: 60,
-  monuments_landmarks: 45,
-  city_attractions: 45,
+  monuments_landmarks: 60,
+  city_attractions: 60,
   bridges_dams: 40,
   markets_local: 60,
   cultural_places: 60,
@@ -32,6 +35,36 @@ const CATEGORY_DURATIONS = {
   famous_places: 60,
   default: 45,
 };
+
+/**
+ * Robust duplicate place detector (AI RULE 6)
+ * Detects identical placeId, <100m proximity, identical names, or >75% token similarity within 15 km.
+ */
+function areDuplicatePlaces(p1, p2) {
+  if (p1.placeId && p2.placeId && p1.placeId === p2.placeId) return true;
+  const dist = haversineDistanceKm(p1, p2);
+  if (dist < 0.1) return true;
+
+  const n1 = (p1.name || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+  const n2 = (p2.name || "").toLowerCase().replace(/[^a-z0-9]/g, " ").trim();
+  if (n1 === n2) return true;
+
+  if (dist < 15) {
+    if (n1.length > 4 && n2.length > 4 && (n1.includes(n2) || n2.includes(n1))) {
+      return true;
+    }
+    const tokens1 = new Set(n1.split(/\s+/).filter(Boolean));
+    const tokens2 = new Set(n2.split(/\s+/).filter(Boolean));
+    let common = 0;
+    for (const t of tokens1) {
+      if (tokens2.has(t)) common++;
+    }
+    const sim = (2 * common) / (tokens1.size + tokens2.size);
+    if (sim >= 0.75) return true;
+  }
+
+  return false;
+}
 
 /**
  * Parse time string to minutes from midnight (0 - 1439).
@@ -620,12 +653,7 @@ function filterAndScoreCandidates({
   const seenPlaceIds = new Set();
   for (const p of valid) {
     if (seenPlaceIds.has(p.placeId)) continue;
-    const isDup = deduplicated.some(
-      (existing) =>
-        (existing.placeId && p.placeId && existing.placeId === p.placeId) ||
-        haversineDistanceKm(existing, p) < 0.05 ||
-        existing.name.toLowerCase().trim() === p.name.toLowerCase().trim()
-    );
+    const isDup = deduplicated.some((existing) => areDuplicatePlaces(existing, p));
     if (!isDup) {
       seenPlaceIds.add(p.placeId);
       deduplicated.push(p);
@@ -716,7 +744,7 @@ async function planItinerary(params = {}) {
   // Step 3: Pre-Route Corridor Calculation (Requirement #5)
   const baseCorridorRoute = await routeBetweenPoints(startPt, lockedDestination);
   const directDist = haversineDistanceKm(startPt, lockedDestination);
-  const maxCorridorDetourKm = Math.min(25, Math.max(8, directDist * 0.15));
+  const maxCorridorDetourKm = durationDays === 1 ? 15 : (mode === "scenic" ? 40 : Math.min(25, Math.max(8, directDist * 0.15)));
 
   // Diagnostic Logging (Requirement #24)
   console.log(`[SMART PLANNER] ==========================================`);
@@ -1339,10 +1367,13 @@ async function planItinerary(params = {}) {
       for (const b of d.blocks) {
         if (
           b.lat && b.lng &&
-          (b.type === "activity" || b.type === "fuel" || b.type === "attraction") &&
+          b.type !== "travel" && b.type !== "return" && b.type !== "start" &&
           !b.isDestination
         ) {
-          const isDup = extractedStops.some((prev) => haversineDistanceKm(prev, b) < 0.1);
+          // Avoid immediately consecutive duplicate coordinate stops
+          const isDup = extractedStops.length > 0 &&
+            extractedStops[extractedStops.length - 1].name === (b.place || b.title) &&
+            haversineDistanceKm(extractedStops[extractedStops.length - 1], b) < 0.05;
           if (!isDup) {
             extractedStops.push({
               id: b.id,
@@ -1487,6 +1518,7 @@ function validateItineraryQuality({
     throw new Error(`Quality Gate Failed: Day 1 does not contain arrival at destination (${destination?.name || "Destination"}).`);
   }
 
+  const durationDays = days.length;
   // Check End Location based on Trip Type
   const lastDay = days[days.length - 1];
   const lastBlock = lastDay.blocks[lastDay.blocks.length - 1];
@@ -1565,7 +1597,8 @@ function validateItineraryQuality({
         const corridorDetour = distToStart + distToDest - directDist;
         const inDestRadius = distToDest <= effectiveRadius || (isDestGoa && (b.state || "").toLowerCase() === "goa");
         const inLocalRadius = isLocalTrip && distToStart <= searchRadiusKm;
-        const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadiusKm && corridorDetour <= 20;
+        const maxAllowedCorridorDetour = durationDays === 1 ? 15 : 25;
+        const inCorridor = !isLocalTrip && distToStart > 30 && distToDest > searchRadiusKm && corridorDetour <= maxAllowedCorridorDetour;
 
         if (!inDestRadius && !inLocalRadius && !inCorridor && !b.isDestinationAnchor && !b.isUserSpecified) {
           throw new Error(

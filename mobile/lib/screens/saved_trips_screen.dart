@@ -610,7 +610,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
       final name = (trip['name'] ?? '').toString();
       final session = Supabase.instance.client.auth.currentSession;
       if (session != null && id.isNotEmpty) {
-        _api.deleteTrip(id, session.accessToken);
+        await _api.deleteTrip(id, session.accessToken);
       }
       // Remove the specific cloud row by id (covers real cloud trips)…
       final user = Supabase.instance.client.auth.currentUser;
@@ -625,8 +625,9 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
           debugPrint('Cloud delete note: $e');
         }
       }
-      // …and from the local trip-history cache and tombstone set.
-      await TripHistoryService.instance.deleteTrip(id, title: name);
+      // Purge from local stores and tombstones
+      await TripExtrasStore.removeFromIndex(id);
+      await TripHistoryService.instance.deleteTrip(id, title: name, tripKey: id);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

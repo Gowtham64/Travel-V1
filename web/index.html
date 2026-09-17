@@ -2710,7 +2710,9 @@
                 else if (lower.includes('temple') || lower.includes('heritage')) vibe = "Heritage & Pilgrimage";
                 else if (lower.includes('relax') || lower.includes('chill')) vibe = "Relaxed Leisure";
 
-                return { origin, dest, days: Math.max(1, Math.min(days, 10)), budget, vibe };
+                const tripType = "roundtrip";
+
+                return { origin, dest, days: Math.max(1, Math.min(days, 10)), budget, vibe, tripType };
             }
 
             function capitalizeWords(str) {
@@ -2746,7 +2748,8 @@
                         days: wizDays,
                         budget: `₹${(wizDays * 4500).toLocaleString('en-IN')}`,
                         vibe: wizVibe,
-                        rawPrompt: `${wizDays}-day road trip from ${wizOrigin} to ${wizDest} for ${wizVibe}`
+                        tripType: "roundtrip",
+                        rawPrompt: `${wizDays}-day round trip road trip from ${wizOrigin} to ${wizDest} for ${wizVibe}`
                     };
                 }
 
@@ -2935,7 +2938,8 @@
                 const sessionFrag = (window.currentAuthSession && window.currentAuthSession.refresh_token) 
                     ? '#sb_refresh=' + encodeURIComponent(window.currentAuthSession.refresh_token) 
                     : '';
-                const appDeepLink = `${APP_URL}?guest=true&start=${encodeURIComponent(data.origin)}&dest=${encodeURIComponent(data.dest)}&days=${data.days}${sessionFrag}`;
+                const tripType = (params && params.tripType) ? params.tripType : 'roundtrip';
+                const appDeepLink = `${APP_URL}?guest=true&start=${encodeURIComponent(data.origin)}&dest=${encodeURIComponent(data.dest)}&days=${data.days}&type=${encodeURIComponent(tripType)}${sessionFrag}`;
 
                 let daysHtml = data.daysList.map(d => `
                     <div class="itinerary-day-card">
@@ -3118,11 +3122,10 @@
             // On success we hand the session to the Flutter app via the URL fragment,
             // which the app reads and restores so the user lands in already signed-in.
             function goToApp(session) {
-                if (session && session.refresh_token) {
-                    window.location.href = APP_URL + '#sb_refresh=' + encodeURIComponent(session.refresh_token);
-                } else {
-                    window.location.href = APP_URL;
-                }
+                const target = (session && session.refresh_token)
+                    ? (APP_URL + '#sb_refresh=' + encodeURIComponent(session.refresh_token))
+                    : APP_URL;
+                window.location.replace(target);
             }
 
             let currentSession = null;
@@ -3209,8 +3212,8 @@
                         });
                         if (error) throw error;
                         if (data.session) {
-                            setMsg('Account created! Welcome to VoyPlan.', 'success');
-                            showAuthenticated(data.session);
+                            setMsg('Account created! Opening VoyPlan…', 'success');
+                            goToApp(data.session);
                         } else {
                             // Email confirmation is enabled on the project.
                             setMsg('Check your email to confirm your account, then log in.', 'success');
@@ -3220,8 +3223,8 @@
                     } else {
                         const { data, error } = await sb.auth.signInWithPassword(creds);
                         if (error) throw error;
-                        setMsg('Welcome back!', 'success');
-                        showAuthenticated(data.session);
+                        setMsg('Welcome back! Opening VoyPlan…', 'success');
+                        goToApp(data.session);
                     }
                 } catch (err) {
                     setMsg(err.message || 'Something went wrong. Please try again.', 'error');
@@ -3254,12 +3257,36 @@
                 }
             });
 
-            // If the user already has a valid session on this origin, show the authenticated view
+            // If the user already has a valid session, redirect directly into the app
+            const urlParams = new URLSearchParams(window.location.search);
+            const stayOnLanding = urlParams.get('landing') === 'true' || urlParams.get('preview') === 'true';
+
+            if (!stayOnLanding) {
+                try {
+                    const hasStoredSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k));
+                    if (hasStoredSession && els.title && els.subtitle) {
+                        els.title.textContent = 'Opening VoyPlan…';
+                        els.subtitle.textContent = 'Resuming your session';
+                        setBusy(true, 'Opening VoyPlan…');
+                    }
+                } catch (_) {}
+            }
+
             sb.auth.getSession().then(({ data }) => {
                 if (data && data.session) {
-                    showAuthenticated(data.session);
+                    if (!stayOnLanding) {
+                        goToApp(data.session);
+                    } else {
+                        showAuthenticated(data.session);
+                    }
                 } else {
                     showLoginForm();
+                }
+            });
+
+            sb.auth.onAuthStateChange((event, session) => {
+                if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !stayOnLanding) {
+                    goToApp(session);
                 }
             });
 

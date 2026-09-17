@@ -285,6 +285,9 @@ class TripLocation {
   final double? latitude;
   final double? longitude;
 
+  double? get lat => latitude;
+  double? get lng => longitude;
+
   const TripLocation({
     required this.name,
     this.address,

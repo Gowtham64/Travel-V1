@@ -136,10 +136,13 @@ import UserNotifications
       requestAuth()
     case "start":
       requestAuth()
-      showTrip(call, arriving: false)
+      // Dynamic Island & Lock screen is handled by LiveActivityManager; avoid foreground banner on start
     case "update":
       let arriving = (call.arguments as? [String: Any])?["arriving"] as? Bool ?? false
-      showTrip(call, arriving: arriving)
+      // Only notify when arrived at destination / stop; never spam intermediate driving progress
+      if arriving {
+        showTrip(call, arriving: true)
+      }
     case "end":
       UNUserNotificationCenter.current()
         .removeDeliveredNotifications(withIdentifiers: [tripNotifId])
@@ -203,7 +206,7 @@ import UserNotifications
     content.title = arriving ? "Arriving now"
       : (eta.isEmpty ? "Trip in progress" : "Arriving in \(eta)")
     content.body = "To \(destination) · \(String(format: "%.1f", distance)) km remaining"
-    content.sound = nil
+    content.sound = arriving ? UNNotificationSound.default : nil
 
     // Same identifier → each update replaces the previous banner in place.
     let request = UNNotificationRequest(identifier: tripNotifId, content: content, trigger: nil)
@@ -234,12 +237,27 @@ import UserNotifications
     completionHandler()
   }
 
-  // Show the banner even while the app is foregrounded.
+  // Show the banner while the app is foregrounded only for arrivals or departure reminders.
+  // Never pop a recurring banner or play sound for ongoing driving ticks.
   override func userNotificationCenter(
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
+    if notification.request.identifier == tripNotifId {
+      let title = notification.request.content.title
+      if title.contains("Arriving") {
+        if #available(iOS 14.0, *) {
+          completionHandler([.banner, .list, .sound])
+        } else {
+          completionHandler([.alert, .sound])
+        }
+      } else {
+        completionHandler([])
+      }
+      return
+    }
+
     if #available(iOS 14.0, *) {
       completionHandler([.banner, .list, .sound])
     } else {

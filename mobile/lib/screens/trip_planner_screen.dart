@@ -2202,104 +2202,35 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         children: [
           _buildSectionHeader(Icons.route, 'Your Route'),
           const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    if (_tripType != 'oneway') {
-                      setState(() {
-                        _tripType = 'oneway';
-                        _tempPlan = null;
-                        _currentPlan = null;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    decoration: BoxDecoration(
-                      color: _tripType == 'oneway'
-                          ? const Color(0xFF60A5FA).withOpacity(0.18)
-                          : Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _tripType == 'oneway'
-                            ? const Color(0xFF60A5FA)
-                            : Colors.white.withOpacity(0.1),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 15,
-                          color: _tripType == 'oneway' ? const Color(0xFF60A5FA) : Colors.white60,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'One-Way (A ➔ B)',
-                          style: TextStyle(
-                            color: _tripType == 'oneway' ? Colors.white : Colors.white60,
-                            fontSize: 12,
-                            fontWeight: _tripType == 'oneway' ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF60A5FA).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFF60A5FA).withValues(alpha: 0.35),
+                width: 1.2,
+              ),
+            ),
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.arrow_forward_rounded,
+                  size: 15,
+                  color: Color(0xFF60A5FA),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'One-Way Road Trip (Point A ➔ Point B)',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    if (_tripType != 'roundtrip') {
-                      setState(() {
-                        _tripType = 'roundtrip';
-                        _tempPlan = null;
-                        _currentPlan = null;
-                      });
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 9),
-                    decoration: BoxDecoration(
-                      color: _tripType == 'roundtrip'
-                          ? const Color(0xFF60A5FA).withOpacity(0.18)
-                          : Colors.white.withOpacity(0.04),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: _tripType == 'roundtrip'
-                            ? const Color(0xFF60A5FA)
-                            : Colors.white.withOpacity(0.1),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.sync_rounded,
-                          size: 15,
-                          color: _tripType == 'roundtrip' ? const Color(0xFF60A5FA) : Colors.white60,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Round Trip (A ➔ B ➔ A)',
-                          style: TextStyle(
-                            color: _tripType == 'roundtrip' ? Colors.white : Colors.white60,
-                            fontSize: 12,
-                            fontWeight: _tripType == 'roundtrip' ? FontWeight.w700 : FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 18),
           ReorderableListView.builder(

@@ -1201,8 +1201,36 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
       ordered.add(current);
     }
     setState(() => day.items = [...ordered, ...rest]);
+    _recalculateDaySchedule(day);
     _persist();
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Day optimised for the shortest path ✓')));
+  }
+
+  /// Automatically recalculates the stop timings and road legs when stops are reordered (PART 9)
+  void _recalculateDaySchedule(PlanDay day) {
+    int curMin = 9 * 60; // default 09:00 AM start
+    for (int i = 0; i < day.items.length; i++) {
+      final it = day.items[i];
+      final h = (curMin ~/ 60) % 24;
+      final m = curMin % 60;
+      it.time = TripDateTime.to12Hour(h, m);
+      int dwellMin = 45;
+      if (it.category == 'restaurant') {
+        dwellMin = 45;
+      } else if (it.category == 'stay') {
+        dwellMin = 60;
+      } else if (it.category == 'activity') {
+        dwellMin = 90;
+      } else {
+        dwellMin = 30;
+      }
+      curMin += dwellMin + 20; // dwell + default transit
+    }
+    for (int i = 0; i < day.items.length - 1; i++) {
+      if (day.items[i].hasCoords && day.items[i + 1].hasCoords) {
+        _ensureLeg(day.items[i], day.items[i + 1]);
+      }
+    }
   }
 
   Future<void> _exportPdf() async {
@@ -1664,6 +1692,7 @@ class _DayPlannerScreenState extends State<DayPlannerScreen> {
                       if (newI > oldI) newI -= 1;
                       final it = day.items.removeAt(oldI);
                       day.items.insert(newI, it);
+                      _recalculateDaySchedule(day);
                     });
                     _persist();
                   },

@@ -2,28 +2,33 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../models/trip_models.dart';
-import 'trip_planner_screen.dart';
+import 'unified_trip_builder_screen.dart';
 import 'saved_trips_screen.dart';
 import 'gallery_screen.dart';
 import '../services/trip_extras_store.dart';
 import 'atlas_screen.dart';
 import 'trek_discovery_screen.dart';
 import 'day_planner_screen.dart';
-import 'smart_itinerary_screen.dart';
 import '../utils/landing_redirect.dart';
-import '../widgets/dashboard_widgets.dart';
 import 'trip_screen.dart';
 import '../widgets/profile_menu.dart';
 import 'account_screens.dart';
 import 'trip_history_screen.dart';
 import '../services/trip_history_service.dart';
+import '../widgets/vehicle_search_sheet.dart';
 
-/// Voyplan home — glassmorphic, animated entry point after login.
+/// Voyplan home — restructured with Part 7 dashboard requirements:
+/// Top: Active Trip banner or Greeting with [✨ Plan a Trip]
+/// Second Section: My Trips with 4 tabs (Upcoming, Active, Drafts, Completed)
+/// Third Section: Quick Actions (Only: Plan Trip, My Trips, Vehicles, Explore)
+/// Fourth Section: Road Trip Utilities (Fuel status, Toll estimate, Weather, Saved places, Nearby services)
+/// Removed: Currency converter, World clocks, duplicate CTAs
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -36,6 +41,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   List<dynamic> _trips = [];
   bool _loadingTrips = true;
   bool _opening = false;
+  String _selectedTripTab = 'upcoming'; // 'upcoming', 'active', 'drafts', 'completed'
+
+  // Active trip state
+  Map<String, dynamic>? _activeTrip;
 
   late final AnimationController _entrance;
   late final AnimationController _ambient;
@@ -60,23 +69,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final dest = uri.queryParameters['dest'];
       final days = int.tryParse(uri.queryParameters['days'] ?? '');
       if ((dest != null && dest.isNotEmpty) || (start != null && start.isNotEmpty)) {
-        _openSmartItinerary(start: start, dest: dest, days: days);
+        _planTrip(start: start, dest: dest, days: days);
       }
     } catch (_) {}
   }
-
-  void _openSmartItinerary({String? start, String? dest, int? days, String? vibe}) =>
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SmartItineraryScreen(
-            initialStartLocation: start,
-            initialDestination: dest,
-            initialDays: days,
-            initialVibe: vibe,
-          ),
-        ),
-      );
 
   @override
   void dispose() {
@@ -105,16 +101,63 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             'id': h.id,
             'name': title,
             'vehicle_type': h.vehicleType,
+            'status': 'COMPLETED',
             'start_point': {'name': h.startAddress, 'lat': 12.9716, 'lng': 77.5946},
-            'end_point': {'name': h.endAddress, 'lat': 13.6288, 'lng': 79.4192, 'distanceKm': h.distanceKm, 'durationMinutes': h.durationMinutes},
+            'end_point': {
+              'name': h.endAddress,
+              'lat': 13.6288,
+              'lng': 79.4192,
+              'distanceKm': h.distanceKm,
+              'durationMinutes': h.durationMinutes,
+            },
             'created_at': h.completedAt.toIso8601String(),
           });
           seen.add(title.toLowerCase());
         }
       }
-      if (mounted) setState(() => _trips = trips);
+
+      // Check for active trip
+      Map<String, dynamic>? active;
+      for (final t in trips) {
+        final status = (t['status'] ?? '').toString().toUpperCase();
+        if (status == 'ACTIVE') {
+          active = t;
+          break;
+        }
+      }
+
+      // Check SharedPreferences for active trip session
+      final prefs = await SharedPreferences.getInstance();
+      final activeTripName = prefs.getString('voyplan_active_trip_name');
+      if (active == null && activeTripName != null && activeTripName.isNotEmpty) {
+        final activeDest = prefs.getString('voyplan_active_trip_dest') ?? 'Destination';
+        final activeRemKm = prefs.getDouble('voyplan_active_trip_remaining_km') ?? 68.0;
+        final activeEta = prefs.getString('voyplan_active_trip_eta') ?? '11:45 AM';
+        active = {
+          'id': 'active_local',
+          'name': activeTripName,
+          'status': 'ACTIVE',
+          'remainingKm': activeRemKm,
+          'eta': activeEta,
+          'end_point': {'name': activeDest},
+        };
+      }
+
+      // Tombstone filtering: remove deleted trips
+      final deletedIds = await TripHistoryService.instance.getDeletedIds();
+      final filteredTrips = trips.where((t) {
+        final id = (t['id'] ?? '').toString();
+        final name = (t['name'] ?? '').toString().trim().toLowerCase();
+        return !deletedIds.contains(id) && !deletedIds.contains(name);
+      }).toList();
+
+      if (mounted) {
+        setState(() {
+          _trips = filteredTrips;
+          _activeTrip = active;
+        });
+      }
     } catch (_) {
-      // best-effort; home still works without recent trips
     } finally {
       if (mounted) setState(() => _loadingTrips = false);
     }
@@ -138,20 +181,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good evening';
   }
 
-  // One-way → the classic route planner form.
-  void _planTrip() =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const TripPlannerScreen()));
-  // Round trip → AllTrails-style trek discovery: browse real trails near a place,
-  // pick one, then plan a trip around its trailhead.
-  void _planRoundTrip() =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()));
-  // Day-by-day vacation planner (organise days, add places, map pins).
-  void _openDayPlanner() =>
-      Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
+  // Unified Trip Builder Entry Point (Part 1 & 7)
+  void _planTrip({String? tripType, String? start, String? dest, int? days, String? vibe}) =>
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UnifiedTripBuilderScreen(
+            initialTripType: tripType ?? 'one_way',
+            initialOrigin: start,
+            initialDestination: dest,
+            initialDays: days,
+            initialVibe: vibe,
+          ),
+        ),
+      );
+
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
 
-  /// A global travel gallery for all the traveller's photos & moments,
-  /// independent of any single trip.
+  void _openVehicles() => VehicleSearchSheet.show(context);
+
+  void _openExplore() => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()));
+
   void _openGallery() => Navigator.push(
         context,
         MaterialPageRoute(
@@ -165,7 +215,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (_) {}
   }
 
-  // Staggered slide-up + fade entrance.
   Widget _stagger(int index, Widget child) {
     final start = (index * 0.09).clamp(0.0, 0.6);
     final anim = CurvedAnimation(parent: _entrance, curve: Interval(start, (start + 0.55).clamp(0.0, 1.0), curve: Curves.easeOutCubic));
@@ -185,72 +234,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       backgroundColor: Voy.bg,
       body: Stack(
         children: [
-          // Drifting aurora orbs behind everything.
           Positioned.fill(child: _aurora()),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 1180),
+                constraints: const BoxConstraints(maxWidth: 1080),
                 child: RefreshIndicator(
                   color: Voy.brand,
                   backgroundColor: Voy.surface,
                   onRefresh: _loadTrips,
-                  child: LayoutBuilder(
-                    builder: (ctx, c) {
-                      final wide = c.maxWidth >= 860;
-                      final mainCol = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _stagger(1, _heroCta()),
-                          const SizedBox(height: 14),
-                          _stagger(1, _aiPlannerCard()),
-                          const SizedBox(height: 14),
-                          _stagger(2, _planButtons()),
-                          const SizedBox(height: 18),
-                          _stagger(2, _quickActions()),
-                          if (_trips.isNotEmpty) ...[
-                            const SizedBox(height: 22),
-                            _stagger(3, _travelStats()),
-                          ],
-                          const SizedBox(height: 26),
-                          _stagger(4, _recentHeader()),
-                          const SizedBox(height: 12),
-                          _stagger(5, _recentTrips()),
-                        ],
-                      );
-                      final sidebar = Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: const [
-                          CurrencyMiniCard(),
-                          SizedBox(height: 16),
-                          TimezonesCard(),
-                          SizedBox(height: 16),
-                          UpcomingReservationsCard(),
-                        ],
-                      );
-                      return ListView(
-                        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
-                        children: [
-                          _stagger(0, _topBar()),
-                          const SizedBox(height: 22),
-                          if (wide)
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(child: mainCol),
-                                const SizedBox(width: 24),
-                                SizedBox(width: 340, child: sidebar),
-                              ],
-                            )
-                          else ...[
-                            mainCol,
-                            const SizedBox(height: 24),
-                            sidebar,
-                          ],
-                        ],
-                      );
-                    },
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 40),
+                    children: [
+                      _stagger(0, _topBar()),
+                      const SizedBox(height: 18),
+                      // TOP SECTION (Part 7: Active Trip HUD or Greeting + Plan a Trip)
+                      _stagger(1, _topSection()),
+                      const SizedBox(height: 22),
+                      // THIRD SECTION (Part 7: Exactly 4 Quick Actions)
+                      _stagger(2, _quickActionsSection()),
+                      const SizedBox(height: 24),
+                      // SECOND SECTION (Part 7: My Trips with 4 Tabs: Upcoming, Active, Drafts, Completed)
+                      _stagger(3, _myTripsSection()),
+                      const SizedBox(height: 24),
+                      // FOURTH SECTION (Part 7: Road Trip Utilities)
+                      _stagger(4, _roadTripUtilitiesSection()),
+                    ],
                   ),
                 ),
               ),
@@ -293,7 +303,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ---------- frosted-glass helper ----------
   Widget _glass({required Widget child, double radius = 22, EdgeInsetsGeometry? padding, Border? border}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -329,29 +338,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(width: 11),
         const Text('Voyplan', style: TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
         const Spacer(),
-        if (kIsWeb) ...[
-          _Pressable(
-            onTap: redirectToLanding,
-            child: _glass(
-              radius: 13,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.public_rounded, size: 16, color: Color(0xFFC084FC)),
-                  SizedBox(width: 6),
-                  Text('Landing Page', style: TextStyle(color: Voy.ink, fontSize: 12.5, fontWeight: FontWeight.w700)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-        ],
         _Pressable(
           onTap: _openProfileMenu,
           child: _glass(
             radius: 13,
-            padding: const EdgeInsets.all(0),
+            padding: EdgeInsets.zero,
             child: SizedBox(
               width: 42,
               height: 42,
@@ -373,8 +364,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     switch (id) {
       case 'smart_ai':
-        _openSmartItinerary();
-        break;
       case 'generate':
         _planTrip();
         break;
@@ -390,8 +379,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'completed':
         go(const TripHistoryScreen());
         break;
+      case 'gallery':
+        _openGallery();
+        break;
       case 'drafts':
-        _openDayPlanner();
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const DayPlannerScreen()));
         break;
       case 'wallet':
         go(const TravelWalletScreen());
@@ -416,16 +408,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'atlas':
         go(const AtlasScreen());
         break;
-      case 'import':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Import Itinerary: Select a GeoJSON, KML or Voyplan JSON file'), behavior: SnackBarBehavior.floating),
-        );
-        break;
-      case 'export_pdf':
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Generating and downloading PDF Itinerary... ✓'), behavior: SnackBarBehavior.floating),
-        );
-        break;
       case 'download_apk':
         launchUrl(
           Uri.parse('https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk'),
@@ -436,113 +418,144 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         final cfg = configForMenu(id);
         if (cfg != null) {
           go(AccountCrudScreen(config: cfg));
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('$label — feature active'), behavior: SnackBarBehavior.floating),
-          );
         }
     }
   }
 
-  // ---------- hero ----------
-  Widget _heroCta() {
-    return _Pressable(
-      onTap: _planTrip,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(26),
-        child: Stack(
-          children: [
-            // animated gradient sheen
-            AnimatedBuilder(
-              animation: _ambient,
-              builder: (_, __) {
-                final shift = math.sin(_ambient.value * 2 * math.pi);
-                return Container(
-                  height: 214,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment(-1 - shift * 0.3, -1),
-                      end: Alignment(1, 1 + shift * 0.3),
-                      colors: const [Color(0xFF5B3BE8), Color(0xFF7C3AED), Color(0xFFEC4899), Color(0xFFF59E0B)],
-                      stops: const [0.0, 0.38, 0.72, 1.0],
-                    ),
-                  ),
-                );
-              },
+  // ---------- TOP SECTION (PART 7) ----------
+  Widget _topSection() {
+    if (_activeTrip != null) {
+      final name = (_activeTrip!['name'] ?? 'Active Road Trip').toString();
+      final remainingKm = _activeTrip!['remainingKm'] ?? 68.0;
+      final eta = _activeTrip!['eta'] ?? '11:45 AM';
+
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF4338CA)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            Positioned(
-              right: -26,
-              top: -14,
-              child: Icon(Icons.travel_explore_rounded, size: 210, color: Colors.white.withValues(alpha: 0.13)),
-            ),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [Colors.black.withValues(alpha: 0.32), Colors.transparent],
-                  ),
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(22),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(color: const Color(0xFF312E81).withValues(alpha: 0.4), blurRadius: 20, offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text('$_greeting, $_userName 👋',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontSize: 14, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
-                  const Text('Where to next?',
-                      style: TextStyle(color: Colors.white, fontSize: 29, fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.05)),
-                  const SizedBox(height: 5),
-                  Text('Plan a road trip with routes, stops, budget & AI.',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13.5)),
-                  const SizedBox(height: 18),
-                  // glass CTA
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(15),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.92),
-                          borderRadius: BorderRadius.circular(15),
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 18, offset: const Offset(0, 8))],
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_rounded, size: 22, color: Color(0xFF1A1240)),
-                            SizedBox(width: 9),
-                            Text('Plan a new trip', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A1240))),
-                          ],
-                        ),
-                      ),
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: const BoxDecoration(
+                      color: Colors.greenAccent,
+                      shape: BoxShape.circle,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  const Text('ACTIVE TRIP', style: TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 1.1)),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              Text(name, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.4)),
+              const SizedBox(height: 6),
+              Text('${remainingKm.toStringAsFixed(0)} km remaining • ETA $eta', style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 14)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () => _openTrip(_activeTrip!),
+                icon: const Icon(Icons.navigation_rounded, size: 18),
+                label: const Text('Continue Navigation', style: TextStyle(fontWeight: FontWeight.w800)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Voy.brand,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  elevation: 4,
+                ),
+              ),
+            ],
+          ),
         ),
+      );
+    }
+
+    // Default Greeting when no active trip
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(26),
+      child: Stack(
+        children: [
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF5B3BE8), Color(0xFF7C3AED), Color(0xFFEC4899), Color(0xFFF59E0B)],
+                stops: [0.0, 0.38, 0.72, 1.0],
+              ),
+            ),
+          ),
+          Positioned(
+            right: -20,
+            top: -10,
+            child: Icon(Icons.travel_explore_rounded, size: 210, color: Colors.white.withValues(alpha: 0.14)),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('$_greeting, $_userName 👋', style: TextStyle(color: Colors.white.withValues(alpha: 0.95), fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                const Text('Where are you going?', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.6, height: 1.1)),
+                const SizedBox(height: 6),
+                Text('Plan road trips with real routes, tolls, fuel & AI itinerary.', style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13.5)),
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: () => _planTrip(),
+                  icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: const Text('✨ Plan a Trip', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: const Color(0xFF1A1240),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ---------- quick actions ----------
-  Widget _quickActions() {
-    return Row(
+  // ---------- THIRD SECTION: QUICK ACTIONS (PART 7 - ONLY 4 TILES) ----------
+  Widget _quickActionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _quickTile(Icons.add_location_alt_rounded, 'Plan trip', Voy.brand, _planTrip)),
-        const SizedBox(width: 12),
-        Expanded(child: _quickTile(Icons.bookmark_rounded, 'Saved trips', Voy.violet, _openSaved)),
-        const SizedBox(width: 12),
-        Expanded(child: _quickTile(Icons.photo_library_rounded, 'Gallery', Voy.pink, _openGallery)),
+        const Text('Quick Actions', style: TextStyle(color: Voy.ink, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _quickTile(Icons.add_location_alt_rounded, 'Plan Trip', Voy.brand, () => _planTrip())),
+            const SizedBox(width: 10),
+            Expanded(child: _quickTile(Icons.bookmark_rounded, 'My Trips', Voy.violet, _openSaved)),
+            const SizedBox(width: 10),
+            Expanded(child: _quickTile(Icons.directions_car_rounded, 'Vehicles', Voy.coral, _openVehicles)),
+            const SizedBox(width: 10),
+            Expanded(child: _quickTile(Icons.explore_rounded, 'Explore', Voy.pink, _openExplore)),
+          ],
+        ),
       ],
     );
   }
@@ -552,33 +565,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onTap: onTap,
       child: _glass(
         radius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-        // Vertical layout (icon above label) so the three tiles stay clean on
-        // narrow phones instead of wrapping the text letter-by-letter.
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 42,
-              height: 42,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 gradient: LinearGradient(colors: [color, color.withValues(alpha: 0.65)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(14),
                 boxShadow: [BoxShadow(color: color.withValues(alpha: 0.35), blurRadius: 12, offset: const Offset(0, 5))],
               ),
-              child: Icon(icon, color: Colors.white, size: 21),
+              child: Icon(icon, color: Colors.white, size: 22),
             ),
             const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  style: const TextStyle(color: Voy.ink, fontSize: 13.5, fontWeight: FontWeight.w700),
-                ),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w700),
               ),
             ),
           ],
@@ -587,408 +595,363 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Dedicated AI Planner feature card matching the web landing page.
-  Widget _aiPlannerCard() {
-    final suggestions = [
-      ('🏍️ Chennai → Pondi', 'Chennai', 'Pondicherry', 2, 'Scenic bike ride'),
-      ('☕ Bangalore → Coorg', 'Bangalore', 'Coorg', 3, 'Coffee hills & waterfalls'),
-      ('🏖️ Mumbai → Goa', 'Mumbai', 'Goa', 4, 'Coastal highway drive'),
-      ('⛰️ Delhi → Manali', 'Delhi', 'Manali', 5, 'Himalayan mountain pass'),
+  // ---------- SECOND SECTION: MY TRIPS WITH 4 TABS (PART 7) ----------
+  Widget _myTripsSection() {
+    final tabs = [
+      {'id': 'upcoming', 'label': 'Upcoming'},
+      {'id': 'active', 'label': 'Active'},
+      {'id': 'drafts', 'label': 'Drafts'},
+      {'id': 'completed', 'label': 'Completed'},
     ];
 
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [
-            const Color(0xFF7C3AED).withValues(alpha: 0.24),
-            const Color(0xFFEC4899).withValues(alpha: 0.18),
-            const Color(0xFF3B82F6).withValues(alpha: 0.22),
+    // Filter trips by tab
+    final filtered = _trips.where((t) {
+      final status = (t['status'] ?? '').toString().toUpperCase();
+      if (_selectedTripTab == 'active') return status == 'ACTIVE';
+      if (_selectedTripTab == 'completed') return status == 'COMPLETED';
+      if (_selectedTripTab == 'drafts') return status == 'DRAFT';
+      return status != 'COMPLETED' && status != 'ACTIVE' && status != 'DRAFT';
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('My Trips', style: TextStyle(color: Voy.ink, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+            const Spacer(),
+            TextButton(onPressed: _openSaved, child: const Text('View all')),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
         ),
-        border: Border.all(
-          color: const Color(0xFFA855F7).withValues(alpha: 0.45),
-          width: 1.2,
+        const SizedBox(height: 8),
+        // 4 Tabs Selector
+        Row(
+          children: tabs.map((tab) {
+            final isSelected = _selectedTripTab == tab['id'];
+            return Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: InkWell(
+                  onTap: () => setState(() => _selectedTripTab = tab['id']!),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Voy.brand : Voy.surface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: isSelected ? Voy.brand : Voy.hairline),
+                    ),
+                    child: Center(
+                      child: Text(
+                        tab['label']!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          color: isSelected ? Colors.white : Voy.sub,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF7C3AED).withValues(alpha: 0.22),
-            blurRadius: 24,
-            offset: const Offset(0, 8),
+        const SizedBox(height: 14),
+        // Trips Content
+        if (_loadingTrips)
+          const Padding(padding: EdgeInsets.symmetric(vertical: 24), child: Center(child: CircularProgressIndicator(color: Voy.brand)))
+        else if (filtered.isEmpty)
+          _emptyTripState(_selectedTripTab)
+        else
+          Column(
+            children: filtered.take(4).map((t) => _tripCard(t)).toList(),
+          ),
+      ],
+    );
+  }
+
+  Widget _emptyTripState(String tab) {
+    String message = 'No upcoming trips scheduled.';
+    if (tab == 'active') message = 'No trips currently active.';
+    if (tab == 'drafts') message = 'No draft itineraries saved.';
+    if (tab == 'completed') message = 'No completed journeys yet.';
+
+    return _glass(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        children: [
+          Icon(Icons.route_outlined, color: Voy.sub.withValues(alpha: 0.6), size: 38),
+          const SizedBox(height: 10),
+          Text(message, style: const TextStyle(color: Voy.sub, fontSize: 13.5, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 12),
+          ElevatedButton.icon(
+            onPressed: () => _planTrip(),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Plan Trip'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Voy.brand,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.55)),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('✨', style: TextStyle(fontSize: 12)),
-                          SizedBox(width: 5),
-                          Text(
-                            'INSTANT AI ITINERARIES',
-                            style: TextStyle(
-                              color: Color(0xFFE9D5FF),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    const Icon(Icons.auto_awesome_rounded, color: Color(0xFFEC4899), size: 18),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Plan your road trip in seconds with AI',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.4,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Curated scenic stops, fuel budgets & FASTag tolls computed on the fly.',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.82),
-                    fontSize: 13,
-                    height: 1.35,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // One-tap quick suggestion chips
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: suggestions.map((s) {
-                    return InkWell(
-                      onTap: () => _openSmartItinerary(
-                        start: s.$2,
-                        dest: s.$3,
-                        days: s.$4,
-                        vibe: s.$5,
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
-                        ),
-                        child: Text(
-                          s.$1,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                // Direct Launch Button
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _openSmartItinerary(),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF7C3AED), Color(0xFFEC4899)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.4),
-                            blurRadius: 16,
-                            offset: const Offset(0, 6),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'Open Smart AI Road Trip Planner',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14.5,
-                            ),
-                          ),
-                          SizedBox(width: 6),
-                          Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
-  /// Two direct rows of buttons: plan a one-way trip, discover treks, AI round-trip, or day planner.
-  Widget _planButtons() {
-    Widget btn(IconData icon, String label, Color c1, Color c2, VoidCallback onTap) {
-      return Expanded(
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+  // ---------- FOURTH SECTION: ROAD TRIP UTILITIES (PART 7) ----------
+  Widget _roadTripUtilitiesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Road Trip Utilities', style: TextStyle(color: Voy.ink, fontSize: 17, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _utilityTile(
+              Icons.local_gas_station_rounded,
+              'Fuel Status',
+              '₹102.86/L Petrol • Range Check',
+              Voy.coral,
+              _showFuelStatusDialog,
+            ),
+            _utilityTile(
+              Icons.toll_rounded,
+              'Toll Estimate',
+              'FASTag Plaza Rates & Discounts',
+              Voy.brand,
+              _showTollEstimateDialog,
+            ),
+            _utilityTile(
+              Icons.wb_sunny_rounded,
+              'Weather',
+              'Live Route & Destination Forecast',
+              Voy.pink,
+              _showWeatherDialog,
+            ),
+            _utilityTile(
+              Icons.bookmark_border_rounded,
+              'Saved Places',
+              'Bookmarked Attractions & Stays',
+              Voy.violet,
+              _openSaved,
+            ),
+            _utilityTile(
+              Icons.emergency_rounded,
+              'Nearby Services',
+              'Roadside Assistance & NHAI Helpline',
+              Colors.redAccent,
+              _showEmergencyDialog,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _utilityTile(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        width: 320,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Voy.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Voy.hairline),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [c1, c2], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(16),
+                color: color.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(icon, size: 20, color: Colors.white),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        label,
-                        maxLines: 1,
-                        style: const TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w800),
-                      ),
-                    ),
-                  ),
+                  Text(title, style: const TextStyle(color: Voy.ink, fontSize: 13.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 11.5)),
                 ],
               ),
             ),
-          ),
-        ),
-      );
-    }
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            btn(Icons.auto_awesome_rounded, 'Smart AI Itinerary', const Color(0xFF7C3AED), const Color(0xFFEC4899), () => _openSmartItinerary()),
-            const SizedBox(width: 12),
-            btn(Icons.trending_flat_rounded, 'One-way road trip', const Color(0xFF0FA7A0), const Color(0xFF22C7C0), _planTrip),
+            const Icon(Icons.chevron_right_rounded, color: Voy.sub, size: 18),
           ],
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            btn(Icons.hiking_rounded, 'Discover treks', const Color(0xFF2563EB), const Color(0xFF60A5FA), _planRoundTrip),
-            const SizedBox(width: 12),
-            btn(Icons.calendar_view_day_rounded, 'Day planner', const Color(0xFF4F46E5), const Color(0xFF818CF8), _openDayPlanner),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // ---------- travel stats ----------
-  /// Aggregates quick stats from the user's saved trips: number of trips, total
-  /// places (start + stops + end), and total straight-line distance.
-  Widget _travelStats() {
-    int places = 0;
-    double km = 0;
-    double haversine(double lat1, double lng1, double lat2, double lng2) {
-      const r = 6371.0; // km
-      double toRad(double d) => d * 3.141592653589793 / 180.0;
-      final dLat = toRad(lat2 - lat1), dLng = toRad(lng2 - lng1);
-      final a = (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-          math.cos(toRad(lat1)) * math.cos(toRad(lat2)) * (math.sin(dLng / 2) * math.sin(dLng / 2));
-      return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
-    }
-
-    for (final t in _trips) {
-      final route = <List<double>>[];
-      final sp = t['start_point'], ep = t['end_point'];
-      final stops = (t['trip_stops'] as List?) ?? [];
-      if (sp is Map && sp['lat'] != null && sp['lng'] != null) {
-        route.add([(sp['lat'] as num).toDouble(), (sp['lng'] as num).toDouble()]);
-      }
-      for (final s in stops) {
-        if (s is Map && s['lat'] != null && s['lng'] != null) {
-          route.add([(s['lat'] as num).toDouble(), (s['lng'] as num).toDouble()]);
-        }
-      }
-      if (ep is Map && ep['lat'] != null && ep['lng'] != null) {
-        route.add([(ep['lat'] as num).toDouble(), (ep['lng'] as num).toDouble()]);
-      }
-      places += route.length;
-      for (int i = 0; i < route.length - 1; i++) {
-        km += haversine(route[i][0], route[i][1], route[i + 1][0], route[i + 1][1]);
-      }
-    }
-
-    final distanceLabel = km >= 1000 ? '${(km / 1000).toStringAsFixed(1)}k' : km.toStringAsFixed(0);
-
-    return Row(
-      children: [
-        Expanded(child: _statCard(Icons.route_rounded, '${_trips.length}', 'Trips', Voy.brand)),
-        const SizedBox(width: 12),
-        Expanded(child: _statCard(Icons.place_rounded, '$places', 'Places', Voy.violet)),
-        const SizedBox(width: 12),
-        Expanded(child: _statCard(Icons.straighten_rounded, '$distanceLabel km', 'Distance', Voy.coral)),
-      ],
-    );
-  }
-
-  Widget _statCard(IconData icon, String value, String label, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: Voy.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Voy.hairline),
       ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 22),
-          const SizedBox(height: 8),
-          FittedBox(
-            child: Text(value,
-                style: const TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
-          ),
-          const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: Voy.sub, fontSize: 11.5, fontWeight: FontWeight.w600)),
+    );
+  }
+
+  // Utility Dialogs
+  void _showFuelStatusDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Voy.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.local_gas_station_rounded, color: Voy.coral),
+            SizedBox(width: 10),
+            Text('Fuel Status & Rates', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Current Fuel Prices (India):', style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 8),
+            Text('• Petrol: ₹102.86 / Litre\n• Diesel: ₹88.94 / Litre\n• EV Fast Charging: ₹18 - ₹22 / kWh'),
+            SizedBox(height: 12),
+            Text('Safety rule: refuel stops are always planned along your route before tank reaches reserve (15%).', style: TextStyle(fontSize: 12, color: Voy.sub)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
         ],
       ),
     );
   }
 
-  // ---------- recent ----------
-  Widget _recentHeader() {
-    return Row(
-      children: [
-        const Text('Recent trips', style: TextStyle(color: Voy.ink, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: -0.3)),
-        const Spacer(),
-        if (_trips.isNotEmpty) TextButton(onPressed: _openSaved, child: const Text('See all')),
-      ],
+  void _showTollEstimateDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Voy.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.toll_rounded, color: Voy.brand),
+            SizedBox(width: 10),
+            Text('FASTag Toll Calculator', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Route-Based NHAI Toll Plazas', style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 8),
+            Text('• 24-Hour Return Discount: 50% discount automatically applied to return journey tolls.\n• Fastag Lane Priority: Real-time electronic toll collection estimates.'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
     );
   }
 
-  Widget _recentTrips() {
-    if (_loadingTrips) {
-      return const Padding(padding: EdgeInsets.symmetric(vertical: 30), child: Center(child: CircularProgressIndicator(color: Voy.brand)));
-    }
-    if (_trips.isEmpty) {
-      return _glass(
-        padding: const EdgeInsets.all(24),
-        child: Column(
+  void _showWeatherDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Voy.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
           children: [
-            Icon(Icons.map_outlined, color: Voy.sub.withValues(alpha: 0.7), size: 44),
-            const SizedBox(height: 12),
-            const Text('No trips yet', style: TextStyle(color: Voy.ink, fontSize: 15, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 4),
-            const Text('Plan your first road trip — it’ll show up here.', textAlign: TextAlign.center, style: TextStyle(color: Voy.sub, fontSize: 13)),
-            const SizedBox(height: 14),
-            ElevatedButton.icon(onPressed: _planTrip, icon: const Icon(Icons.add_rounded, size: 20), label: const Text('Plan a trip')),
+            Icon(Icons.wb_sunny_rounded, color: Voy.pink),
+            SizedBox(width: 10),
+            Text('Live Route Weather', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
           ],
         ),
-      );
-    }
-    final show = _trips.take(4).toList();
-    return Column(children: [for (int i = 0; i < show.length; i++) _tripCard(show[i], i)]);
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Route Conditions:', style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 8),
+            Text('• Favorable visibility for highway driving.\n• Precipitation warnings will automatically alert during active navigation.'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
   }
 
-  Widget _tripCard(dynamic trip, int i) {
+  void _showEmergencyDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Voy.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.emergency_rounded, color: Colors.redAccent),
+            SizedBox(width: 10),
+            Text('Nearby Emergency Services', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Highway Helpline & Assistance:', style: TextStyle(fontWeight: FontWeight.w700)),
+            SizedBox(height: 8),
+            Text('• NHAI National Highway Helpline: 1033\n• Emergency Police & Medical: 112\n• Ambulance Service: 108\n• 24/7 Roadside Assistance: Available in driving mode.'),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Widget _tripCard(dynamic trip) {
     final name = (trip['name'] ?? 'Trip').toString();
     final parts = name.split(' to ');
     final start = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts.first : 'Start')).toString();
     final end = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? (parts.length > 1 ? parts.last : 'End')).toString();
     final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
-    final isBike = vehicleType == 'motorcycle';
-    final hasItinerary = (trip['itinerary'] is List) || (trip['end_point'] is Map && trip['end_point']['itinerary'] is List);
+    final isBike = vehicleType == 'motorcycle' || vehicleType == 'bike';
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: _Pressable(
         onTap: () => _openTrip(trip),
         child: _glass(
-          radius: 18,
+          radius: 16,
           padding: const EdgeInsets.all(14),
           child: Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   gradient: Voy.gradient,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: Voy.brand.withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 5))],
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Voy.brand.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 4))],
                 ),
-                child: Icon(isBike ? Icons.two_wheeler_rounded : Icons.directions_car_rounded, color: Colors.white, size: 24),
+                child: Icon(isBike ? Icons.two_wheeler_rounded : Icons.directions_car_rounded, color: Colors.white, size: 22),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Flexible(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 15, fontWeight: FontWeight.w700))),
-                        if (hasItinerary) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-                            decoration: BoxDecoration(color: Voy.violet.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(999)),
-                            child: const Text('Itinerary', style: TextStyle(color: Voy.violet, fontSize: 9.5, fontWeight: FontWeight.w700)),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 5),
-                    Row(
-                      children: [
-                        const Icon(Icons.trip_origin_rounded, color: Voy.brand, size: 12),
-                        const SizedBox(width: 5),
-                        Expanded(child: Text('$start → $end', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12.5))),
-                      ],
-                    ),
+                    Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.ink, fontSize: 14.5, fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    Text('$start → $end', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12)),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: Voy.sub, size: 22),
+              const Icon(Icons.chevron_right_rounded, color: Voy.sub, size: 20),
             ],
           ),
         ),
@@ -1017,8 +980,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Rebuilds a [Vehicle] from the spec persisted with a saved trip, falling
-  /// back to type-based defaults for trips saved before specs were stored.
   Vehicle _vehicleFromSaved(dynamic saved, String vehicleType) {
     if (saved is Map) {
       final eff = (saved['efficiencyKmPerLiter'] as num?)?.toDouble();
@@ -1033,8 +994,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     }
-    final eff = vehicleType == 'motorcycle' ? 40.0 : 18.0;
-    final tank = vehicleType == 'motorcycle' ? 13.0 : 45.0;
+    final eff = (vehicleType == 'motorcycle' || vehicleType == 'bike') ? 35.0 : 15.0;
+    final tank = (vehicleType == 'motorcycle' || vehicleType == 'bike') ? 13.0 : 45.0;
     return Vehicle(
       type: vehicleType,
       efficiencyKmPerLiter: eff,
@@ -1080,8 +1041,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           .toList();
 
       final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
-      // Prefer the exact vehicle spec saved with the trip; fall back to a
-      // type-based guess only for older trips saved before specs were persisted.
       final savedVehicle = trip['end_point'] is Map ? trip['end_point']['vehicle'] : null;
       final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
 
@@ -1089,14 +1048,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       if (!mounted) return;
       setState(() => _opening = false);
 
-      // Restore saved start date/time + AI itinerary (stored inside end_point,
-      // with a fallback to dedicated columns if the DB has them).
-      final endMeta = trip['end_point'];
-      DateTime? savedStart;
       final ts = trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
+      DateTime? savedStart;
       if (ts is String) savedStart = DateTime.tryParse(ts);
       List<Map<String, dynamic>>? savedItinerary;
-      final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
       if (it is List) {
         savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
       }
@@ -1124,7 +1079,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 }
 
-/// Spring-scale press feedback used across the cards.
 class _Pressable extends StatefulWidget {
   final Widget child;
   final VoidCallback onTap;

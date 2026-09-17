@@ -189,10 +189,15 @@ async function calculateTripRoute({
   const durationSeconds = Math.max(0, Math.round(Number(routeResult.durationSeconds) || 0));
   const durationMin = Math.max(1, Math.round(durationSeconds / 60));
 
-  // Toll estimation
+  // Toll estimation with round-trip discount support
   let toll = null;
+  const isRoundTrip = tripType === "around" || tripType === "round" || tripType === "roundtrip";
   try {
-    toll = await getTollEstimate(routeStart, routeEnd, vehicleType, routeResult.coordinates);
+    toll = await getTollEstimate(routeStart, routeEnd, vehicleType, routeResult.coordinates, {
+      isRoundTrip,
+      tripType,
+      durationDays: Number(durationDays) || 1,
+    });
   } catch (err) {
     console.warn("[ROUTE CALCULATION] Toll estimate failed, using rate fallback:", err.message);
   }

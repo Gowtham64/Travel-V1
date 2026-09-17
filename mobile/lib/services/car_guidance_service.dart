@@ -415,12 +415,29 @@ class CarGuidanceService {
 
   dynamic _cachedVoice;
   bool _voiceListenerAttached = false;
+  bool isVoiceAvailable = true;
+  Function(String error)? onVoiceError;
 
   void primeVoices() {
     if (!kIsWeb) return;
     try {
       final dynamic synth = html.window.speechSynthesis;
-      if (synth == null) return;
+      if (synth == null) {
+        isVoiceAvailable = false;
+        onVoiceError?.call('Voice guidance unavailable on this browser. Visual navigation remains active.');
+        return;
+      }
+      // Synchronous user-gesture unlock for iOS / Safari:
+      // An empty utterance queued synchronously during click initializes audio context
+      try {
+        final unlock = html.SpeechSynthesisUtterance(' ');
+        unlock.volume = 0.01;
+        unlock.rate = 10.0; // finish instantaneously
+        synth.speak(unlock);
+      } catch (e) {
+        debugPrint('Voice prime unlock note: $e');
+      }
+
       _cachedVoice ??= _pickSoftVoice(synth);
       if (_cachedVoice == null && !_voiceListenerAttached) {
         _voiceListenerAttached = true;
@@ -430,7 +447,10 @@ class CarGuidanceService {
           });
         } catch (_) {}
       }
-    } catch (_) {}
+    } catch (e) {
+      isVoiceAvailable = false;
+      onVoiceError?.call('Voice guidance unavailable. Visual navigation remains active.');
+    }
   }
 
   void _speak(String text) {
@@ -445,10 +465,17 @@ class CarGuidanceService {
           utterance.volume = 0.95;
           _cachedVoice ??= _pickSoftVoice(synth);
           if (_cachedVoice != null) utterance.voice = _cachedVoice;
+          try {
+            (utterance as dynamic).addEventListener('error', (event) {
+              onVoiceError?.call('Voice guidance unavailable. Visual navigation remains active.');
+            });
+          } catch (_) {}
           synth.speak(utterance);
         }
       }
-    } catch (_) {}
+    } catch (e) {
+      onVoiceError?.call('Voice guidance unavailable. Visual navigation remains active.');
+    }
   }
 
   dynamic _pickSoftVoice(dynamic synth) {
