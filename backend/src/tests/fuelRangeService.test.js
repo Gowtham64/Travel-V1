@@ -134,4 +134,37 @@ describe('FuelRangeService Smart Refuelling Tests', () => {
     // 14 - (60 / 15) = 10 L
     expect(remaining).toBe(10);
   });
+
+  test('TEST 7: EV Workflow - Battery capacity, charging duration, connector, and kWh units', () => {
+    const routeCoordinates = [];
+    for (let i = 0; i <= 250; i += 1) {
+      routeCoordinates.push({ lat: 12.9716 + (i * 0.009), lng: 77.5946 + (i * 0.009) });
+    }
+
+    const result = FuelRangeService.planSmartRefuelStops({
+      routeCoordinates,
+      vehicle: {
+        fuelType: 'ev',
+        batteryCapacityKwh: 45.0,
+        currentChargePercent: 30, // low battery (13.5 kWh)
+        efficiencyKmPerKwh: 6.5,
+        chargingConnector: 'CCS2',
+        chargingSpeedKw: 50.0,
+      },
+    });
+
+    expect(result.isEV).toBe(true);
+    expect(result.unit).toBe('kWh');
+    expect(result.needsRefuel).toBe(true);
+    expect(result.refuelStops.length).toBeGreaterThanOrEqual(1);
+
+    const firstStop = result.refuelStops[0];
+    expect(firstStop.isEV).toBe(true);
+    expect(firstStop.unit).toBe('kWh');
+    expect(firstStop.chargingConnector).toBe('CCS2');
+    expect(firstStop.chargingDurationMin).toBeGreaterThanOrEqual(20);
+    expect(firstStop.batteryPercentageOnArrival).toBeLessThanOrEqual(30);
+    expect(firstStop.batteryPercentageAfterCharging).toBe(100);
+    expect(firstStop.estimatedCost).toBeGreaterThan(0);
+  });
 });

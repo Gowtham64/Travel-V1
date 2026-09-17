@@ -115,12 +115,32 @@ class FuelRangeService {
       tankCapacityLiters = 45.0,
       efficiencyKmPerLiter = 15.0,
       fuelType = 'petrol',
+      batteryCapacityKwh,
+      currentChargePercent,
+      efficiencyKmPerKwh,
+      chargingConnector = 'CCS2',
+      chargingSpeedKw = 50.0,
     } = vehicle;
 
-    const eff = efficiencyKmPerLiter > 0 ? efficiencyKmPerLiter : 15.0;
-    const tankCap = tankCapacityLiters > 0 ? tankCapacityLiters : 45.0;
-    const currFuel = Math.min(tankCap, Math.max(0, currentFuelLiters != null ? currentFuelLiters : tankCap));
     const normFuel = (fuelType || 'petrol').toLowerCase().trim();
+    const isEV = normFuel === 'ev';
+
+    // Authoritative parameter normalization for ICE vs EV
+    const eff = isEV
+      ? (efficiencyKmPerKwh || (vehicle.evRangeKm && batteryCapacityKwh ? vehicle.evRangeKm / batteryCapacityKwh : efficiencyKmPerLiter) || 6.5)
+      : (efficiencyKmPerLiter > 0 ? efficiencyKmPerLiter : 15.0);
+
+    const tankCap = isEV
+      ? (batteryCapacityKwh || tankCapacityLiters || 45.0)
+      : (tankCapacityLiters > 0 ? tankCapacityLiters : 45.0);
+
+    let currFuel = currentFuelLiters;
+    if (isEV && currentChargePercent != null) {
+      currFuel = (Math.max(0, Math.min(100, currentChargePercent)) / 100.0) * tankCap;
+    } else if (currFuel == null) {
+      currFuel = isEV ? tankCap * 0.85 : tankCap;
+    }
+    currFuel = Math.min(tankCap, Math.max(0, currFuel));
 
     const annotated = annotateCumulativeDistance(routeCoordinates);
     const haversineDistKm = Math.round(annotated[annotated.length - 1].cumulativeKm * 10) / 10;
@@ -143,16 +163,18 @@ class FuelRangeService {
         refuelStops: [],
         totalRefuelCost: 0,
         totalRefillLiters: 0,
+        isEV,
+        unit: isEV ? 'kWh' : 'L',
       };
     }
 
-    // 2. Project and sort candidate fuel stations along the route
+    // 2. Project and sort candidate fuel / charging stations along the route
     const projectedStations = (stations || [])
       .map((s) => {
         const snap = nearestRouteDistanceKm(annotated, s);
         return {
           id: s.id ?? null,
-          name: s.name || s.brand || 'Fuel Station',
+          name: s.name || s.brand || (isEV ? 'Tata Power EZ Charge / Zeon EV Fast Station' : 'Fuel Station'),
           lat: s.lat,
           lng: s.lng,
           distanceFromStartKm: Math.round(snap.distanceFromStartKm * 10) / 10,
@@ -162,7 +184,7 @@ class FuelRangeService {
       .filter((s) => s.distanceFromStartKm >= 0.5 && s.distanceFromStartKm <= totalDistanceKm + 1.0)
       .sort((a, b) => a.distanceFromStartKm - b.distanceFromStartKm);
 
-    // 3. Iterative Multi-Stop Safe Refuel Planning
+    // 3. Iterative Multi-Stop Safe Refuel/Charging Planning
     const refuelStops = [];
     let lastStopKm = 0;
     let currentRangeRemainingKm = startTheoreticalRange;
@@ -187,7 +209,7 @@ class FuelRangeService {
       const safeHorizonKm = lastStopKm + this.calculateSafeRange(currentRangeRemainingKm, options);
       const theoreticalHorizonKm = lastStopKm + currentRangeRemainingKm;
 
-      // Filter candidate stations strictly BEFORE the safe fuel limit
+      // Filter candidate stations strictly BEFORE the safe fuel/battery limit
       const reachableCandidates = projectedStations.filter(
         (s) => s.distanceFromStartKm > lastStopKm + 1.0 && s.distanceFromStartKm <= safeHorizonKm
       );
@@ -195,17 +217,13 @@ class FuelRangeService {
       let chosenStation = null;
 
       if (reachableCandidates.length > 0) {
-        // Rank reachable candidates: prioritize stations with minimal detour and closest to the safe limit
-        // (greedy search to maximize driving interval without risking empty tank)
         reachableCandidates.sort((a, b) => {
-          // Weight: distance from start (higher is farther down the road) vs detour penalty
           const scoreA = a.distanceFromStartKm - a.offRouteKm * 2.0;
           const scoreB = b.distanceFromStartKm - b.offRouteKm * 2.0;
           return scoreB - scoreA;
         });
         chosenStation = reachableCandidates[0];
       } else {
-        // Fallback: Check if there is any station before theoretical limit but past safe reserve
         const riskyCandidates = projectedStations.filter(
           (s) => s.distanceFromStartKm > lastStopKm + 1.0 && s.distanceFromStartKm <= theoreticalHorizonKm
         );
@@ -218,7 +236,7 @@ class FuelRangeService {
             const synthPoint = annotated.find((p) => p.cumulativeKm >= synthKm) || annotated[annotated.length - 1];
             chosenStation = {
               id: `synth_${Math.round(synthKm)}`,
-              name: 'Reachable Fuel Station',
+              name: isEV ? 'EV Fast Charging Station (50kW CCS2)' : 'Reachable Fuel Station',
               lat: synthPoint.lat,
               lng: synthPoint.lng,
               distanceFromStartKm: Math.round(synthKm * 10) / 10,
@@ -226,18 +244,20 @@ class FuelRangeService {
             };
           } else {
             unreachable = true;
-            unreachableReason = `No suitable fuel station found before safe limit (${Math.round(safeHorizonKm)} km). Fuel level is critically low.`;
+            unreachableReason = isEV
+              ? `No reachable EV charging station found before safe reserve limit (${Math.round(safeHorizonKm)} km). Battery level is critically low.`
+              : `No suitable fuel station found before safe limit (${Math.round(safeHorizonKm)} km). Fuel level is critically low.`;
             break;
           }
         }
       }
 
-      // Calculate fuel consumed to reach chosen station
+      // Calculate energy/fuel consumed to reach chosen station
       const legDistanceKm = chosenStation.distanceFromStartKm - lastStopKm + (chosenStation.offRouteKm || 0);
       const fuelConsumedLiters = legDistanceKm / eff;
       const fuelOnArrivalLiters = Math.max(0, Math.round(((currentRangeRemainingKm - legDistanceKm) / eff) * 10) / 10);
 
-      // Top up to full tank capacity
+      // Top up to full capacity
       const refillLiters = Math.round((tankCap - fuelOnArrivalLiters) * 10) / 10;
 
       // Sourced location pricing for station
@@ -245,8 +265,15 @@ class FuelRangeService {
         latitude: chosenStation.lat,
         longitude: chosenStation.lng,
       });
-      const pricePerUnit = locPricing.prices[normFuel] || locPricing.prices.petrol || 102.86;
+      const pricePerUnit = isEV
+        ? (locPricing.prices.ev || 18.0)
+        : (locPricing.prices[normFuel] || locPricing.prices.petrol || 102.86);
       const estimatedCost = Math.round(refillLiters * pricePerUnit);
+
+      // Charging duration calculation
+      const chargingDurationMin = isEV
+        ? Math.max(20, Math.min(75, Math.round((refillLiters / (chargingSpeedKw || 50.0)) * 60)))
+        : 10;
 
       // Determine which user stop leg this belongs to
       let legIndex = 0;
@@ -258,8 +285,8 @@ class FuelRangeService {
 
       const stopRecord = {
         id: chosenStation.id ? `fuel_${chosenStation.id}` : `fuel_${chosenStation.lat}_${chosenStation.lng}`,
-        type: 'fuel_stop',
-        name: chosenStation.name || 'Fuel Station',
+        type: isEV ? 'charging_stop' : 'fuel_stop',
+        name: chosenStation.name || (isEV ? 'EV Fast Charging Station' : 'Fuel Station'),
         stationId: chosenStation.id,
         lat: chosenStation.lat,
         lng: chosenStation.lng,
@@ -274,6 +301,12 @@ class FuelRangeService {
         currency: locPricing.currency || 'INR',
         currencySymbol: locPricing.currencySymbol || '₹',
         fuelType: normFuel,
+        unit: isEV ? 'kWh' : 'L',
+        isEV,
+        chargingDurationMin,
+        chargingConnector: isEV ? chargingConnector : null,
+        batteryPercentageOnArrival: isEV ? Math.min(100, Math.round((fuelOnArrivalLiters / tankCap) * 100)) : null,
+        batteryPercentageAfterCharging: isEV ? 100 : null,
         remainingRangeAfterRefuelKm: fullTheoreticalRange,
         distanceFromRoute: chosenStation.offRouteKm || 0.0,
         offRouteKm: chosenStation.offRouteKm || 0.0,
@@ -286,7 +319,7 @@ class FuelRangeService {
       totalRefillLiters += refillLiters;
 
       lastStopKm = chosenStation.distanceFromStartKm;
-      currentRangeRemainingKm = fullTheoreticalRange; // Tank is now full
+      currentRangeRemainingKm = fullTheoreticalRange; // Tank / Battery is now full
     }
 
     return {
@@ -298,6 +331,8 @@ class FuelRangeService {
       refuelStops,
       totalRefuelCost: Math.round(totalRefuelCost),
       totalRefillLiters: Math.round(totalRefillLiters * 10) / 10,
+      isEV,
+      unit: isEV ? 'kWh' : 'L',
     };
   }
 }

@@ -32,6 +32,7 @@ import '../models/trip_expense_models.dart';
 import '../services/trip_expense_service.dart';
 import '../widgets/trip_expense_dialogs.dart';
 import '../utils/polyline_simplifier.dart';
+import '../services/offline_route_service.dart';
 
 enum NavCameraMode {
   follow,
@@ -3775,6 +3776,42 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Save trip to history store
     _recordTripToHistory();
+
+    // Cache active navigation package for offline resilience
+    OfflineRouteService.instance.cacheActiveNavigation(
+      tripId: TripExpenseService.instance.currentTripId.isNotEmpty 
+          ? TripExpenseService.instance.currentTripId 
+          : 'trip_${widget.start.lat}_${widget.end.lat}_${DateTime.now().millisecondsSinceEpoch}',
+      startAddress: widget.startAddress,
+      endAddress: widget.endAddress,
+      startCoord: LatLng(widget.start.lat, widget.start.lng),
+      endCoord: LatLng(widget.end.lat, widget.end.lng),
+      routeCoordinates: _currentPlan.coordinates.map((c) => LatLng(c.lat, c.lng)).toList(),
+      waypoints: _currentWaypoints.map((w) => {'name': w.name ?? 'Waypoint', 'lat': w.lat, 'lng': w.lng}).toList(),
+      maneuvers: const [],
+      fuelStops: _currentPlan.fuel.refuelStops.map((f) => {
+        'name': f.name,
+        'lat': f.lat,
+        'lng': f.lng,
+        'fuelOnArrival': f.fuelOnArrivalLiters,
+        'refillLiters': f.refillLiters,
+        'cost': f.estimatedCost,
+      }).toList(),
+      tollPlazas: (_currentPlan.toll?.tolls ?? []).map((t) => {
+        'name': t.name,
+        'amount': t.amount,
+        'highway': t.highway,
+      }).toList(),
+      vehicle: {
+        'name': widget.modelSubtype ?? widget.vehicle.type,
+        'type': widget.vehicle.type,
+        'fuelType': widget.vehicle.fuelType,
+        'mileage': widget.vehicle.efficiencyKmPerLiter,
+        'tankCapacity': widget.vehicle.tankCapacityLiters,
+      },
+      totalDistanceKm: _currentPlan.distanceKm,
+      totalDurationMin: _currentPlan.durationMin,
+    );
   }
 
   void _recordTripToHistory({bool completed = false}) {

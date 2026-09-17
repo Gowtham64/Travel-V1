@@ -72,6 +72,7 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
 
   // ── Step 4: Vehicle ─────────────────────────────────────────────────────
   String _transportMode = 'car'; // 'car', 'bike', 'ev', 'other'
+  String _evConnectorType = 'CCS2'; // 'CCS2', 'Type 2', 'GB/T'
   VehicleModel? _selectedVehicle;
   final TextEditingController _vehicleNameCtrl = TextEditingController(text: 'Compact Sedan');
   final TextEditingController _fuelTypeCtrl = TextEditingController(text: 'petrol');
@@ -228,13 +229,27 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
   void _openVehicleSearch() async {
     final vehicle = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
     if (vehicle != null) {
+      final isEv = vehicle.fuelType.toLowerCase() == 'ev' || vehicle.batteryCapacityKwh != null;
       setState(() {
         _selectedVehicle = vehicle;
         _vehicleNameCtrl.text = vehicle.name;
-        _fuelTypeCtrl.text = vehicle.fuelType.isEmpty ? 'petrol' : vehicle.fuelType;
-        _tankCapacityCtrl.text = vehicle.tankCapacity.toStringAsFixed(1);
-        _mileageCtrl.text = vehicle.mileage.toStringAsFixed(1);
-        _transportMode = vehicle.type.contains('bike') || vehicle.type.contains('motor') ? 'bike' : (vehicle.fuelType == 'ev' ? 'ev' : 'car');
+        _fuelTypeCtrl.text = vehicle.fuelType.isEmpty ? (isEv ? 'ev' : 'petrol') : vehicle.fuelType;
+        if (isEv) {
+          _transportMode = 'ev';
+          final batt = vehicle.batteryCapacityKwh ?? (vehicle.tankCapacity > 0 ? vehicle.tankCapacity : 45.0);
+          _tankCapacityCtrl.text = batt.toStringAsFixed(1);
+          final eff = (vehicle.evRangeKm != null && vehicle.batteryCapacityKwh != null && vehicle.batteryCapacityKwh! > 0)
+              ? (vehicle.evRangeKm! / vehicle.batteryCapacityKwh!)
+              : (vehicle.mileage > 0 ? vehicle.mileage : 6.8);
+          _mileageCtrl.text = eff.toStringAsFixed(1);
+          _currentFuelCtrl.text = '85'; // 85% charge default
+          _fuelPriceCtrl.text = '18'; // ₹18/kWh
+        } else {
+          _transportMode = vehicle.type.contains('bike') || vehicle.type.contains('motor') ? 'bike' : 'car';
+          _tankCapacityCtrl.text = vehicle.tankCapacity.toStringAsFixed(1);
+          _mileageCtrl.text = vehicle.mileage.toStringAsFixed(1);
+          _fuelPriceCtrl.text = vehicle.fuelType == 'diesel' ? '92' : '102';
+        }
       });
       _persistActiveVehicle(vehicle);
     }
@@ -389,7 +404,7 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
         efficiencyKmPerLiter: mileage,
         tankCapacityLiters: tank,
         currentFuelLiters: currentFuel,
-        fuelType: _fuelTypeCtrl.text.trim(),
+        fuelType: _transportMode == 'ev' ? 'ev' : _fuelTypeCtrl.text.trim(),
       );
 
       final totalKm = res.route?.distanceKm ?? res.totalDistanceKm ?? 150.0;
@@ -1080,49 +1095,138 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _mileageCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: _inputDecoration('Mileage (km/L)', Icons.speed_rounded),
-                      style: const TextStyle(color: Voy.ink, fontSize: 14),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _tankCapacityCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: _inputDecoration('Tank Capacity (L)', Icons.local_gas_station_rounded),
-                      style: const TextStyle(color: Voy.ink, fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _currentFuelCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: _inputDecoration('Current Fuel (L)', Icons.ev_station_rounded),
-                      style: const TextStyle(color: Voy.ink, fontSize: 14),
+              if (_transportMode == 'ev') ...[
+                // EV-specific Parameters
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _mileageCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Efficiency (km/kWh)', Icons.bolt_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _fuelPriceCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: _inputDecoration('Fuel Price (₹/L)', Icons.currency_rupee_rounded),
-                      style: const TextStyle(color: Voy.ink, fontSize: 14),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _tankCapacityCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Battery Capacity (kWh)', Icons.battery_charging_full_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _currentFuelCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Current Charge (%)', Icons.battery_5_bar_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _fuelPriceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Tariff (₹/kWh)', Icons.currency_rupee_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                const Text('Charging Connector Type', style: TextStyle(color: Voy.sub, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Row(
+                  children: ['CCS2', 'Type 2', 'GB/T'].map((c) {
+                    final isSelected = _evConnectorType == c;
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: ChoiceChip(
+                          label: Center(child: Text(c, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600))),
+                          selected: isSelected,
+                          selectedColor: Voy.brand.withValues(alpha: 0.2),
+                          onSelected: (_) => setState(() => _evConnectorType = c),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Voy.brand.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Voy.brand.withValues(alpha: 0.25)),
                   ),
-                ],
-              ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.electric_bolt_rounded, color: Voy.brand, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Estimated Safe Range: ${(((double.tryParse(_tankCapacityCtrl.text) ?? 45.0) * ((double.tryParse(_currentFuelCtrl.text) ?? 85.0) / 100.0) * (double.tryParse(_mileageCtrl.text) ?? 6.8)) * 0.85).toStringAsFixed(0)} km (15% reserve buffer)',
+                          style: const TextStyle(color: Voy.ink, fontSize: 12.5, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // ICE / Hybrid Parameters
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _mileageCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Mileage (km/L)', Icons.speed_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _tankCapacityCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Tank Capacity (L)', Icons.local_gas_station_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _currentFuelCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Current Fuel (L)', Icons.ev_station_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextField(
+                        controller: _fuelPriceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: _inputDecoration('Fuel Price (₹/L)', Icons.currency_rupee_rounded),
+                        style: const TextStyle(color: Voy.ink, fontSize: 14),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 14),
               const Text('Luggage / Passenger Load', style: TextStyle(color: Voy.sub, fontSize: 12.5, fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
@@ -1214,7 +1318,12 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
               const Divider(color: Voy.hairline),
               _reviewRow('Duration', '$_days Days (${_startDate.day}/${_startDate.month} starting ${_startTime.format(context)})'),
               const Divider(color: Voy.hairline),
-              _reviewRow('Vehicle', '${_vehicleNameCtrl.text} (${_transportMode.toUpperCase()}) • ${_mileageCtrl.text} km/L'),
+              _reviewRow(
+                'Vehicle',
+                _transportMode == 'ev'
+                    ? '${_vehicleNameCtrl.text} (EV) • ${_tankCapacityCtrl.text} kWh • ${_mileageCtrl.text} km/kWh • $_evConnectorType'
+                    : '${_vehicleNameCtrl.text} (${_transportMode.toUpperCase()}) • ${_mileageCtrl.text} km/L',
+              ),
               const Divider(color: Voy.hairline),
               _reviewRow('Preferences', _selectedStyles.join(', ')),
             ],
