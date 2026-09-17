@@ -10,6 +10,8 @@ const metrics = {
   statusCodes: { '2xx': 0, '3xx': 0, '4xx': 0, '5xx': 0 },
   latencies: [], // Rolling window of last 100 requests
   endpointHits: {},
+  endpointBytes: {},
+  totalResponseBytes: 0,
 };
 
 // Cap the endpoint-hit map so an attacker spraying random URLs (/aaa, /bbb, …)
@@ -23,6 +25,24 @@ function metricsMiddleware(req, res, next) {
   metrics.totalRequests++;
   metrics.activeRequests++;
   const startTime = Date.now();
+  let responseBytes = 0;
+
+  const byteLength = (chunk, encoding) => {
+    if (chunk == null || typeof chunk === "function") return 0;
+    if (Buffer.isBuffer(chunk)) return chunk.length;
+    if (typeof chunk === "string") return Buffer.byteLength(chunk, typeof encoding === "string" ? encoding : undefined);
+    return Number(chunk.byteLength) || 0;
+  };
+  const originalWrite = res.write;
+  const originalEnd = res.end;
+  res.write = function (chunk, encoding, callback) {
+    responseBytes += byteLength(chunk, encoding);
+    return originalWrite.call(this, chunk, encoding, callback);
+  };
+  res.end = function (chunk, encoding, callback) {
+    responseBytes += byteLength(chunk, encoding);
+    return originalEnd.call(this, chunk, encoding, callback);
+  };
 
   res.on("finish", () => {
     metrics.activeRequests--;
@@ -35,6 +55,12 @@ function metricsMiddleware(req, res, next) {
     if (key !== undefined) {
       if (metrics.endpointHits[key] !== undefined || Object.keys(metrics.endpointHits).length < MAX_TRACKED_ENDPOINTS) {
         metrics.endpointHits[key] = (metrics.endpointHits[key] || 0) + 1;
+        const contentLength = Number(res.getHeader("content-length"));
+        const bytes = responseBytes || (Number.isFinite(contentLength) && contentLength >= 0 ? contentLength : 0);
+        if (bytes > 0) {
+          metrics.endpointBytes[key] = (metrics.endpointBytes[key] || 0) + bytes;
+          metrics.totalResponseBytes += bytes;
+        }
       }
     }
     
@@ -149,7 +175,9 @@ async function collectSystemTelemetry() {
       statusCodes: metrics.statusCodes,
       avgLatencyMs: Number(avgLatency),
       p95LatencyMs: p95,
-      endpointHits: metrics.endpointHits
+      endpointHits: metrics.endpointHits,
+      endpointBytes: metrics.endpointBytes,
+      totalResponseBytes: metrics.totalResponseBytes
     },
     dependencies: externalDependencies
   };

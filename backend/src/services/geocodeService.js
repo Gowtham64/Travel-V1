@@ -88,7 +88,7 @@ async function geocodeWithNominatim(query) {
       headers: {
         // Nominatim requires a descriptive UA identifying the app.
         "User-Agent":
-          "TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/; contact: travel-app)",
+          "Voyplan/1.0 (https://voyplan.in/; contact: travel-app)",
       },
       timeout: 10000,
     }
@@ -237,7 +237,7 @@ async function suggestPlaces(query, limit = 6) {
         params: { q, format: "json", limit, addressdetails: 0 },
         headers: {
           "User-Agent":
-            "TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/; contact: travel-app)",
+            "Voyplan/1.0 (https://voyplan.in/; contact: travel-app)",
         },
         timeout: 8000,
       }

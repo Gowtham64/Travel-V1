@@ -424,7 +424,7 @@ router.get("/reverse-geocode", async (req, res) => {
       const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=18`;
       const response = await axios.get(url, {
         headers: {
-          "User-Agent": "TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/)",
+          "User-Agent": "Voyplan/1.0 (https://voyplan.in/)",
         },
         timeout: 5000,
       });
@@ -681,4 +681,3 @@ router.get("/share/:shareId", async (req, res) => {
 });
 
 module.exports = router;
-

@@ -5,6 +5,7 @@ const router = express.Router();
 
 // GET /api/prices — the current cached price table + when it was last refreshed.
 router.get("/", (_req, res) => {
+  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=600");
   const p = priceService.getRates();
   res.json({ ...p, stale: priceService.isStale() });
 });

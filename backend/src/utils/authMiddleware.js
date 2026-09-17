@@ -7,6 +7,9 @@ const supabaseKey = process.env.SUPABASE_ANON_KEY || "sb_publishable_sGmsHOvBlUi
  * Express middleware to verify Supabase JWT token from Authorization header.
  */
 async function requireAuth(req, res, next) {
+  // Authenticated responses may contain profile, trip, or saved-place data.
+  // Never let a browser or intermediary reuse them across sessions.
+  res.set("Cache-Control", "private, no-store");
   if (!supabaseUrl || !supabaseKey) {
     return res.status(503).json({ error: "Supabase not configured" });
   }

@@ -83,7 +83,7 @@ async function openaiCompatGenerate(prompt, opts, key) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${key}`,
       // OpenRouter likes these (optional but recommended).
-      "HTTP-Referer": "https://gowtham64.github.io/Travel-V1/",
+      "HTTP-Referer": "https://voyplan.in/",
       "X-Title": "Voyplan",
     },
     timeout: 60000,
@@ -1698,5 +1698,4 @@ module.exports = {
   getBestCuratedVenue,
   cleanCityName,
 };
-
 

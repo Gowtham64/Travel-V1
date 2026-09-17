@@ -3,6 +3,10 @@ const axios = require("axios");
 
 const router = express.Router();
 
+function setPublicCache(res, seconds) {
+  res.set("Cache-Control", `public, max-age=${seconds}, stale-while-revalidate=${seconds}`);
+}
+
 // Simple in-memory rate cache (per base) to avoid hammering the free API.
 const cache = new Map(); // base -> { at, rates }
 const TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -21,6 +25,7 @@ async function getRates(base) {
 
 // GET /api/currency/convert?from=USD&to=INR&amount=100
 router.get("/convert", async (req, res) => {
+  setPublicCache(res, 300);
   const from = String(req.query.from || "USD").toUpperCase();
   const to = String(req.query.to || "INR").toUpperCase();
   const amount = Number(req.query.amount);
@@ -44,6 +49,7 @@ router.get("/convert", async (req, res) => {
 
 // GET /api/currency/rates?base=INR — full rate table for a base currency.
 router.get("/rates", async (req, res) => {
+  setPublicCache(res, 3600);
   const base = String(req.query.base || "USD").toUpperCase();
   try {
     const rates = await getRates(base);
@@ -55,6 +61,7 @@ router.get("/rates", async (req, res) => {
 
 // GET /api/currency/list — supported currencies
 router.get("/list", (req, res) => {
+  setPublicCache(res, 86400);
   res.json({
     currencies: [
       { code: "INR", name: "Indian Rupee", symbol: "₹" },

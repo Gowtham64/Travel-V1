@@ -4,6 +4,7 @@
 require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
 const express = require("express");
 const cors = require("cors");
+const compression = require("compression");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const tripRouter = require("./routes/trip");
@@ -39,10 +40,14 @@ app.use(
   })
 );
 
+// Compress JSON/text responses at the API edge. Images and other already
+// compressed formats are skipped by the middleware automatically.
+app.use(compression({ threshold: 1024 }));
+
 // --- CORS restricted to the app's own origins (a browser-side firewall) ---
 const allowedOrigins = (
   process.env.ALLOWED_ORIGINS ||
-  "https://gowtham64.github.io,https://voyplan.in,https://www.voyplan.in,http://localhost:3000,http://localhost:8080,http://localhost:5000"
+  "https://voyplan.in,https://www.voyplan.in,http://localhost:3000,http://localhost:8080,http://localhost:5000"
 )
   .split(",")
   .map((s) => s.trim())
@@ -53,14 +58,9 @@ app.use(
     origin(origin, cb) {
       // Allow non-browser clients (mobile app, curl) which send no Origin.
       if (!origin) return cb(null, true);
-      let host = "";
-      try {
-        host = new URL(origin).hostname;
-      } catch (_) {
-        return cb(null, false);
-      }
-      // Any GitHub Pages site or an explicitly allow-listed origin.
-      if (host.endsWith(".github.io") || allowedOrigins.includes(origin)) return cb(null, true);
+      // Only explicitly configured browser origins are allowed. Native clients
+      // and server-to-server calls omit Origin and are handled above.
+      if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(null, false);
     },
   })

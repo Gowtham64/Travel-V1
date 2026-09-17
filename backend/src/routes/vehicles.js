@@ -108,6 +108,7 @@ router.get('/image', async (req, res) => {
 
 // 1. List all vehicle brands
 router.get('/brands', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   try {
     const brands = await vehicleDataProvider.getBrands();
     res.json({ success: true, brands });
@@ -118,6 +119,7 @@ router.get('/brands', async (req, res) => {
 
 // 2. List models for a brand
 router.get('/models', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   try {
     const { brandId } = req.query;
     if (!brandId) {
@@ -132,6 +134,7 @@ router.get('/models', async (req, res) => {
 
 // 3. List variants for a model
 router.get('/variants', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   try {
     const { modelId } = req.query;
     if (!modelId) {
@@ -146,6 +149,7 @@ router.get('/variants', async (req, res) => {
 
 // 4. Get complete vehicle details by ID
 router.get('/details', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
   try {
     const { id } = req.query;
     if (!id) {
@@ -163,6 +167,7 @@ router.get('/details', async (req, res) => {
 
 // 5. Search vehicles by query text, fuelType, and type (car/motorcycle)
 router.get('/search', async (req, res) => {
+  res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=1800');
   try {
     const { q, fuelType, type, limit } = req.query;
     const results = await vehicleDataProvider.searchVehicles(q || '', {
