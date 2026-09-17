@@ -17,10 +17,11 @@ flutter run
 
 ## Connecting to the backend
 
-`lib/services/api_service.dart` defaults to `http://localhost:3000`. Update this depending
-on where you're running things:
+`lib/config/app_config.dart` defaults to the production API alias
+`https://api.voyplan.in`. Override it with `--dart-define=BACKEND_URL=...` for local
+and staging runs:
 
-- **iOS simulator**: `http://localhost:3000` works as-is
+- **iOS simulator**: `http://localhost:3000`
 - **Android emulator**: use `http://10.0.2.2:3000` (the emulator's alias for your host machine)
 - **Physical device**: use your computer's LAN IP, e.g. `http://192.168.1.50:3000`, and make
   sure your phone is on the same network as the backend

@@ -58,9 +58,10 @@ class AppConfig {
     defaultValue: 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh',
   );
 
-  /// Hosted backend base URL. Defaults to the production Render service.
+  /// Hosted backend base URL. Production uses the stable API custom-domain
+  /// alias. Development and staging builds override this with --dart-define.
   static const String backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'https://travel-v1-mzia.onrender.com',
+    defaultValue: 'https://api.voyplan.in',
   );
 }

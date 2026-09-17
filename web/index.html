@@ -2052,7 +2052,7 @@
                         </div>
                         <div class="hero-actions word" style="animation-delay:.95s">
                             <a class="hero-btn primary"
-                                href="https://voyplan.in/app/?guest=true">Launch web app &rarr;</a>
+                                href="https://voyplan.in/?guest=true">Launch web app &rarr;</a>
 
                             <a class="hero-btn ghost"
                                 href="Voyplan.apk"
@@ -2160,7 +2160,7 @@
 
                             <div class="auth-msg" id="auth-msg"></div>
 
-                            <a class="auth-guest" href="https://voyplan.in/app/?guest=true">Continue as
+                            <a class="auth-guest" href="https://voyplan.in/?guest=true">Continue as
                                 guest &rarr;</a>
                         </div>
                     </div>
@@ -2464,7 +2464,7 @@
                     <h2>Your next road trip starts here.</h2>
                     <p>Sign in above, or jump straight in and explore.</p>
                     <div class="cta-actions">
-                        <a class="btn-cta" href="https://voyplan.in/app/?guest=true">Launch web app
+                        <a class="btn-cta" href="https://voyplan.in/?guest=true">Launch web app
                             &rarr;</a>
 
                         <a class="btn-cta ghost"
@@ -2795,7 +2795,7 @@
                 const timeoutId = setTimeout(() => controller.abort(), 6000);
 
                 try {
-                    const res = await fetch('https://travel-v1-mzia.onrender.com/api/ai/smart-itinerary', {
+                    const res = await fetch('https://api.voyplan.in/api/ai/smart-itinerary', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -3060,7 +3060,7 @@
         // ── Landing-page login card ──────────────────────────────────────────
         const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
-        const APP_URL = 'https://voyplan.in/app/';
+            const APP_URL = 'https://voyplan.in/';
 
         function initAuth() {
             if (!window.supabase) {

@@ -366,7 +366,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         'ea': widget.endAddress,
       };
       final encoded = base64Url.encode(utf8.encode(jsonEncode(payload)));
-      return 'https://gowtham64.github.io/Travel-V1/app/?trip=$encoded';
+      return 'https://voyplan.in/?trip=$encoded';
     } catch (_) {
       return null;
     }

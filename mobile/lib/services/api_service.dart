@@ -1066,7 +1066,7 @@ class ApiService {
         'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=json&limit=6',
       );
       final res = await http.get(osmUri, headers: {
-        'User-Agent': 'TravelV1/1.0 (https://gowtham64.github.io/Travel-V1/; contact: travel-app)',
+        'User-Agent': 'Voyplan/1.0 (https://voyplan.in/; contact: travel-app)',
       }).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List<dynamic>;

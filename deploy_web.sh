@@ -1,127 +1,25 @@
+#!/usr/bin/env bash
+set -euo pipefail
 
-#!/bin/bash
-set -e
+# Backward-compatible entry point for web releases. It now prepares the
+# Flutter build for Cloudflare Pages and never writes to gh-pages. Set
+# DEPLOY_CLOUDFLARE=1 to publish explicitly with Wrangler.
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-TIMESTAMP=$(date +%s)
-DEPLOY_DIR="gh-pages-deploy"
+"$ROOT_DIR/scripts/build_cloudflare_pages.sh"
 
-echo "=== Step 1: Cleaning up old deployment directory ==="
-rm -rf $DEPLOY_DIR
-mkdir $DEPLOY_DIR
-
-echo "=== Step 2: Building Flutter Web App into /app sub-directory ==="
-cd mobile
-# The Mapbox token is injected at build time (no longer committed in source).
-# Set it in your shell before deploying, e.g.:
-#   export MAPBOX_TOKEN=pk.your_url_restricted_token
-# Use a URL-restricted token from the Mapbox dashboard — client tokens are
-# always visible to end users, so restriction is the real protection.
-MAPBOX_TOKEN="${MAPBOX_TOKEN:-pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ}"
-flutter build web --base-href "/app/" --release \
-    --dart-define=MAPBOX_TOKEN="${MAPBOX_TOKEN}"
-cd .. # back to project root
-
-echo "=== Step 3: Preparing deployment directory ==="
-# Prevent GitHub Pages from processing with Jekyll (ensures all Flutter web files serve correctly)
-touch $DEPLOY_DIR/.nojekyll
-# Custom domain for GitHub Pages. This file MUST be re-created on every deploy —
-# the force-push replaces the whole gh-pages branch, so without it GitHub drops
-# the custom domain and the site reverts to gowtham64.github.io/Travel-V1.
-echo "voyplan.in" > $DEPLOY_DIR/CNAME
-# Landing site lives under web/ ; everything there is served at the site root.
-cp web/index.html $DEPLOY_DIR/
-for f in ios-install.html privacy.html terms.html favicon.ico favicon.png favicon.svg favicon-48x48.png favicon-96x96.png favicon-144x144.png favicon-192x192.png favicon-512x512.png apple-touch-icon.png preview.png manifest.json manifest.plist apps.json robots.txt sitemap.xml; do
-    [ -f "web/$f" ] && cp "web/$f" $DEPLOY_DIR/
-done
-echo "  ✓ Landing site (index + favicons + SEO + manifests) copied"
-
-# Mobile installation files are served at the site root.
-if [ -f "web/Voyplan.apk" ]; then
-    APK_SIZE=$(wc -c < "web/Voyplan.apk" | tr -d ' ')
-    if [ "$APK_SIZE" -lt 100000000 ]; then
-        cp web/Voyplan.apk $DEPLOY_DIR/Voyplan.apk
-        echo "  ✓ Android APK copied as Voyplan.apk"
-    else
-        echo "  ⚠️ Android APK exceeds GitHub 100MB limit ($APK_SIZE bytes), skipping direct commit to gh-pages"
-    fi
+if [[ "${DEPLOY_CLOUDFLARE:-0}" != "1" ]]; then
+  echo "Build complete. To deploy, set DEPLOY_CLOUDFLARE=1 and provide:"
+  echo "  CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_PROJECT_NAME"
+  exit 0
 fi
 
-# iOS .ipa is served at the site root (ios-install.html and apps.json link to it).
-if [ -f "mobile/build/ios/iphoneos/Voyplan.ipa" ]; then
-    cp mobile/build/ios/iphoneos/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
-    echo "  ✓ iOS IPA (fresh build) copied as Voyplan.ipa"
-elif [ -f "web/Voyplan.ipa" ]; then
-    cp web/Voyplan.ipa $DEPLOY_DIR/Voyplan.ipa
-    echo "  ✓ iOS IPA (web/Voyplan.ipa) copied as Voyplan.ipa"
+: "${CLOUDFLARE_API_TOKEN:?CLOUDFLARE_API_TOKEN is required for deployment}"
+: "${CLOUDFLARE_ACCOUNT_ID:?CLOUDFLARE_ACCOUNT_ID is required for deployment}"
+: "${CLOUDFLARE_PROJECT_NAME:?CLOUDFLARE_PROJECT_NAME is required for deployment}"
+
+if command -v wrangler >/dev/null 2>&1; then
+  wrangler pages deploy "$ROOT_DIR/mobile/build/web" --project-name "$CLOUDFLARE_PROJECT_NAME"
+else
+  npx --yes wrangler pages deploy "$ROOT_DIR/mobile/build/web" --project-name "$CLOUDFLARE_PROJECT_NAME"
 fi
-
-# GSAP-powered trip demo page + its vendored libs (served at site root).
-if [ -d "web/webdemo" ]; then
-    cp web/webdemo/demo.html web/webdemo/promo.html web/webdemo/gsap.min.js web/webdemo/leaflet.js web/webdemo/leaflet.css $DEPLOY_DIR/
-fi
-
-# Create the /app subdirectory and move the flutter build into it
-mkdir $DEPLOY_DIR/app
-mv mobile/build/web/* $DEPLOY_DIR/app/
-
-echo "=== Step 4: Cache-busting JS references ==="
-cd $DEPLOY_DIR/app
-
-# Add timestamp query parameter to flutter_bootstrap.js in index.html
-sed -i '' "s/flutter_bootstrap.js/flutter_bootstrap.js?v=${TIMESTAMP}/" index.html
-
-# Rename main.dart.js to include timestamp, update the reference in flutter_bootstrap.js
-mv main.dart.js "main.dart.${TIMESTAMP}.js"
-sed -i '' "s/main.dart.js/main.dart.${TIMESTAMP}.js/" flutter_bootstrap.js
-
-# Replace Flutter's generated service worker with a self-destroying "kill
-# switch" that ALSO immediately claims all open clients and navigates them.
-# The NONCE (${TIMESTAMP}) changes on every deploy so the browser's SW
-# registration always detects a byte-change and triggers a new install.
-cat > flutter_service_worker.js << SW
-/* kill-switch-${TIMESTAMP} */
-self.addEventListener('install', function (e) {
-  self.skipWaiting();
-});
-self.addEventListener('activate', function (event) {
-  event.waitUntil((async function () {
-    try {
-      const keys = await caches.keys();
-      await Promise.all(keys.map(function (k) { return caches.delete(k); }));
-      await self.clients.claim();
-      const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-      clients.forEach(function (c) { c.navigate(c.url); });
-      await self.registration.unregister();
-    } catch (e) {}
-  })());
-});
-self.addEventListener('fetch', function () {});
-SW
-
-# Inject no-cache meta tags into index.html so the browser never caches
-# the entry point (the HTML doc that bootstraps the Flutter app).
-sed -i '' 's|<head>|<head><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"><meta http-equiv="Pragma" content="no-cache"><meta http-equiv="Expires" content="0">|' index.html
-
-# Stamp the build number into index.html so the on-map HUD can confirm the
-# browser loaded the latest (non-cached) index.html.
-sed -i '' "s/__BUILD__/${TIMESTAMP}/g" index.html
-
-cd ../.. # back to project root
-
-echo "=== Step 5: Preparing gh-pages Deployment ==="
-cd $DEPLOY_DIR
-
-# Initialize a temporary git repository in the build folder
-git init
-git checkout -b gh-pages
-git add .
-git commit -m "Deploy static landing page + web app (build ${TIMESTAMP})"
-
-# Add the remote and force push to gh-pages branch
-git remote add origin https://github.com/Gowtham64/Travel-V1.git
-git config http.postBuffer 524288000
-echo "=== Step 6: Pushing to GitHub Pages ==="
-git push -f origin gh-pages
-
-cd .. # back to project root
-echo "=== Deployment Successful! (build ${TIMESTAMP}) ==="

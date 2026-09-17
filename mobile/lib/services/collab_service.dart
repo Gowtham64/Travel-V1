@@ -42,7 +42,7 @@ class SharedTrip {
       );
 
   /// Deep link / shareable URL for this trip.
-  String get shareUrl => 'https://gowtham64.github.io/Travel-V1/app/?join=$shareCode';
+  String get shareUrl => 'https://voyplan.in/?join=$shareCode';
 }
 
 /// Create/join/update/subscribe to collaborative trips backed by the

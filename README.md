@@ -5,10 +5,9 @@ time-blocked itineraries, live routing, fuel/toll/flight/hotel budgets, vehicle
 selection, AI flight/train/hotel suggestions, an active "today" trip view, and a
 travel photo gallery. Runs on the web, Android, and iPhone.
 
-- **Web app:** https://gowtham64.github.io/Travel-V1/app/
-- **Landing page:** https://gowtham64.github.io/Travel-V1/
+- **Web app:** https://voyplan.in/
 - **Android:** [Download the APK](https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk)
-- **iPhone:** [install guide](https://gowtham64.github.io/Travel-V1/ios-install.html)
+- **iPhone:** [install guide](https://voyplan.in/ios-install.html)
 
 ## Repository layout
 
@@ -18,7 +17,8 @@ travel photo gallery. Runs on the web, Android, and iPhone.
 ├── mobile/        Flutter app (web + Android + iOS) — the client
 ├── web/           Landing site + install pages, PWA manifest, SideStore source, demo pages
 ├── docs/          Branding and design notes
-├── deploy_web.sh  Builds the Flutter web app + publishes the site to the gh-pages branch
+├── scripts/       Cloudflare Pages Flutter build helper
+├── deploy_web.sh  Builds the Flutter web app; optional explicit Cloudflare publish
 └── LICENSE        MIT
 ```
 
@@ -41,13 +41,13 @@ flutter run --dart-define=MAPBOX_TOKEN=pk.your_token
 
 ## Deploy
 
-- **Web + landing site** → GitHub Pages:
+- **Web app** → Cloudflare Pages:
   ```bash
   export MAPBOX_TOKEN=pk.your_url_restricted_token
   ./deploy_web.sh
   ```
-  Builds `mobile/` for web into `/app`, copies `web/` to the site root, and
-  force-pushes the `gh-pages` branch.
+  Builds `mobile/` with a root base href and stages `mobile/build/web`.
+  Set `DEPLOY_CLOUDFLARE=1` plus the Cloudflare variables to publish explicitly.
 - **Backend** → Render, auto-deploys on push to `main`.
 - **Android APK** → built with `flutter build apk --release` and published as
   `Voyplan.apk` at the website root.

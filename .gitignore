@@ -10,7 +10,7 @@ mobile/.flutter-plugins-dependencies
 mobile/ios/Pods/
 mobile/android/.gradle/
 
-# Web deploy build artifact (force-pushed to gh-pages by deploy_web.sh)
+# Local Cloudflare Pages build staging directory
 gh-pages-deploy/
 
 # OS / editor junk
@@ -35,4 +35,3 @@ live.js
 logs/
 *.log
 agents-office/
-

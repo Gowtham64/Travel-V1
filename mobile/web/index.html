@@ -1217,15 +1217,8 @@
   </script>
 
   <script>
-    // Register a lightweight, network-first service worker. It makes the app an
-    // installable PWA (users can "Install / Add to Home Screen" from the site)
-    // WITHOUT the stale-cache problem: it always fetches from the network first
-    // and only falls back to cache when offline.
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function () {
-        navigator.serviceWorker.register('pwa_sw.js').catch(function () {});
-      });
-    }
+    // Flutter's generated bootstrap registers flutter_service_worker.js.
+    // Keep one service-worker owner so updates and cache versions stay aligned.
   </script>
 </head>
 <body>

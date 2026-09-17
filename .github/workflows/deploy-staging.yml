@@ -22,9 +22,9 @@ jobs:
       - name: Check staging secrets are configured
         id: guard
         run: |
-          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.STAGING_SUPABASE_URL }}" ]; then
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_STAGING_PROJECT_NAME }}" ] || [ -z "${{ secrets.STAGING_SUPABASE_URL }}" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Staging secrets not set yet — skipping deploy. Add CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY, STAGING_BACKEND_URL, MAPBOX_TOKEN."
+            echo "::notice::Staging secrets not set yet — skipping deploy. Add CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID, CLOUDFLARE_STAGING_PROJECT_NAME, STAGING_SUPABASE_URL, STAGING_SUPABASE_ANON_KEY, STAGING_BACKEND_URL, MAPBOX_TOKEN."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
@@ -41,23 +41,19 @@ jobs:
         run: |
           flutter pub get
           flutter build web --release \
-            --base-href "/app/" \
+            --base-href "/" \
             --dart-define=APP_ENV=staging \
             --dart-define=SUPABASE_URL=${{ secrets.STAGING_SUPABASE_URL }} \
             --dart-define=SUPABASE_ANON_KEY=${{ secrets.STAGING_SUPABASE_ANON_KEY }} \
             --dart-define=BACKEND_URL=${{ secrets.STAGING_BACKEND_URL }} \
             --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
 
-      - name: Assemble site (landing + app) into ./public
+      - name: Add Cloudflare Pages headers and SPA fallback
         if: steps.guard.outputs.ready == 'true'
         run: |
-          rm -rf public && mkdir -p public
-          cp -R web/* public/ 2>/dev/null || true
-          rm -rf public/app && mkdir -p public/app
-          cp -R mobile/build/web/* public/app/
-          # Staging must never be indexed by search engines.
-          printf 'User-agent: *\nDisallow: /\n' > public/robots.txt
-          touch public/.nojekyll
+          cp cloudflare/_headers mobile/build/web/_headers
+          cp cloudflare/_redirects mobile/build/web/_redirects
+          printf 'User-agent: *\nDisallow: /\n' > mobile/build/web/robots.txt
 
       - name: Deploy to Cloudflare Pages
         if: steps.guard.outputs.ready == 'true'
@@ -65,4 +61,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy public --project-name=voyplan-staging --branch=develop
+          command: pages deploy mobile/build/web --project-name=${{ secrets.CLOUDFLARE_STAGING_PROJECT_NAME }} --branch=develop
