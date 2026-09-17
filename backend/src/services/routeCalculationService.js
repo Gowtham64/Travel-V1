@@ -234,15 +234,30 @@ async function calculateTripRoute({
     const estFuel = Math.round((distanceKm / efficiency) * fuelPrice);
     const estToll = toll?.fastagTollCost || Math.round(distanceKm * rates.tollPerKm);
     const estStay = Math.max(0, (durationDays - 1)) * rates.stayPerNight;
-    const estFood = durationDays * rates.foodPerDay * travellers;
+    const estActivities = 500 * durationDays * travellers;
+    const estParking = 100 * durationDays;
+    const estMisc = 300 * durationDays * travellers;
+    const estTotal = estFuel + estToll + estFood + estStay + estActivities + estParking + estMisc;
     budget = {
       fuel: estFuel,
       tolls: estToll,
       food: estFood,
       stay: estStay,
-      activities: 500,
-      total: estFuel + estToll + estFood + estStay + 500,
-      breakdown: { fuel: estFuel, tolls: estToll, food: estFood, stay: estStay, activities: 500 },
+      activities: estActivities,
+      parking: estParking,
+      miscellaneous: estMisc,
+      total: estTotal,
+      perPerson: Math.round(estTotal / travellers),
+      breakdown: {
+        fuel: estFuel,
+        tolls: estToll,
+        food: estFood,
+        stay: estStay,
+        activities: estActivities,
+        parking: estParking,
+        miscellaneous: estMisc,
+        other: estMisc,
+      },
     };
   }
 
@@ -291,8 +306,11 @@ async function calculateTripRoute({
       tolls: budget?.tolls ?? budget?.breakdown?.tolls ?? 0,
       food: budget?.food ?? budget?.breakdown?.food ?? 0,
       stay: budget?.stay ?? budget?.breakdown?.stay ?? 0,
-      activities: budget?.activities ?? budget?.breakdown?.activities ?? 500,
+      activities: budget?.breakdown?.activities ?? budget?.activities ?? 0,
+      parking: budget?.breakdown?.parking ?? budget?.parking ?? 0,
+      miscellaneous: budget?.breakdown?.miscellaneous ?? budget?.breakdown?.other ?? 0,
       total: budget?.total ?? 0,
+      costPerPerson: budget?.perPerson ?? (travellers > 0 ? Math.round((budget?.total ?? 0) / travellers) : (budget?.total ?? 0)),
       breakdown: budget?.breakdown || budget,
     },
     navigationRoute: {

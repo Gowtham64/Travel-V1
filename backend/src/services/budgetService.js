@@ -131,8 +131,10 @@ function estimateBudget({
 
   const stayCost = cfg.stayPerNight * nights;
   const otherCost = (international ? 800 : 300) * days * travellers;
+  const activitiesCost = Number(options.activitiesCost != null ? options.activitiesCost : (options.activities != null ? options.activities : 0)) || 0;
+  const parkingCost = Number(options.parkingCost != null ? options.parkingCost : (options.parking != null ? options.parking : 0)) || 0;
 
-  const total = fuelCost + tollCost + foodCost + otherCost + transportCost + localTransportCost + stayCost;
+  const total = fuelCost + tollCost + foodCost + otherCost + transportCost + localTransportCost + stayCost + activitiesCost + parkingCost;
 
   return {
     currency: international ? "USD" : "INR",
@@ -150,6 +152,9 @@ function estimateBudget({
       dinner: round(dinnerCost),
       food: round(foodCost),
       other: round(otherCost),
+      activities: round(activitiesCost),
+      parking: round(parkingCost),
+      miscellaneous: round(otherCost),
       transport: round(transportCost),
       localTransport: round(localTransportCost),
       stay: round(stayCost),
