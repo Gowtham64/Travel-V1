@@ -21,6 +21,11 @@ import '../widgets/vehicle_search_sheet.dart';
 import '../widgets/profile_menu.dart';
 import '../utils/landing_redirect.dart';
 import 'saved_trips_screen.dart';
+import 'saved_places_screen.dart';
+import '../widgets/trip_inspiration_modal.dart';
+import '../config/app_config.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'gallery_screen.dart';
 import 'atlas_screen.dart';
 import 'trek_discovery_screen.dart';
@@ -58,6 +63,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final _api = ApiService();
+  final MapController _routePreviewMapController = MapController();
+  bool _useSatelliteMap = false;
   List<dynamic> _trips = [];
   bool _loadingTrips = true;
   bool _opening = false;
@@ -273,6 +280,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+
+  void _openSavedPlaces() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPlacesScreen()));
+
+  void _openTripInspiration({String? destination}) => showTripInspirationModal(context, initialDestination: destination);
+
+  Future<void> _startNavigation(dynamic trip) async {
+    final endLat = (trip['end_point']?['lat'] as num?)?.toDouble();
+    final endLng = (trip['end_point']?['lng'] as num?)?.toDouble();
+    if (endLat != null && endLng != null) {
+      final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$endLat,$endLng&travelmode=driving');
+      try {
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          return;
+        }
+      } catch (_) {}
+    }
+    _openTrip(trip);
+  }
 
   void _openVehicles() => VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle).then((v) {
         if (v != null && mounted) {
@@ -733,7 +759,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               _desktopNavItem('Home', Icons.home_rounded, isActive: true, onTap: () {}),
               _desktopNavItem('Plan Trip', Icons.add_road_rounded, onTap: () => _planTrip()),
+              _desktopNavItem('Trip Inspiration', Icons.auto_awesome_rounded, onTap: () => _openTripInspiration()),
               _desktopNavItem('My Trips', Icons.bookmark_rounded, onTap: _openSaved),
+              _desktopNavItem('Saved Places', Icons.favorite_rounded, onTap: _openSavedPlaces),
               _desktopNavItem('Explore', Icons.explore_rounded, onTap: _openExplore),
               _desktopNavItem('Vehicles', Icons.directions_car_rounded, onTap: _openVehicles),
               _desktopNavItem('Tools', Icons.build_rounded, onTap: _showFuelStatusDialog),
@@ -1695,9 +1723,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       {'title': 'Plan Trip', 'desc': 'Create your journey', 'icon': Icons.add_road_rounded, 'color': const Color(0xFF06B6D4), 'onTap': () => _planTrip()},
       {'title': 'My Trips', 'desc': 'View & manage', 'icon': Icons.bookmark_rounded, 'color': const Color(0xFF8B5CF6), 'onTap': _openSaved},
       {'title': 'Vehicles', 'desc': 'Manage vehicles', 'icon': Icons.directions_car_rounded, 'color': const Color(0xFFF59E0B), 'onTap': _openVehicles},
-      {'title': 'Saved Places', 'desc': 'Your favorites', 'icon': Icons.favorite_rounded, 'color': const Color(0xFFEC4899), 'onTap': _openSaved},
+      {'title': 'Saved Places', 'desc': 'Your favorites', 'icon': Icons.favorite_rounded, 'color': const Color(0xFFEC4899), 'onTap': _openSavedPlaces},
       {'title': 'Explore', 'desc': 'Discover places', 'icon': Icons.explore_rounded, 'color': const Color(0xFF10B981), 'onTap': _openExplore},
-      {'title': 'Trip Ideas', 'desc': 'Get inspired', 'icon': Icons.lightbulb_rounded, 'color': const Color(0xFF6366F1), 'onTap': _openExplore},
+      {'title': 'Trip Ideas', 'desc': 'Get inspired', 'icon': Icons.lightbulb_rounded, 'color': const Color(0xFF6366F1), 'onTap': () => _openTripInspiration()},
     ];
 
     return Column(
@@ -2208,7 +2236,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
-  // 8. RIGHT SIDEBAR: ROUTE PREVIEW CARD
+  // 8. RIGHT SIDEBAR: ROUTE PREVIEW CARD WITH LIVE INTERACTIVE MAP
   // ==========================================================================
   Widget _buildRoutePreviewCard() {
     dynamic previewTrip = _activeTrip;
@@ -2232,22 +2260,42 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(height: 16),
             Container(
-              height: 110,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
               decoration: BoxDecoration(
                 color: const Color(0xFF0A0E17),
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.map_outlined, color: Color(0xFF64748B), size: 30),
-                    SizedBox(height: 6),
-                    Text('No active route', style: TextStyle(color: Colors.white, fontSize: 13.5, fontWeight: FontWeight.w700)),
-                    Text('Plan a trip to see your route here.', style: TextStyle(color: Color(0xFF64748B), fontSize: 11.5)),
-                  ],
-                ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.25)),
+                    ),
+                    child: const Icon(Icons.explore_rounded, color: Color(0xFF38BDF8), size: 28),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Plan your next adventure', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 6),
+                  const Text('Create and visualize your road trips with real routes, stops, and tolls.', textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12, height: 1.3)),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () => _planTrip(),
+                    icon: const Icon(Icons.add_road_rounded, size: 16),
+                    label: const Text('Create Trip', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0284C7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -2278,6 +2326,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final fuel = _getTripFuelCost(previewTrip, dist);
     final tolls = _getTripTollCost(previewTrip, dist);
 
+    // Extract real coordinates for interactive map
+    final startLat = (previewTrip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
+    final startLng = (previewTrip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
+    final endLat = (previewTrip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
+    final endLng = (previewTrip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
+
+    final startPoint = LatLng(startLat, startLng);
+    final endPoint = LatLng(endLat, endLng);
+
+    final List<dynamic> rawStops = previewTrip['trip_stops'] ?? [];
+    final List<LatLng> stopPoints = [];
+    for (final s in rawStops) {
+      final lat = (s['lat'] as num?)?.toDouble();
+      final lng = (s['lng'] as num?)?.toDouble();
+      if (lat != null && lng != null) {
+        stopPoints.add(LatLng(lat, lng));
+      }
+    }
+
+    final routePoints = <LatLng>[startPoint, ...stopPoints, endPoint];
+    final centerLat = (startLat + endLat) / 2;
+    final centerLng = (startLng + endLng) / 2;
+
     return _glass(
       radius: 20,
       padding: const EdgeInsets.all(20),
@@ -2295,72 +2366,223 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: const Row(
                   children: [
                     Text('View Map', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w700)),
+                    SizedBox(width: 3),
                     Icon(Icons.arrow_forward_rounded, color: Color(0xFF38BDF8), size: 14),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 12),
 
-          // Visual Corridor Map Schematic
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+          // Functional Interactive FlutterMap Preview
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              height: 190,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.trip_origin_rounded, color: Color(0xFF38BDF8), size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(startCity, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-                          if (startRaw.isNotEmpty && startRaw != startCity)
-                            Text(startRaw, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+              child: Stack(
+                children: [
+                  FlutterMap(
+                    mapController: _routePreviewMapController,
+                    options: MapOptions(
+                      initialCenter: LatLng(centerLat, centerLng),
+                      initialZoom: 7.2,
+                      onTap: (_, __) => _openTrip(previewTrip),
+                    ),
+                    children: [
+                      TileLayer(
+                        urlTemplate: _useSatelliteMap
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : (AppConfig.hasMapboxToken
+                                ? 'https://api.mapbox.com/styles/v1/mapbox/dark-v11/tiles/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
+                                : 'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png'),
+                        userAgentPackageName: 'in.voyplan.app',
+                      ),
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: routePoints,
+                            strokeWidth: 4.5,
+                            color: const Color(0xFF38BDF8),
+                          ),
                         ],
                       ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 7),
-                  child: Container(
-                    height: 24,
-                    width: 2,
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.5),
+                      MarkerLayer(
+                        markers: [
+                          Marker(
+                            point: startPoint,
+                            width: 30,
+                            height: 30,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.5), blurRadius: 6),
+                                ],
+                              ),
+                              child: const Icon(Icons.trip_origin_rounded, color: Colors.white, size: 15),
+                            ),
+                          ),
+                          for (int i = 0; i < stopPoints.length; i++)
+                            Marker(
+                              point: stopPoints[i],
+                              width: 26,
+                              height: 26,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFA855F7),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 1.5),
+                                ),
+                                child: Center(
+                                  child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900)),
+                                ),
+                              ),
+                            ),
+                          Marker(
+                            point: endPoint,
+                            width: 30,
+                            height: 30,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF43F5E),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(color: const Color(0xFFF43F5E).withValues(alpha: 0.5), blurRadius: 6),
+                                ],
+                              ),
+                              child: const Icon(Icons.location_on_rounded, color: Colors.white, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 16),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(endCity, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w700)),
-                          if (endRaw.isNotEmpty && endRaw != endCity)
-                            Text(endRaw, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-                        ],
+
+                  // Map Controls (Satellite Toggle, Re-center, Fullscreen)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Column(
+                      children: [
+                        _mapButton(
+                          icon: _useSatelliteMap ? Icons.map_outlined : Icons.satellite_alt_outlined,
+                          tooltip: 'Map / Satellite',
+                          onTap: () => setState(() => _useSatelliteMap = !_useSatelliteMap),
+                        ),
+                        const SizedBox(height: 6),
+                        _mapButton(
+                          icon: Icons.my_location_rounded,
+                          tooltip: 'Re-center',
+                          onTap: () => _routePreviewMapController.move(LatLng(centerLat, centerLng), 7.2),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Bottom Zoom Controls
+                  Positioned(
+                    bottom: 8,
+                    right: 8,
+                    child: Row(
+                      children: [
+                        _mapButton(
+                          icon: Icons.add,
+                          tooltip: 'Zoom In',
+                          onTap: () {
+                            final z = _routePreviewMapController.camera.zoom;
+                            _routePreviewMapController.move(_routePreviewMapController.camera.center, z + 0.8);
+                          },
+                        ),
+                        const SizedBox(width: 5),
+                        _mapButton(
+                          icon: Icons.remove,
+                          tooltip: 'Zoom Out',
+                          onTap: () {
+                            final z = _routePreviewMapController.camera.zoom;
+                            _routePreviewMapController.move(_routePreviewMapController.camera.center, z - 0.8);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Tap banner
+                  Positioned(
+                    bottom: 8,
+                    left: 8,
+                    child: InkWell(
+                      onTap: () => _openTrip(previewTrip),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0A0E17).withValues(alpha: 0.85),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.touch_app_rounded, color: Color(0xFF38BDF8), size: 12),
+                            SizedBox(width: 4),
+                            Text('Interactive Map', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+                          ],
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // Trip Name & Route summary
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$startCity → $endCity',
+                      style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      rawName,
+                      style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFA855F7).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFA855F7).withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  '${rawStops.length} Stops',
+                  style: const TextStyle(color: Color(0xFFD8B4FE), fontSize: 11, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
 
           // Bottom Route Metrics (Distance, Drive Time, Est Fuel, Tolls)
           Row(
@@ -2378,7 +2600,89 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _metricBox('Tolls', '₹$tolls', Icons.toll_rounded),
             ],
           ),
+          const SizedBox(height: 14),
+
+          // 3 Action Buttons: View Trip, Continue, Navigate
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _openTrip(previewTrip),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('View Trip', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: FilledButton.tonal(
+                  onPressed: () => _openTrip(previewTrip),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1E293B),
+                    foregroundColor: const Color(0xFF38BDF8),
+                    padding: const EdgeInsets.symmetric(vertical: 9),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Continue', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0284C7), Color(0xFF2563EB)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(color: const Color(0xFF2563EB).withValues(alpha: 0.4), blurRadius: 8, offset: const Offset(0, 2)),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: () => _startNavigation(previewTrip),
+                    icon: const Icon(Icons.navigation_rounded, size: 14),
+                    label: const Text('Navigate', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _mapButton({required IconData icon, required String tooltip, required VoidCallback onTap}) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: const Color(0xFF0A0E17).withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(8),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+            ),
+            child: Icon(icon, size: 15, color: Colors.white),
+          ),
+        ),
       ),
     );
   }

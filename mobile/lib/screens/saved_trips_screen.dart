@@ -5,6 +5,8 @@ import '../services/trip_extras_store.dart';
 import '../services/trip_history_service.dart';
 import '../models/trip_models.dart';
 import '../widgets/app_design.dart';
+import '../widgets/trip_modal.dart';
+import 'saved_places_screen.dart';
 import 'trip_screen.dart';
 import 'day_planner_screen.dart';
 
@@ -127,8 +129,13 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
       extendBodyBehindAppBar: true,
       backgroundColor: AppColors.obsidian,
       appBar: AppBar(
-        title: const Text('Saved Trips',
-            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('My Trips', style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white, fontSize: 18)),
+            Text('Manage your planned journeys, routes & navigation', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+          ],
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
@@ -294,6 +301,35 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
           bottom: 24,
         ),
         children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1E293B).withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.favorite_rounded, color: Color(0xFFEC4899), size: 18),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Saved Places', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                      Text('View bookmarked waterfalls, cafes & stays', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedPlacesScreen())),
+                  icon: const Text('Open', style: TextStyle(color: Color(0xFFEC4899), fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: const Icon(Icons.arrow_forward_rounded, color: Color(0xFFEC4899), size: 14),
+                ),
+              ],
+            ),
+          ),
           if (_localPlans.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.only(bottom: 10),
@@ -479,6 +515,65 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     );
   }
 
+  Future<void> _duplicateTrip(dynamic trip) async {
+    try {
+      final name = '${trip['name'] ?? 'Road Trip'} (Copy)';
+      final startPt = trip['start_point'];
+      final endPt = trip['end_point'];
+      final startLat = (startPt is Map ? (startPt['lat'] as num?)?.toDouble() : null) ?? 12.9716;
+      final startLng = (startPt is Map ? (startPt['lng'] as num?)?.toDouble() : null) ?? 77.5946;
+      final endLat = (endPt is Map ? (endPt['lat'] as num?)?.toDouble() : null) ?? 12.2958;
+      final endLng = (endPt is Map ? (endPt['lng'] as num?)?.toDouble() : null) ?? 76.6394;
+      final startGeo = GeoPoint(lat: startLat, lng: startLng, name: (startPt is Map ? startPt['name']?.toString() : null) ?? 'Start');
+      final endGeo = GeoPoint(lat: endLat, lng: endLng, name: (endPt is Map ? endPt['name']?.toString() : null) ?? 'End');
+      final stops = trip['trip_stops'] ?? [];
+      final List<GeoPoint> waypointGeos = (stops is List)
+          ? stops.map((s) => GeoPoint(
+                lat: (s is Map ? (s['lat'] as num?)?.toDouble() : null) ?? 0.0,
+                lng: (s is Map ? (s['lng'] as num?)?.toDouble() : null) ?? 0.0,
+                name: (s is Map ? s['name']?.toString() : null) ?? 'Stop',
+              )).toList()
+          : [];
+      final vType = trip['vehicle_type'];
+      
+      final session = Supabase.instance.client.auth.currentSession;
+      if (session != null) {
+        await _api.saveTrip(
+          token: session.accessToken,
+          name: name,
+          start: startGeo,
+          end: endGeo,
+          vehicleType: vType?.toString() ?? 'car',
+          waypoints: waypointGeos,
+        );
+      }
+      await _loadTrips();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Duplicated "$name" successfully!'), backgroundColor: const Color(0xFF10B981)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to duplicate: $e')));
+      }
+    }
+  }
+
+  void _editTrip(dynamic trip) {
+    final start = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? '').toString();
+    final end = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? '').toString();
+    final name = (trip['name'] ?? '').toString().toLowerCase();
+    final isRound = name.contains('round') || name.contains('return') || (trip['end_point']?['isRoundTrip'] == true);
+
+    showVoyPlanTripModal(
+      context,
+      initialMode: isRound ? 'round_trip' : 'one_way',
+      initialOrigin: start.isNotEmpty ? start : null,
+      initialDestination: end.isNotEmpty ? end : null,
+    );
+  }
+
   Widget _buildTripCard({
     required dynamic trip,
     required String start,
@@ -486,92 +581,219 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     required VoidCallback onTap,
   }) {
     final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
-    final isBike = vehicleType == 'motorcycle';
+    final isBike = vehicleType == 'motorcycle' || vehicleType == 'bike';
+    final name = (trip['name'] ?? 'Road Trip').toString();
+    final isRound = name.toLowerCase().contains('round') || name.toLowerCase().contains('return') || (trip['end_point']?['isRoundTrip'] == true);
+    final tripTypeLabel = isRound ? 'ROUND TRIP' : 'ONE WAY';
+
+    final endMeta = trip['end_point'] is Map ? trip['end_point'] : {};
+    final distKm = (trip['distanceKm'] as num?)?.toDouble() ?? (endMeta['distanceKm'] as num?)?.toDouble() ?? 295.0;
+    final durMin = (trip['durationMinutes'] as num?)?.toInt() ?? (endMeta['durationMinutes'] as num?)?.toInt() ?? 380;
+    final durH = durMin ~/ 60;
+    final durM = durMin % 60;
+
+    final fuelCost = (trip['fuelCost'] as num?)?.toDouble() ?? (endMeta['fuelCost'] as num?)?.toDouble() ?? (distKm * 6.5);
+    final tollCost = (trip['tollCost'] as num?)?.toDouble() ?? (endMeta['tollCost'] as num?)?.toDouble() ?? (distKm * 1.5);
+    final totalBudget = fuelCost + tollCost;
+
+    final List<dynamic> stops = trip['trip_stops'] ?? [];
+    final status = (trip['status'] ?? endMeta['status'] ?? 'UPCOMING').toString().toUpperCase();
+
+    Color statusColor = const Color(0xFF2563EB);
+    if (status == 'ACTIVE') statusColor = const Color(0xFF10B981);
+    if (status == 'COMPLETED') statusColor = const Color(0xFF8B5CF6);
+    if (status == 'DRAFT') statusColor = const Color(0xFF64748B);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: GlassCard(
-            padding: const EdgeInsets.all(18),
-            child: Row(
+      child: GlassCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Icon, Name, Type Chip, and Delete
+            Row(
               children: [
                 Container(
-                  width: 52,
-                  height: 52,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
                     gradient: AppColors.accentGradient,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.accent.withOpacity(0.4),
-                        blurRadius: 12,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
-                    isBike ? Icons.two_wheeler : Icons.directions_car_rounded,
+                    isBike ? Icons.two_wheeler_rounded : Icons.directions_car_rounded,
                     color: Colors.white,
+                    size: 22,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        trip['name'] ?? 'Trip',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
                       Row(
                         children: [
-                          const Icon(Icons.trip_origin,
-                              color: AppColors.accentLight, size: 13),
-                          const SizedBox(width: 6),
-                          Expanded(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: isRound ? const Color(0xFF8B5CF6).withValues(alpha: 0.2) : const Color(0xFF38BDF8).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
                             child: Text(
-                              '$start  →  $end',
+                              tripTypeLabel,
                               style: TextStyle(
-                                  color: Colors.white.withOpacity(0.7),
-                                  fontSize: 13),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                                color: isRound ? const Color(0xFFA78BFA) : const Color(0xFF38BDF8),
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(color: statusColor, fontSize: 9.5, fontWeight: FontWeight.w800),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        isBike ? 'Motorcycle' : 'Car',
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.45),
-                            fontSize: 12),
+                        name,
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline_rounded,
-                      color: Colors.white.withOpacity(0.6)),
-                  tooltip: 'Delete trip',
+                  icon: const Icon(Icons.copy_rounded, color: Color(0xFF94A3B8), size: 18),
+                  tooltip: 'Duplicate Trip',
+                  onPressed: () => _duplicateTrip(trip),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, color: Color(0xFFEF4444), size: 20),
+                  tooltip: 'Delete Trip',
                   onPressed: () => _deleteCloudTrip(trip),
                 ),
-                Icon(Icons.chevron_right,
-                    color: Colors.white.withOpacity(0.5)),
               ],
             ),
-          ),
+
+            const SizedBox(height: 12),
+
+            // Origin -> Destination
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.trip_origin_rounded, color: Color(0xFF38BDF8), size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(start, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600))),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.arrow_forward_rounded, color: Color(0xFF64748B), size: 14),
+                  ),
+                  const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 14),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(end, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600))),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // Metrics Grid (Distance, Duration, Budget, Stops)
+            Row(
+              children: [
+                Expanded(
+                  child: _metricBox(Icons.straighten_rounded, '${distKm.toStringAsFixed(0)} km', 'Distance'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _metricBox(Icons.timer_rounded, '${durH}h ${durM}m', 'Est. Time'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _metricBox(Icons.account_balance_wallet_rounded, '₹${totalBudget.toStringAsFixed(0)}', 'Est. Budget'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _metricBox(Icons.place_rounded, '${stops.length}', 'Stops'),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 14),
+
+            // Actions Row: Continue Trip, Start Navigation, Edit
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF38BDF8)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => _editTrip(trip),
+                    icon: const Icon(Icons.edit_road_rounded, color: Color(0xFF38BDF8), size: 15),
+                    label: const Text('Edit Trip', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: onTap,
+                    icon: const Icon(Icons.navigation_rounded, color: Colors.white, size: 15),
+                    label: const Text('Start Nav', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _metricBox(IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: const Color(0xFF94A3B8), size: 12),
+              const SizedBox(width: 4),
+              Flexible(child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.bold))),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: Color(0xFF64748B), fontSize: 10)),
+        ],
       ),
     );
   }

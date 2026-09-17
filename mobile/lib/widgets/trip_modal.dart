@@ -7,11 +7,13 @@ import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/app_config.dart';
 import '../data/attraction_database.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
+import '../models/saved_place_model.dart';
 import '../screens/map_location_picker_screen.dart';
 import '../screens/trip_screen.dart';
 import '../services/api_service.dart';
@@ -19,6 +21,7 @@ import '../services/fuel_price_service.dart';
 import '../services/toll_calculation_service.dart';
 import '../services/trip_history_service.dart';
 import '../services/vehicle_database_service.dart';
+import '../services/saved_places_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/trip_date_time.dart';
 import '../widgets/vehicle_search_sheet.dart';
@@ -165,6 +168,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   final List<Map<String, dynamic>> _addedStops = [];
   String _selectedStopCategory = 'FOOD';
   String _stopSearchQuery = '';
+  String _catalogFilterCategory = 'ALL';
 
   // Route preferences
   String _routePreference = 'fastest'; // fastest, shortest, fuel_efficient, avoid_tolls, avoid_highways
@@ -200,6 +204,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   //           → PLACE CATALOG → AI ITINERARY → VALIDATION → BUDGET → SPLIT → SHARE
   //           → SAVE/SCHEDULE/START → DAILY NAVIGATION → RETURN/COMPLETION
   // ──────────────────────────────────────────────────────────────────────────
+  // Round Trip Planning Mode: 0 = Describe It (NLP Prompt), 1 = Quick Wizard (Structured)
+  int _roundTripMethod = 0;
+  final TextEditingController _describeItCtrl = TextEditingController(
+    text: '3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies',
+  );
+  String _wizardTripStyle = 'Adventure';
+  String _wizardBudgetTier = 'Moderate';
+
   final TextEditingController _vacationOriginCtrl = TextEditingController();
   final TextEditingController _vacationDestCtrl = TextEditingController();
   GeoPoint? _vacationOrigin;
@@ -354,6 +366,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     _oneWayDestCtrl.dispose();
     _vacationOriginCtrl.dispose();
     _vacationDestCtrl.dispose();
+    _describeItCtrl.dispose();
     super.dispose();
   }
 
@@ -1584,11 +1597,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     );
   }
 
-  // ── Step 2: Automatic Fuel / Charging Stop & Add Stops ──
+  // ── Step 2: Automatic Fuel / Charging Stop & Stop Point Catalog ──
   Widget _buildOneWayStep2FuelAndStops() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Route Corridor Flow Visualizer
+        _buildCorridorFlow(),
+        const SizedBox(height: 18),
+
         // 1.4 Automatic Fuel / Charging Stop Logic
         _sectionLabel('1.4 AUTOMATIC FUEL / CHARGING LOGIC', Icons.local_gas_station_rounded),
         const SizedBox(height: 8),
@@ -1596,20 +1613,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
         const SizedBox(height: 20),
 
-        // 1.5 Add Stops Along The Route
+        // 1.5 Stops Along The Route
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabel('1.5 STOPS ALONG THE ROUTE', Icons.add_location_alt_rounded),
+            _sectionLabel('1.5 YOUR PLANNED STOPS', Icons.add_location_alt_rounded),
             TextButton.icon(
               onPressed: _showAddStopDialog,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('+ ADD STOP', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('+ CUSTOM STOP', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
         const SizedBox(height: 8),
         _buildAddedStopsList(),
+
+        const SizedBox(height: 24),
+
+        // 1.5b Stop Point Catalog & Recommendations (Requirement 3)
+        _buildRecommendedStopsCatalog(),
 
         const SizedBox(height: 20),
 
@@ -1619,6 +1641,614 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         _buildRoutePreferencesChips(),
       ],
     );
+  }
+
+  // Visual Journey Corridor (Origin -> Stops -> Destination)
+  Widget _buildCorridorFlow() {
+    final originName = _oneWayOriginCtrl.text.trim().isNotEmpty ? _oneWayOriginCtrl.text.trim() : 'Origin';
+    final destName = _oneWayDestCtrl.text.trim().isNotEmpty ? _oneWayDestCtrl.text.trim() : 'Destination';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Voy.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Voy.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.alt_route_rounded, color: Voy.brand, size: 16),
+              const SizedBox(width: 8),
+              const Text('Journey Corridor', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 13)),
+              const Spacer(),
+              Text(
+                '${_oneWayDistanceKm.toStringAsFixed(0)} km • ${_oneWayDurationMin ~/ 60}h ${_oneWayDurationMin % 60}m',
+                style: const TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  const Icon(Icons.circle, color: Color(0xFF10B981), size: 12),
+                  Container(width: 2, height: 28, color: Voy.hairline),
+                  if (_addedStops.isNotEmpty) ...[
+                    const Icon(Icons.location_pin, color: Color(0xFFA855F7), size: 14),
+                    Container(width: 2, height: 28, color: Voy.hairline),
+                  ],
+                  const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 14),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(originName, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+                    const SizedBox(height: 14),
+                    if (_addedStops.isNotEmpty) ...[
+                      Text(
+                        '${_addedStops.length} stops planned (${_addedStops.map((s) => s['name']).take(2).join(', ')}${_addedStops.length > 2 ? "..." : ""})',
+                        style: const TextStyle(color: Color(0xFFA855F7), fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    Text(destName, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Recommended Stops Catalog & Intelligent Stop Ranking
+  Widget _buildRecommendedStopsCatalog() {
+    final categories = [
+      ('ALL', 'All Stops', Icons.grid_view_rounded),
+      ('NATURE', 'Nature & Views', Icons.landscape_rounded),
+      ('CULTURE', 'Culture & Heritage', Icons.temple_hindu_rounded),
+      ('FOOD', 'Food & Dining', Icons.restaurant_rounded),
+      ('STAY', 'Stays & Resorts', Icons.hotel_rounded),
+      ('UTILITY', 'Travel Utilities', Icons.local_gas_station_rounded),
+    ];
+
+    final allStops = _getRecommendedRouteStops();
+    final filteredStops = _catalogFilterCategory == 'ALL'
+        ? allStops
+        : allStops.where((s) => s['categoryTag'] == _catalogFilterCategory).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.auto_awesome_rounded, color: Color(0xFF38BDF8), size: 18),
+            const SizedBox(width: 8),
+            const Text(
+              'RECOMMENDED STOPS ALONG YOUR ROUTE',
+              style: TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Voy.brand.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text('Smart Ranked', style: TextStyle(color: Voy.brand, fontSize: 10, fontWeight: FontWeight.w700)),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Ranked by detour time, popularity, rating, and opening hours for a seamless journey.',
+          style: TextStyle(color: Voy.sub, fontSize: 11),
+        ),
+        const SizedBox(height: 12),
+
+        // Category Filter Tabs
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: categories.map((cat) {
+              final sel = _catalogFilterCategory == cat.$1;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: ChoiceChip(
+                  avatar: Icon(cat.$3, size: 14, color: sel ? Voy.brand : Voy.sub),
+                  label: Text(cat.$2),
+                  selected: sel,
+                  onSelected: (val) {
+                    if (val) setState(() => _catalogFilterCategory = cat.$1);
+                  },
+                  selectedColor: Voy.brand.withOpacity(0.18),
+                  backgroundColor: Voy.surface,
+                  side: BorderSide(color: sel ? Voy.brand : Voy.hairline),
+                  labelStyle: TextStyle(
+                    color: sel ? Voy.brand : Voy.ink,
+                    fontSize: 11.5,
+                    fontWeight: sel ? FontWeight.w800 : FontWeight.w500,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Stop Recommendation Cards
+        ...filteredStops.map((stop) => _buildStopCatalogCard(stop)),
+      ],
+    );
+  }
+
+  Widget _buildStopCatalogCard(Map<String, dynamic> stop) {
+    final alreadyAdded = _addedStops.any((s) => s['name'] == stop['name']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Voy.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: alreadyAdded ? Voy.brand.withOpacity(0.5) : Voy.hairline),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Card Header with Image & Detour Metrics
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomRight: Radius.circular(12)),
+                child: SizedBox(
+                  width: 90,
+                  height: 90,
+                  child: Image.network(
+                    stop['image'].toString(),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Voy.surface2,
+                      child: Icon(stop['icon'] as IconData? ?? Icons.place, color: Voy.sub, size: 30),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 10, 12, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: (stop['categoryColor'] as Color? ?? Voy.brand).withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              stop['category'].toString().toUpperCase(),
+                              style: TextStyle(color: stop['categoryColor'] as Color? ?? Voy.brand, fontSize: 9.5, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          const Spacer(),
+                          Row(
+                            children: [
+                              const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                              const SizedBox(width: 2),
+                              Text(
+                                '${stop["rating"]}',
+                                style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        stop['name'].toString(),
+                        style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${stop["detourKm"]} km detour • +${stop["detourMin"]} mins • ${stop["fromRoute"]}',
+                        style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time_rounded, size: 11, color: Voy.sub),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              stop['openingHours'].toString(),
+                              style: const TextStyle(color: Voy.sub, fontSize: 10.5),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            child: Text(
+              stop['description'].toString(),
+              style: const TextStyle(color: Voy.sub, fontSize: 11.5, height: 1.3),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+
+          // Action Buttons: + Add Stop, View Details, Navigate, Save
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 12),
+            child: Row(
+              children: [
+                // Add Stop Button
+                Expanded(
+                  flex: 3,
+                  child: alreadyAdded
+                      ? OutlinedButton.icon(
+                          onPressed: () {
+                            setState(() => _addedStops.removeWhere((s) => s['name'] == stop['name']));
+                            _calculateOneWayRoute();
+                          },
+                          icon: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 14),
+                          label: const Text('Added', style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Color(0xFF10B981)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        )
+                      : FilledButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _addedStops.add({
+                                'name': stop['name'],
+                                'category': stop['category'],
+                                'lat': stop['lat'],
+                                'lng': stop['lng'],
+                                'detourMin': stop['detourMin'],
+                                'stayDuration': stop['stayDuration'] ?? 30,
+                              });
+                            });
+                            _calculateOneWayRoute();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Added "${stop["name"]}" to route. Recalculating...'),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add_rounded, size: 14),
+                          label: const Text('+ Add Stop', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Voy.brand,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 6),
+
+                // View Details
+                IconButton(
+                  tooltip: 'View Details',
+                  icon: const Icon(Icons.info_outline_rounded, size: 18, color: Voy.ink),
+                  onPressed: () => _showStopDetailsDialog(stop),
+                ),
+
+                // Navigate
+                IconButton(
+                  tooltip: 'Navigate with Google Maps',
+                  icon: const Icon(Icons.navigation_rounded, size: 18, color: Color(0xFF38BDF8)),
+                  onPressed: () async {
+                    final lat = stop['lat'];
+                    final lng = stop['lng'];
+                    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                ),
+
+                // Save to Saved Places
+                IconButton(
+                  tooltip: 'Save to Saved Places',
+                  icon: const Icon(Icons.favorite_border_rounded, size: 18, color: Color(0xFFEC4899)),
+                  onPressed: () async {
+                    final place = SavedPlace(
+                      id: 'stop_${stop["name"].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), "_")}',
+                      name: stop['name'].toString(),
+                      category: stop['category'].toString().toUpperCase(),
+                      location: stop['fromRoute'].toString(),
+                      lat: (stop['lat'] as num).toDouble(),
+                      lng: (stop['lng'] as num).toDouble(),
+                      rating: (stop['rating'] as num?)?.toDouble() ?? 4.5,
+                      image: stop['image']?.toString(),
+                      description: stop['description']?.toString(),
+                      savedAt: DateTime.now(),
+                    );
+                    await SavedPlacesService().savePlace(place);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Saved "${stop["name"]}" to Saved Places!'),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStopDetailsDialog(Map<String, dynamic> stop) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F172A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withOpacity(0.12))),
+        title: Row(
+          children: [
+            Icon(stop['icon'] as IconData? ?? Icons.place, color: stop['categoryColor'] as Color? ?? Voy.brand, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(stop['name'].toString(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                height: 140,
+                width: double.infinity,
+                child: Image.network(
+                  stop['image'].toString(),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(stop['description'].toString(), style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4)),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Category:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(stop['category'].toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Detour Impact:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text('${stop["detourKm"]} km • +${stop["detourMin"]} mins', style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Opening Hours:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(stop['openingHours'].toString(), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close', style: TextStyle(color: Colors.white70)),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (!_addedStops.any((s) => s['name'] == stop['name'])) {
+                setState(() {
+                  _addedStops.add({
+                    'name': stop['name'],
+                    'category': stop['category'],
+                    'lat': stop['lat'],
+                    'lng': stop['lng'],
+                    'detourMin': stop['detourMin'],
+                    'stayDuration': stop['stayDuration'] ?? 30,
+                  });
+                });
+                _calculateOneWayRoute();
+              }
+            },
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Add Stop to Route'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Generate Ranked Recommended Stops along the active corridor
+  List<Map<String, dynamic>> _getRecommendedRouteStops() {
+    final startLat = _oneWayOrigin?.lat ?? 12.9716;
+    final startLng = _oneWayOrigin?.lng ?? 77.5946;
+    final endLat = _oneWayDest?.lat ?? 12.2958;
+    final endLng = _oneWayDest?.lng ?? 76.6394;
+
+    // Interpolate realistic coordinates along the corridor
+    double interpLat(double fraction) => startLat + (endLat - startLat) * fraction;
+    double interpLng(double fraction) => startLng + (endLng - startLng) * fraction;
+
+    return [
+      {
+        'id': 'rec_1',
+        'name': 'Ramanagara Hill Viewpoint',
+        'category': 'Viewpoint',
+        'categoryTag': 'NATURE',
+        'categoryColor': const Color(0xFF10B981),
+        'icon': Icons.landscape_rounded,
+        'image': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.7,
+        'detourKm': 2.1,
+        'detourMin': 7,
+        'fromRoute': '1.8 km from corridor',
+        'openingHours': '06:00 AM - 06:30 PM • Open Now',
+        'description': 'Panoramic rocky hills famous for climbing, historic temple steps, and breathtaking sunrise views.',
+        'lat': interpLat(0.20),
+        'lng': interpLng(0.20),
+        'stayDuration': 45,
+      },
+      {
+        'id': 'rec_2',
+        'name': 'Kamat Lokaruchi Highway Restaurant',
+        'category': 'Food & Dining',
+        'categoryTag': 'FOOD',
+        'categoryColor': const Color(0xFFF59E0B),
+        'icon': Icons.restaurant_rounded,
+        'image': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.5,
+        'detourKm': 0.3,
+        'detourMin': 2,
+        'fromRoute': 'Direct highway corridor',
+        'openingHours': '06:30 AM - 11:00 PM • Open Now',
+        'description': 'Authentic Karnataka highway dining with hot maddur vada, jolada rotti meals, and filter coffee.',
+        'lat': interpLat(0.35),
+        'lng': interpLng(0.35),
+        'stayDuration': 40,
+      },
+      {
+        'id': 'rec_3',
+        'name': 'Srirangapatna Ranganathaswamy Temple',
+        'category': 'Culture & Heritage',
+        'categoryTag': 'CULTURE',
+        'categoryColor': const Color(0xFFA855F7),
+        'icon': Icons.temple_hindu_rounded,
+        'image': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.8,
+        'detourKm': 1.4,
+        'detourMin': 5,
+        'fromRoute': '1.2 km from highway',
+        'openingHours': '06:00 AM - 08:30 PM • Open Now',
+        'description': 'Ancient 9th-century island fortress temple on the Kaveri river with magnificent Hoysala architecture.',
+        'lat': interpLat(0.55),
+        'lng': interpLng(0.55),
+        'stayDuration': 50,
+      },
+      {
+        'id': 'rec_4',
+        'name': 'Mysore Palace & Gardens',
+        'category': 'Culture & Heritage',
+        'categoryTag': 'CULTURE',
+        'categoryColor': const Color(0xFFA855F7),
+        'icon': Icons.account_balance_rounded,
+        'image': 'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.9,
+        'detourKm': 3.2,
+        'detourMin': 11,
+        'fromRoute': '2.8 km from ring road',
+        'openingHours': '10:00 AM - 05:30 PM • Open Now',
+        'description': 'World-renowned royal palace with opulent Durbar halls, courtyards, and grand heritage museum.',
+        'lat': interpLat(0.68),
+        'lng': interpLng(0.68),
+        'stayDuration': 75,
+      },
+      {
+        'id': 'rec_5',
+        'name': 'Kaveri River Nisargadhama Island Park',
+        'category': 'Nature & Park',
+        'categoryTag': 'NATURE',
+        'categoryColor': const Color(0xFF10B981),
+        'icon': Icons.water_rounded,
+        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.6,
+        'detourKm': 1.8,
+        'detourMin': 6,
+        'fromRoute': '1.5 km from corridor',
+        'openingHours': '09:00 AM - 06:00 PM • Open Now',
+        'description': '64-acre ecological island park surrounded by Kaveri river with hanging bridge, deer park, and bamboo groves.',
+        'lat': interpLat(0.85),
+        'lng': interpLng(0.85),
+        'stayDuration': 60,
+      },
+      {
+        'id': 'rec_6',
+        'name': 'Shell Expressway Fuel & Restroom Hub',
+        'category': 'Travel Utility',
+        'categoryTag': 'UTILITY',
+        'categoryColor': const Color(0xFF0284C7),
+        'icon': Icons.local_gas_station_rounded,
+        'image': 'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.6,
+        'detourKm': 0.1,
+        'detourMin': 1,
+        'fromRoute': 'On expressway service lane',
+        'openingHours': 'Open 24 Hours • Verified',
+        'description': '24/7 premium fuel, high-speed EV chargers, spotless restrooms, ATM, and convenience café.',
+        'lat': interpLat(0.40),
+        'lng': interpLng(0.40),
+        'stayDuration': 15,
+      },
+      {
+        'id': 'rec_7',
+        'name': 'Coorg Plantation Heritage Homestay',
+        'category': 'Stays & Resorts',
+        'categoryTag': 'STAY',
+        'categoryColor': const Color(0xFF8B5CF6),
+        'icon': Icons.hotel_rounded,
+        'image': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.8,
+        'detourKm': 2.6,
+        'detourMin': 9,
+        'fromRoute': '2.4 km from destination road',
+        'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
+        'description': 'Serene coffee estate stay surrounded by misty hills, homemade Kodava meals, and bonfire trails.',
+        'lat': interpLat(0.95),
+        'lng': interpLng(0.95),
+        'stayDuration': 60,
+      },
+    ];
   }
 
   Widget _buildFuelStopsSection() {
@@ -2216,21 +2846,370 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 2. ROUND TRIP / VACATION WORKFLOW UI
+  // 2. ROUND TRIP / VACATION WORKFLOW UI (Requirement 5)
   // ──────────────────────────────────────────────────────────────────────────
   Widget _buildVacationContent() {
     return Column(
       children: [
-        _buildVacationStepIndicator(),
+        // Mode Selector: "Describe It" vs "Quick Wizard" when in initial planning
+        if (_vacationStep < 4) _buildRoundTripMethodSelector(),
+        if (_roundTripMethod == 1 || _vacationStep >= 4) _buildVacationStepIndicator(),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: _buildCurrentVacationStep(),
+            child: (_roundTripMethod == 0 && _vacationStep < 4)
+                ? _buildDescribeItView()
+                : _buildCurrentVacationStep(),
           ),
         ),
-        _buildVacationBottomBar(),
+        if (_roundTripMethod == 1 || _vacationStep >= 4) _buildVacationBottomBar(),
       ],
     );
+  }
+
+  // Method Selector: Describe It (AI Natural Language) vs Quick Wizard (Step by Step)
+  Widget _buildRoundTripMethodSelector() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Voy.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Voy.hairline),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => _roundTripMethod = 0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _roundTripMethod == 0 ? const Color(0xFF0F2B2B) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _roundTripMethod == 0 ? const Color(0xFF14B8A6) : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.auto_awesome_rounded, size: 16, color: _roundTripMethod == 0 ? const Color(0xFF2DD4BF) : Voy.sub),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Describe it',
+                      style: TextStyle(
+                        color: _roundTripMethod == 0 ? Colors.white : Voy.sub,
+                        fontSize: 13,
+                        fontWeight: _roundTripMethod == 0 ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => setState(() => _roundTripMethod = 1),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: _roundTripMethod == 1 ? Voy.surface2 : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _roundTripMethod == 1 ? Voy.violet : Colors.transparent,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.explore_rounded, size: 16, color: _roundTripMethod == 1 ? Voy.violet : Voy.sub),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Quick wizard',
+                      style: TextStyle(
+                        color: _roundTripMethod == 1 ? Colors.white : Voy.sub,
+                        fontSize: 13,
+                        fontWeight: _roundTripMethod == 1 ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Option 1: AI Natural-Language "Describe It" Planner UI
+  Widget _buildDescribeItView() {
+    final suggestionChips = [
+      'Weekend bike ride from Chennai to Pondicherry, relaxed',
+      '5-day adventure road trip from Delhi to Manali',
+      '3-day Bangalore to Ooty tea trail with heritage stops',
+      '4-day Mumbai to Goa coastal drive with beachside shacks',
+    ];
+
+    final curatedClassics = [
+      {
+        'title': 'Bangalore → Coorg',
+        'desc': 'Coffee country, misty ghats and slow mornings in Kodagu.',
+        'prompt': '3-day scenic road trip from Bangalore to Coorg with waterfalls, viewpoints, and coffee plantation stay',
+      },
+      {
+        'title': 'Mumbai → Goa',
+        'desc': 'The Konkan coast — cliff roads, creek ferries and seafood shacks.',
+        'prompt': '4-day coastal road trip from Mumbai to Goa with scenic beach highways, forts, and seafood dining',
+      },
+      {
+        'title': 'Delhi → Manali',
+        'desc': 'Plains to pine — the Beas valley climb through Himachal.',
+        'prompt': '5-day mountain adventure road trip from Delhi to Manali with river valleys and mountain passes',
+      },
+      {
+        'title': 'Chennai → Pondicherry',
+        'desc': 'The ECR run — stone temples, salt air and French Quarter mornings.',
+        'prompt': '2-day relaxed coastal drive from Chennai to Pondicherry via East Coast Road with heritage cafes',
+      },
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Main NLP Prompt Card
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F172A),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.1)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _describeItCtrl,
+                maxLines: 3,
+                style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4, fontWeight: FontWeight.w500),
+                decoration: const InputDecoration(
+                  hintText: 'Tell us what kind of trip you want... (e.g., 3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies)',
+                  hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 15),
+                  border: InputBorder.none,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Suggestion Pills
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: suggestionChips.map((chip) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () => setState(() => _describeItCtrl.text = chip),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                      ),
+                      child: Text(
+                        chip,
+                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 18),
+
+              // Gradient Action Button: Build my road trip
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFBBF24), Color(0xFFF97316), Color(0xFF14B8A6)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFF97316).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  onPressed: () => _executeDescribeIt(_describeItCtrl.text),
+                  icon: const Icon(Icons.auto_awesome_rounded, color: Colors.black, size: 18),
+                  label: const Text(
+                    'Build my road trip',
+                    style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w900),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // Curated Classics Section Header
+        const Text(
+          'OR TRY A CURATED CLASSIC — ONE TAP',
+          style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+        ),
+        const SizedBox(height: 12),
+
+        // Curated Classic Cards Grid
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 550;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: curatedClassics.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: isWide ? 2 : 1,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: isWide ? 2.6 : 3.4,
+              ),
+              itemBuilder: (context, idx) {
+                final item = curatedClassics[idx];
+                return InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    _describeItCtrl.text = item['prompt']!;
+                    _executeDescribeIt(item['prompt']!);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0F172A),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withOpacity(0.08)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item['title']!,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          item['desc']!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  // Parse Natural-Language Trip Prompt and Generate Validated Ready Itinerary
+  Future<void> _executeDescribeIt(String rawPrompt) async {
+    final prompt = rawPrompt.trim().toLowerCase();
+    String startCity = 'Bangalore';
+    String destCity = 'Coorg';
+    int days = 3;
+    String transportMode = 'car';
+    String vibe = 'Scenic';
+
+    // Parse days
+    final dayMatch = RegExp(r'(\d+)\s*[- ]*day').firstMatch(prompt);
+    if (dayMatch != null) {
+      days = int.tryParse(dayMatch.group(1)!) ?? 3;
+    } else if (prompt.contains('weekend')) {
+      days = 2;
+    }
+
+    // Parse transport
+    if (prompt.contains('bike') || prompt.contains('motorcycle') || prompt.contains('ride')) {
+      transportMode = 'bike';
+    } else if (prompt.contains('train')) {
+      transportMode = 'train';
+    } else if (prompt.contains('bus')) {
+      transportMode = 'bus';
+    } else if (prompt.contains('flight') || prompt.contains('fly')) {
+      transportMode = 'flight';
+    }
+
+    // Parse destinations & start points
+    if (prompt.contains('goa')) {
+      destCity = 'Goa';
+      if (prompt.contains('mumbai')) startCity = 'Mumbai';
+      if (prompt.contains('bangalore') || prompt.contains('bengaluru')) startCity = 'Bangalore';
+    } else if (prompt.contains('manali') || prompt.contains('himachal')) {
+      destCity = 'Manali';
+      startCity = 'Delhi';
+    } else if (prompt.contains('pondi') || prompt.contains('pondicherry')) {
+      destCity = 'Pondicherry';
+      startCity = 'Chennai';
+    } else if (prompt.contains('ooty')) {
+      destCity = 'Ooty';
+      startCity = 'Bangalore';
+    } else if (prompt.contains('coorg')) {
+      destCity = 'Coorg';
+      startCity = 'Bangalore';
+    } else if (prompt.contains('jaipur') || prompt.contains('rajasthan')) {
+      destCity = 'Jaipur';
+      startCity = 'Delhi';
+    } else {
+      // Regex extraction: "from X to Y" or "X to Y"
+      final match = RegExp(r'(?:from\s+)?([a-z\s]+?)\s*(?:to|->|→)\s*([a-z\s]+?)(?:\s+(?:under|for|with|in|and)|$)').firstMatch(prompt);
+      if (match != null) {
+        startCity = match.group(1)?.trim() ?? 'Bangalore';
+        destCity = match.group(2)?.trim() ?? 'Coorg';
+      }
+    }
+
+    // Parse vibe / style
+    if (prompt.contains('food') || prompt.contains('foodies')) vibe = 'Foodie';
+    else if (prompt.contains('adventure')) vibe = 'Adventure';
+    else if (prompt.contains('heritage') || prompt.contains('temple')) vibe = 'Heritage';
+    else if (prompt.contains('relaxed')) vibe = 'Relaxed';
+
+    // Capitalize names
+    startCity = startCity.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+    destCity = destCity.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+
+    setState(() {
+      _vacationOriginCtrl.text = startCity;
+      _vacationDestCtrl.text = destCity;
+      _vacationDays = days;
+      _selectedTransportMode = transportMode;
+      _vacationTripStyle = vibe;
+      _vacationStartDate = DateTime.now().add(const Duration(days: 2));
+      _vacationEndDate = _vacationStartDate.add(Duration(days: days));
+      _vacationStep = 4; // Jump directly to Itinerary & Validation
+    });
+
+    await _generateVacationItinerary();
   }
 
   Widget _buildVacationStepIndicator() {
