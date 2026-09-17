@@ -1239,51 +1239,83 @@
   -->
   <script src="flutter_bootstrap.js" async></script>
 
-  <!-- Install-app affordance: a floating button that appears when the browser
-       says the app is installable, plus an iOS "Add to Home Screen" hint. -->
+  <!-- Install-app affordance: an elegant, unobtrusive pill that appears when the browser
+       says the app is installable, positioned at the bottom-right with a dismiss button. -->
   <script>
     (function () {
-      var deferredPrompt = null, btn = null;
-      function makeBtn() {
-        if (btn) return btn;
-        btn = document.createElement('button');
-        btn.type = 'button';
-        btn.style.cssText =
-          'position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:2147483647;' +
-          'padding:12px 22px;border:none;border-radius:999px;cursor:pointer;' +
-          'font:600 15px -apple-system,system-ui,sans-serif;color:#fff;' +
-          'background:linear-gradient(90deg,#2E75B6,#60A5FA);' +
-          'box-shadow:0 8px 26px rgba(0,0,0,0.4);display:none;';
-        document.body.appendChild(btn);
-        return btn;
+      var deferredPrompt = null, wrap = null;
+      if (sessionStorage.getItem('voyplan_pwa_dismissed') === 'true') return;
+
+      function makeWrap() {
+        if (wrap) return wrap;
+        wrap = document.createElement('div');
+        wrap.id = 'pwa-install-pill';
+        wrap.style.cssText =
+          'position:fixed;right:20px;bottom:24px;z-index:999999;' +
+          'display:none;align-items:center;gap:8px;' +
+          'padding:8px 14px;border-radius:999px;' +
+          'background:linear-gradient(135deg, #1E3A8A, #3B82F6);' +
+          'box-shadow:0 10px 25px -5px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.15);' +
+          'backdrop-filter:blur(8px);font:600 13px -apple-system,system-ui,sans-serif;color:#fff;' +
+          'transition:all 0.2s ease;';
+
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.id = 'pwa-install-btn';
+        b.style.cssText = 'background:none;border:none;color:#fff;font:inherit;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0;outline:none;';
+        b.innerHTML = '<span style="font-size:14px;">⬇</span><span>Install App</span>';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.setAttribute('aria-label', 'Dismiss install prompt');
+        closeBtn.style.cssText = 'background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:50%;width:18px;height:18px;line-height:16px;text-align:center;font-size:12px;cursor:pointer;margin-left:4px;padding:0;outline:none;';
+        closeBtn.textContent = '×';
+        closeBtn.onclick = function (e) {
+          e.stopPropagation();
+          wrap.style.display = 'none';
+          sessionStorage.setItem('voyplan_pwa_dismissed', 'true');
+        };
+
+        wrap.appendChild(b);
+        wrap.appendChild(closeBtn);
+        document.body.appendChild(wrap);
+        return { wrap: wrap, btn: b };
       }
+
       function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent); }
       function standalone() {
         return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
       }
-      // Chromium/Android/desktop: real install prompt.
+
+      // Chromium / Android / desktop install prompt
       window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
         deferredPrompt = e;
-        var b = makeBtn();
-        b.textContent = '⬇  Install App';
-        b.onclick = async function () {
+        var el = makeWrap();
+        el.btn.onclick = async function () {
           if (!deferredPrompt) return;
           deferredPrompt.prompt();
           await deferredPrompt.userChoice;
           deferredPrompt = null;
-          b.style.display = 'none';
+          el.wrap.style.display = 'none';
         };
-        b.style.display = 'block';
+        el.wrap.style.display = 'flex';
       });
-      window.addEventListener('appinstalled', function () { if (btn) btn.style.display = 'none'; });
-      // iOS Safari has no beforeinstallprompt — guide the manual gesture.
+
+      window.addEventListener('appinstalled', function () {
+        if (wrap) wrap.style.display = 'none';
+      });
+
+      // iOS Safari manual hint
       window.addEventListener('load', function () {
         if (isIos() && !standalone()) {
-          var b = makeBtn();
-          b.textContent = '⬇  Install: Share → Add to Home Screen';
-          b.onclick = function () { b.style.display = 'none'; };
-          setTimeout(function () { b.style.display = 'block'; }, 2500);
+          var el = makeWrap();
+          el.btn.innerHTML = '<span style="font-size:14px;">⬇</span><span>Install: Share → Add to Home</span>';
+          setTimeout(function () {
+            if (sessionStorage.getItem('voyplan_pwa_dismissed') !== 'true') {
+              el.wrap.style.display = 'flex';
+            }
+          }, 3000);
         }
       });
     })();

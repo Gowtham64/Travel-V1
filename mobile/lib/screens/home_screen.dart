@@ -1340,8 +1340,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildVehicleSelector() {
-    final name = _selectedVehicle?.name ?? 'Standard Car';
-    final mileage = _selectedVehicle?.effectiveMileage ?? 15.0;
+    final isBike = _selectedVehicle?.type == 'motorcycle';
+    final isEv = _selectedVehicle?.fuelType == 'ev';
+    final name = _selectedVehicle?.name ?? (isBike ? 'Royal Enfield Classic 350' : 'Standard Car');
+    final mileage = _selectedVehicle?.effectiveMileage ?? (isBike ? 35.0 : 15.0);
 
     return InkWell(
       onTap: _openVehicles,
@@ -1355,16 +1357,29 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         child: Row(
           children: [
-            const Icon(Icons.directions_car_rounded, color: Color(0xFFF59E0B), size: 18),
+            Icon(
+              isBike
+                  ? Icons.two_wheeler_rounded
+                  : (isEv ? Icons.bolt_rounded : Icons.directions_car_rounded),
+              color: isBike
+                  ? const Color(0xFFF59E0B)
+                  : (isEv ? const Color(0xFFA78BFA) : const Color(0xFF38BDF8)),
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('VEHICLE', style: TextStyle(color: Color(0xFF64748B), fontSize: 9.5, fontWeight: FontWeight.w800)),
                   Text(
-                    '$name • ${mileage.toStringAsFixed(1)} km/L',
+                    isBike ? 'MOTORCYCLE / BIKE' : (isEv ? 'ELECTRIC VEHICLE' : 'VEHICLE'),
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 9.5, fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    isEv
+                        ? '$name • ${_selectedVehicle?.evRangeKm ?? 150} km Range'
+                        : '$name • ${mileage.toStringAsFixed(1)} km/L',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
@@ -2457,10 +2472,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildFuelIntelligenceCard() {
     final vehicle = _selectedVehicle;
-    final name = vehicle?.name ?? 'Standard Vehicle';
-    final mileage = vehicle?.effectiveMileage ?? 14.5;
-    final tank = vehicle?.tankCapacity ?? 50.0;
-    final estRange = (tank * mileage).round();
+    final isBike = vehicle?.type == 'motorcycle';
+    final isEv = vehicle?.fuelType == 'ev';
+    final name = vehicle?.fullDisplayName ?? vehicle?.name ?? (isBike ? 'Royal Enfield Classic 350' : 'Standard Vehicle');
+    final mileage = vehicle?.effectiveMileage ?? (isBike ? 35.0 : 14.5);
+    final tank = isEv ? 0.0 : (vehicle?.tankCapacity != null && vehicle!.tankCapacity > 0 ? vehicle.tankCapacity : (isBike ? 13.0 : 50.0));
+    final estRange = isEv ? (vehicle?.evRangeKm ?? 150) : (tank * mileage).round();
 
     return _glass(
       radius: 20,
@@ -2470,9 +2487,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           Row(
             children: [
-              const Icon(Icons.speed_rounded, color: Color(0xFFF59E0B), size: 18),
+              Icon(
+                isBike
+                    ? Icons.two_wheeler_rounded
+                    : (isEv ? Icons.bolt_rounded : Icons.speed_rounded),
+                color: isBike
+                    ? const Color(0xFFF59E0B)
+                    : (isEv ? const Color(0xFFA78BFA) : const Color(0xFFF59E0B)),
+                size: 18,
+              ),
               const SizedBox(width: 8),
-              const Text('Fuel Intelligence', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+              Text(
+                isEv ? 'Battery & Range' : 'Fuel Intelligence',
+                style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800),
+              ),
               const Spacer(),
               TextButton(
                 onPressed: _openVehicles,
@@ -2488,9 +2516,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Fuel stats grid
           Row(
             children: [
-              _fuelStat('Current Tank', '42 L (80%)', const Color(0xFF10B981)),
+              _fuelStat(
+                isEv ? 'Current Charge' : 'Current Tank',
+                isEv
+                    ? '${((vehicle?.batteryCapacityKwh ?? 3.7) * 0.8).toStringAsFixed(1)} kWh (80%)'
+                    : '${(tank * 0.8).toStringAsFixed(0)} L (80%)',
+                const Color(0xFF10B981),
+              ),
               const SizedBox(width: 8),
-              _fuelStat('Mileage', '${mileage.toStringAsFixed(1)} km/L', const Color(0xFF38BDF8)),
+              _fuelStat(
+                isEv ? 'Efficiency' : 'Mileage',
+                isEv ? '${mileage.toStringAsFixed(1)} km/kWh' : '${mileage.toStringAsFixed(1)} km/L',
+                const Color(0xFF38BDF8),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -2498,7 +2536,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               _fuelStat('Est. Range', '$estRange km', const Color(0xFFF59E0B)),
               const SizedBox(width: 8),
-              _fuelStat('Fuel Stop', '220 km ahead', const Color(0xFFEC4899)),
+              _fuelStat(
+                isEv ? 'Charging Stop' : (isBike ? 'Fuel / Chai Stop' : 'Fuel Stop'),
+                isBike ? '160 km ahead' : '220 km ahead',
+                const Color(0xFFEC4899),
+              ),
             ],
           ),
         ],
