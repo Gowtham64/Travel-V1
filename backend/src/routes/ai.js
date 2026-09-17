@@ -12,6 +12,7 @@ function isInIndia(pt) {
 const { estimateBudget } = require("../services/budgetService");
 const priceService = require("../services/priceService");
 const { calculateTripRoute } = require("../services/routeCalculationService");
+const { normalizeTripType } = require("../utils/tripType");
 
 const router = express.Router();
 
@@ -214,7 +215,7 @@ router.post("/smart-itinerary", async (req, res) => {
     }
     if (!resolvedTime) resolvedTime = "08:00";
 
-    const tripType = (b.tripType === "one_way" || b.tripType === "oneway") ? "one_way" : "around";
+    const tripType = normalizeTripType(b.tripType);
     const searchRadiusKm = Number(b.searchRadiusKm) > 0 ? Number(b.searchRadiusKm) : 25;
     const durationDays = Math.max(1, Math.min(Number(b.durationDays) || 1, 14));
     const vehicleType = String(b.vehicleType || "car").toLowerCase();
@@ -508,7 +509,7 @@ router.post("/recalculate-itinerary", async (req, res) => {
             tankCapacityLiters: Number(b.tankCapacity) || 45,
             currentFuelLiters: Number(b.currentFuel) || 30,
           },
-          tripType: (b.tripType === "one_way" || b.tripType === "oneway") ? "one_way" : "around",
+          tripType: normalizeTripType(b.tripType),
           durationDays: days.length,
           travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
           routeVersion: nextRouteVersion,

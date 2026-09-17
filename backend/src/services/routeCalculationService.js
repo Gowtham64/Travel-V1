@@ -2,6 +2,7 @@ const { getRoute, toPoint, haversineMeters } = require("./routingService");
 const { estimateBudget } = require("./budgetService");
 const { getTollEstimate } = require("./tollService");
 const priceService = require("./priceService");
+const { normalizeTripType, isReturnToOrigin, formatTripType, TRIP_TYPES } = require("../utils/tripType");
 
 // Vehicle types barred from expressways/motorways in India
 const MOTORWAY_BANNED_TYPES = new Set([
@@ -103,14 +104,8 @@ async function calculateTripRoute({
     throw new Error("Invalid destination: valid coordinates (lat, lng) are required");
   }
 
-  const cleanTripType = String(tripType || "around").toLowerCase().replace(/[\s_-]/g, "");
-  const isAroundTrip = cleanTripType === "around" ||
-                       cleanTripType === "round" ||
-                       cleanTripType === "roundtrip" ||
-                       cleanTripType === "multidest" ||
-                       cleanTripType === "circuit" ||
-                       cleanTripType === "loop" ||
-                       cleanTripType === "vacation";
+  const canonicalTripType = normalizeTripType(tripType);
+  const returnsToOrigin = isReturnToOrigin(canonicalTripType);
   const normStops = (Array.isArray(stops) ? stops : [])
     .map((s, idx) => normalizeLocation(s, `Stop ${idx + 1}`, "activity", idx + 1))
     .filter(Boolean);
@@ -120,8 +115,8 @@ async function calculateTripRoute({
   let routeEnd;
   let intermediateWaypoints = [];
 
-  if (isAroundTrip) {
-    // Around trip circuit: departs origin, traverses stops / destination, returns to origin
+  if (returnsToOrigin) {
+    // Round trip / Circuit / Loop / Vacation: departs origin, traverses stops / destination, returns to origin
     routeStart = { lat: normOrigin.lat, lng: normOrigin.lng, name: normOrigin.name, address: normOrigin.address };
     routeEnd = { lat: normOrigin.lat, lng: normOrigin.lng, name: `Return to ${normOrigin.name}`, address: normOrigin.address };
 
@@ -159,7 +154,7 @@ async function calculateTripRoute({
 
     intermediateWaypoints = wps;
   } else {
-    // One-Way trip: origin -> stops -> destination
+    // Point-to-point journey (One-Way or Multi-Destination): origin -> [sequential stops] -> destination
     routeStart = { lat: normOrigin.lat, lng: normOrigin.lng, name: normOrigin.name, address: normOrigin.address };
     routeEnd = { lat: normDest.lat, lng: normDest.lng, name: normDest.name, address: normDest.address };
 
@@ -198,11 +193,11 @@ async function calculateTripRoute({
 
   // Toll estimation with round-trip discount support
   let toll = null;
-  const isRoundTrip = isAroundTrip;
+  const isRoundTrip = returnsToOrigin;
   try {
     toll = await getTollEstimate(routeStart, routeEnd, vehicleType, routeResult.coordinates, {
       isRoundTrip,
-      tripType,
+      tripType: canonicalTripType,
       durationDays: Number(durationDays) || 1,
     });
   } catch (err) {
@@ -240,7 +235,8 @@ async function calculateTripRoute({
     console.error("[ROUTE CALCULATION] Budget estimation error:", err.message);
     const estFuel = Math.round((distanceKm / efficiency) * fuelPrice);
     const estToll = toll?.fastagTollCost || Math.round(distanceKm * rates.tollPerKm);
-    const estStay = Math.max(0, (durationDays - 1)) * rates.stayPerNight;
+    const estFood = (rates.foodPerDay || 600) * durationDays * travellers;
+    const estStay = Math.max(0, (durationDays - 1)) * (rates.stayPerNight || 1500);
     const estActivities = 500 * durationDays * travellers;
     const estParking = 100 * durationDays;
     const estMisc = 300 * durationDays * travellers;
@@ -289,7 +285,8 @@ async function calculateTripRoute({
     tripId,
     origin: normOrigin,
     destination: normDest,
-    tripType: isAroundTrip ? "around" : "one_way",
+    tripType: canonicalTripType,
+    isRoundTrip: returnsToOrigin,
     stops: normStops,
     route: {
       distanceMeters,

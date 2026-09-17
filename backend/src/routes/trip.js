@@ -575,5 +575,43 @@ router.delete("/:id", requireAuth, async (req, res) => {
   }
 });
 
+const { createTripShare, getTripShare } = require("../services/sharingService");
+
+/**
+ * POST /api/trip/share
+ * Generates a secure sanitized shareable link without exposing sensitive account data.
+ */
+router.post("/share", async (req, res) => {
+  try {
+    const tripData = req.body;
+    if (!tripData || typeof tripData !== "object") {
+      return res.status(400).json({ error: "Trip data is required to generate share" });
+    }
+    const result = await createTripShare(tripData);
+    res.json(result);
+  } catch (err) {
+    console.error("Error creating trip share:", err.message);
+    res.status(500).json({ error: "Failed to generate share link" });
+  }
+});
+
+/**
+ * GET /api/trip/share/:shareId
+ * Fetches sanitized shared trip data.
+ */
+router.get("/share/:shareId", async (req, res) => {
+  try {
+    const { shareId } = req.params;
+    const trip = await getTripShare(shareId);
+    if (!trip) {
+      return res.status(404).json({ error: "Shared trip not found or expired" });
+    }
+    res.json(trip);
+  } catch (err) {
+    console.error("Error fetching trip share:", err.message);
+    res.status(500).json({ error: "Failed to fetch shared trip" });
+  }
+});
+
 module.exports = router;
 

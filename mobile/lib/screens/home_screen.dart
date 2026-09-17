@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
 import '../models/trip_models.dart';
-import 'unified_trip_builder_screen.dart';
+import '../widgets/trip_modal.dart';
 import 'saved_trips_screen.dart';
 import 'gallery_screen.dart';
 import '../services/trip_extras_store.dart';
@@ -182,19 +182,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return 'Good evening';
   }
 
-  // Unified Trip Builder Entry Point (Part 1 & 7)
-  void _planTrip({String? tripType, String? start, String? dest, int? days, String? vibe}) =>
-      Navigator.push(
+  // Master Trip Modal Entry Point (One-Way & Round-Trip / Vacation Planner)
+  void _planTrip({String? tripType, String? start, String? dest, int? days}) =>
+      showVoyPlanTripModal(
         context,
-        MaterialPageRoute(
-          builder: (_) => UnifiedTripBuilderScreen(
-            initialTripType: tripType ?? 'one_way',
-            initialOrigin: start,
-            initialDestination: dest,
-            initialDays: days,
-            initialVibe: vibe,
-          ),
-        ),
+        initialMode: tripType ?? 'one_way',
+        initialOrigin: start,
+        initialDestination: dest,
+        initialDays: days,
       );
 
   void _openSaved() => Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));

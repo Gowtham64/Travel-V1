@@ -15,6 +15,7 @@ import '../data/attraction_database.dart';
 import 'toll_calculation_service.dart';
 import 'fuel_price_service.dart';
 import '../utils/trip_date_time.dart';
+import '../utils/trip_type_utils.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -2315,7 +2316,7 @@ class ApiService {
     }
 
     final eff = (fuelEfficiency != null && fuelEfficiency > 0) ? fuelEfficiency : 15.0;
-    final isRound = tripType == 'around' || tripType == 'roundtrip';
+    final isRound = TripTypes.isReturnToOrigin(tripType);
     final totalKm = isRound
         ? ((estimatedKm * 2) * (total > 1 ? 1.2 : 1.0))
         : (estimatedKm * (total > 1 ? 1.15 : 1.0));
@@ -2434,6 +2435,49 @@ class ApiService {
       throw ApiException('AI request failed (${response.statusCode})');
     }
     return (jsonDecode(response.body) as Map<String, dynamic>)['text'] as String? ?? '';
+  }
+
+  /// Create a secure sanitized shareable link for a trip
+  Future<({String shareId, String shareUrl, Map<String, dynamic> trip})> createTripShare(Map<String, dynamic> tripData) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/api/trip/share'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode(tripData),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final b = jsonDecode(response.body) as Map<String, dynamic>;
+        return (
+          shareId: b['shareId'] as String? ?? 'voy_${DateTime.now().millisecondsSinceEpoch}',
+          shareUrl: b['shareUrl'] as String? ?? 'https://voyplan.in',
+          trip: (b['trip'] as Map<String, dynamic>?) ?? tripData,
+        );
+      }
+    } catch (_) {}
+
+    // Fallback: local share payload
+    final localId = 'voy_loc_${DateTime.now().millisecondsSinceEpoch}';
+    return (
+      shareId: localId,
+      shareUrl: 'https://voyplan.in/trip/share/$localId',
+      trip: tripData,
+    );
+  }
+
+  /// Retrieve a shared trip by shareId
+  Future<Map<String, dynamic>?> getTripShare(String shareId) async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/trip/share/$shareId'))
+          .timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>?;
+      }
+    } catch (_) {}
+    return null;
   }
 }
 

@@ -8,6 +8,7 @@ const { rankCandidatesWithAI, getBestCuratedVenue } = require("./aiService");
 const curatedPlaces = require("../data/curatedPlaces.json");
 const { calculateTripRoute } = require("./routeCalculationService");
 const { normalizeCategory, isDeceptivePlace } = require("./geminiValidatorService");
+const { normalizeTripType, isReturnToOrigin, formatTripType, TRIP_TYPES } = require("../utils/tripType");
 
 /**
  * Category-based standard visit durations (minutes)
@@ -733,7 +734,9 @@ async function planItinerary(params = {}) {
     userSelected: true,
   });
 
-  const isAroundTrip = String(tripType).toLowerCase() !== "one_way";
+  const canonicalTripType = normalizeTripType(tripType);
+  const isAroundTrip = isReturnToOrigin(canonicalTripType);
+  const displayType = formatTripType(canonicalTripType);
   const searchRadius = Math.max(5, Math.min(Number(searchRadiusKm) || 25, 100));
   const destNameLower = (lockedDestination.name || "").toLowerCase();
   const isDestGoa = destNameLower.includes("goa") || (lockedDestination.state || "").toLowerCase() === "goa";
@@ -753,7 +756,7 @@ async function planItinerary(params = {}) {
   console.log(`[SMART PLANNER] ORIGIN:                  ${startPt.name}`);
   console.log(`[SMART PLANNER] DIRECT DISTANCE:         ${directDist.toFixed(1)} km`);
   console.log(`[SMART PLANNER] BASELINE ROAD DISTANCE:  ${baseCorridorRoute.distanceKm.toFixed(1)} km`);
-  console.log(`[SMART PLANNER] TRIP TYPE:               ${isAroundTrip ? 'Around / Round Trip' : 'One-Way'}`);
+  console.log(`[SMART PLANNER] TRIP TYPE:               ${displayType}`);
 
   // Step 4: Discover Candidate Places
   const isLocalTrip = directDist <= 30;
@@ -1403,7 +1406,7 @@ async function planItinerary(params = {}) {
         tankCapacityLiters: tankCapacity,
         currentFuelLiters: currentFuel,
       },
-      tripType: isAroundTrip ? "around" : "one_way",
+      tripType: canonicalTripType,
       durationDays: totalDays,
       travellers: Math.max(1, Number(vehicle.travellers) || 1),
       routeVersion: 1,
@@ -1451,7 +1454,8 @@ async function planItinerary(params = {}) {
 
   return {
     days: generatedDays,
-    tripType: isAroundTrip ? "around" : "one_way",
+    tripType: canonicalTripType,
+    isRoundTrip: isAroundTrip,
     startPoint: startPt,
     endPoint: isAroundTrip ? startPt : lockedDestination,
     destinationPoint: lockedDestination,

@@ -18,6 +18,7 @@ import '../widgets/app_design.dart';
 import '../data/temple_database.dart';
 import '../services/trip_reminder_service.dart';
 import '../utils/trip_date_time.dart';
+import '../utils/trip_type_utils.dart';
 import 'day_planner_screen.dart';
 import 'trip_screen.dart';
 

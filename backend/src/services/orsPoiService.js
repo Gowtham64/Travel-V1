@@ -1,18 +1,41 @@
 const axios = require("axios");
 
 const PHOTON_TERMS = {
-  temple:      ["sri temple", "swamy temple", "temple", "mandir", "kovil"],
-  fuel:        ["petrol pump", "indian oil", "bharat petroleum", "hindustan petroleum", "shell petrol", "fuel"],
-  charging:    ["ev charging", "tata power ev", "charging station"],
-  hotel:       ["resort", "hotel stay", "lodge", "inn"],
-  restaurant:  ["restaurant", "veg restaurant", "dhaba", "hotel dining", "bhavan"],
-  dining:      ["restaurant", "veg restaurant", "dhaba", "cafe"],
-  attraction:  ["palace", "fort", "waterfall", "viewpoint", "sanctuary", "monument"],
-  hills:       ["hills", "peak", "viewpoint"],
-  lake:        ["lake", "dam", "reservoir"],
-  river:       ["river", "waterfall", "falls"],
-  viewpoint:   ["viewpoint", "hill viewpoint", "waterfall"],
-  tea:         ["tea stall", "cafe coffee day", "chai point", "bakery"],
+  // Food
+  restaurant:      ["restaurant", "veg restaurant", "dhaba", "hotel dining", "bhavan"],
+  cafe:            ["cafe", "coffee shop", "tea stall", "cafe coffee day", "bakery"],
+  vegetarian:      ["pure veg restaurant", "veg hotel", "bhavan", "vegetarian", "veg dining"],
+  non_vegetarian:  ["non veg restaurant", "biryani", "dhaba", "chicken", "meat"],
+  local_food:      ["local cuisine", "traditional food", "mess", "thali", "dhaba"],
+  fast_food:       ["fast food", "burger", "pizza", "snacks", "chaat"],
+  dining:          ["restaurant", "veg restaurant", "dhaba", "cafe"],
+  tea:             ["tea stall", "chai point", "cafe", "bakery"],
+
+  // Attractions & Sights
+  attraction:      ["palace", "fort", "monument", "landmark", "tourist attraction"],
+  famous_places:   ["famous place", "monument", "palace", "fort", "heritage site"],
+  viewpoint:       ["viewpoint", "hill viewpoint", "lookout", "scenic point"],
+  historical:      ["historical site", "fort", "palace", "ruins", "monument", "heritage"],
+  temple:          ["sri temple", "swamy temple", "temple", "mandir", "kovil"],
+  church:          ["church", "cathedral", "basilica", "chapel"],
+  waterfall:       ["waterfall", "falls", "cascade"],
+  beach:           ["beach", "sea shore", "coastline"],
+  park:            ["park", "botanical garden", "national park", "nature park"],
+  museum:          ["museum", "art gallery", "exhibition center"],
+  photography:     ["scenic viewpoint", "photo spot", "sunset point", "sunrise point"],
+  nature:          ["nature reserve", "forest", "wildlife sanctuary", "hills", "lake"],
+  hills:           ["hills", "peak", "viewpoint", "hill station"],
+  lake:            ["lake", "dam", "reservoir"],
+  river:           ["river", "waterfall", "stream"],
+
+  // Travel Services & Lodging
+  fuel:            ["petrol pump", "indian oil", "bharat petroleum", "hindustan petroleum", "shell petrol", "fuel"],
+  charging:        ["ev charging", "tata power ev", "charging station", "electric vehicle"],
+  restroom:        ["public toilet", "restroom", "washroom", "comfort station"],
+  parking:         ["parking", "car parking", "parking lot"],
+  atm:             ["atm", "bank atm", "cash machine"],
+  hospital:        ["hospital", "clinic", "emergency medical", "healthcare"],
+  hotel:           ["resort", "hotel stay", "lodge", "inn", "homestay"],
 };
 
 function distKm(lat1, lon1, lat2, lon2) {

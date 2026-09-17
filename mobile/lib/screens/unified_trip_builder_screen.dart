@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../services/vehicle_database_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/trip_date_time.dart';
+import '../utils/trip_type_utils.dart';
 import '../widgets/vehicle_search_sheet.dart';
 import 'trip_screen.dart';
 
@@ -353,7 +354,7 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen> wit
         if (c.text.trim().isNotEmpty) waypointsList.add(c.text.trim());
       }
 
-      final mappedTripType = (_tripType == 'one_way') ? 'one_way' : 'around';
+      final mappedTripType = TripTypes.normalize(_tripType);
       final mode = _selectedStyles.contains('Relaxed')
           ? 'relaxed'
           : (_selectedStyles.contains('Fastest') ? 'packed' : 'balanced');

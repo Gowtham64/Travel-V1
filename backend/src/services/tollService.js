@@ -1,4 +1,5 @@
 const axios = require("axios");
+const { isReturnToOrigin } = require("../utils/tripType");
 
 const TOLLGURU_URL = "https://apis.tollguru.com/toll/v2/origin-destination-waypoints";
 
@@ -354,7 +355,7 @@ function calculateRouteTolls(start, end, vehicleKey = "car", routeCoordinates = 
   }
 
   const tollCount = detectedPlazas.length;
-  const isRoundTrip = !!(options && (options.isRoundTrip || options.tripType === "around" || options.tripType === "round"));
+  const isRoundTrip = !!(options && (options.isRoundTrip || isReturnToOrigin(options.tripType)));
   const durationDays = Number(options?.durationDays) || 1;
   const returnWithin24Hours = isRoundTrip && durationDays <= 1;
 
@@ -419,7 +420,7 @@ async function getTollEstimate(start, end, vehicleKey = "car", routeCoordinates 
 
       const route = response.data.routes && response.data.routes[0];
       if (route && route.costs) {
-        const isRoundTrip = !!(options && (options.isRoundTrip || options.tripType === "around" || options.tripType === "round"));
+        const isRoundTrip = !!(options && (options.isRoundTrip || isReturnToOrigin(options.tripType)));
         const durationDays = Number(options?.durationDays) || 1;
         const returnWithin24Hours = isRoundTrip && durationDays <= 1;
 
