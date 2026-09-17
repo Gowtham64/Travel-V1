@@ -2055,9 +2055,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                             );
                           }
                         } else {
-                          await Supabase.instance.client.auth.signOut();
+                          try {
+                            await Supabase.instance.client.auth.signOut();
+                          } catch (_) {}
+                          clearWebSessionData();
                           if (kIsWeb) {
-                            redirectToLanding();
+                            redirectToLanding(forLogout: true);
                           } else {
                             Navigator.pushAndRemoveUntil(
                               ctx,

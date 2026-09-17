@@ -22,6 +22,7 @@ import 'account_screens.dart';
 import 'trip_history_screen.dart';
 import '../services/trip_history_service.dart';
 import '../widgets/vehicle_search_sheet.dart';
+import 'login_screen.dart';
 
 /// Voyplan home — restructured with Part 7 dashboard requirements:
 /// Top: Active Trip banner or Greeting with [✨ Plan a Trip]
@@ -210,9 +211,31 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       );
 
   Future<void> _logout() async {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Logging out...'),
+          duration: Duration(seconds: 1),
+          backgroundColor: Color(0xFF0F172A),
+        ),
+      );
+    }
     try {
       await Supabase.instance.client.auth.signOut();
     } catch (_) {}
+
+    clearWebSessionData();
+
+    if (kIsWeb) {
+      redirectToLanding(forLogout: true);
+    } else {
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+        );
+      }
+    }
   }
 
   Widget _stagger(int index, Widget child) {

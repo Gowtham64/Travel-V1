@@ -203,6 +203,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
       // session-handoff token in its query/fragment, which would leak into
       // the browser console/logs.
       if (uri.queryParameters['guest'] == 'true' || uri.toString().contains('guest=true')) {
+        sanitizeBrowserUrl();
         setState(() {
           _isAuthenticated = true;
           _isLoading = false;
@@ -291,7 +292,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     // the static landing page (which hosts the login card). Show a spinner while
     // the browser navigates. Native builds fall back to the in-app LoginScreen.
     if (kIsWeb) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => redirectToLanding());
+      WidgetsBinding.instance.addPostFrameCallback((_) => redirectToLanding(forLogout: true));
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     return const LoginScreen();
