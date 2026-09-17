@@ -968,6 +968,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           fuelType: _fuelType,
         ),
         tripStart: isScheduled ? DateTime.tryParse(tripStart) : null,
+        distanceKm: _oneWayDistanceKm > 0 ? _oneWayDistanceKm : null,
+        durationMinutes: _oneWayDurationMin > 0 ? _oneWayDurationMin : null,
+        fuelCost: _budgetFuel > 0 ? _budgetFuel.round() : null,
+        tollCost: _budgetTolls > 0 ? _budgetTolls.round() : null,
+        status: isScheduled ? 'UPCOMING' : 'ACTIVE',
       );
 
       _showToast(isScheduled ? 'Trip scheduled successfully!' : 'Trip saved to My Trips!');

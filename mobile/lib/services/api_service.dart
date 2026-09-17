@@ -687,6 +687,11 @@ class ApiService {
     DateTime? tripStart,
     List<Map<String, dynamic>>? itinerary,
     Vehicle? vehicle,
+    double? distanceKm,
+    int? durationMinutes,
+    int? fuelCost,
+    int? tollCost,
+    String? status,
   }) async {
     // 1. Direct Supabase Insert (zero backend cold-start latency, guaranteed persistence)
     try {
@@ -699,6 +704,11 @@ class ApiService {
           if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
           if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
           if (vehicle != null) 'vehicle': vehicle.toJson(),
+          if (distanceKm != null) 'distanceKm': distanceKm,
+          if (durationMinutes != null) 'durationMinutes': durationMinutes,
+          if (fuelCost != null) 'fuelCost': fuelCost,
+          if (tollCost != null) 'tollCost': tollCost,
+          if (status != null) 'status': status,
         };
         final inserted = await Supabase.instance.client.from('trips').insert({
           'user_id': user.id,
@@ -710,6 +720,7 @@ class ApiService {
           'start_point': {'lat': start.lat, 'lng': start.lng, if (start.name != null) 'name': start.name},
           'end_point': enrichedEnd,
           'vehicle_type': vehicleType,
+          if (status != null) 'status': status,
         }).select().single();
 
         if (waypoints.isNotEmpty && inserted['id'] != null) {
@@ -741,12 +752,26 @@ class ApiService {
           body: jsonEncode({
             'name': name,
             'startPoint': {'lat': start.lat, 'lng': start.lng, if (start.name != null) 'name': start.name},
-            'endPoint': {'lat': end.lat, 'lng': end.lng, if (end.name != null) 'name': end.name},
+            'endPoint': {
+              'lat': end.lat, 
+              'lng': end.lng, 
+              if (end.name != null) 'name': end.name,
+              if (distanceKm != null) 'distanceKm': distanceKm,
+              if (durationMinutes != null) 'durationMinutes': durationMinutes,
+              if (fuelCost != null) 'fuelCost': fuelCost,
+              if (tollCost != null) 'tollCost': tollCost,
+              if (status != null) 'status': status,
+            },
             'waypoints': waypoints.map((w) => {'lat': w.lat, 'lng': w.lng, 'name': w.name}).toList(),
             'vehicleType': vehicleType,
             if (vehicle != null) 'vehicle': vehicle.toJson(),
             if (tripStart != null) 'tripStart': tripStart.toIso8601String(),
             if (itinerary != null && itinerary.isNotEmpty) 'itinerary': itinerary,
+            if (distanceKm != null) 'distanceKm': distanceKm,
+            if (durationMinutes != null) 'durationMinutes': durationMinutes,
+            if (fuelCost != null) 'fuelCost': fuelCost,
+            if (tollCost != null) 'tollCost': tollCost,
+            if (status != null) 'status': status,
           }),
         )
         .timeout(const Duration(seconds: 45), onTimeout: () {
@@ -756,6 +781,28 @@ class ApiService {
     if (response.statusCode != 200) {
       throw ApiException('Saving trip failed (${response.statusCode}): ${response.body}');
     }
+  }
+
+  Future<void> updateTripStatus(String id, String newStatus, String token) async {
+    try {
+      await Supabase.instance.client
+          .from('trips')
+          .update({'status': newStatus})
+          .eq('id', id);
+      return;
+    } catch (_) {}
+
+    final uri = Uri.parse('$baseUrl/api/trip/$id');
+    try {
+      await http.patch(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        body: jsonEncode({'status': newStatus}),
+      );
+    } catch (_) {}
   }
 
   Future<List<dynamic>> getSavedTrips(String token) async {

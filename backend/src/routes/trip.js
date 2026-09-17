@@ -466,16 +466,34 @@ router.post("/save", requireAuth, async (req, res) => {
   const user_id = req.user?.id;
   if (!user_id) return res.status(401).json({ error: "Unauthorized" });
 
-  const { name, startPoint, endPoint, vehicleType, vehicle, waypoints, tripStart, itinerary } = req.body;
+  const { 
+    name, 
+    startPoint, 
+    endPoint, 
+    vehicleType, 
+    vehicle, 
+    waypoints, 
+    tripStart, 
+    itinerary,
+    distanceKm,
+    durationMinutes,
+    fuelCost,
+    tollCost,
+    status
+  } = req.body;
 
   try {
-    // Persist the planned start, AI itinerary, and full vehicle spec inside the
-    // existing end_point JSONB column, so no database migration/new columns are
-    // required.
+    // Persist the planned start, AI itinerary, full vehicle spec, and calculated route metrics
+    // inside the existing end_point JSONB column, so no database migration/new columns are required.
     const enrichedEnd = { ...(endPoint || {}) };
     if (tripStart) enrichedEnd.tripStart = tripStart;
     if (itinerary && itinerary.length) enrichedEnd.itinerary = itinerary;
     if (vehicle && typeof vehicle === "object") enrichedEnd.vehicle = vehicle;
+    if (distanceKm != null) enrichedEnd.distanceKm = Number(distanceKm);
+    if (durationMinutes != null) enrichedEnd.durationMinutes = Number(durationMinutes);
+    if (fuelCost != null) enrichedEnd.fuelCost = Number(fuelCost);
+    if (tollCost != null) enrichedEnd.tollCost = Number(tollCost);
+    if (status) enrichedEnd.status = status;
 
     const { data, error } = await req.supabase.from('trips').insert({
       user_id,
@@ -509,7 +527,15 @@ router.post("/save", requireAuth, async (req, res) => {
       }
     }
 
-    res.json(data);
+    // Return trip enriched with top-level metrics
+    res.json({
+      ...data,
+      distanceKm: data.distanceKm ?? enrichedEnd.distanceKm,
+      durationMinutes: data.durationMinutes ?? enrichedEnd.durationMinutes,
+      fuelCost: data.fuelCost ?? enrichedEnd.fuelCost,
+      tollCost: data.tollCost ?? enrichedEnd.tollCost,
+      status: data.status ?? enrichedEnd.status ?? 'UPCOMING',
+    });
   } catch (err) {
     console.error("Error saving trip:", err.message);
     res.status(500).json({ error: err.message });
@@ -532,11 +558,52 @@ router.get("/saved", requireAuth, async (req, res) => {
     `).order('created_at', { ascending: false });
     
     if (error) throw error;
-    // Filter out soft-deleted trips
-    const active = (data || []).filter(t => t.status !== 'DELETED' && !t.deleted_at);
+    // Filter out soft-deleted trips and elevate metrics to top-level
+    const active = (data || []).filter(t => t.status !== 'DELETED' && !t.deleted_at).map(t => {
+      const endPt = t.end_point || {};
+      return {
+        ...t,
+        distanceKm: t.distanceKm ?? endPt.distanceKm,
+        durationMinutes: t.durationMinutes ?? endPt.durationMinutes,
+        fuelCost: t.fuelCost ?? endPt.fuelCost,
+        tollCost: t.tollCost ?? endPt.tollCost,
+        status: t.status ?? endPt.status ?? 'UPCOMING',
+      };
+    });
     res.json(active);
   } catch (err) {
     console.error("Error fetching saved trips:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * PATCH /api/trip/:id
+ * Update trip status, name, or metadata
+ */
+router.patch("/:id", requireAuth, async (req, res) => {
+  if (!req.supabase) return res.status(503).json({ error: "Supabase not configured" });
+  const { id } = req.params;
+  const { status, name, endPoint } = req.body;
+  if (!id) return res.status(400).json({ error: "Trip ID is required" });
+
+  try {
+    const updateData = {};
+    if (status) updateData.status = status;
+    if (name) updateData.name = name;
+    if (endPoint) updateData.end_point = endPoint;
+
+    const { data, error } = await req.supabase
+      .from("trips")
+      .update(updateData)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (err) {
+    console.error("Error updating trip:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
