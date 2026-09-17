@@ -216,10 +216,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   // ──────────────────────────────────────────────────────────────────────────
   // Round Trip Planning Mode: 0 = Describe It (NLP Prompt), 1 = Quick Wizard (Structured)
   int _roundTripMethod = 0;
-  final TextEditingController _describeItCtrl = TextEditingController(
-    text:
-        '3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies',
-  );
+  final TextEditingController _describeItCtrl = TextEditingController();
+  final TextEditingController _aroundDestinationInputCtrl =
+      TextEditingController();
+  final List<String> _aroundDestinations = [];
+  final Set<String> _aroundPreferences = {'Nature', 'Food'};
+  int _aroundWizardStep = 1;
   String _wizardTripStyle = 'Adventure';
   String _wizardBudgetTier = 'Moderate';
 
@@ -354,6 +356,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     if (widget.initialDestination != null) {
       _oneWayDestCtrl.text = widget.initialDestination!;
       _vacationDestCtrl.text = widget.initialDestination!;
+      _aroundDestinations.add(widget.initialDestination!);
     }
     if (widget.initialOriginCoord != null) {
       _oneWayOrigin = widget.initialOriginCoord;
@@ -384,6 +387,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     _vacationOriginCtrl.dispose();
     _vacationDestCtrl.dispose();
     _describeItCtrl.dispose();
+    _aroundDestinationInputCtrl.dispose();
     super.dispose();
   }
 
@@ -914,7 +918,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   }
 
   Future<void> _generateVacationItinerary() async {
-    final destName = _vacationDestCtrl.text.trim();
+    final destName = _aroundDestinations.isNotEmpty
+        ? _aroundDestinations.join(' → ')
+        : _vacationDestCtrl.text.trim();
     final originName = _vacationOriginCtrl.text.trim().isNotEmpty
         ? _vacationOriginCtrl.text.trim()
         : destName;
@@ -1272,15 +1278,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
       child: Column(
         children: [
           _buildRedesignedHeader(),
-          _buildRedesignedModeSelector(),
+          if (_activeMode == 'one_way') _buildRedesignedModeSelector(),
           if (_activeMode == 'one_way') _buildRedesignedStepIndicator(),
           const SizedBox(height: 8),
           Expanded(
             child: _activeMode != 'one_way'
-                ? SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _buildVacationContent(),
-                  )
+                ? _buildAroundTripExperience()
                 : isDesktop
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1356,9 +1359,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           const SizedBox(width: 12),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
+            children: [
               Text(
-                'Plan your trip',
+                _activeMode == 'one_way'
+                    ? 'Plan your trip'
+                    : 'Plan your Around Trip',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -4623,7 +4628,1214 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // 2. ROUND TRIP / VACATION WORKFLOW UI (Requirement 5)
+  // AROUND TRIP PREMIUM EXPERIENCE
+  // ──────────────────────────────────────────────────────────────────────────
+  Widget _buildAroundTripExperience() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isDesktop = constraints.maxWidth >= 860;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+              isDesktop ? 24 : 16, 12, isDesktop ? 24 : 16, 28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildAroundHero(),
+              const SizedBox(height: 16),
+              if (!isDesktop) ...[
+                _buildAroundModeSwitch(),
+                const SizedBox(height: 12),
+              ],
+              if (isDesktop)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildAroundMainPanel()),
+                    const SizedBox(width: 18),
+                    SizedBox(width: 360, child: _buildAroundQuickWizardCard()),
+                  ],
+                )
+              else
+                _buildAroundMainPanel(),
+              if (!isDesktop) ...[
+                const SizedBox(height: 14),
+                _buildAroundQuickWizardCard(),
+              ],
+              const SizedBox(height: 22),
+              _buildPopularAroundTrips(),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildAroundHero() {
+    return Container(
+      height: 142,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF16466A)),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF071B32), Color(0xFF102A44), Color(0xFF122B2E)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: -8,
+            top: -20,
+            bottom: -28,
+            width: 330,
+            child: Opacity(
+              opacity: 0.88,
+              child: Image.asset(
+                'assets/images/isometric_car.png',
+                fit: BoxFit.contain,
+                alignment: Alignment.centerRight,
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFF061326).withValues(alpha: 0.98),
+                    const Color(0xFF061326).withValues(alpha: 0.72),
+                    Colors.transparent,
+                  ],
+                  stops: const [0, 0.54, 1],
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00D8C0).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                        color: const Color(0xFF00D8C0).withValues(alpha: 0.5)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.route_rounded,
+                          color: Color(0xFF38E8D2), size: 14),
+                      SizedBox(width: 6),
+                      Text('AROUND TRIP',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.7)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                RichText(
+                  text: const TextSpan(
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 27,
+                        fontWeight: FontWeight.w900),
+                    children: [
+                      TextSpan(text: 'Plan Your '),
+                      TextSpan(
+                          text: 'Around Trip',
+                          style: TextStyle(color: Color(0xFF20D9DD))),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 5),
+                const Text(
+                  'Explore multiple destinations and let VoyPlan build the perfect journey.',
+                  style: TextStyle(
+                      color: Color(0xFFD8E4F2),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 3),
+                const Text(
+                  'Smart routes, meaningful stops, fuel planning, toll estimates and AI itineraries.',
+                  style: TextStyle(color: Color(0xFF8FA9C4), fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAroundMainPanel() {
+    if (_isGeneratingItinerary) return _buildAroundGenerationPanel();
+    if (_generatedItineraryDays.isNotEmpty)
+      return _buildAroundGeneratedPreview();
+    return _roundTripMethod == 0
+        ? _buildAroundDescribePanel()
+        : _buildAroundWizardPanel();
+  }
+
+  Widget _buildAroundModeSwitch() {
+    return Row(
+      children: [
+        Expanded(
+            child: _aroundModeCard(
+                Icons.auto_awesome_rounded, 'Describe It', 'AI powered', 0)),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _aroundModeCard(
+                Icons.explore_rounded, 'Quick Wizard', 'Guided planning', 1)),
+      ],
+    );
+  }
+
+  Widget _aroundModeCard(
+      IconData icon, String title, String subtitle, int mode) {
+    final selected = _roundTripMethod == mode;
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => setState(() => _roundTripMethod = mode),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF111E52) : const Color(0xFF0B1728),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+              color:
+                  selected ? const Color(0xFF23D8E4) : const Color(0xFF29415D),
+              width: selected ? 1.4 : 1),
+        ),
+        child: Row(
+          children: [
+            Icon(icon,
+                color: selected
+                    ? const Color(0xFF44E7F1)
+                    : const Color(0xFF8AA7C4),
+                size: 20),
+            const SizedBox(width: 9),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Text(title,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800)),
+                  Text(subtitle,
+                      style: const TextStyle(
+                          color: Color(0xFF8EA4BB), fontSize: 10)),
+                ])),
+            if (selected)
+              const Icon(Icons.check_circle_rounded,
+                  color: Color(0xFF25D7E3), size: 17),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAroundDescribePanel() {
+    return _aroundPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            _aroundIconBox(Icons.auto_awesome_rounded,
+                const [Color(0xFF19D8E4), Color(0xFF8058FF)]),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                  Row(children: [
+                    const Text('Describe It',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(width: 8),
+                    _aroundAiBadge(),
+                  ]),
+                  const SizedBox(height: 4),
+                  const Text(
+                      'Tell us your dream trip in natural language. Our AI will plan the perfect around trip for you.',
+                      style: TextStyle(color: Color(0xFFC0D0E1), fontSize: 12)),
+                ])),
+          ]),
+          const SizedBox(height: 18),
+          Container(
+            decoration: BoxDecoration(
+                color: const Color(0xFF07182D),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFF245178))),
+            child: TextField(
+              controller: _describeItCtrl,
+              maxLines: 4,
+              maxLength: 500,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  height: 1.35,
+                  fontWeight: FontWeight.w600),
+              decoration: const InputDecoration(
+                hintText:
+                    '3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies',
+                hintStyle: TextStyle(color: Color(0xFF8199B3), fontSize: 14),
+                prefixIcon: Padding(
+                    padding: EdgeInsets.only(left: 14, right: 4, top: 14),
+                    child: Icon(Icons.auto_awesome_rounded,
+                        color: Color(0xFF45DDE7), size: 19)),
+                prefixIconConstraints:
+                    BoxConstraints(minWidth: 42, minHeight: 42),
+                counterStyle: TextStyle(color: Color(0xFF7D94AE), fontSize: 10),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.fromLTRB(4, 14, 12, 4),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _aroundGradientButton(
+              'Build My Road Trip', Icons.arrow_forward_rounded, () {
+            if (_describeItCtrl.text.trim().isEmpty) {
+              _showToast('Describe your around trip first.');
+              return;
+            }
+            _executeDescribeIt(_describeItCtrl.text);
+          }),
+          const SizedBox(height: 18),
+          const Text('Try an example',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 9),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _aroundPromptChip(
+                'Weekend getaway', 'Weekend road trip from Bangalore to Coorg'),
+            _aroundPromptChip('Scenic road trip',
+                '4-day scenic trip from Bangalore covering Coorg and Wayanad'),
+            _aroundPromptChip('Foodie adventure',
+                '3-day road trip from Bangalore to Goa for foodies'),
+            _aroundPromptChip('Family trip',
+                '3-day family trip from Chennai to Pondicherry under ₹20,000'),
+          ]),
+          const SizedBox(height: 18),
+          _buildAroundAiPlanCard(),
+        ],
+      ),
+    );
+  }
+
+  Widget _aroundPromptChip(String label, String prompt) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => setState(() => _describeItCtrl.text = prompt),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
+        decoration: BoxDecoration(
+            color: const Color(0xFF112A4B),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF2A5278))),
+        child: Text(label,
+            style: const TextStyle(
+                color: Color(0xFFD8E7F8),
+                fontSize: 11,
+                fontWeight: FontWeight.w700)),
+      ),
+    );
+  }
+
+  Widget _buildAroundAiPlanCard() {
+    const items = [
+      'Optimal route',
+      'Multiple destinations',
+      'Fuel stops',
+      'Toll estimates',
+      'Attractions',
+      'Hotels',
+      'Food stops',
+      'Personalized itinerary',
+      'Estimated trip cost'
+    ];
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+          color: const Color(0xFF10245A),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF304A9A))),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Row(children: [
+          Icon(Icons.auto_awesome_rounded, color: Color(0xFFB69AFF), size: 19),
+          SizedBox(width: 8),
+          Text('What our AI will plan for you',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800))
+        ]),
+        const SizedBox(height: 11),
+        Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: items
+                .map((item) => Row(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.check_rounded,
+                          color: Color(0xFF7DEAE4), size: 14),
+                      const SizedBox(width: 4),
+                      Text(item,
+                          style: const TextStyle(
+                              color: Color(0xFFD2DCF1), fontSize: 10))
+                    ]))
+                .toList()),
+      ]),
+    );
+  }
+
+  Widget _buildAroundQuickWizardCard() {
+    const steps = [
+      (
+        'Starting Point',
+        'Where are you starting from?',
+        Icons.location_on_rounded
+      ),
+      ('Destination(s)', 'Add multiple destinations', Icons.map_rounded),
+      (
+        'Travel Dates',
+        'Select your travel dates',
+        Icons.calendar_month_rounded
+      ),
+      ('Travelers', 'Number of travelers', Icons.people_alt_rounded),
+      ('Vehicle', 'Choose your vehicle', Icons.directions_car_rounded),
+      ('Preferences', 'Route, fuel, stops, budget & more', Icons.tune_rounded),
+    ];
+    return _aroundPanel(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          _aroundIconBox(Icons.explore_rounded,
+              const [Color(0xFF9AB7D8), Color(0xFF345B91)]),
+          const SizedBox(width: 12),
+          const Expanded(
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                Text('Quick Wizard',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900)),
+                SizedBox(height: 4),
+                Text(
+                    'Prefer guided planning? Fill in the details step by step.',
+                    style: TextStyle(color: Color(0xFF9EB2C8), fontSize: 11))
+              ])),
+          Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF122A49),
+                  borderRadius: BorderRadius.circular(10)),
+              child: Text('Step $_aroundWizardStep of 6',
+                  style: const TextStyle(
+                      color: Color(0xFFBBD0E8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700))),
+        ]),
+        const SizedBox(height: 18),
+        ...List.generate(steps.length, (index) {
+          final step = index + 1;
+          final selected = _roundTripMethod == 1 && _aroundWizardStep == step;
+          final done = _roundTripMethod == 1 && step < _aroundWizardStep;
+          return InkWell(
+            onTap: () => setState(() {
+              _roundTripMethod = 1;
+              _aroundWizardStep = step;
+            }),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              SizedBox(
+                  width: 34,
+                  child: Column(children: [
+                    Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: selected
+                                ? const Color(0xFF19D5E5)
+                                : (done
+                                    ? const Color(0xFF173E5D)
+                                    : const Color(0xFF0C1C31)),
+                            border: Border.all(
+                                color: selected
+                                    ? const Color(0xFF19D5E5)
+                                    : const Color(0xFF56718E))),
+                        child: Center(
+                            child: done
+                                ? const Icon(Icons.check_rounded,
+                                    color: Color(0xFF78EDE2), size: 16)
+                                : Text('$step',
+                                    style: TextStyle(
+                                        color: selected
+                                            ? const Color(0xFF06202B)
+                                            : Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 12)))),
+                    if (step < steps.length)
+                      Container(
+                          width: 1,
+                          height: 31,
+                          color: selected
+                              ? const Color(0xFF19D5E5)
+                              : const Color(0xFF264560)),
+                  ])),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 12),
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(steps[index].$1,
+                                style: TextStyle(
+                                    color: selected
+                                        ? Colors.white
+                                        : const Color(0xFFDCE8F5),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800)),
+                            const SizedBox(height: 3),
+                            Text(steps[index].$2,
+                                style: const TextStyle(
+                                    color: Color(0xFF829BB5), fontSize: 10))
+                          ]))),
+            ]),
+          );
+        }),
+        _aroundGradientButton(
+          _roundTripMethod == 1 ? 'Continue' : 'Start Planning',
+          Icons.arrow_forward_rounded,
+          () => setState(() {
+            final wasDescribeMode = _roundTripMethod == 0;
+            _roundTripMethod = 1;
+            if (!wasDescribeMode && _aroundWizardStep < 6) _aroundWizardStep++;
+          }),
+        ),
+      ]),
+    );
+  }
+
+  Widget _buildAroundWizardPanel() {
+    Widget content;
+    switch (_aroundWizardStep) {
+      case 2:
+        content = _buildAroundDestinationsStep();
+        break;
+      case 3:
+        content = _buildAroundDatesStep();
+        break;
+      case 4:
+        content = _buildAroundTravelersStep();
+        break;
+      case 5:
+        content = _buildAroundVehicleStep();
+        break;
+      case 6:
+        content = _buildAroundPreferencesStep();
+        break;
+      default:
+        content = _buildAroundStartingStep();
+    }
+    return _aroundPanel(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Step $_aroundWizardStep of 6',
+          style: const TextStyle(
+              color: Color(0xFF42E3E7),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5)),
+      const SizedBox(height: 5),
+      const Text('Quick Wizard',
+          style: TextStyle(
+              color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 4),
+      const Text('Build a real multi-destination journey with guided controls.',
+          style: TextStyle(color: Color(0xFF9EB2C8), fontSize: 12)),
+      const SizedBox(height: 18),
+      content,
+      const SizedBox(height: 18),
+      Row(children: [
+        if (_aroundWizardStep > 1)
+          Expanded(
+              child: OutlinedButton(
+                  onPressed: () => setState(() => _aroundWizardStep--),
+                  child: const Text('← Back')))
+        else
+          const Spacer(),
+        const SizedBox(width: 10),
+        Expanded(
+            child: _aroundGradientButton(
+                _aroundWizardStep == 6 ? 'Build My Road Trip' : 'Next',
+                Icons.arrow_forward_rounded, () {
+          if (_aroundWizardStep == 6) {
+            _generateVacationItinerary();
+          } else {
+            setState(() => _aroundWizardStep++);
+          }
+        })),
+      ]),
+    ]));
+  }
+
+  Widget _buildAroundStartingStep() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle('Starting Point', 'Where are you starting from?'),
+      _locationInputCard(
+          ctrl: _vacationOriginCtrl,
+          hint: 'Bangalore, Karnataka',
+          icon: Icons.location_on_rounded,
+          iconColor: const Color(0xFF32DDE0),
+          isOrigin: true,
+          isOneWay: false,
+          onGpsTap: () =>
+              _fetchCurrentLocation(isOrigin: true, isOneWay: false),
+          onMapTap: () => _pickOnMap(isOrigin: true, isOneWay: false)),
+      const SizedBox(height: 12),
+      const Text('Next, add the places you want to visit.',
+          style: TextStyle(color: Color(0xFF829BB5), fontSize: 11)),
+    ]);
+  }
+
+  Widget _buildAroundDestinationsStep() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle('Destinations',
+          'Create your route in the order you want to explore.'),
+      Row(children: [
+        Expanded(
+            child: TextField(
+                controller: _aroundDestinationInputCtrl,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                decoration: _aroundInputDecoration(
+                    'Search destination place or city', Icons.search_rounded))),
+        const SizedBox(width: 8),
+        IconButton(
+            onPressed: _addAroundDestination,
+            icon: const Icon(Icons.add_circle_rounded,
+                color: Color(0xFF27D9DE), size: 28),
+            tooltip: 'Add destination')
+      ]),
+      const SizedBox(height: 12),
+      if (_aroundDestinations.isEmpty)
+        const Text('Add Coorg, Wayanad, Mysuru or any places along your route.',
+            style: TextStyle(color: Color(0xFF829BB5), fontSize: 11))
+      else ...[
+        _aroundRouteNode(
+            _vacationOriginCtrl.text.isEmpty
+                ? 'Starting point'
+                : _vacationOriginCtrl.text,
+            true),
+        ..._aroundDestinations.asMap().entries.map(
+            (entry) => _aroundRouteNode(entry.value, false, index: entry.key)),
+      ],
+    ]);
+  }
+
+  Widget _aroundRouteNode(String text, bool isStart, {int? index}) {
+    return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Row(children: [
+          Icon(isStart ? Icons.trip_origin_rounded : Icons.place_rounded,
+              color:
+                  isStart ? const Color(0xFF25D9DE) : const Color(0xFFA77AFF),
+              size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text(text,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700))),
+          if (!isStart)
+            IconButton(
+                onPressed: () =>
+                    setState(() => _aroundDestinations.removeAt(index!)),
+                icon: const Icon(Icons.close_rounded,
+                    color: Color(0xFF829BB5), size: 17))
+        ]));
+  }
+
+  void _addAroundDestination() {
+    final value = _aroundDestinationInputCtrl.text.trim();
+    if (value.isEmpty) return;
+    if (!_aroundDestinations
+        .any((item) => item.toLowerCase() == value.toLowerCase())) {
+      setState(() {
+        _aroundDestinations.add(value);
+        _vacationDestCtrl.text = value;
+        _aroundDestinationInputCtrl.clear();
+      });
+    }
+  }
+
+  Widget _buildAroundDatesStep() {
+    final nights = math.max(0, _vacationDays - 1);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle(
+          'Travel Dates', 'Choose when your around trip begins and ends.'),
+      InkWell(
+          onTap: _pickAroundDateRange,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: const Color(0xFF0B1A2D),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF294C6D))),
+              child: Row(children: [
+                const Icon(Icons.calendar_month_rounded,
+                    color: Color(0xFF35DCE3)),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: Text(
+                        '${_formatAroundDate(_vacationStartDate)}  →  ${_formatAroundDate(_vacationEndDate)}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700))),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Color(0xFF89A2BB))
+              ]))),
+      const SizedBox(height: 14),
+      Text('$_vacationDays Days / $nights ${nights == 1 ? 'Night' : 'Nights'}',
+          style: const TextStyle(
+              color: Color(0xFF37E0DF),
+              fontSize: 15,
+              fontWeight: FontWeight.w900)),
+    ]);
+  }
+
+  Future<void> _pickAroundDateRange() async {
+    final range = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime.now(),
+        lastDate: DateTime.now().add(const Duration(days: 730)),
+        initialDateRange:
+            DateTimeRange(start: _vacationStartDate, end: _vacationEndDate),
+        builder: (context, child) => Theme(
+            data: Theme.of(context).copyWith(
+                colorScheme: const ColorScheme.dark(
+                    primary: Color(0xFF20D8D9), surface: Color(0xFF0E1B2D))),
+            child: child!));
+    if (range == null || !mounted) return;
+    setState(() {
+      _vacationStartDate = range.start;
+      _vacationEndDate = range.end;
+      _vacationDays = range.duration.inDays + 1;
+    });
+  }
+
+  String _formatAroundDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')} ${_monthName(date.month)} ${date.year}';
+  String _monthName(int month) => const [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec'
+      ][month - 1];
+
+  Widget _buildAroundTravelersStep() {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle('Travelers', 'Who is joining this journey?'),
+      _aroundStepper('Travelers', _vacationTravelers,
+          (value) => setState(() => _vacationTravelers = value)),
+    ]);
+  }
+
+  Widget _aroundStepper(String label, int value, ValueChanged<int> onChanged) {
+    return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+            color: const Color(0xFF0B1A2D),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF294C6D))),
+        child: Row(children: [
+          const Icon(Icons.people_alt_rounded, color: Color(0xFF3ADCE5)),
+          const SizedBox(width: 10),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13))),
+          IconButton(
+              onPressed: value > 1 ? () => onChanged(value - 1) : null,
+              icon: const Icon(Icons.remove_circle_outline_rounded,
+                  color: Color(0xFF9BB2C8))),
+          Text('$value',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900)),
+          IconButton(
+              onPressed: () => onChanged(math.min(20, value + 1)),
+              icon: const Icon(Icons.add_circle_outline_rounded,
+                  color: Color(0xFF3ADCE5)))
+        ]));
+  }
+
+  Widget _buildAroundVehicleStep() {
+    final vehicle = _selectedVehicle;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle('Vehicle & Fuel',
+          'Use your vehicle details for accurate route estimates.'),
+      Container(
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+              color: const Color(0xFF0B1A2D),
+              borderRadius: BorderRadius.circular(13),
+              border: Border.all(color: const Color(0xFF294C6D))),
+          child: Column(children: [
+            Row(children: [
+              Container(
+                  width: 58,
+                  height: 52,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF14263D),
+                      borderRadius: BorderRadius.circular(10)),
+                  child: vehicle == null
+                      ? const Icon(Icons.directions_car_rounded,
+                          color: Color(0xFF27D9DE), size: 30)
+                      : VehicleImage(
+                          vehicle: vehicle,
+                          fallback: const Icon(Icons.directions_car_rounded,
+                              color: Color(0xFF27D9DE), size: 30))),
+              const SizedBox(width: 10),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(vehicle?.name ?? 'Hyundai Creta',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 4),
+                    Text(
+                        '${_fuelType.toUpperCase()}  •  ${_tankCapacity.toStringAsFixed(0)} L Tank  •  ${_mileage.toStringAsFixed(1)} km/L',
+                        style: const TextStyle(
+                            color: Color(0xFF9EB2C8), fontSize: 10))
+                  ])),
+              TextButton(
+                  onPressed: () async {
+                    final selected = await VehicleSearchSheet.show(context);
+                    if (selected != null)
+                      setState(() {
+                        _selectedVehicle = selected;
+                        _vehicleType = selected.type;
+                        _mileage = selected.mileage;
+                        _tankCapacity = selected.tankCapacity;
+                        _fuelType = selected.fuelType;
+                        _currentFuel = (selected.tankCapacity * 0.5)
+                            .clamp(5.0, selected.tankCapacity);
+                      });
+                  },
+                  child: const Text('Change'))
+            ]),
+            const Divider(color: Color(0xFF243C58), height: 22),
+            Row(children: [
+              const Icon(Icons.local_gas_station_rounded,
+                  color: Color(0xFF27D9DE), size: 21),
+              const SizedBox(width: 8),
+              Text('${_currentFuel.toStringAsFixed(0)} L',
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w900)),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Slider(
+                      value: _currentFuel.clamp(0.0, _tankCapacity),
+                      min: 0,
+                      max: math.max(1, _tankCapacity),
+                      activeColor: const Color(0xFF19D8B3),
+                      inactiveColor: const Color(0xFF22344C),
+                      onChanged: (value) =>
+                          setState(() => _currentFuel = value))),
+              Text('${_estimatedRangeKm.toStringAsFixed(0)} km',
+                  style: const TextStyle(
+                      color: Color(0xFFB8C9DB),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800))
+            ])
+          ]))
+    ]);
+  }
+
+  Widget _buildAroundPreferencesStep() {
+    const preferences = [
+      'Food',
+      'Nature',
+      'Adventure',
+      'Heritage',
+      'Beaches',
+      'Shopping',
+      'Family',
+      'Photography',
+      'Nightlife',
+      'Relaxation'
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      _aroundStepTitle('Preferences',
+          'Shape the route and recommendations around your interests.'),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: preferences.map<Widget>((preference) {
+          final selected = _aroundPreferences.contains(preference);
+          return FilterChip(
+            label: Text(preference),
+            selected: selected,
+            onSelected: (value) => setState(() {
+              if (value) {
+                _aroundPreferences.add(preference);
+              } else {
+                _aroundPreferences.remove(preference);
+              }
+            }),
+            selectedColor: const Color(0xFF164A59),
+            backgroundColor: const Color(0xFF0B1A2D),
+            checkmarkColor: const Color(0xFF4BE4DE),
+            labelStyle: TextStyle(
+                color: selected ? Colors.white : const Color(0xFF9EB2C8),
+                fontSize: 11,
+                fontWeight: FontWeight.w700),
+            side: BorderSide(
+                color: selected
+                    ? const Color(0xFF21D8D9)
+                    : const Color(0xFF294C6D)),
+          );
+        }).toList(),
+      ),
+      const SizedBox(height: 14),
+      Text(
+          'Fuel stops: ${_addFuelStops ? 'Recommended' : 'Off'}  •  Tolls: ${_avoidTolls ? 'Avoid' : 'Allowed'}',
+          style: const TextStyle(color: Color(0xFF9EB2C8), fontSize: 11)),
+      SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          value: _addFuelStops,
+          onChanged: (value) => setState(() => _addFuelStops = value),
+          activeColor: const Color(0xFF23D9D3),
+          title: const Text('Add fuel stops',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+          subtitle: const Text('Keep the trip within your vehicle range',
+              style: TextStyle(color: Color(0xFF8199B3), fontSize: 10)),
+          dense: true),
+    ]);
+  }
+
+  Widget _aroundStepTitle(String title, String subtitle) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 4),
+        Text(subtitle,
+            style: const TextStyle(color: Color(0xFF9EB2C8), fontSize: 11)),
+        const SizedBox(height: 12)
+      ]);
+
+  InputDecoration _aroundInputDecoration(
+          String hint, IconData icon) =>
+      InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: Color(0xFF8199B3), fontSize: 12),
+          prefixIcon: Icon(icon, color: const Color(0xFF46DDE2), size: 18),
+          filled: true,
+          fillColor: const Color(0xFF0B1A2D),
+          border:
+              OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF294C6D))),
+          enabledBorder:
+              OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFF294C6D))),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF24DDE0))),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 13));
+
+  Widget _aroundPanel({required Widget child}) => Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+          color: const Color(0xFF081A30),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFF23537A)),
+          boxShadow: [
+            BoxShadow(
+                color: const Color(0xFF1C37A8).withValues(alpha: 0.13),
+                blurRadius: 22,
+                offset: const Offset(0, 8))
+          ]),
+      child: child);
+
+  Widget _aroundIconBox(IconData icon, List<Color> colors) => Container(
+      width: 43,
+      height: 43,
+      decoration: BoxDecoration(
+          gradient: LinearGradient(colors: colors),
+          borderRadius: BorderRadius.circular(13),
+          boxShadow: [
+            BoxShadow(
+                color: colors.last.withValues(alpha: 0.28), blurRadius: 12)
+          ]),
+      child: Icon(icon, color: Colors.white, size: 22));
+
+  Widget _aroundAiBadge() => Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+          color: const Color(0xFF6249D6),
+          borderRadius: BorderRadius.circular(5)),
+      child: const Text('AI POWERED',
+          style: TextStyle(
+              color: Colors.white,
+              fontSize: 8,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.4)));
+
+  Widget _aroundGradientButton(
+      String label, IconData icon, VoidCallback onPressed) {
+    return SizedBox(
+      width: double.infinity,
+      height: 46,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [
+            Color(0xFF19D8D7),
+            Color(0xFF2C9AF4),
+            Color(0xFF974CF4)
+          ]),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: ElevatedButton.icon(
+          onPressed: onPressed,
+          icon: Icon(icon, color: Colors.white, size: 17),
+          label: Text(label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAroundGenerationPanel() {
+    const items = [
+      'Identifying destinations',
+      'Planning route',
+      'Finding meaningful stops',
+      'Checking fuel requirements',
+      'Calculating tolls',
+      'Building daily itinerary'
+    ];
+    return _aroundPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.auto_awesome_rounded,
+                color: Color(0xFFB79CFF), size: 24),
+            SizedBox(width: 10),
+            Text('Understanding your trip',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w900))
+          ]),
+          const SizedBox(height: 8),
+          const Text(
+              'VoyPlan is building a relevant multi-stop route from your preferences.',
+              style: TextStyle(color: Color(0xFF9EB2C8), fontSize: 12)),
+          const SizedBox(height: 18),
+          ...items.map((item) => Padding(
+                padding: const EdgeInsets.only(bottom: 11),
+                child: Row(children: [
+                  const SizedBox(
+                      width: 19,
+                      height: 19,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Color(0xFF35DDE2))),
+                  const SizedBox(width: 9),
+                  Text(item,
+                      style: const TextStyle(
+                          color: Color(0xFFD6E5F5),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700))
+                ]),
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAroundGeneratedPreview() {
+    final destinations = _aroundDestinations.isEmpty
+        ? [
+            _vacationDestCtrl.text.isEmpty
+                ? 'Destination'
+                : _vacationDestCtrl.text
+          ]
+        : _aroundDestinations;
+    return _aroundPanel(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Your road trip is ready',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900)),
+          const SizedBox(height: 5),
+          Text(
+              '${_vacationDays} days  •  ${_vacationTravelers} travelers  •  AI itinerary enabled',
+              style: const TextStyle(color: Color(0xFF9EB2C8), fontSize: 11)),
+          const SizedBox(height: 16),
+          _aroundRouteNode(
+              _vacationOriginCtrl.text.isEmpty
+                  ? 'Starting point'
+                  : _vacationOriginCtrl.text,
+              true),
+          ...destinations.map((item) => _aroundRouteNode(item, false)),
+          const Divider(color: Color(0xFF29435E), height: 22),
+          Row(children: [
+            _aroundMetric('Days', '$_vacationDays'),
+            _aroundMetric(
+                'Fuel range', '${_estimatedRangeKm.toStringAsFixed(0)} km'),
+            _aroundMetric('Stops', '${_generatedItineraryDays.length}')
+          ]),
+          const SizedBox(height: 15),
+          _aroundGradientButton(
+              'Open Full Itinerary',
+              Icons.arrow_forward_rounded,
+              () => setState(() => _vacationStep = 4)),
+        ],
+      ),
+    );
+  }
+
+  Widget _aroundMetric(String label, String value) => Expanded(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(value,
+            style: const TextStyle(
+                color: Color(0xFF48E2DD),
+                fontSize: 14,
+                fontWeight: FontWeight.w900)),
+        const SizedBox(height: 3),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF8199B3), fontSize: 10))
+      ]));
+
+  Widget _buildPopularAroundTrips() {
+    const trips = [
+      ('Coorg', '3–4 days', 'Nature & Coffee', Icons.forest_rounded),
+      ('Ooty', '2–4 days', 'Hills & Lakes', Icons.landscape_rounded),
+      ('Goa', '3–5 days', 'Beaches & Nightlife', Icons.beach_access_rounded),
+      (
+        'Mysuru',
+        '2–3 days',
+        'Heritage & Culture',
+        Icons.account_balance_rounded
+      ),
+      ('Chikmagalur', '2–3 days', 'Coffee & Hills', Icons.terrain_rounded),
+      ('Mangalore', '2–3 days', 'Beaches & Food', Icons.waves_rounded)
+    ];
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const Text('Popular Around Trips',
+          style: TextStyle(
+              color: Colors.white, fontSize: 17, fontWeight: FontWeight.w900)),
+      const SizedBox(height: 3),
+      const Text('Explore ready-to-plan journeys.',
+          style: TextStyle(color: Color(0xFF92A8C0), fontSize: 11)),
+      const SizedBox(height: 11),
+      SizedBox(
+          height: 92,
+          child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: trips.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 9),
+              itemBuilder: (context, index) {
+                final trip = trips[index];
+                return InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () {
+                      setState(() {
+                        _describeItCtrl.text =
+                            '3-day scenic road trip from Bangalore to ${trip.$1}';
+                        _roundTripMethod = 0;
+                      });
+                    },
+                    child: Container(
+                        width: 164,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                                colors: [Color(0xFF12314B), Color(0xFF102142)]),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFF24547A))),
+                        child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(trip.$4,
+                                  color: const Color(0xFF45DDE2), size: 19),
+                              const Spacer(),
+                              Text(trip.$1,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w900)),
+                              Text('${trip.$2}  •  ${trip.$3}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: Color(0xFF9CB2C9), fontSize: 9))
+                            ])));
+              }))
+    ]);
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Legacy round-trip workflow retained below for saved-trip compatibility.
   // ──────────────────────────────────────────────────────────────────────────
   Widget _buildVacationContent() {
     return Column(
