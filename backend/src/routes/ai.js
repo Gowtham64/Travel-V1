@@ -404,9 +404,42 @@ router.post("/smart-itinerary", async (req, res) => {
         travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
         selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories : (Array.isArray(b.categories) ? b.categories : []),
       });
-      if (fb && fb.days && fb.days.length > 0) {
+      if (fb && (fb.length > 0 || (fb.days && fb.days.length > 0))) {
+        const days = Array.isArray(fb) ? fb : fb.days;
+        let totalKm = 0;
+        for (const day of days) {
+          for (const blk of (day.blocks || [])) {
+            if (blk.distanceKm) totalKm += Number(blk.distanceKm) || 0;
+          }
+        }
+        totalKm = Math.round(totalKm * 10) / 10;
+        if (totalKm === 0) totalKm = 350; // Sensible baseline fallback
+
+        const rates = priceService.getRates();
+        const eff = Number(b.fuelEfficiency) || 15;
+        const tollGuess = Math.round(totalKm * rates.tollPerKm);
+        const budget = estimateBudget({
+          distanceKm: totalKm,
+          driveKm: totalKm,
+          localTransportKm: 0,
+          transportLegs: [],
+          ticketRates: rates.ticketRates,
+          estimatedDays: days.length,
+          vehicle: { efficiencyKmPerLiter: eff },
+          toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+          options: {
+            travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+            fuelPricePerLiter: rates.fuel.petrolPerLiter,
+            foodPerDay: rates.foodPerDay,
+            stayPerNight: rates.stayPerNight,
+          },
+        });
+
         return res.json(cleanObjectStrings({
-          ...fb,
+          days,
+          totalDistanceKm: totalKm,
+          totalDurationMin: Math.round((totalKm / 50) * 60),
+          budget,
           status: "APPROVED",
         }));
       }

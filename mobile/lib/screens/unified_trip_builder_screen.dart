@@ -1571,6 +1571,54 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
           ),
         ),
         const SizedBox(height: 24),
+        const Text('RECOMMENDED FIRST STOP',
+            style: TextStyle(
+                color: Color(0xFF8B97A7),
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1)),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF161B22),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF242C38)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Voy.brand.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.local_gas_station_rounded, color: Voy.brand),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Hassan Fuel Station',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700)),
+                    SizedBox(height: 4),
+                    Text('~120 km from Start • ₹102.86/L',
+                        style: TextStyle(
+                            color: Color(0xFF8B97A7), fontSize: 13)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded,
+                  color: Color(0xFF8B97A7), size: 16),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
         ElevatedButton(
           onPressed: _generateTrip,
           style: ElevatedButton.styleFrom(
@@ -1645,6 +1693,55 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
               const SizedBox(width: 12),
               Expanded(child: _metricCard('TOLLS', '₹---')),
             ],
+          ),
+          
+          const SizedBox(height: 24),
+          const Text('RECOMMENDED FIRST STOP',
+              style: TextStyle(
+                  color: Color(0xFF8B97A7),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFF161B22),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF242C38)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Voy.brand.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.local_gas_station_rounded, color: Voy.brand),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Hassan Fuel Station',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                      SizedBox(height: 4),
+                      Text('~120 km from Start • ₹102.86/L',
+                          style: TextStyle(
+                              color: Color(0xFF8B97A7), fontSize: 13)),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded,
+                    color: Color(0xFF8B97A7), size: 16),
+              ],
+            ),
           ),
 
           const Spacer(),
