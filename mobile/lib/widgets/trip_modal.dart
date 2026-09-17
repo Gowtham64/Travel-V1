@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:share_plus/share_plus.dart';
@@ -25,6 +27,7 @@ import '../services/saved_places_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/trip_date_time.dart';
 import '../widgets/vehicle_search_sheet.dart';
+import '../widgets/vehicle_image.dart';
 
 /// Show the VoyPlan Master Trip Modal.
 /// Responsive: renders as a centered dialog on Desktop/Tablet, and as a full-height
@@ -47,9 +50,9 @@ Future<void> showVoyPlanTripModal(
       barrierDismissible: true,
       builder: (ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 880, maxHeight: 860),
+          constraints: const BoxConstraints(maxWidth: 1140, maxHeight: 880),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(24),
             child: VoyPlanTripModal(
@@ -121,7 +124,8 @@ class VoyPlanTripModal extends StatefulWidget {
   State<VoyPlanTripModal> createState() => _VoyPlanTripModalState();
 }
 
-class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerProviderStateMixin {
+class _VoyPlanTripModalState extends State<VoyPlanTripModal>
+    with SingleTickerProviderStateMixin {
   final _api = ApiService();
 
   // Primary mode: 'one_way' or 'round_trip'
@@ -171,7 +175,13 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   String _catalogFilterCategory = 'ALL';
 
   // Route preferences
-  String _routePreference = 'fastest'; // fastest, shortest, fuel_efficient, avoid_tolls, avoid_highways
+  // Route preferences
+  String _routePreference =
+      'fastest'; // fastest, shortest, fuel_efficient, avoid_tolls, avoid_highways
+  bool _fastestRoute = true;
+  bool _avoidTolls = false;
+  bool _scenicRoute = false;
+  bool _addFuelStops = true;
 
   // Budget
   bool _budgetGenerated = false;
@@ -207,7 +217,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   // Round Trip Planning Mode: 0 = Describe It (NLP Prompt), 1 = Quick Wizard (Structured)
   int _roundTripMethod = 0;
   final TextEditingController _describeItCtrl = TextEditingController(
-    text: '3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies',
+    text:
+        '3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies',
   );
   String _wizardTripStyle = 'Adventure';
   String _wizardBudgetTier = 'Moderate';
@@ -222,7 +233,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   DateTime _vacationEndDate = DateTime.now().add(const Duration(days: 6));
 
   // Transportation recommendations
-  String _selectedTransportMode = 'car'; // car, bike, train, bus, flight, flight_car, train_taxi
+  String _selectedTransportMode =
+      'car'; // car, bike, train, bus, flight, flight_car, train_taxi
   final List<Map<String, dynamic>> _transportOptions = [
     {
       'id': 'car',
@@ -287,7 +299,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   ];
 
   // Travel Preferences
-  final Set<String> _vacationPlaceTypes = {'Nature', 'Viewpoints', 'Historical', 'Local experiences'};
+  final Set<String> _vacationPlaceTypes = {
+    'Nature',
+    'Viewpoints',
+    'Historical',
+    'Local experiences'
+  };
   final Set<String> _vacationFoodPrefs = {'Local cuisine', 'Cafes'};
   String _vacationTripStyle = 'Moderate'; // Relaxed, Moderate, Packed
   String _vacationBudgetTier = 'Moderate'; // Budget, Moderate, Premium, Custom
@@ -411,8 +428,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
   Future<void> _initFuelRates() async {
     try {
-      final loc = _oneWayOriginCtrl.text.isNotEmpty ? _oneWayOriginCtrl.text : 'Karnataka';
-      final price = FuelPriceService.instance.getFuelPrice(locationName: loc, fuelType: _fuelType);
+      final loc = _oneWayOriginCtrl.text.isNotEmpty
+          ? _oneWayOriginCtrl.text
+          : 'Karnataka';
+      final price = FuelPriceService.instance
+          .getFuelPrice(locationName: loc, fuelType: _fuelType);
       setState(() {
         _fuelPricePerUnit = price.price > 0 ? price.price : 102.86;
       });
@@ -432,7 +452,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   // ──────────────────────────────────────────────────────────────────────────
   // GPS & AUTOCOMPLETE HELPERS
   // ──────────────────────────────────────────────────────────────────────────
-  Future<void> _fetchCurrentLocation({required bool isOrigin, required bool isOneWay}) async {
+  Future<void> _fetchCurrentLocation(
+      {required bool isOrigin, required bool isOneWay}) async {
     setState(() => _locatingGPS = true);
     try {
       if (!kIsWeb) {
@@ -440,7 +461,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         if (perm == LocationPermission.denied) {
           perm = await Geolocator.requestPermission();
         }
-        if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        if (perm == LocationPermission.denied ||
+            perm == LocationPermission.deniedForever) {
           _showToast('Location permission denied. Please enable GPS.');
           setState(() => _locatingGPS = false);
           return;
@@ -448,10 +470,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
+        locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high, timeLimit: Duration(seconds: 10)),
       );
 
-      final address = await _api.reverseGeocode(pos.latitude, pos.longitude) ?? 'Current Location';
+      final address = await _api.reverseGeocode(pos.latitude, pos.longitude) ??
+          'Current Location';
       final pt = GeoPoint(lat: pos.latitude, lng: pos.longitude, name: address);
 
       setState(() {
@@ -484,12 +508,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     }
   }
 
-  Future<void> _pickOnMap({required bool isOrigin, required bool isOneWay}) async {
+  Future<void> _pickOnMap(
+      {required bool isOrigin, required bool isOneWay}) async {
     final initialPt = isOneWay
         ? (isOrigin ? _oneWayOrigin : _oneWayDest)
         : (isOrigin ? _vacationOrigin : _vacationDest);
 
-    final LatLng? center = initialPt != null ? LatLng(initialPt.lat, initialPt.lng) : null;
+    final LatLng? center =
+        initialPt != null ? LatLng(initialPt.lat, initialPt.lng) : null;
 
     final result = await Navigator.push<GeoPoint>(
       context,
@@ -506,18 +532,22 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         if (isOneWay) {
           if (isOrigin) {
             _oneWayOrigin = result;
-            _oneWayOriginCtrl.text = result.name ?? '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
+            _oneWayOriginCtrl.text = result.name ??
+                '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
           } else {
             _oneWayDest = result;
-            _oneWayDestCtrl.text = result.name ?? '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
+            _oneWayDestCtrl.text = result.name ??
+                '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
           }
         } else {
           if (isOrigin) {
             _vacationOrigin = result;
-            _vacationOriginCtrl.text = result.name ?? '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
+            _vacationOriginCtrl.text = result.name ??
+                '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
           } else {
             _vacationDest = result;
-            _vacationDestCtrl.text = result.name ?? '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
+            _vacationDestCtrl.text = result.name ??
+                '${result.lat.toStringAsFixed(4)}, ${result.lng.toStringAsFixed(4)}';
           }
         }
       });
@@ -528,12 +558,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     }
   }
 
-  void _onSearchChanged(String query, {required bool isOrigin, required bool isOneWay}) {
+  void _onSearchChanged(String query,
+      {required bool isOrigin, required bool isOneWay}) {
     _searchDebounce?.cancel();
     if (query.trim().length < 2) {
       setState(() {
-        if (isOrigin) _originSuggestions = [];
-        else _destSuggestions = [];
+        if (isOrigin)
+          _originSuggestions = [];
+        else
+          _destSuggestions = [];
       });
       return;
     }
@@ -541,30 +574,38 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     _searchDebounce = Timer(const Duration(milliseconds: 300), () async {
       if (!mounted) return;
       setState(() {
-        if (isOrigin) _isSearchingOrigin = true;
-        else _isSearchingDest = true;
+        if (isOrigin)
+          _isSearchingOrigin = true;
+        else
+          _isSearchingDest = true;
       });
 
       try {
         final suggestions = await _api.autocompletePlaces(query);
         if (mounted) {
           setState(() {
-            if (isOrigin) _originSuggestions = suggestions;
-            else _destSuggestions = suggestions;
+            if (isOrigin)
+              _originSuggestions = suggestions;
+            else
+              _destSuggestions = suggestions;
           });
         }
-      } catch (_) {} finally {
+      } catch (_) {
+      } finally {
         if (mounted) {
           setState(() {
-            if (isOrigin) _isSearchingOrigin = false;
-            else _isSearchingDest = false;
+            if (isOrigin)
+              _isSearchingOrigin = false;
+            else
+              _isSearchingDest = false;
           });
         }
       }
     });
   }
 
-  Future<void> _selectSuggestion(Map<String, dynamic> item, {required bool isOrigin, required bool isOneWay}) async {
+  Future<void> _selectSuggestion(Map<String, dynamic> item,
+      {required bool isOrigin, required bool isOneWay}) async {
     final title = (item['title'] ?? item['name'] ?? '').toString();
     double lat = (item['lat'] as num?)?.toDouble() ?? 0.0;
     double lng = (item['lng'] as num?)?.toDouble() ?? 0.0;
@@ -612,6 +653,19 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   // 1. ONE WAY TRIP ROUTING & FUEL ENGINE
   // ──────────────────────────────────────────────────────────────────────────
   Future<void> _calculateOneWayRoute() async {
+    // Typed locations do not have coordinates until autocomplete is selected.
+    // Resolve them here as well so Continue works with ordinary text input.
+    try {
+      if (_oneWayOrigin == null && _oneWayOriginCtrl.text.trim().isNotEmpty) {
+        _oneWayOrigin = await _api.geocode(_oneWayOriginCtrl.text.trim());
+      }
+      if (_oneWayDest == null && _oneWayDestCtrl.text.trim().isNotEmpty) {
+        _oneWayDest = await _api.geocode(_oneWayDestCtrl.text.trim());
+      }
+    } catch (e) {
+      _showToast('Could not find one of the trip locations.');
+      return;
+    }
     if (_oneWayOrigin == null || _oneWayDest == null) return;
 
     setState(() => _isCalculatingRoute = true);
@@ -637,7 +691,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       final stopPoints = _addedStops.map((s) {
         final lat = (s['lat'] as num?)?.toDouble() ?? 0.0;
         final lng = (s['lng'] as num?)?.toDouble() ?? 0.0;
-        return GeoPoint(lat: lat, lng: lng, name: s['name']?.toString() ?? 'Stop');
+        return GeoPoint(
+            lat: lat, lng: lng, name: s['name']?.toString() ?? 'Stop');
       }).toList();
 
       final plan = await _api.planTrip(
@@ -681,7 +736,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         _scheduledTime.minute,
       );
       final arrivalTime = depTime.add(Duration(minutes: _oneWayDurationMin));
-      _estimatedEta = '${arrivalTime.hour.toString().padLeft(2, '0')}:${arrivalTime.minute.toString().padLeft(2, '0')}';
+      _estimatedEta =
+          '${arrivalTime.hour.toString().padLeft(2, '0')}:${arrivalTime.minute.toString().padLeft(2, '0')}';
 
       // Evaluate Fuel / Charging requirement
       _evaluateFuelStops(plan);
@@ -716,7 +772,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       } else {
         // Fallback: Create a geographically sound midpoint refuel marker along coordinates
         final coords = plan.coordinates;
-        final midIdx = coords.isNotEmpty ? (coords.length * 0.45).round().clamp(0, coords.length - 1) : 0;
+        final midIdx = coords.isNotEmpty
+            ? (coords.length * 0.45).round().clamp(0, coords.length - 1)
+            : 0;
         final midCoord = coords.isNotEmpty ? coords[midIdx] : _oneWayOrigin!;
 
         final refillNeededLiters = math.max(10.0, _tankCapacity - _currentFuel);
@@ -726,7 +784,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           RefuelStop(
             lat: midCoord.lat,
             lng: midCoord.lng,
-            name: _fuelType == 'ev' ? 'EV Supercharger (Recommended)' : 'IndianOil Highway Station (Recommended)',
+            name: _fuelType == 'ev'
+                ? 'EV Supercharger (Recommended)'
+                : 'IndianOil Highway Station (Recommended)',
             distanceFromStartKm: (totalDistance * 0.45).roundToDouble(),
             refillLiters: refillNeededLiters,
             estimatedCost: cost,
@@ -742,12 +802,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
   void _generateBudget() {
     // 1.7 Deterministic Budget Generator based on actual route distance & vehicle specs
-    final litersNeeded = _oneWayDistanceKm > 0 && _mileage > 0 ? (_oneWayDistanceKm / _mileage) : 0.0;
+    final litersNeeded = _oneWayDistanceKm > 0 && _mileage > 0
+        ? (_oneWayDistanceKm / _mileage)
+        : 0.0;
     _budgetFuel = (litersNeeded * _fuelPricePerUnit).roundToDouble();
-    _budgetTolls = _estimatedTollCost > 0 ? _estimatedTollCost : (_oneWayDistanceKm * 1.8).roundToDouble();
-    _budgetFood = (350.0 * _oneWayTravelers * math.max(1, (_oneWayDurationMin / 240).ceil())).roundToDouble();
+    _budgetTolls = _estimatedTollCost > 0
+        ? _estimatedTollCost
+        : (_oneWayDistanceKm * 1.8).roundToDouble();
+    _budgetFood = (350.0 *
+            _oneWayTravelers *
+            math.max(1, (_oneWayDurationMin / 240).ceil()))
+        .roundToDouble();
     _budgetParking = 150.0;
-    _budgetActivities = _addedStops.isNotEmpty ? (250.0 * _addedStops.length * _oneWayTravelers) : 0.0;
+    _budgetActivities = _addedStops.isNotEmpty
+        ? (250.0 * _addedStops.length * _oneWayTravelers)
+        : 0.0;
     _budgetTickets = 0.0;
     _budgetMisc = (100.0 * _oneWayTravelers).roundToDouble();
     _budgetGenerated = true;
@@ -756,16 +825,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   double get _totalOneWayBudget =>
-      _budgetFuel + _budgetTolls + _budgetFood + _budgetParking + _budgetActivities + _budgetTickets + _budgetMisc;
+      _budgetFuel +
+      _budgetTolls +
+      _budgetFood +
+      _budgetParking +
+      _budgetActivities +
+      _budgetTickets +
+      _budgetMisc;
 
-  double get _perPersonOneWayBudget =>
-      _oneWayTravelers > 0 ? (_totalOneWayBudget / _oneWayTravelers).roundToDouble() : _totalOneWayBudget;
+  double get _perPersonOneWayBudget => _oneWayTravelers > 0
+      ? (_totalOneWayBudget / _oneWayTravelers).roundToDouble()
+      : _totalOneWayBudget;
 
   void _recalculateSplit() {
     if (!_isCustomSplit) {
       final perPerson = _perPersonOneWayBudget;
       for (int i = 0; i < _oneWayTravelers; i++) {
-        final name = i < _oneWayTravelerNames.length ? _oneWayTravelerNames[i] : 'Traveler ${i + 1}';
+        final name = i < _oneWayTravelerNames.length
+            ? _oneWayTravelerNames[i]
+            : 'Traveler ${i + 1}';
         _customSplitAmounts[name] = perPerson;
       }
     }
@@ -781,14 +859,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     setState(() => _isLoadingPlaces = true);
 
     try {
-      final queryResults = await _api.aiSearchPlaces(query: destName, near: destName);
+      final queryResults =
+          await _api.aiSearchPlaces(query: destName, near: destName);
       final places = <Map<String, dynamic>>[];
 
       for (final p in queryResults) {
         places.add({
           'name': p['name'] ?? 'Attraction',
           'category': p['category'] ?? 'Sightseeing',
-          'description': p['description'] ?? 'Popular tourist destination with scenic views',
+          'description': p['description'] ??
+              'Popular tourist destination with scenic views',
           'duration': p['duration'] ?? '1.5 hrs',
           'rating': p['rating'] ?? '4.8',
           'lat': p['lat'] ?? 0.0,
@@ -805,7 +885,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             destName.toLowerCase().contains(ca.city.toLowerCase())) {
           places.add({
             'name': ca.name,
-            'category': ca.categories.isNotEmpty ? ca.categories.first : 'Attraction',
+            'category':
+                ca.categories.isNotEmpty ? ca.categories.first : 'Attraction',
             'description': ca.highlight,
             'duration': '${(ca.durationMin / 60).toStringAsFixed(1)} hrs',
             'rating': ca.rating,
@@ -834,13 +915,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
   Future<void> _generateVacationItinerary() async {
     final destName = _vacationDestCtrl.text.trim();
-    final originName = _vacationOriginCtrl.text.trim().isNotEmpty ? _vacationOriginCtrl.text.trim() : destName;
+    final originName = _vacationOriginCtrl.text.trim().isNotEmpty
+        ? _vacationOriginCtrl.text.trim()
+        : destName;
 
     setState(() => _isGeneratingItinerary = true);
 
     try {
       // 2.9 & 2.10 AI Generation & Smart Validation Pipeline
-      final planPlaces = _selectedPlaces.map((p) => p['name'].toString()).toList();
+      final planPlaces =
+          _selectedPlaces.map((p) => p['name'].toString()).toList();
 
       final res = await _api.aiSmartItinerary(
         destination: destName,
@@ -853,17 +937,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         places: planPlaces,
         selectedCategories: _vacationPlaceTypes.toList(),
         mode: _vacationTripStyle.toLowerCase(),
-        preferences: 'Budget: $_vacationBudgetTier, Dining: ${_vacationFoodPrefs.join(", ")}',
+        preferences:
+            'Budget: $_vacationBudgetTier, Dining: ${_vacationFoodPrefs.join(", ")}',
       );
 
       // Perform Smart Multi-Layer Validation
       final validationReport = {
-        'weather': 'Weather validation passed: Favorable conditions expected for outdoor activities.',
-        'traffic': 'Traffic corridors verified with zero major highway closures.',
-        'openingHours': 'All place opening hours confirmed matching scheduled timeline.',
-        'backtracking': 'Route geometry optimized to avoid unnecessary backtracking.',
-        'budget': 'Itinerary items adhere to $_vacationBudgetTier spending threshold.',
-        'transport': 'Selected transport mode ($_selectedTransportMode) fully supports schedule.',
+        'weather':
+            'Weather validation passed: Favorable conditions expected for outdoor activities.',
+        'traffic':
+            'Traffic corridors verified with zero major highway closures.',
+        'openingHours':
+            'All place opening hours confirmed matching scheduled timeline.',
+        'backtracking':
+            'Route geometry optimized to avoid unnecessary backtracking.',
+        'budget':
+            'Itinerary items adhere to $_vacationBudgetTier spending threshold.',
+        'transport':
+            'Selected transport mode ($_selectedTransportMode) fully supports schedule.',
       };
 
       setState(() {
@@ -873,11 +964,18 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
         // Populate vacation budget
         if (res.budget != null) {
-          _vacationBudgetTransport = res.budget!.transport > 0 ? res.budget!.transport.toDouble() : (res.budget!.fuel + res.budget!.tolls).toDouble();
-          _vacationBudgetStay = res.budget!.stay > 0 ? res.budget!.stay.toDouble() : (2500.0 * (_vacationDays - 1));
-          _vacationBudgetFood = res.budget!.food > 0 ? res.budget!.food.toDouble() : (1200.0 * _vacationDays * _vacationTravelers);
+          _vacationBudgetTransport = res.budget!.transport > 0
+              ? res.budget!.transport.toDouble()
+              : (res.budget!.fuel + res.budget!.tolls).toDouble();
+          _vacationBudgetStay = res.budget!.stay > 0
+              ? res.budget!.stay.toDouble()
+              : (2500.0 * (_vacationDays - 1));
+          _vacationBudgetFood = res.budget!.food > 0
+              ? res.budget!.food.toDouble()
+              : (1200.0 * _vacationDays * _vacationTravelers);
           _vacationBudgetActivities = (1000.0 * _vacationTravelers);
-          _vacationBudgetOther = res.budget!.other > 0 ? res.budget!.other.toDouble() : 500.0;
+          _vacationBudgetOther =
+              res.budget!.other > 0 ? res.budget!.other.toDouble() : 500.0;
         } else {
           _vacationBudgetTransport = 4500.0;
           _vacationBudgetStay = 2500.0 * (_vacationDays - 1);
@@ -894,10 +992,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   double get _totalVacationBudget =>
-      _vacationBudgetTransport + _vacationBudgetStay + _vacationBudgetFood + _vacationBudgetActivities + _vacationBudgetOther;
+      _vacationBudgetTransport +
+      _vacationBudgetStay +
+      _vacationBudgetFood +
+      _vacationBudgetActivities +
+      _vacationBudgetOther;
 
-  double get _perPersonVacationBudget =>
-      _vacationTravelers > 0 ? (_totalVacationBudget / _vacationTravelers).roundToDouble() : _totalVacationBudget;
+  double get _perPersonVacationBudget => _vacationTravelers > 0
+      ? (_totalVacationBudget / _vacationTravelers).roundToDouble()
+      : _totalVacationBudget;
 
   // ──────────────────────────────────────────────────────────────────────────
   // TRIP ACTIONS: SAVE, SCHEDULE, SHARE, START
@@ -907,18 +1010,31 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     final origin = isOneWay ? _oneWayOriginCtrl.text : _vacationOriginCtrl.text;
     final dest = isOneWay ? _oneWayDestCtrl.text : _vacationDestCtrl.text;
     final total = isOneWay ? _totalOneWayBudget : _totalVacationBudget;
-    final perPerson = isOneWay ? _perPersonOneWayBudget : _perPersonVacationBudget;
+    final perPerson =
+        isOneWay ? _perPersonOneWayBudget : _perPersonVacationBudget;
     final travelers = isOneWay ? _oneWayTravelers : _vacationTravelers;
 
     final tripData = {
       'title': '$origin to $dest Trip',
       'tripType': _activeMode,
-      'origin': {'name': origin, 'lat': isOneWay ? _oneWayOrigin?.lat : _vacationOrigin?.lat, 'lng': isOneWay ? _oneWayOrigin?.lng : _vacationOrigin?.lng},
-      'destination': {'name': dest, 'lat': isOneWay ? _oneWayDest?.lat : _vacationDest?.lat, 'lng': isOneWay ? _oneWayDest?.lng : _vacationDest?.lng},
+      'origin': {
+        'name': origin,
+        'lat': isOneWay ? _oneWayOrigin?.lat : _vacationOrigin?.lat,
+        'lng': isOneWay ? _oneWayOrigin?.lng : _vacationOrigin?.lng
+      },
+      'destination': {
+        'name': dest,
+        'lat': isOneWay ? _oneWayDest?.lat : _vacationDest?.lat,
+        'lng': isOneWay ? _oneWayDest?.lng : _vacationDest?.lng
+      },
       'distanceKm': isOneWay ? _oneWayDistanceKm : (_oneWayDistanceKm * 2),
       'durationMin': isOneWay ? _oneWayDurationMin : (_oneWayDurationMin * 2),
       'travelers': travelers,
-      'vehicle': {'name': _selectedVehicle?.name ?? 'Car', 'type': _vehicleType, 'fuelType': _fuelType},
+      'vehicle': {
+        'name': _selectedVehicle?.name ?? 'Car',
+        'type': _vehicleType,
+        'fuelType': _fuelType
+      },
       'budget': {'total': total, 'perPerson': perPerson},
     };
 
@@ -944,7 +1060,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     final isOneWay = _activeMode == 'one_way';
     final origin = isOneWay ? _oneWayOrigin : _vacationOrigin;
     final dest = isOneWay ? _oneWayDest : _vacationDest;
-    final originText = isOneWay ? _oneWayOriginCtrl.text : _vacationOriginCtrl.text;
+    final originText =
+        isOneWay ? _oneWayOriginCtrl.text : _vacationOriginCtrl.text;
     final destText = isOneWay ? _oneWayDestCtrl.text : _vacationDestCtrl.text;
 
     if (origin == null || dest == null) {
@@ -962,14 +1079,23 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         _scheduledTime.minute,
       ).toIso8601String();
 
-      final currentToken = Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+      final currentToken =
+          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
       await _api.saveTrip(
         name: '$originText to $destText (${isOneWay ? "One-Way" : "Vacation"})',
         start: GeoPoint(lat: origin.lat, lng: origin.lng, name: originText),
         end: GeoPoint(lat: dest.lat, lng: dest.lng, name: destText),
         waypoints: [
-          ..._fuelStops.map((f) => GeoPoint(lat: f.lat, lng: f.lng, name: f.name, isFuelStop: true, refuelStop: f)),
-          ..._addedStops.map((s) => GeoPoint(lat: (s['lat'] as num?)?.toDouble() ?? 0.0, lng: (s['lng'] as num?)?.toDouble() ?? 0.0, name: s['name']?.toString())),
+          ..._fuelStops.map((f) => GeoPoint(
+              lat: f.lat,
+              lng: f.lng,
+              name: f.name,
+              isFuelStop: true,
+              refuelStop: f)),
+          ..._addedStops.map((s) => GeoPoint(
+              lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
+              lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
+              name: s['name']?.toString())),
         ],
         vehicleType: _vehicleType,
         token: currentToken,
@@ -988,7 +1114,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         status: isScheduled ? 'UPCOMING' : 'ACTIVE',
       );
 
-      _showToast(isScheduled ? 'Trip scheduled successfully!' : 'Trip saved to My Trips!');
+      _showToast(isScheduled
+          ? 'Trip scheduled successfully!'
+          : 'Trip saved to My Trips!');
       if (mounted && widget.isModalDialog) {
         Navigator.pop(context);
       }
@@ -1051,8 +1179,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       places: const {},
       navigationWaypoints: [
         _oneWayOrigin!,
-        ..._fuelStops.map((f) => GeoPoint(lat: f.lat, lng: f.lng, name: f.name, isFuelStop: true, refuelStop: f)),
-        ..._addedStops.map((s) => GeoPoint(lat: (s['lat'] as num?)?.toDouble() ?? 0.0, lng: (s['lng'] as num?)?.toDouble() ?? 0.0, name: s['name'])),
+        ..._fuelStops.map((f) => GeoPoint(
+            lat: f.lat,
+            lng: f.lng,
+            name: f.name,
+            isFuelStop: true,
+            refuelStop: f)),
+        ..._addedStops.map((s) => GeoPoint(
+            lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
+            lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
+            name: s['name'])),
         _oneWayDest!,
       ],
     );
@@ -1072,7 +1208,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       totalCost: _totalOneWayBudget,
       completedAt: DateTime.now(),
       isRoundTrip: _activeMode == 'round_trip',
-      routeCoordinates: plan.coordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+      routeCoordinates:
+          plan.coordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
       totalStopsCount: _addedStops.length + _fuelStops.length,
     ));
 
@@ -1085,14 +1222,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           startAddress: _oneWayOriginCtrl.text,
           endAddress: _oneWayDestCtrl.text,
           vehicleType: _vehicleType,
-          poiCategories: const ['restaurant', 'attraction', 'viewpoint', 'fuel'],
+          poiCategories: const [
+            'restaurant',
+            'attraction',
+            'viewpoint',
+            'fuel'
+          ],
           start: _oneWayOrigin!,
           end: _oneWayDest!,
-          waypoints: _addedStops.map((s) => GeoPoint(
-            lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
-            lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
-            name: s['name'],
-          )).toList(),
+          waypoints: _addedStops
+              .map((s) => GeoPoint(
+                    lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
+                    lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
+                    name: s['name'],
+                  ))
+              .toList(),
           vehicle: vehicle,
           travellers: _oneWayTravelers,
         ),
@@ -1113,31 +1257,73 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   // ──────────────────────────────────────────────────────────────────────────
-  // BUILD METHOD
+  // 2026 IMAGE 2 MASTER REDESIGNED BUILD METHOD & COMPONENTS
   // ──────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 860;
+
     return Container(
-      color: Voy.bg,
+      decoration: BoxDecoration(
+        color: const Color(0xFF080E18),
+        borderRadius: BorderRadius.circular(widget.isModalDialog ? 24 : 0),
+        border: Border.all(color: const Color(0xFF1B2433)),
+      ),
       child: Column(
         children: [
-          _buildHeader(),
-          _buildPrimaryModeSelector(),
+          _buildRedesignedHeader(),
+          _buildRedesignedModeSelector(),
+          if (_activeMode == 'one_way') _buildRedesignedStepIndicator(),
+          const SizedBox(height: 8),
           Expanded(
-            child: _activeMode == 'one_way' ? _buildOneWayContent() : _buildVacationContent(),
+            child: _activeMode != 'one_way'
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: _buildVacationContent(),
+                  )
+                : isDesktop
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 64,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(24, 0, 16, 24),
+                              child: _buildLeftColumnContent(),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 36,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 24, 24),
+                              child: _buildRightColumnContent(),
+                            ),
+                          ),
+                        ],
+                      )
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            _buildLeftColumnContent(),
+                            const SizedBox(height: 20),
+                            _buildRightColumnContent(),
+                          ],
+                        ),
+                      ),
           ),
         ],
       ),
     );
   }
 
-  // ── Header with VoyPlan Branding ──
-  Widget _buildHeader() {
+  // ── 1. Top Header ──
+  Widget _buildRedesignedHeader() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
-        color: Voy.surface,
-        border: Border(bottom: BorderSide(color: Voy.hairline)),
+        color: Color(0xFF0D1422),
+        border: Border(bottom: BorderSide(color: Color(0xFF1B2433))),
       ),
       child: Row(
         children: [
@@ -1145,33 +1331,51 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             width: 38,
             height: 38,
             decoration: BoxDecoration(
-              gradient: Voy.gradient,
+              gradient: const LinearGradient(
+                colors: [Color(0xFF00E5B0), Color(0xFF0284C7)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.explore_rounded, color: Colors.white, size: 22),
+            child: const Icon(Icons.explore_rounded,
+                color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 14),
+          const Text(
+            'VoyPlan',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
           ),
           const SizedBox(width: 12),
-          const Column(
+          Container(width: 1, height: 20, color: const Color(0xFF243044)),
+          const SizedBox(width: 12),
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: const [
               Text(
-                'VOYPLAN TRIP PLANNER',
+                'Plan your trip',
                 style: TextStyle(
-                  color: Voy.ink,
+                  color: Colors.white,
                   fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.5,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
+              SizedBox(height: 2),
               Text(
-                'Intelligent Routing, Real Fuel & Dynamic Itineraries',
-                style: TextStyle(color: Voy.sub, fontSize: 11),
+                'Smart routes, fuel, stops & AI itinerary',
+                style: TextStyle(color: Color(0xFF8B97A7), fontSize: 11),
               ),
             ],
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: Voy.ink),
+            icon: const Icon(Icons.close_rounded,
+                color: Colors.white70, size: 22),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -1179,33 +1383,42 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     );
   }
 
-  // ── Mode Switcher: ONE WAY vs ROUND TRIP / VACATION ──
-  Widget _buildPrimaryModeSelector() {
+  // ── 2. Three-Card Trip Type Selector ──
+  Widget _buildRedesignedModeSelector() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: Voy.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Voy.hairline),
-      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
       child: Row(
         children: [
           Expanded(
-            child: _modeButton(
+            child: _redesignedModeCard(
               id: 'one_way',
-              title: 'ONE WAY',
-              subtitle: 'Point-to-point journey',
+              title: 'One Way',
+              subtitle: 'From one place to another',
               icon: Icons.arrow_forward_rounded,
+              iconColor: const Color(0xFF00E5B0),
+              iconBg: const Color(0xFF00E5B0).withValues(alpha: 0.2),
             ),
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 12),
           Expanded(
-            child: _modeButton(
+            child: _redesignedModeCard(
               id: 'round_trip',
-              title: 'ROUND TRIP / VACATION',
-              subtitle: 'Intelligent multi-day planner',
+              title: 'Round Trip',
+              subtitle: 'Go and come back',
               icon: Icons.cached_rounded,
+              iconColor: const Color(0xFF38BDF8),
+              iconBg: const Color(0xFF0284C7).withValues(alpha: 0.15),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _redesignedModeCard(
+              id: 'vacation',
+              title: 'Vacation',
+              subtitle: 'Multi-destination adventure',
+              icon: Icons.beach_access_rounded,
+              iconColor: const Color(0xFF818CF8),
+              iconBg: const Color(0xFF4F46E5).withValues(alpha: 0.15),
             ),
           ),
         ],
@@ -1213,62 +1426,1358 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     );
   }
 
-  Widget _modeButton({
+  Widget _redesignedModeCard({
     required String id,
     required String title,
     required String subtitle,
     required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
   }) {
     final isSelected = _activeMode == id;
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
-      onTap: () {
-        if (_activeMode != id) {
-          setState(() => _activeMode = id);
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+      onTap: () => setState(() => _activeMode = id),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? Voy.brand.withOpacity(0.16) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? Voy.brand : Colors.transparent),
+          color: isSelected ? const Color(0xFF0E1A2E) : const Color(0xFF0D1422),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color:
+                isSelected ? const Color(0xFF00E5B0) : const Color(0xFF1B2433),
+            width: isSelected ? 1.5 : 1.0,
+          ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isSelected ? Voy.brand : Voy.sub, size: 20),
-            const SizedBox(width: 8),
-            Flexible(
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: isSelected ? Voy.brand : Voy.ink,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      fontSize: 13,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      color: isSelected ? Voy.ink.withOpacity(0.8) : Voy.sub,
-                      fontSize: 10,
-                    ),
+                    style:
+                        const TextStyle(color: Color(0xFF8B97A7), fontSize: 11),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
+            Container(
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isSelected
+                      ? const Color(0xFF00E5B0)
+                      : const Color(0xFF334155),
+                  width: 1.5,
+                ),
+                color:
+                    isSelected ? const Color(0xFF00E5B0) : Colors.transparent,
+              ),
+              child: isSelected
+                  ? const Icon(Icons.check, size: 12, color: Colors.black)
+                  : null,
+            ),
           ],
         ),
       ),
     );
+  }
+
+  // ── 3. Step Stepper Bar ──
+  Widget _buildRedesignedStepIndicator() {
+    final steps = ['Route', 'Vehicle & Fuel', 'Stops & Budget', 'Review'];
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Row(
+        children: List.generate(steps.length, (idx) {
+          final stepNum = idx + 1;
+          final isActive = _oneWayStep == stepNum;
+          final isDone = _oneWayStep > stepNum;
+          return Expanded(
+            child: Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? const Color(0xFF00E5B0)
+                        : (isDone
+                            ? const Color(0xFF00E5B0).withValues(alpha: 0.2)
+                            : const Color(0xFF1E293B)),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: isDone
+                        ? const Icon(Icons.check,
+                            size: 13, color: Color(0xFF00E5B0))
+                        : Text(
+                            '$stepNum',
+                            style: TextStyle(
+                              color: isActive
+                                  ? Colors.black
+                                  : const Color(0xFF94A3B8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  steps[idx],
+                  style: TextStyle(
+                    color: isActive
+                        ? const Color(0xFF00E5B0)
+                        : (isDone ? Colors.white : const Color(0xFF94A3B8)),
+                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+                if (idx < steps.length - 1) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 1,
+                      color: isDone
+                          ? const Color(0xFF00E5B0)
+                          : const Color(0xFF1E293B),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── 4. Left Column Content: Sections 1, 2, 3 ──
+  Widget _buildLeftColumnContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── SECTION 1: Route & Destination ──
+        _buildSectionHeader(
+          stepNumber: 1,
+          title: 'Route & Destination',
+          subtitle: 'Add your starting point and destination',
+          actionButtons: [
+            _pillButton(
+              icon: Icons.my_location_rounded,
+              label: 'Use Current Location',
+              onTap: () =>
+                  _fetchCurrentLocation(isOrigin: true, isOneWay: true),
+            ),
+            const SizedBox(width: 8),
+            _pillButton(
+              icon: Icons.map_outlined,
+              label: 'Pick on Map',
+              onTap: () => _pickOnMap(isOrigin: false, isOneWay: true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Route Inputs Card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1422),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF1B2433)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  // From Box
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141C2A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF243044)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded,
+                              color: Color(0xFF00E5B0), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('From',
+                                    style: TextStyle(
+                                        color: Color(0xFF8B97A7),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                TextField(
+                                  controller: _oneWayOriginCtrl,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    hintText: 'Bengaluru, Karnataka',
+                                    hintStyle: TextStyle(
+                                        color: Color(0xFF8B97A7), fontSize: 13),
+                                  ),
+                                  onChanged: (val) {
+                                    if (val.length >= 3) {
+                                      _onSearchChanged(val,
+                                          isOrigin: true, isOneWay: true);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => _fetchCurrentLocation(
+                                isOrigin: true, isOneWay: true),
+                            child: const Icon(Icons.gps_fixed_rounded,
+                                color: Color(0xFF8B97A7), size: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Swap Button
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          final tmpText = _oneWayOriginCtrl.text;
+                          _oneWayOriginCtrl.text = _oneWayDestCtrl.text;
+                          _oneWayDestCtrl.text = tmpText;
+
+                          final tmpCoord = _oneWayOrigin;
+                          _oneWayOrigin = _oneWayDest;
+                          _oneWayDest = tmpCoord;
+                        });
+                        _calculateOneWayRoute();
+                      },
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141C2A),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: const Color(0xFF243044)),
+                        ),
+                        child: const Icon(Icons.swap_horiz_rounded,
+                            color: Colors.white, size: 20),
+                      ),
+                    ),
+                  ),
+
+                  // To Box
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141C2A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF243044)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on_rounded,
+                              color: Color(0xFFFF6B6B), size: 20),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('To',
+                                    style: TextStyle(
+                                        color: Color(0xFF8B97A7),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600)),
+                                const SizedBox(height: 2),
+                                TextField(
+                                  controller: _oneWayDestCtrl,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700),
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    hintText: 'Search destination',
+                                    hintStyle: TextStyle(
+                                        color: Color(0xFF8B97A7), fontSize: 13),
+                                  ),
+                                  onChanged: (val) {
+                                    if (val.length >= 3) {
+                                      _onSearchChanged(val,
+                                          isOrigin: false, isOneWay: true);
+                                    }
+                                  },
+                                  onSubmitted: (_) => _calculateOneWayRoute(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () =>
+                                _pickOnMap(isOrigin: false, isOneWay: true),
+                            child: const Icon(Icons.map_outlined,
+                                color: Color(0xFF8B97A7), size: 18),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (_originSuggestions.isNotEmpty)
+                _suggestionsList(_originSuggestions,
+                    isOrigin: true, isOneWay: true),
+              if (_destSuggestions.isNotEmpty)
+                _suggestionsList(_destSuggestions,
+                    isOrigin: false, isOneWay: true),
+
+              const SizedBox(height: 12),
+
+              // Travelers and Date Row
+              Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _oneWayTravelers = (_oneWayTravelers % 6) + 1;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141C2A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF243044)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.people_alt_outlined,
+                                color: Color(0xFF8B97A7), size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Travelers',
+                                      style: TextStyle(
+                                          color: Color(0xFF8B97A7),
+                                          fontSize: 10)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                      '$_oneWayTravelers Traveler${_oneWayTravelers > 1 ? 's' : ''}',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.keyboard_arrow_down_rounded,
+                                color: Color(0xFF8B97A7), size: 18),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: _scheduledDate,
+                          firstDate: DateTime.now(),
+                          lastDate:
+                              DateTime.now().add(const Duration(days: 365)),
+                        );
+                        if (picked != null) {
+                          setState(() => _scheduledDate = picked);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF141C2A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF243044)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.calendar_month_outlined,
+                                color: Color(0xFF8B97A7), size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Travel Date',
+                                      style: TextStyle(
+                                          color: Color(0xFF8B97A7),
+                                          fontSize: 10)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_scheduledDate.day} ${_getMonth(_scheduledDate.month)} ${_scheduledDate.year}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.calendar_today_rounded,
+                                color: Color(0xFF8B97A7), size: 16),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── SECTION 2: Vehicle & Fuel ──
+        _buildSectionHeader(
+          stepNumber: 2,
+          title: 'Vehicle & Fuel',
+          subtitle:
+              'Select your vehicle and fuel details to get accurate estimates',
+        ),
+        const SizedBox(height: 12),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D1422),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF1B2433)),
+          ),
+          child: Column(
+            children: [
+              // Top Row: Vehicle Info & Change Button
+              Row(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141C2A),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF243044)),
+                    ),
+                    child: _selectedVehicle == null
+                        ? const Icon(Icons.directions_car_rounded,
+                            color: Color(0xFF00E5B0), size: 36)
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: VehicleImage(
+                              vehicle: _selectedVehicle!,
+                              fallback: const Icon(Icons.directions_car_rounded,
+                                  color: Color(0xFF00E5B0), size: 36),
+                            ),
+                          ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              _selectedVehicle?.name ?? 'Hyundai Creta',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(Icons.edit_outlined,
+                                color: Color(0xFF8B97A7), size: 14),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '⛽ ${_fuelType.toUpperCase()}  •  ${_tankCapacity.toStringAsFixed(0)} L Tank  •  ${_mileage.toStringAsFixed(1)} km/L',
+                          style: const TextStyle(
+                              color: Color(0xFF8B97A7), fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final v = await VehicleSearchSheet.show(context);
+                      if (v != null) {
+                        setState(() {
+                          _selectedVehicle = v;
+                          _vehicleType = v.type;
+                          _mileage = v.mileage;
+                          _tankCapacity = v.tankCapacity;
+                          _fuelType = v.fuelType;
+                          _currentFuel =
+                              (v.tankCapacity * 0.5).clamp(5.0, v.tankCapacity);
+                        });
+                        _calculateOneWayRoute();
+                      }
+                    },
+                    icon: const Icon(Icons.swap_horiz_rounded,
+                        size: 15, color: Colors.white),
+                    label: const Text('Change Vehicle',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor: const Color(0xFF141C2A),
+                      side: const BorderSide(color: Color(0xFF243044)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+              const Divider(color: Color(0xFF1B2433)),
+              const SizedBox(height: 12),
+
+              // Bottom Row: Current Fuel & Range slider
+              Row(
+                children: [
+                  // Current fuel badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141C2A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF243044)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.local_gas_station_rounded,
+                            color: Color(0xFF00E5B0), size: 16),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Current Fuel',
+                                style: TextStyle(
+                                    color: Color(0xFF8B97A7), fontSize: 9)),
+                            Text('${_currentFuel.toStringAsFixed(0)} L',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Estimated range badge
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF141C2A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF243044)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.speed_rounded,
+                            color: Color(0xFF38BDF8), size: 16),
+                        const SizedBox(width: 6),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Estimated Range',
+                                style: TextStyle(
+                                    color: Color(0xFF8B97A7), fontSize: 9)),
+                            Text(
+                                '${(_currentFuel * _mileage).toStringAsFixed(0)} km',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+
+                  // Slider
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        activeTrackColor: const Color(0xFF00E5B0),
+                        inactiveTrackColor: const Color(0xFF1F293D),
+                        thumbColor: Colors.white,
+                        trackHeight: 4,
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      ),
+                      child: Slider(
+                        value: _currentFuel.clamp(5.0, _tankCapacity),
+                        min: 5.0,
+                        max: _tankCapacity > 5.0 ? _tankCapacity : 50.0,
+                        onChanged: (v) {
+                          setState(() => _currentFuel = v);
+                        },
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${_currentFuel.toStringAsFixed(0)} L / ${_tankCapacity.toStringAsFixed(0)} L',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        // ── SECTION 3: Smart Route Preferences ──
+        _buildSectionHeader(
+          stepNumber: 3,
+          title: 'Smart Route Preferences',
+          subtitle: 'Customize your journey for the best experience',
+        ),
+        const SizedBox(height: 12),
+
+        // 4 Toggle Cards in a row
+        Row(
+          children: [
+            Expanded(
+              child: _preferenceToggleCard(
+                icon: Icons.bolt_rounded,
+                title: 'Fastest Route',
+                subtitle: 'Best time & distance',
+                value: _fastestRoute,
+                onChanged: (v) => setState(() => _fastestRoute = v),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _preferenceToggleCard(
+                icon: Icons.toll_rounded,
+                title: 'Avoid Tolls',
+                subtitle: 'Save on toll charges',
+                value: _avoidTolls,
+                onChanged: (v) => setState(() => _avoidTolls = v),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _preferenceToggleCard(
+                icon: Icons.landscape_rounded,
+                title: 'Scenic Route',
+                subtitle: 'More scenic views',
+                value: _scenicRoute,
+                onChanged: (v) => setState(() => _scenicRoute = v),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _preferenceToggleCard(
+                icon: Icons.local_gas_station_rounded,
+                title: 'Add Fuel Stops',
+                subtitle: 'Recommended stops',
+                value: _addFuelStops,
+                onChanged: (v) => setState(() => _addFuelStops = v),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 14),
+
+        // Purple AI will optimize your trip banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1E1B4B), Color(0xFF0F172A)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: const Color(0xFF4338CA).withValues(alpha: 0.4)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.auto_awesome_rounded,
+                    color: Color(0xFFA78BFA), size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text('AI will optimize your trip',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700)),
+                    SizedBox(height: 2),
+                    Text(
+                        'Get the best route, fuel stops, toll estimates and a personalized itinerary with AI.',
+                        style:
+                            TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: Color(0xFF94A3B8), size: 20),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _preferenceToggleCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1422),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1B2433)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF141C2A),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFF243044)),
+                ),
+                child: Icon(icon, color: const Color(0xFF38BDF8), size: 16),
+              ),
+              Transform.scale(
+                scale: 0.7,
+                child: Switch(
+                  value: value,
+                  activeColor: const Color(0xFF00E5B0),
+                  onChanged: onChanged,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(title,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(subtitle,
+              style: const TextStyle(color: Color(0xFF8B97A7), fontSize: 10),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required int stepNumber,
+    required String title,
+    required String subtitle,
+    List<Widget> actionButtons = const [],
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          decoration: const BoxDecoration(
+            color: Color(0xFF00E5B0),
+            shape: BoxShape.circle,
+          ),
+          child: Center(
+            child: Text(
+              '$stepNumber',
+              style: const TextStyle(
+                  color: Colors.black,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w900),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800)),
+            Text(subtitle,
+                style: const TextStyle(color: Color(0xFF8B97A7), fontSize: 11)),
+          ],
+        ),
+        const Spacer(),
+        ...actionButtons,
+      ],
+    );
+  }
+
+  Widget _pillButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF141C2A),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF243044)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: const Color(0xFF00E5B0), size: 14),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── 5. Right Column Content: Trip Summary, Map, Stats, Stop & CTA ──
+  Widget _buildRouteMap(
+      {required String originLabel, required String destinationLabel}) {
+    final route = _oneWayRoute?.coordinates ?? const <GeoPoint>[];
+    final points = route.length >= 2
+        ? route.map((point) => LatLng(point.lat, point.lng)).toList()
+        : <LatLng>[];
+    final mapPoints = points.isNotEmpty
+        ? points
+        : [
+            if (_oneWayOrigin != null)
+              LatLng(_oneWayOrigin!.lat, _oneWayOrigin!.lng),
+            if (_oneWayDest != null) LatLng(_oneWayDest!.lat, _oneWayDest!.lng),
+          ];
+    final center = mapPoints.isEmpty
+        ? const LatLng(20.5937, 78.9629)
+        : LatLng(
+            mapPoints.map((p) => p.latitude).reduce((a, b) => a + b) /
+                mapPoints.length,
+            mapPoints.map((p) => p.longitude).reduce((a, b) => a + b) /
+                mapPoints.length,
+          );
+    final zoom = points.isNotEmpty ? 6.2 : 4.5;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        FlutterMap(
+          options: MapOptions(
+            initialCenter: center,
+            initialZoom: zoom,
+            interactionOptions: const InteractionOptions(
+              flags: InteractiveFlag.all,
+            ),
+          ),
+          children: [
+            TileLayer(
+              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              userAgentPackageName: 'com.voyplan.travel_app',
+            ),
+            if (points.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: points,
+                    color: const Color(0xFF00E5B0),
+                    strokeWidth: 5,
+                  ),
+                ],
+              ),
+            if (mapPoints.isNotEmpty)
+              MarkerLayer(
+                markers: [
+                  if (_oneWayOrigin != null)
+                    Marker(
+                      point: LatLng(_oneWayOrigin!.lat, _oneWayOrigin!.lng),
+                      width: 32,
+                      height: 32,
+                      child: const Icon(Icons.location_on,
+                          color: Color(0xFF00E5B0), size: 30),
+                    ),
+                  if (_oneWayDest != null)
+                    Marker(
+                      point: LatLng(_oneWayDest!.lat, _oneWayDest!.lng),
+                      width: 32,
+                      height: 32,
+                      child: const Icon(Icons.location_on,
+                          color: Color(0xFFFF6B6B), size: 30),
+                    ),
+                ],
+              ),
+          ],
+        ),
+        IgnorePointer(
+          child: Container(color: Colors.black.withValues(alpha: 0.28)),
+        ),
+        Positioned(
+          top: 12,
+          left: 14,
+          right: 14,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _mapLabel(
+                  Icons.location_on, destinationLabel, const Color(0xFFFF6B6B)),
+              _mapLabel(Icons.circle, originLabel, const Color(0xFF00E5B0)),
+            ],
+          ),
+        ),
+        if (_isCalculatingRoute)
+          const Center(
+            child: CircularProgressIndicator(color: Color(0xFF00E5B0)),
+          ),
+      ],
+    );
+  }
+
+  Widget _mapLabel(IconData icon, String label, Color color) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 180),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(7),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 13),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRouteMapDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: const Color(0xFF0D1422),
+        child: SizedBox(
+          width: 760,
+          height: 520,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: _buildRouteMap(
+              originLabel: _oneWayOriginCtrl.text.trim(),
+              destinationLabel: _oneWayDestCtrl.text.trim(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRightColumnContent() {
+    final originLabel = _oneWayOriginCtrl.text.trim().isEmpty
+        ? 'Starting point'
+        : _oneWayOriginCtrl.text.trim();
+    final destinationLabel = _oneWayDestCtrl.text.trim().isEmpty
+        ? 'Destination'
+        : _oneWayDestCtrl.text.trim();
+    final firstFuelStop = _fuelStops.isNotEmpty ? _fuelStops.first : null;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D1422),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFF1B2433)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: Trip Summary & View Map
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.location_on_rounded,
+                      color: Color(0xFF00E5B0), size: 18),
+                  SizedBox(width: 8),
+                  Text('Trip Summary',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800)),
+                ],
+              ),
+              InkWell(
+                onTap: _showRouteMapDialog,
+                child: const Text('View Map →',
+                    style: TextStyle(
+                        color: Color(0xFF00E5B0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700)),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Satellite Map Container with Curved Route
+          Container(
+            height: 180,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFF243044)),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: _buildRouteMap(
+                originLabel: originLabel,
+                destinationLabel: destinationLabel,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          // 4 Metric Stats
+          Row(
+            children: [
+              Expanded(
+                  child: _metricColumn(
+                      Icons.directions_car_outlined,
+                      '${_oneWayDistanceKm.toStringAsFixed(0)} km',
+                      'Distance')),
+              Expanded(
+                  child: _metricColumn(
+                      Icons.access_time_rounded,
+                      '${(_oneWayDurationMin ~/ 60)}h ${(_oneWayDurationMin % 60)}m',
+                      'Drive Time')),
+              Expanded(
+                  child: _metricColumn(Icons.local_gas_station_outlined,
+                      '₹${_budgetFuel.toStringAsFixed(0)}', 'Est. Fuel Cost')),
+              Expanded(
+                  child: _metricColumn(Icons.toll_outlined,
+                      '₹${_estimatedTollCost.toStringAsFixed(0)}', 'Tolls')),
+            ],
+          ),
+
+          const SizedBox(height: 14),
+
+          // Recommended First Stop
+          const Text('RECOMMENDED FIRST STOP',
+              style: TextStyle(
+                  color: Color(0xFF8B97A7),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8)),
+          const SizedBox(height: 8),
+
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF141C2A),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF243044)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00E5B0).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.local_gas_station_rounded,
+                      color: Color(0xFF00E5B0), size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(firstFuelStop?.name ?? 'No stop selected yet',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700)),
+                      SizedBox(height: 2),
+                      Text(
+                          firstFuelStop == null
+                              ? 'Route fuel recommendations appear after calculation'
+                              : '~${firstFuelStop.distanceFromStartKm.toStringAsFixed(0)} km from $originLabel',
+                          style:
+                              TextStyle(color: Color(0xFF8B97A7), fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: Color(0xFF8B97A7), size: 18),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // AI Itinerary Adventure Box
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1E1B4B), Color(0xFF2E1065)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                  color: const Color(0xFF6D28D9).withValues(alpha: 0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: const [
+                    Icon(Icons.auto_awesome,
+                        color: Color(0xFFA78BFA), size: 16),
+                    SizedBox(width: 8),
+                    Text('Let AI plan your next adventure',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                    'Smart routes, best stops, fuel & tolls — all in one plan.',
+                    style: TextStyle(color: Color(0xFFC4B5FD), fontSize: 11)),
+                const SizedBox(height: 10),
+                InkWell(
+                  onTap: () => setState(() => _activeMode = 'vacation'),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2)),
+                    ),
+                    child: const Text('Try AI Planner →',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const Spacer(),
+
+          // Big Continue Button
+          InkWell(
+            onTap: () {
+              if (_oneWayOriginCtrl.text.isEmpty ||
+                  _oneWayDestCtrl.text.isEmpty) {
+                _showToast('Please specify starting location and destination');
+                return;
+              }
+              if (_oneWayStep < 4) {
+                if (_oneWayStep == 1 && _oneWayRoute == null) {
+                  _calculateOneWayRoute();
+                }
+                setState(() => _oneWayStep++);
+              } else {
+                _startNavigation();
+              }
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00E5B0), Color(0xFF8B5CF6)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF00E5B0).withValues(alpha: 0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Continue',
+                      style: TextStyle(
+                          color: Colors.black,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800)),
+                  SizedBox(width: 8),
+                  Icon(Icons.arrow_forward_rounded,
+                      color: Colors.black, size: 18),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricColumn(IconData icon, String value, String label) {
+    return Column(
+      children: [
+        Icon(icon, color: const Color(0xFF8B97A7), size: 18),
+        const SizedBox(height: 6),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(height: 2),
+        Text(label,
+            style: const TextStyle(color: Color(0xFF8B97A7), fontSize: 10),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
+      ],
+    );
+  }
+
+  String _getMonth(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    return (month >= 1 && month <= 12) ? months[month - 1] : '';
   }
 
   // ──────────────────────────────────────────────────────────────────────────
@@ -1290,7 +2799,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   Widget _buildOneWayStepIndicator() {
-    final steps = ['Route & Vehicle', 'Fuel & Stops', 'Budget & Split', 'Confirm & Start'];
+    final steps = [
+      'Route & Vehicle',
+      'Fuel & Stops',
+      'Budget & Split',
+      'Confirm & Start'
+    ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -1300,23 +2814,32 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           final isDone = _oneWayStep > stepNum;
           return Expanded(
             child: InkWell(
-              onTap: isDone ? () => setState(() => _oneWayStep = stepNum) : null,
+              onTap:
+                  isDone ? () => setState(() => _oneWayStep = stepNum) : null,
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 12,
-                    backgroundColor: isActive ? Voy.brand : (isDone ? Voy.success : Voy.surface2),
+                    backgroundColor: isActive
+                        ? Voy.brand
+                        : (isDone ? Voy.success : Voy.surface2),
                     child: isDone
                         ? const Icon(Icons.check, size: 14, color: Colors.black)
-                        : Text('$stepNum', style: TextStyle(color: isActive ? Colors.black : Voy.sub, fontSize: 11, fontWeight: FontWeight.bold)),
+                        : Text('$stepNum',
+                            style: TextStyle(
+                                color: isActive ? Colors.black : Voy.sub,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text(
                       steps[idx],
                       style: TextStyle(
-                        color: isActive ? Voy.brand : (isDone ? Voy.ink : Voy.sub),
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.normal,
+                        color:
+                            isActive ? Voy.brand : (isDone ? Voy.ink : Voy.sub),
+                        fontWeight:
+                            isActive ? FontWeight.w700 : FontWeight.normal,
                         fontSize: 11,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -1371,7 +2894,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           onGpsTap: () => _fetchCurrentLocation(isOrigin: true, isOneWay: true),
           onMapTap: () => _pickOnMap(isOrigin: true, isOneWay: true),
         ),
-        if (_originSuggestions.isNotEmpty) _suggestionsList(_originSuggestions, isOrigin: true, isOneWay: true),
+        if (_originSuggestions.isNotEmpty)
+          _suggestionsList(_originSuggestions, isOrigin: true, isOneWay: true),
 
         const SizedBox(height: 16),
 
@@ -1388,12 +2912,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           onGpsTap: null,
           onMapTap: () => _pickOnMap(isOrigin: false, isOneWay: true),
         ),
-        if (_destSuggestions.isNotEmpty) _suggestionsList(_destSuggestions, isOrigin: false, isOneWay: true),
+        if (_destSuggestions.isNotEmpty)
+          _suggestionsList(_destSuggestions, isOrigin: false, isOneWay: true),
 
         const SizedBox(height: 20),
 
         // 1.3 Vehicle Selection & Fuel / Range Math
-        _sectionLabel('1.3 VEHICLE SELECTION & LIVE RANGE', Icons.directions_car_rounded),
+        _sectionLabel(
+            '1.3 VEHICLE SELECTION & LIVE RANGE', Icons.directions_car_rounded),
         const SizedBox(height: 8),
         _buildVehicleCard(),
 
@@ -1411,9 +2937,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             child: const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Voy.brand)),
+                SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Voy.brand)),
                 SizedBox(width: 12),
-                Text('Calculating authoritative route & fuel stops...', style: TextStyle(color: Voy.ink, fontSize: 13)),
+                Text('Calculating authoritative route & fuel stops...',
+                    style: TextStyle(color: Voy.ink, fontSize: 13)),
               ],
             ),
           )
@@ -1440,7 +2971,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           Row(
             children: [
               Icon(
-                isEv ? Icons.electric_car_rounded : (_vehicleType == 'bike' ? Icons.two_wheeler_rounded : Icons.directions_car_rounded),
+                isEv
+                    ? Icons.electric_car_rounded
+                    : (_vehicleType == 'bike'
+                        ? Icons.two_wheeler_rounded
+                        : Icons.directions_car_rounded),
                 color: Voy.brand,
                 size: 26,
               ),
@@ -1451,7 +2986,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   children: [
                     Text(
                       _selectedVehicle?.name ?? 'Hyundai Creta',
-                      style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15),
+                      style: const TextStyle(
+                          color: Voy.ink,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15),
                     ),
                     Text(
                       '${_fuelType.toUpperCase()} • Tank: ${_tankCapacity.toStringAsFixed(0)} ${isEv ? "kWh" : "L"} • Mileage: ${_mileage.toStringAsFixed(1)} ${isEv ? "km/kWh" : "km/L"}',
@@ -1470,7 +3008,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       _mileage = v.mileage;
                       _tankCapacity = v.tankCapacity;
                       _fuelType = v.fuelType;
-                      _currentFuel = (v.tankCapacity * 0.5).clamp(5.0, v.tankCapacity);
+                      _currentFuel =
+                          (v.tankCapacity * 0.5).clamp(5.0, v.tankCapacity);
                     });
                     _initFuelRates();
                     if (_oneWayOrigin != null && _oneWayDest != null) {
@@ -1481,7 +3020,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 icon: const Icon(Icons.swap_horiz_rounded, size: 16),
                 label: const Text('Change'),
                 style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   textStyle: const TextStyle(fontSize: 12),
                 ),
               ),
@@ -1495,11 +3035,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             children: [
               Text(
                 'Current ${isEv ? "Battery Charge" : "Fuel in Tank"}:',
-                style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w600),
               ),
               Text(
                 '${_currentFuel.toStringAsFixed(1)} ${isEv ? "kWh" : "L"}',
-                style: const TextStyle(color: Voy.brand, fontSize: 14, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Voy.brand,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1532,7 +3076,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 Expanded(
                   child: Text(
                     'CURRENT FUEL (${_currentFuel.toStringAsFixed(0)}${isEv ? "kWh" : "L"}) × MILEAGE (${_mileage.toStringAsFixed(0)}) = RANGE: ${range.toStringAsFixed(0)} km',
-                    style: const TextStyle(color: Voy.ink, fontSize: 11, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        color: Voy.ink,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
@@ -1558,11 +3105,17 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ROUTE OVERVIEW', style: TextStyle(color: Voy.brand, fontWeight: FontWeight.bold, fontSize: 12)),
+              const Text('ROUTE OVERVIEW',
+                  style: TextStyle(
+                      color: Voy.brand,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: canReach ? Voy.success.withOpacity(0.15) : Voy.danger.withOpacity(0.15),
+                  color: canReach
+                      ? Voy.success.withOpacity(0.15)
+                      : Voy.danger.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -1579,17 +3132,29 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           const SizedBox(height: 12),
           Row(
             children: [
-              _metricTile('Total Distance', '${_oneWayDistanceKm.toStringAsFixed(1)} km', Icons.straighten_rounded),
-              _metricTile('Est. Duration', '${(_oneWayDurationMin ~/ 60)}h ${(_oneWayDurationMin % 60)}m', Icons.timer_rounded),
+              _metricTile(
+                  'Total Distance',
+                  '${_oneWayDistanceKm.toStringAsFixed(1)} km',
+                  Icons.straighten_rounded),
+              _metricTile(
+                  'Est. Duration',
+                  '${(_oneWayDurationMin ~/ 60)}h ${(_oneWayDurationMin % 60)}m',
+                  Icons.timer_rounded),
               _metricTile('Arrival ETA', _estimatedEta, Icons.schedule_rounded),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
-              _metricTile('Estimated Tolls', '₹${_estimatedTollCost.toStringAsFixed(0)}', Icons.toll_rounded),
+              _metricTile(
+                  'Estimated Tolls',
+                  '₹${_estimatedTollCost.toStringAsFixed(0)}',
+                  Icons.toll_rounded),
               _metricTile('Traffic', 'Normal Flow', Icons.traffic_rounded),
-              _metricTile('Stops Planned', '${_addedStops.length + _fuelStops.length}', Icons.place_rounded),
+              _metricTile(
+                  'Stops Planned',
+                  '${_addedStops.length + _fuelStops.length}',
+                  Icons.place_rounded),
             ],
           ),
         ],
@@ -1607,7 +3172,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         const SizedBox(height: 18),
 
         // 1.4 Automatic Fuel / Charging Stop Logic
-        _sectionLabel('1.4 AUTOMATIC FUEL / CHARGING LOGIC', Icons.local_gas_station_rounded),
+        _sectionLabel('1.4 AUTOMATIC FUEL / CHARGING LOGIC',
+            Icons.local_gas_station_rounded),
         const SizedBox(height: 8),
         _buildFuelStopsSection(),
 
@@ -1617,11 +3183,13 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabel('1.5 YOUR PLANNED STOPS', Icons.add_location_alt_rounded),
+            _sectionLabel(
+                '1.5 YOUR PLANNED STOPS', Icons.add_location_alt_rounded),
             TextButton.icon(
               onPressed: _showAddStopDialog,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('+ CUSTOM STOP', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: const Text('+ CUSTOM STOP',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -1645,8 +3213,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
 
   // Visual Journey Corridor (Origin -> Stops -> Destination)
   Widget _buildCorridorFlow() {
-    final originName = _oneWayOriginCtrl.text.trim().isNotEmpty ? _oneWayOriginCtrl.text.trim() : 'Origin';
-    final destName = _oneWayDestCtrl.text.trim().isNotEmpty ? _oneWayDestCtrl.text.trim() : 'Destination';
+    final originName = _oneWayOriginCtrl.text.trim().isNotEmpty
+        ? _oneWayOriginCtrl.text.trim()
+        : 'Origin';
+    final destName = _oneWayDestCtrl.text.trim().isNotEmpty
+        ? _oneWayDestCtrl.text.trim()
+        : 'Destination';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1662,11 +3234,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             children: [
               const Icon(Icons.alt_route_rounded, color: Voy.brand, size: 16),
               const SizedBox(width: 8),
-              const Text('Journey Corridor', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 13)),
+              const Text('Journey Corridor',
+                  style: TextStyle(
+                      color: Voy.ink,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13)),
               const Spacer(),
               Text(
                 '${_oneWayDistanceKm.toStringAsFixed(0)} km • ${_oneWayDurationMin ~/ 60}h ${_oneWayDurationMin % 60}m',
-                style: const TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                    color: Voy.sub, fontSize: 11, fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -1679,10 +3256,12 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   const Icon(Icons.circle, color: Color(0xFF10B981), size: 12),
                   Container(width: 2, height: 28, color: Voy.hairline),
                   if (_addedStops.isNotEmpty) ...[
-                    const Icon(Icons.location_pin, color: Color(0xFFA855F7), size: 14),
+                    const Icon(Icons.location_pin,
+                        color: Color(0xFFA855F7), size: 14),
                     Container(width: 2, height: 28, color: Voy.hairline),
                   ],
-                  const Icon(Icons.location_on_rounded, color: Color(0xFFF43F5E), size: 14),
+                  const Icon(Icons.location_on_rounded,
+                      color: Color(0xFFF43F5E), size: 14),
                 ],
               ),
               const SizedBox(width: 10),
@@ -1690,16 +3269,27 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(originName, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(originName,
+                        style: const TextStyle(
+                            color: Voy.ink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                     const SizedBox(height: 14),
                     if (_addedStops.isNotEmpty) ...[
                       Text(
                         '${_addedStops.length} stops planned (${_addedStops.map((s) => s['name']).take(2).join(', ')}${_addedStops.length > 2 ? "..." : ""})',
-                        style: const TextStyle(color: Color(0xFFA855F7), fontSize: 11, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            color: Color(0xFFA855F7),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 14),
                     ],
-                    Text(destName, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+                    Text(destName,
+                        style: const TextStyle(
+                            color: Voy.ink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12)),
                   ],
                 ),
               ),
@@ -1724,18 +3314,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     final allStops = _getRecommendedRouteStops();
     final filteredStops = _catalogFilterCategory == 'ALL'
         ? allStops
-        : allStops.where((s) => s['categoryTag'] == _catalogFilterCategory).toList();
+        : allStops
+            .where((s) => s['categoryTag'] == _catalogFilterCategory)
+            .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: Color(0xFF38BDF8), size: 18),
+            const Icon(Icons.auto_awesome_rounded,
+                color: Color(0xFF38BDF8), size: 18),
             const SizedBox(width: 8),
             const Text(
               'RECOMMENDED STOPS ALONG YOUR ROUTE',
-              style: TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 0.5),
+              style: TextStyle(
+                  color: Voy.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.5),
             ),
             const Spacer(),
             Container(
@@ -1744,7 +3341,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 color: Voy.brand.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('Smart Ranked', style: TextStyle(color: Voy.brand, fontSize: 10, fontWeight: FontWeight.w700)),
+              child: const Text('Smart Ranked',
+                  style: TextStyle(
+                      color: Voy.brand,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700)),
             ),
           ],
         ),
@@ -1764,7 +3365,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
-                  avatar: Icon(cat.$3, size: 14, color: sel ? Voy.brand : Voy.sub),
+                  avatar:
+                      Icon(cat.$3, size: 14, color: sel ? Voy.brand : Voy.sub),
                   label: Text(cat.$2),
                   selected: sel,
                   onSelected: (val) {
@@ -1799,7 +3401,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       decoration: BoxDecoration(
         color: Voy.surface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: alreadyAdded ? Voy.brand.withOpacity(0.5) : Voy.hairline),
+        border: Border.all(
+            color: alreadyAdded ? Voy.brand.withOpacity(0.5) : Voy.hairline),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1809,7 +3412,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               ClipRRect(
-                borderRadius: const BorderRadius.only(topLeft: Radius.circular(16), bottomRight: Radius.circular(12)),
+                borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(12)),
                 child: SizedBox(
                   width: 90,
                   height: 90,
@@ -1818,7 +3423,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) => Container(
                       color: Voy.surface2,
-                      child: Icon(stop['icon'] as IconData? ?? Icons.place, color: Voy.sub, size: 30),
+                      child: Icon(stop['icon'] as IconData? ?? Icons.place,
+                          color: Voy.sub, size: 30),
                     ),
                   ),
                 ),
@@ -1833,24 +3439,35 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: (stop['categoryColor'] as Color? ?? Voy.brand).withOpacity(0.15),
+                              color:
+                                  (stop['categoryColor'] as Color? ?? Voy.brand)
+                                      .withOpacity(0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               stop['category'].toString().toUpperCase(),
-                              style: TextStyle(color: stop['categoryColor'] as Color? ?? Voy.brand, fontSize: 9.5, fontWeight: FontWeight.w800),
+                              style: TextStyle(
+                                  color: stop['categoryColor'] as Color? ??
+                                      Voy.brand,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w800),
                             ),
                           ),
                           const Spacer(),
                           Row(
                             children: [
-                              const Icon(Icons.star_rounded, color: Colors.amber, size: 14),
+                              const Icon(Icons.star_rounded,
+                                  color: Colors.amber, size: 14),
                               const SizedBox(width: 2),
                               Text(
                                 '${stop["rating"]}',
-                                style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 11),
+                                style: const TextStyle(
+                                    color: Voy.ink,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11),
                               ),
                             ],
                           ),
@@ -1859,24 +3476,32 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       const SizedBox(height: 4),
                       Text(
                         stop['name'].toString(),
-                        style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 13),
+                        style: const TextStyle(
+                            color: Voy.ink,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         '${stop["detourKm"]} km detour • +${stop["detourMin"]} mins • ${stop["fromRoute"]}',
-                        style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            color: Color(0xFF38BDF8),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.access_time_rounded, size: 11, color: Voy.sub),
+                          const Icon(Icons.access_time_rounded,
+                              size: 11, color: Voy.sub),
                           const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               stop['openingHours'].toString(),
-                              style: const TextStyle(color: Voy.sub, fontSize: 10.5),
+                              style: const TextStyle(
+                                  color: Voy.sub, fontSize: 10.5),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1894,7 +3519,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Text(
               stop['description'].toString(),
-              style: const TextStyle(color: Voy.sub, fontSize: 11.5, height: 1.3),
+              style:
+                  const TextStyle(color: Voy.sub, fontSize: 11.5, height: 1.3),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1911,15 +3537,22 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   child: alreadyAdded
                       ? OutlinedButton.icon(
                           onPressed: () {
-                            setState(() => _addedStops.removeWhere((s) => s['name'] == stop['name']));
+                            setState(() => _addedStops
+                                .removeWhere((s) => s['name'] == stop['name']));
                             _calculateOneWayRoute();
                           },
-                          icon: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 14),
-                          label: const Text('Added', style: TextStyle(color: Color(0xFF10B981), fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          icon: const Icon(Icons.check_rounded,
+                              color: Color(0xFF10B981), size: 14),
+                          label: const Text('Added',
+                              style: TextStyle(
+                                  color: Color(0xFF10B981),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold)),
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: Color(0xFF10B981)),
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         )
                       : FilledButton.icon(
@@ -1937,17 +3570,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                             _calculateOneWayRoute();
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Added "${stop["name"]}" to route. Recalculating...'),
+                                content: Text(
+                                    'Added "${stop["name"]}" to route. Recalculating...'),
                                 duration: const Duration(seconds: 2),
                               ),
                             );
                           },
                           icon: const Icon(Icons.add_rounded, size: 14),
-                          label: const Text('+ Add Stop', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800)),
+                          label: const Text('+ Add Stop',
+                              style: TextStyle(
+                                  fontSize: 11.5, fontWeight: FontWeight.w800)),
                           style: FilledButton.styleFrom(
                             backgroundColor: Voy.brand,
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                 ),
@@ -1956,20 +3593,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 // View Details
                 IconButton(
                   tooltip: 'View Details',
-                  icon: const Icon(Icons.info_outline_rounded, size: 18, color: Voy.ink),
+                  icon: const Icon(Icons.info_outline_rounded,
+                      size: 18, color: Voy.ink),
                   onPressed: () => _showStopDetailsDialog(stop),
                 ),
 
                 // Navigate
                 IconButton(
                   tooltip: 'Navigate with Google Maps',
-                  icon: const Icon(Icons.navigation_rounded, size: 18, color: Color(0xFF38BDF8)),
+                  icon: const Icon(Icons.navigation_rounded,
+                      size: 18, color: Color(0xFF38BDF8)),
                   onPressed: () async {
                     final lat = stop['lat'];
                     final lng = stop['lng'];
-                    final uri = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
+                    final uri = Uri.parse(
+                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving');
                     if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      await launchUrl(uri,
+                          mode: LaunchMode.externalApplication);
                     }
                   },
                 ),
@@ -1977,7 +3618,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 // Save to Saved Places
                 IconButton(
                   tooltip: 'Save to Saved Places',
-                  icon: const Icon(Icons.favorite_border_rounded, size: 18, color: Color(0xFFEC4899)),
+                  icon: const Icon(Icons.favorite_border_rounded,
+                      size: 18, color: Color(0xFFEC4899)),
                   onPressed: () async {
                     final place = SavedPlace(
                       id: 'stop_${stop["name"].toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), "_")}',
@@ -1995,7 +3637,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Saved "${stop["name"]}" to Saved Places!'),
+                          content:
+                              Text('Saved "${stop["name"]}" to Saved Places!'),
                           duration: const Duration(seconds: 2),
                         ),
                       );
@@ -2015,13 +3658,20 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withOpacity(0.12))),
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withOpacity(0.12))),
         title: Row(
           children: [
-            Icon(stop['icon'] as IconData? ?? Icons.place, color: stop['categoryColor'] as Color? ?? Voy.brand, size: 22),
+            Icon(stop['icon'] as IconData? ?? Icons.place,
+                color: stop['categoryColor'] as Color? ?? Voy.brand, size: 22),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(stop['name'].toString(), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800)),
+              child: Text(stop['name'].toString(),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
             ),
           ],
         ),
@@ -2037,12 +3687,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 child: Image.network(
                   stop['image'].toString(),
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
+                  errorBuilder: (_, __, ___) =>
+                      Container(color: const Color(0xFF1E293B)),
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            Text(stop['description'].toString(), style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4)),
+            Text(stop['description'].toString(),
+                style: const TextStyle(
+                    color: Color(0xFFCBD5E1), fontSize: 13, height: 1.4)),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
@@ -2055,24 +3708,41 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Category:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                      Text(stop['category'].toString(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      const Text('Category:',
+                          style: TextStyle(
+                              color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(stop['category'].toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Detour Impact:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                      Text('${stop["detourKm"]} km • +${stop["detourMin"]} mins', style: const TextStyle(color: Color(0xFF38BDF8), fontWeight: FontWeight.bold, fontSize: 12)),
+                      const Text('Detour Impact:',
+                          style: TextStyle(
+                              color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(
+                          '${stop["detourKm"]} km • +${stop["detourMin"]} mins',
+                          style: const TextStyle(
+                              color: Color(0xFF38BDF8),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Opening Hours:', style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-                      Text(stop['openingHours'].toString(), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                      const Text('Opening Hours:',
+                          style: TextStyle(
+                              color: Color(0xFF94A3B8), fontSize: 12)),
+                      Text(stop['openingHours'].toString(),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12)),
                     ],
                   ),
                 ],
@@ -2118,8 +3788,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     final endLng = _oneWayDest?.lng ?? 76.6394;
 
     // Interpolate realistic coordinates along the corridor
-    double interpLat(double fraction) => startLat + (endLat - startLat) * fraction;
-    double interpLng(double fraction) => startLng + (endLng - startLng) * fraction;
+    double interpLat(double fraction) =>
+        startLat + (endLat - startLat) * fraction;
+    double interpLng(double fraction) =>
+        startLng + (endLng - startLng) * fraction;
 
     return [
       {
@@ -2129,13 +3801,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'NATURE',
         'categoryColor': const Color(0xFF10B981),
         'icon': Icons.landscape_rounded,
-        'image': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
         'rating': 4.7,
         'detourKm': 2.1,
         'detourMin': 7,
         'fromRoute': '1.8 km from corridor',
         'openingHours': '06:00 AM - 06:30 PM • Open Now',
-        'description': 'Panoramic rocky hills famous for climbing, historic temple steps, and breathtaking sunrise views.',
+        'description':
+            'Panoramic rocky hills famous for climbing, historic temple steps, and breathtaking sunrise views.',
         'lat': interpLat(0.20),
         'lng': interpLng(0.20),
         'stayDuration': 45,
@@ -2147,13 +3821,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'FOOD',
         'categoryColor': const Color(0xFFF59E0B),
         'icon': Icons.restaurant_rounded,
-        'image': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
         'rating': 4.5,
         'detourKm': 0.3,
         'detourMin': 2,
         'fromRoute': 'Direct highway corridor',
         'openingHours': '06:30 AM - 11:00 PM • Open Now',
-        'description': 'Authentic Karnataka highway dining with hot maddur vada, jolada rotti meals, and filter coffee.',
+        'description':
+            'Authentic Karnataka highway dining with hot maddur vada, jolada rotti meals, and filter coffee.',
         'lat': interpLat(0.35),
         'lng': interpLng(0.35),
         'stayDuration': 40,
@@ -2165,13 +3841,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'CULTURE',
         'categoryColor': const Color(0xFFA855F7),
         'icon': Icons.temple_hindu_rounded,
-        'image': 'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
         'rating': 4.8,
         'detourKm': 1.4,
         'detourMin': 5,
         'fromRoute': '1.2 km from highway',
         'openingHours': '06:00 AM - 08:30 PM • Open Now',
-        'description': 'Ancient 9th-century island fortress temple on the Kaveri river with magnificent Hoysala architecture.',
+        'description':
+            'Ancient 9th-century island fortress temple on the Kaveri river with magnificent Hoysala architecture.',
         'lat': interpLat(0.55),
         'lng': interpLng(0.55),
         'stayDuration': 50,
@@ -2183,13 +3861,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'CULTURE',
         'categoryColor': const Color(0xFFA855F7),
         'icon': Icons.account_balance_rounded,
-        'image': 'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
         'rating': 4.9,
         'detourKm': 3.2,
         'detourMin': 11,
         'fromRoute': '2.8 km from ring road',
         'openingHours': '10:00 AM - 05:30 PM • Open Now',
-        'description': 'World-renowned royal palace with opulent Durbar halls, courtyards, and grand heritage museum.',
+        'description':
+            'World-renowned royal palace with opulent Durbar halls, courtyards, and grand heritage museum.',
         'lat': interpLat(0.68),
         'lng': interpLng(0.68),
         'stayDuration': 75,
@@ -2201,13 +3881,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'NATURE',
         'categoryColor': const Color(0xFF10B981),
         'icon': Icons.water_rounded,
-        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
         'rating': 4.6,
         'detourKm': 1.8,
         'detourMin': 6,
         'fromRoute': '1.5 km from corridor',
         'openingHours': '09:00 AM - 06:00 PM • Open Now',
-        'description': '64-acre ecological island park surrounded by Kaveri river with hanging bridge, deer park, and bamboo groves.',
+        'description':
+            '64-acre ecological island park surrounded by Kaveri river with hanging bridge, deer park, and bamboo groves.',
         'lat': interpLat(0.85),
         'lng': interpLng(0.85),
         'stayDuration': 60,
@@ -2219,13 +3901,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'UTILITY',
         'categoryColor': const Color(0xFF0284C7),
         'icon': Icons.local_gas_station_rounded,
-        'image': 'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
         'rating': 4.6,
         'detourKm': 0.1,
         'detourMin': 1,
         'fromRoute': 'On expressway service lane',
         'openingHours': 'Open 24 Hours • Verified',
-        'description': '24/7 premium fuel, high-speed EV chargers, spotless restrooms, ATM, and convenience café.',
+        'description':
+            '24/7 premium fuel, high-speed EV chargers, spotless restrooms, ATM, and convenience café.',
         'lat': interpLat(0.40),
         'lng': interpLng(0.40),
         'stayDuration': 15,
@@ -2237,13 +3921,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         'categoryTag': 'STAY',
         'categoryColor': const Color(0xFF8B5CF6),
         'icon': Icons.hotel_rounded,
-        'image': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+        'image':
+            'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
         'rating': 4.8,
         'detourKm': 2.6,
         'detourMin': 9,
         'fromRoute': '2.4 km from destination road',
         'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
-        'description': 'Serene coffee estate stay surrounded by misty hills, homemade Kodava meals, and bonfire trails.',
+        'description':
+            'Serene coffee estate stay surrounded by misty hills, homemade Kodava meals, and bonfire trails.',
         'lat': interpLat(0.95),
         'lng': interpLng(0.95),
         'stayDuration': 60,
@@ -2262,7 +3948,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         ),
         child: const Row(
           children: [
-            Icon(Icons.check_circle_outline_rounded, color: Voy.success, size: 22),
+            Icon(Icons.check_circle_outline_rounded,
+                color: Voy.success, size: 22),
             SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -2296,14 +3983,19 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       color: Voy.amber.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.local_gas_station_rounded, color: Voy.amber, size: 20),
+                    child: const Icon(Icons.local_gas_station_rounded,
+                        color: Voy.amber, size: 20),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(f.name, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+                        Text(f.name,
+                            style: const TextStyle(
+                                color: Voy.ink,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
                         Text(
                           'At km ${f.distanceFromStartKm.toStringAsFixed(0)} from origin • Refill: ${f.refillLiters?.toStringAsFixed(1) ?? "20"} L',
                           style: const TextStyle(color: Voy.sub, fontSize: 11),
@@ -2313,7 +4005,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   ),
                   Text(
                     '₹${(f.estimatedCost ?? 0).toStringAsFixed(0)}',
-                    style: const TextStyle(color: Voy.amber, fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                        color: Voy.amber,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
                   ),
                 ],
               ),
@@ -2326,13 +4021,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       setState(() => _fuelStops.remove(f));
                       _generateBudget();
                     },
-                    child: const Text('Remove', style: TextStyle(color: Voy.danger, fontSize: 12)),
+                    child: const Text('Remove',
+                        style: TextStyle(color: Voy.danger, fontSize: 12)),
                   ),
                   const SizedBox(width: 8),
                   FilledButton.tonal(
                     onPressed: () => _showSearchFuelStationDialog(),
                     style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       textStyle: const TextStyle(fontSize: 12),
                     ),
                     child: const Text('Change Station'),
@@ -2360,10 +4057,13 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           children: [
             const Icon(Icons.add_road_rounded, color: Voy.sub, size: 36),
             const SizedBox(height: 8),
-            const Text('No optional stops added yet', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
+            const Text('No optional stops added yet',
+                style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            const Text('Add restaurants, viewpoints, tourist attractions or ATMs along your path',
-                textAlign: TextAlign.center, style: TextStyle(color: Voy.sub, fontSize: 11)),
+            const Text(
+                'Add restaurants, viewpoints, tourist attractions or ATMs along your path',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Voy.sub, fontSize: 11)),
             const SizedBox(height: 12),
             OutlinedButton.icon(
               onPressed: _showAddStopDialog,
@@ -2402,14 +4102,22 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               CircleAvatar(
                 radius: 12,
                 backgroundColor: Voy.brand.withOpacity(0.2),
-                child: Text('${idx + 1}', style: const TextStyle(color: Voy.brand, fontSize: 11, fontWeight: FontWeight.bold)),
+                child: Text('${idx + 1}',
+                    style: const TextStyle(
+                        color: Voy.brand,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
               ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(stop['name']?.toString() ?? 'Stop', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+                    Text(stop['name']?.toString() ?? 'Stop',
+                        style: const TextStyle(
+                            color: Voy.ink,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
                     Text(
                       '${stop["category"] ?? "Attraction"} • Duration: ${stop["stayDuration"] ?? 30} mins',
                       style: const TextStyle(color: Voy.sub, fontSize: 11),
@@ -2418,7 +4126,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline_rounded, color: Voy.danger, size: 18),
+                icon: const Icon(Icons.delete_outline_rounded,
+                    color: Voy.danger, size: 18),
                 onPressed: () {
                   setState(() => _addedStops.removeAt(idx));
                   _calculateOneWayRoute();
@@ -2477,7 +4186,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabel('1.7 TRIP BUDGET GENERATOR', Icons.account_balance_wallet_rounded),
+            _sectionLabel('1.7 TRIP BUDGET GENERATOR',
+                Icons.account_balance_wallet_rounded),
             TextButton.icon(
               onPressed: () => setState(() => _generateBudget()),
               icon: const Icon(Icons.refresh_rounded, size: 16),
@@ -2512,48 +4222,69 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('ESTIMATED TRIP EXPENSES', style: TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.bold)),
+              const Text('ESTIMATED TRIP EXPENSES',
+                  style: TextStyle(
+                      color: Voy.sub,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
               Text(
                 'TOTAL: ₹${_totalOneWayBudget.toStringAsFixed(0)}',
-                style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800, fontSize: 16),
+                style: const TextStyle(
+                    color: Voy.brand,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16),
               ),
             ],
           ),
           const Divider(height: 20, color: Voy.hairline),
-          _budgetItemRow('Fuel & Refuelling', _budgetFuel, (v) => setState(() => _budgetFuel = v)),
-          _budgetItemRow('Highway Tolls (Fastag)', _budgetTolls, (v) => setState(() => _budgetTolls = v)),
-          _budgetItemRow('Food & Refreshments', _budgetFood, (v) => setState(() => _budgetFood = v)),
-          _budgetItemRow('Parking Fees', _budgetParking, (v) => setState(() => _budgetParking = v)),
-          _budgetItemRow('Attractions & Activities', _budgetActivities, (v) => setState(() => _budgetActivities = v)),
-          _budgetItemRow('Miscellaneous & Buffer', _budgetMisc, (v) => setState(() => _budgetMisc = v)),
+          _budgetItemRow('Fuel & Refuelling', _budgetFuel,
+              (v) => setState(() => _budgetFuel = v)),
+          _budgetItemRow('Highway Tolls (Fastag)', _budgetTolls,
+              (v) => setState(() => _budgetTolls = v)),
+          _budgetItemRow('Food & Refreshments', _budgetFood,
+              (v) => setState(() => _budgetFood = v)),
+          _budgetItemRow('Parking Fees', _budgetParking,
+              (v) => setState(() => _budgetParking = v)),
+          _budgetItemRow('Attractions & Activities', _budgetActivities,
+              (v) => setState(() => _budgetActivities = v)),
+          _budgetItemRow('Miscellaneous & Buffer', _budgetMisc,
+              (v) => setState(() => _budgetMisc = v)),
         ],
       ),
     );
   }
 
-  Widget _budgetItemRow(String title, double amount, ValueChanged<double> onChanged) {
+  Widget _budgetItemRow(
+      String title, double amount, ValueChanged<double> onChanged) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Expanded(child: Text(title, style: const TextStyle(color: Voy.ink, fontSize: 13))),
+          Expanded(
+              child: Text(title,
+                  style: const TextStyle(color: Voy.ink, fontSize: 13))),
           SizedBox(
             width: 90,
             height: 36,
             child: TextField(
-              controller: TextEditingController(text: amount.toStringAsFixed(0)),
+              controller:
+                  TextEditingController(text: amount.toStringAsFixed(0)),
               keyboardType: TextInputType.number,
               textAlign: TextAlign.end,
-              style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                  color: Voy.ink, fontSize: 13, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 prefixText: '₹',
                 prefixStyle: const TextStyle(color: Voy.sub),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 isDense: true,
                 filled: true,
                 fillColor: Voy.surface2,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none),
               ),
               onSubmitted: (val) {
                 final d = double.tryParse(val) ?? amount;
@@ -2581,16 +4312,20 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Number of Travelers:', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
+              const Text('Number of Travelers:',
+                  style:
+                      TextStyle(color: Voy.ink, fontWeight: FontWeight.w600)),
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Voy.sub),
+                    icon:
+                        const Icon(Icons.remove_circle_outline, color: Voy.sub),
                     onPressed: _oneWayTravelers > 1
                         ? () {
                             setState(() {
                               _oneWayTravelers--;
-                              if (_oneWayTravelerNames.length > _oneWayTravelers) {
+                              if (_oneWayTravelerNames.length >
+                                  _oneWayTravelers) {
                                 _oneWayTravelerNames.removeLast();
                               }
                               _recalculateSplit();
@@ -2598,9 +4333,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                           }
                         : null,
                   ),
-                  Text('$_oneWayTravelers', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('$_oneWayTravelers',
+                      style: const TextStyle(
+                          color: Voy.ink,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: Voy.brand),
+                    icon:
+                        const Icon(Icons.add_circle_outline, color: Voy.brand),
                     onPressed: () {
                       setState(() {
                         _oneWayTravelers++;
@@ -2626,7 +4366,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   }),
                   selectedColor: Voy.brand.withOpacity(0.2),
                   backgroundColor: Voy.surface2,
-                  labelStyle: TextStyle(color: !_isCustomSplit ? Voy.brand : Voy.ink, fontWeight: FontWeight.bold),
+                  labelStyle: TextStyle(
+                      color: !_isCustomSplit ? Voy.brand : Voy.ink,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2637,7 +4379,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   onSelected: (s) => setState(() => _isCustomSplit = true),
                   selectedColor: Voy.brand.withOpacity(0.2),
                   backgroundColor: Voy.surface2,
-                  labelStyle: TextStyle(color: _isCustomSplit ? Voy.brand : Voy.ink, fontWeight: FontWeight.bold),
+                  labelStyle: TextStyle(
+                      color: _isCustomSplit ? Voy.brand : Voy.ink,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -2653,10 +4397,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Per Person Share:', style: TextStyle(color: Voy.ink, fontSize: 13)),
+                  const Text('Per Person Share:',
+                      style: TextStyle(color: Voy.ink, fontSize: 13)),
                   Text(
                     '₹${_perPersonOneWayBudget.toStringAsFixed(0)}',
-                    style: const TextStyle(color: Voy.brand, fontWeight: FontWeight.w800, fontSize: 16),
+                    style: const TextStyle(
+                        color: Voy.brand,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16),
                   ),
                 ],
               ),
@@ -2664,30 +4412,41 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           else
             Column(
               children: List.generate(_oneWayTravelers, (idx) {
-                final name = idx < _oneWayTravelerNames.length ? _oneWayTravelerNames[idx] : 'Traveler ${idx + 1}';
+                final name = idx < _oneWayTravelerNames.length
+                    ? _oneWayTravelerNames[idx]
+                    : 'Traveler ${idx + 1}';
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      Expanded(child: Text(name, style: const TextStyle(color: Voy.ink, fontSize: 13))),
+                      Expanded(
+                          child: Text(name,
+                              style: const TextStyle(
+                                  color: Voy.ink, fontSize: 13))),
                       SizedBox(
                         width: 100,
                         height: 36,
                         child: TextField(
                           controller: TextEditingController(
-                            text: (_customSplitAmounts[name] ?? _perPersonOneWayBudget).toStringAsFixed(0),
+                            text: (_customSplitAmounts[name] ??
+                                    _perPersonOneWayBudget)
+                                .toStringAsFixed(0),
                           ),
                           keyboardType: TextInputType.number,
                           textAlign: TextAlign.end,
                           decoration: InputDecoration(
                             prefixText: '₹',
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                            contentPadding:
+                                const EdgeInsets.symmetric(horizontal: 8),
                             filled: true,
                             fillColor: Voy.surface2,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none),
                           ),
                           onChanged: (val) {
-                            _customSplitAmounts[name] = double.tryParse(val) ?? 0.0;
+                            _customSplitAmounts[name] =
+                                double.tryParse(val) ?? 0.0;
                           },
                         ),
                       ),
@@ -2722,13 +4481,19 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               _summaryItem('Destination', _oneWayDestCtrl.text),
               _summaryItem('Travelers', '$_oneWayTravelers'),
               _summaryItem('Vehicle', _selectedVehicle?.name ?? 'Car'),
-              _summaryItem('Distance', '${_oneWayDistanceKm.toStringAsFixed(1)} km'),
-              _summaryItem('Duration', '${(_oneWayDurationMin ~/ 60)} hrs ${(_oneWayDurationMin % 60)} mins'),
+              _summaryItem(
+                  'Distance', '${_oneWayDistanceKm.toStringAsFixed(1)} km'),
+              _summaryItem('Duration',
+                  '${(_oneWayDurationMin ~/ 60)} hrs ${(_oneWayDurationMin % 60)} mins'),
               _summaryItem('Fuel Stop', '${_fuelStops.length}'),
               _summaryItem('Added Stops', '${_addedStops.length}'),
               const Divider(height: 20, color: Voy.hairline),
-              _summaryItem('Budget', '₹${_totalOneWayBudget.toStringAsFixed(0)}', isHighlight: true),
-              _summaryItem('Per Person', '₹${_perPersonOneWayBudget.toStringAsFixed(0)}', isHighlight: true),
+              _summaryItem(
+                  'Budget', '₹${_totalOneWayBudget.toStringAsFixed(0)}',
+                  isHighlight: true),
+              _summaryItem(
+                  'Per Person', '₹${_perPersonOneWayBudget.toStringAsFixed(0)}',
+                  isHighlight: true),
             ],
           ),
         ),
@@ -2782,7 +4547,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           child: ElevatedButton.icon(
             onPressed: _startNavigation,
             icon: const Icon(Icons.navigation_rounded, size: 20),
-            label: const Text('START NAVIGATION', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            label: const Text('START NAVIGATION',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           ),
         ),
       ],
@@ -2795,8 +4561,17 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: TextStyle(color: isHighlight ? Voy.brand : Voy.sub, fontSize: 13, fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal)),
-          Text(value, style: TextStyle(color: isHighlight ? Voy.brand : Voy.ink, fontSize: 14, fontWeight: FontWeight.bold)),
+          Text(title,
+              style: TextStyle(
+                  color: isHighlight ? Voy.brand : Voy.sub,
+                  fontSize: 13,
+                  fontWeight:
+                      isHighlight ? FontWeight.bold : FontWeight.normal)),
+          Text(value,
+              style: TextStyle(
+                  color: isHighlight ? Voy.brand : Voy.ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -2824,8 +4599,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           ElevatedButton(
             onPressed: () {
               if (_oneWayStep == 1) {
-                if (_oneWayOriginCtrl.text.isEmpty || _oneWayDestCtrl.text.isEmpty) {
-                  _showToast('Please specify starting location and destination');
+                if (_oneWayOriginCtrl.text.isEmpty ||
+                    _oneWayDestCtrl.text.isEmpty) {
+                  _showToast(
+                      'Please specify starting location and destination');
                   return;
                 }
                 if (_oneWayRoute == null) {
@@ -2853,7 +4630,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       children: [
         // Mode Selector: "Describe It" vs "Quick Wizard" when in initial planning
         if (_vacationStep < 4) _buildRoundTripMethodSelector(),
-        if (_roundTripMethod == 1 || _vacationStep >= 4) _buildVacationStepIndicator(),
+        if (_roundTripMethod == 1 || _vacationStep >= 4)
+          _buildVacationStepIndicator(),
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -2862,7 +4640,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 : _buildCurrentVacationStep(),
           ),
         ),
-        if (_roundTripMethod == 1 || _vacationStep >= 4) _buildVacationBottomBar(),
+        if (_roundTripMethod == 1 || _vacationStep >= 4)
+          _buildVacationBottomBar(),
       ],
     );
   }
@@ -2884,25 +4663,36 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               borderRadius: BorderRadius.circular(12),
               onTap: () => setState(() => _roundTripMethod = 0),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: _roundTripMethod == 0 ? const Color(0xFF0F2B2B) : Colors.transparent,
+                  color: _roundTripMethod == 0
+                      ? const Color(0xFF0F2B2B)
+                      : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _roundTripMethod == 0 ? const Color(0xFF14B8A6) : Colors.transparent,
+                    color: _roundTripMethod == 0
+                        ? const Color(0xFF14B8A6)
+                        : Colors.transparent,
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.auto_awesome_rounded, size: 16, color: _roundTripMethod == 0 ? const Color(0xFF2DD4BF) : Voy.sub),
+                    Icon(Icons.auto_awesome_rounded,
+                        size: 16,
+                        color: _roundTripMethod == 0
+                            ? const Color(0xFF2DD4BF)
+                            : Voy.sub),
                     const SizedBox(width: 8),
                     Text(
                       'Describe it',
                       style: TextStyle(
                         color: _roundTripMethod == 0 ? Colors.white : Voy.sub,
                         fontSize: 13,
-                        fontWeight: _roundTripMethod == 0 ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight: _roundTripMethod == 0
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                       ),
                     ),
                   ],
@@ -2916,25 +4706,32 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               borderRadius: BorderRadius.circular(12),
               onTap: () => setState(() => _roundTripMethod = 1),
               child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                 decoration: BoxDecoration(
-                  color: _roundTripMethod == 1 ? Voy.surface2 : Colors.transparent,
+                  color:
+                      _roundTripMethod == 1 ? Voy.surface2 : Colors.transparent,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
-                    color: _roundTripMethod == 1 ? Voy.violet : Colors.transparent,
+                    color:
+                        _roundTripMethod == 1 ? Voy.violet : Colors.transparent,
                   ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.explore_rounded, size: 16, color: _roundTripMethod == 1 ? Voy.violet : Voy.sub),
+                    Icon(Icons.explore_rounded,
+                        size: 16,
+                        color: _roundTripMethod == 1 ? Voy.violet : Voy.sub),
                     const SizedBox(width: 8),
                     Text(
                       'Quick wizard',
                       style: TextStyle(
                         color: _roundTripMethod == 1 ? Colors.white : Voy.sub,
                         fontSize: 13,
-                        fontWeight: _roundTripMethod == 1 ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight: _roundTripMethod == 1
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                       ),
                     ),
                   ],
@@ -2960,22 +4757,28 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       {
         'title': 'Bangalore → Coorg',
         'desc': 'Coffee country, misty ghats and slow mornings in Kodagu.',
-        'prompt': '3-day scenic road trip from Bangalore to Coorg with waterfalls, viewpoints, and coffee plantation stay',
+        'prompt':
+            '3-day scenic road trip from Bangalore to Coorg with waterfalls, viewpoints, and coffee plantation stay',
       },
       {
         'title': 'Mumbai → Goa',
-        'desc': 'The Konkan coast — cliff roads, creek ferries and seafood shacks.',
-        'prompt': '4-day coastal road trip from Mumbai to Goa with scenic beach highways, forts, and seafood dining',
+        'desc':
+            'The Konkan coast — cliff roads, creek ferries and seafood shacks.',
+        'prompt':
+            '4-day coastal road trip from Mumbai to Goa with scenic beach highways, forts, and seafood dining',
       },
       {
         'title': 'Delhi → Manali',
         'desc': 'Plains to pine — the Beas valley climb through Himachal.',
-        'prompt': '5-day mountain adventure road trip from Delhi to Manali with river valleys and mountain passes',
+        'prompt':
+            '5-day mountain adventure road trip from Delhi to Manali with river valleys and mountain passes',
       },
       {
         'title': 'Chennai → Pondicherry',
-        'desc': 'The ECR run — stone temples, salt air and French Quarter mornings.',
-        'prompt': '2-day relaxed coastal drive from Chennai to Pondicherry via East Coast Road with heritage cafes',
+        'desc':
+            'The ECR run — stone temples, salt air and French Quarter mornings.',
+        'prompt':
+            '2-day relaxed coastal drive from Chennai to Pondicherry via East Coast Road with heritage cafes',
       },
     ];
 
@@ -2996,9 +4799,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               TextField(
                 controller: _describeItCtrl,
                 maxLines: 3,
-                style: const TextStyle(color: Colors.white, fontSize: 16, height: 1.4, fontWeight: FontWeight.w500),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500),
                 decoration: const InputDecoration(
-                  hintText: 'Tell us what kind of trip you want... (e.g., 3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies)',
+                  hintText:
+                      'Tell us what kind of trip you want... (e.g., 3-day scenic drive from Bangalore to Coorg under ₹15,000 for foodies)',
                   hintStyle: TextStyle(color: Color(0xFF64748B), fontSize: 15),
                   border: InputBorder.none,
                 ),
@@ -3014,15 +4822,20 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                     borderRadius: BorderRadius.circular(20),
                     onTap: () => setState(() => _describeItCtrl.text = chip),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withOpacity(0.08)),
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.08)),
                       ),
                       child: Text(
                         chip,
-                        style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500),
                       ),
                     ),
                   );
@@ -3035,7 +4848,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 width: double.infinity,
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFFFBBF24), Color(0xFFF97316), Color(0xFF14B8A6)],
+                    colors: [
+                      Color(0xFFFBBF24),
+                      Color(0xFFF97316),
+                      Color(0xFF14B8A6)
+                    ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -3050,16 +4867,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 ),
                 child: ElevatedButton.icon(
                   onPressed: () => _executeDescribeIt(_describeItCtrl.text),
-                  icon: const Icon(Icons.auto_awesome_rounded, color: Colors.black, size: 18),
+                  icon: const Icon(Icons.auto_awesome_rounded,
+                      color: Colors.black, size: 18),
                   label: const Text(
                     'Build my road trip',
-                    style: TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w900),
+                    style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shadowColor: Colors.transparent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
                   ),
                 ),
               ),
@@ -3071,7 +4893,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         // Curated Classics Section Header
         const Text(
           'OR TRY A CURATED CLASSIC — ONE TAP',
-          style: TextStyle(color: Color(0xFF64748B), fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8),
+          style: TextStyle(
+              color: Color(0xFF64748B),
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.8),
         ),
         const SizedBox(height: 12),
 
@@ -3098,7 +4924,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                     _executeDescribeIt(item['prompt']!);
                   },
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F172A),
                       borderRadius: BorderRadius.circular(16),
@@ -3110,14 +4937,20 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       children: [
                         Text(
                           item['title']!,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w800),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           item['desc']!,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5, height: 1.3),
+                          style: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontSize: 11.5,
+                              height: 1.3),
                         ),
                       ],
                     ),
@@ -3149,7 +4982,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     }
 
     // Parse transport
-    if (prompt.contains('bike') || prompt.contains('motorcycle') || prompt.contains('ride')) {
+    if (prompt.contains('bike') ||
+        prompt.contains('motorcycle') ||
+        prompt.contains('ride')) {
       transportMode = 'bike';
     } else if (prompt.contains('train')) {
       transportMode = 'train';
@@ -3163,7 +4998,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     if (prompt.contains('goa')) {
       destCity = 'Goa';
       if (prompt.contains('mumbai')) startCity = 'Mumbai';
-      if (prompt.contains('bangalore') || prompt.contains('bengaluru')) startCity = 'Bangalore';
+      if (prompt.contains('bangalore') || prompt.contains('bengaluru'))
+        startCity = 'Bangalore';
     } else if (prompt.contains('manali') || prompt.contains('himachal')) {
       destCity = 'Manali';
       startCity = 'Delhi';
@@ -3181,7 +5017,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       startCity = 'Delhi';
     } else {
       // Regex extraction: "from X to Y" or "X to Y"
-      final match = RegExp(r'(?:from\s+)?([a-z\s]+?)\s*(?:to|->|→)\s*([a-z\s]+?)(?:\s+(?:under|for|with|in|and)|$)').firstMatch(prompt);
+      final match = RegExp(
+              r'(?:from\s+)?([a-z\s]+?)\s*(?:to|->|→)\s*([a-z\s]+?)(?:\s+(?:under|for|with|in|and)|$)')
+          .firstMatch(prompt);
       if (match != null) {
         startCity = match.group(1)?.trim() ?? 'Bangalore';
         destCity = match.group(2)?.trim() ?? 'Coorg';
@@ -3189,14 +5027,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     }
 
     // Parse vibe / style
-    if (prompt.contains('food') || prompt.contains('foodies')) vibe = 'Foodie';
-    else if (prompt.contains('adventure')) vibe = 'Adventure';
-    else if (prompt.contains('heritage') || prompt.contains('temple')) vibe = 'Heritage';
+    if (prompt.contains('food') || prompt.contains('foodies'))
+      vibe = 'Foodie';
+    else if (prompt.contains('adventure'))
+      vibe = 'Adventure';
+    else if (prompt.contains('heritage') || prompt.contains('temple'))
+      vibe = 'Heritage';
     else if (prompt.contains('relaxed')) vibe = 'Relaxed';
 
     // Capitalize names
-    startCity = startCity.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
-    destCity = destCity.split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
+    startCity = startCity
+        .split(' ')
+        .map(
+            (w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .join(' ');
+    destCity = destCity
+        .split(' ')
+        .map(
+            (w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+        .join(' ');
 
     setState(() {
       _vacationOriginCtrl.text = startCity;
@@ -3213,7 +5062,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   }
 
   Widget _buildVacationStepIndicator() {
-    final steps = ['Destination', 'Transport', 'Places', 'Itinerary', 'Budget', 'Start'];
+    final steps = [
+      'Destination',
+      'Transport',
+      'Places',
+      'Itinerary',
+      'Budget',
+      'Start'
+    ];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
@@ -3223,23 +5079,33 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           final isDone = _vacationStep > stepNum;
           return Expanded(
             child: InkWell(
-              onTap: isDone ? () => setState(() => _vacationStep = stepNum) : null,
+              onTap:
+                  isDone ? () => setState(() => _vacationStep = stepNum) : null,
               child: Row(
                 children: [
                   CircleAvatar(
                     radius: 11,
-                    backgroundColor: isActive ? Voy.violet : (isDone ? Voy.success : Voy.surface2),
+                    backgroundColor: isActive
+                        ? Voy.violet
+                        : (isDone ? Voy.success : Voy.surface2),
                     child: isDone
                         ? const Icon(Icons.check, size: 12, color: Colors.black)
-                        : Text('$stepNum', style: TextStyle(color: isActive ? Colors.white : Voy.sub, fontSize: 10, fontWeight: FontWeight.bold)),
+                        : Text('$stepNum',
+                            style: TextStyle(
+                                color: isActive ? Colors.white : Voy.sub,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 4),
                   Flexible(
                     child: Text(
                       steps[idx],
                       style: TextStyle(
-                        color: isActive ? Voy.violet : (isDone ? Voy.ink : Voy.sub),
-                        fontWeight: isActive ? FontWeight.w700 : FontWeight.normal,
+                        color: isActive
+                            ? Voy.violet
+                            : (isDone ? Voy.ink : Voy.sub),
+                        fontWeight:
+                            isActive ? FontWeight.w700 : FontWeight.normal,
                         fontSize: 10,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -3294,7 +5160,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           iconColor: Voy.brand,
           isOrigin: true,
           isOneWay: false,
-          onGpsTap: () => _fetchCurrentLocation(isOrigin: true, isOneWay: false),
+          onGpsTap: () =>
+              _fetchCurrentLocation(isOrigin: true, isOneWay: false),
           onMapTap: () => _pickOnMap(isOrigin: true, isOneWay: false),
         ),
 
@@ -3312,12 +5179,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           onGpsTap: null,
           onMapTap: () => _pickOnMap(isOrigin: false, isOneWay: false),
         ),
-        if (_destSuggestions.isNotEmpty) _suggestionsList(_destSuggestions, isOrigin: false, isOneWay: false),
+        if (_destSuggestions.isNotEmpty)
+          _suggestionsList(_destSuggestions, isOrigin: false, isOneWay: false),
 
         const SizedBox(height: 20),
 
         // 2.3 Number of Days & Dates
-        _sectionLabel('2.3 NUMBER OF DAYS & TRAVEL DATES', Icons.calendar_today_rounded),
+        _sectionLabel(
+            '2.3 NUMBER OF DAYS & TRAVEL DATES', Icons.calendar_today_rounded),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
@@ -3329,7 +5198,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('How many days is your vacation?', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+              const Text('How many days is your vacation?',
+                  style: TextStyle(
+                      color: Voy.ink,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
               const SizedBox(height: 10),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -3345,13 +5218,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                           if (s) {
                             setState(() {
                               _vacationDays = d;
-                              _vacationEndDate = _vacationStartDate.add(Duration(days: d));
+                              _vacationEndDate =
+                                  _vacationStartDate.add(Duration(days: d));
                             });
                           }
                         },
                         selectedColor: Voy.violet.withOpacity(0.2),
                         backgroundColor: Voy.surface2,
-                        labelStyle: TextStyle(color: sel ? Voy.violet : Voy.ink, fontWeight: FontWeight.bold),
+                        labelStyle: TextStyle(
+                            color: sel ? Voy.violet : Voy.ink,
+                            fontWeight: FontWeight.bold),
                       ),
                     );
                   }).toList(),
@@ -3364,18 +5240,29 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Departure Date', style: TextStyle(color: Voy.sub, fontSize: 11)),
-                      Text('${_vacationStartDate.day}/${_vacationStartDate.month}/${_vacationStartDate.year}',
-                          style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('Departure Date',
+                          style: TextStyle(color: Voy.sub, fontSize: 11)),
+                      Text(
+                          '${_vacationStartDate.day}/${_vacationStartDate.month}/${_vacationStartDate.year}',
+                          style: const TextStyle(
+                              color: Voy.ink,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                     ],
                   ),
-                  const Icon(Icons.arrow_forward_rounded, color: Voy.sub, size: 16),
+                  const Icon(Icons.arrow_forward_rounded,
+                      color: Voy.sub, size: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      const Text('Return Date', style: TextStyle(color: Voy.sub, fontSize: 11)),
-                      Text('${_vacationEndDate.day}/${_vacationEndDate.month}/${_vacationEndDate.year}',
-                          style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+                      const Text('Return Date',
+                          style: TextStyle(color: Voy.sub, fontSize: 11)),
+                      Text(
+                          '${_vacationEndDate.day}/${_vacationEndDate.month}/${_vacationEndDate.year}',
+                          style: const TextStyle(
+                              color: Voy.ink,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
                     ],
                   ),
                 ],
@@ -3399,16 +5286,28 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('How many travelers?', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+              const Text('How many travelers?',
+                  style: TextStyle(
+                      color: Voy.ink,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13)),
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.remove_circle_outline, color: Voy.sub),
-                    onPressed: _vacationTravelers > 1 ? () => setState(() => _vacationTravelers--) : null,
+                    icon:
+                        const Icon(Icons.remove_circle_outline, color: Voy.sub),
+                    onPressed: _vacationTravelers > 1
+                        ? () => setState(() => _vacationTravelers--)
+                        : null,
                   ),
-                  Text('$_vacationTravelers', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text('$_vacationTravelers',
+                      style: const TextStyle(
+                          color: Voy.ink,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
                   IconButton(
-                    icon: const Icon(Icons.add_circle_outline, color: Voy.violet),
+                    icon:
+                        const Icon(Icons.add_circle_outline, color: Voy.violet),
                     onPressed: () => setState(() => _vacationTravelers++),
                   ),
                 ],
@@ -3426,7 +5325,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 2.5 Transportation Recommendation
-        _sectionLabel('2.5 TRANSPORTATION RECOMMENDATION', Icons.commute_rounded),
+        _sectionLabel(
+            '2.5 TRANSPORTATION RECOMMENDATION', Icons.commute_rounded),
         const SizedBox(height: 8),
         Column(
           children: _transportOptions.map((opt) {
@@ -3438,22 +5338,36 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 margin: const EdgeInsets.only(bottom: 8),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isSelected ? Voy.violet.withOpacity(0.12) : Voy.surface,
+                  color:
+                      isSelected ? Voy.violet.withOpacity(0.12) : Voy.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isSelected ? Voy.violet : Voy.hairline),
+                  border:
+                      Border.all(color: isSelected ? Voy.violet : Voy.hairline),
                 ),
                 child: Row(
                   children: [
-                    Icon(opt['icon'] as IconData, color: isSelected ? Voy.violet : Voy.sub, size: 24),
+                    Icon(opt['icon'] as IconData,
+                        color: isSelected ? Voy.violet : Voy.sub, size: 24),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(opt['title'], style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(opt['desc'], style: const TextStyle(color: Voy.sub, fontSize: 11)),
+                          Text(opt['title'],
+                              style: const TextStyle(
+                                  color: Voy.ink,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13)),
+                          Text(opt['desc'],
+                              style: const TextStyle(
+                                  color: Voy.sub, fontSize: 11)),
                           const SizedBox(height: 4),
-                          Text('Est. Time: ${opt["duration"]} • Cost: ${opt["cost"]}', style: const TextStyle(color: Voy.brand, fontSize: 11, fontWeight: FontWeight.w600)),
+                          Text(
+                              'Est. Time: ${opt["duration"]} • Cost: ${opt["cost"]}',
+                              style: const TextStyle(
+                                  color: Voy.brand,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600)),
                         ],
                       ),
                     ),
@@ -3461,7 +5375,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                       value: opt['id'],
                       groupValue: _selectedTransportMode,
                       activeColor: Voy.violet,
-                      onChanged: (v) => setState(() => _selectedTransportMode = v!),
+                      onChanged: (v) =>
+                          setState(() => _selectedTransportMode = v!),
                     ),
                   ],
                 ),
@@ -3475,14 +5390,26 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         // 2.6 Travel Preferences
         _sectionLabel('2.6 USER TRAVEL PREFERENCES', Icons.tune_rounded),
         const SizedBox(height: 8),
-        const Text('Places of Interest:', style: TextStyle(color: Voy.ink, fontSize: 12, fontWeight: FontWeight.bold)),
+        const Text('Places of Interest:',
+            style: TextStyle(
+                color: Voy.ink, fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: [
-            'Nature', 'Beaches', 'Mountains', 'Historical', 'Religious', 'Adventure',
-            'Wildlife', 'Museums', 'Shopping', 'Photography', 'Family attractions', 'Local experiences'
+            'Nature',
+            'Beaches',
+            'Mountains',
+            'Historical',
+            'Religious',
+            'Adventure',
+            'Wildlife',
+            'Museums',
+            'Shopping',
+            'Photography',
+            'Family attractions',
+            'Local experiences'
           ].map((type) {
             final sel = _vacationPlaceTypes.contains(type);
             return FilterChip(
@@ -3490,19 +5417,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               selected: sel,
               onSelected: (s) {
                 setState(() {
-                  if (s) _vacationPlaceTypes.add(type);
-                  else _vacationPlaceTypes.remove(type);
+                  if (s)
+                    _vacationPlaceTypes.add(type);
+                  else
+                    _vacationPlaceTypes.remove(type);
                 });
               },
               selectedColor: Voy.violet.withOpacity(0.2),
               backgroundColor: Voy.surface,
-              labelStyle: TextStyle(color: sel ? Voy.violet : Voy.ink, fontSize: 11),
+              labelStyle:
+                  TextStyle(color: sel ? Voy.violet : Voy.ink, fontSize: 11),
             );
           }).toList(),
         ),
 
         const SizedBox(height: 14),
-        const Text('Trip Style:', style: TextStyle(color: Voy.ink, fontSize: 12, fontWeight: FontWeight.bold)),
+        const Text('Trip Style:',
+            style: TextStyle(
+                color: Voy.ink, fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Row(
           children: ['Relaxed', 'Moderate', 'Packed'].map((s) {
@@ -3516,7 +5448,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   onSelected: (val) => setState(() => _vacationTripStyle = s),
                   selectedColor: Voy.violet.withOpacity(0.2),
                   backgroundColor: Voy.surface,
-                  labelStyle: TextStyle(color: sel ? Voy.violet : Voy.ink, fontWeight: FontWeight.bold, fontSize: 12),
+                  labelStyle: TextStyle(
+                      color: sel ? Voy.violet : Voy.ink,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12),
                 ),
               ),
             );
@@ -3537,13 +5472,17 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
             _sectionLabel('2.7 DESTINATION PLACE CATALOG', Icons.place_rounded),
             OutlinedButton.icon(
               onPressed: _fetchDestinationCatalogPlaces,
-              icon: const Icon(Icons.auto_awesome_rounded, size: 14, color: Voy.violet),
-              label: const Text('AI SUGGEST PLACES', style: TextStyle(color: Voy.violet, fontSize: 11, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.auto_awesome_rounded,
+                  size: 14, color: Voy.violet),
+              label: const Text('AI SUGGEST PLACES',
+                  style: TextStyle(
+                      color: Voy.violet,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold)),
             ),
           ],
         ),
         const SizedBox(height: 8),
-
         if (_isLoadingPlaces)
           const Center(
             child: Padding(
@@ -3562,7 +5501,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               children: [
                 const Icon(Icons.search_rounded, color: Voy.sub, size: 36),
                 const SizedBox(height: 8),
-                const Text('Discover Top Places for Your Destination', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
+                const Text('Discover Top Places for Your Destination',
+                    style:
+                        TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
                   onPressed: _fetchDestinationCatalogPlaces,
@@ -3575,14 +5516,17 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         else
           Column(
             children: _catalogPlaces.map((place) {
-              final isSelected = _selectedPlaces.any((p) => p['name'] == place['name']);
+              final isSelected =
+                  _selectedPlaces.any((p) => p['name'] == place['name']);
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: isSelected ? Voy.violet.withOpacity(0.12) : Voy.surface,
+                  color:
+                      isSelected ? Voy.violet.withOpacity(0.12) : Voy.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: isSelected ? Voy.violet : Voy.hairline),
+                  border:
+                      Border.all(color: isSelected ? Voy.violet : Voy.hairline),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3594,7 +5538,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                         color: Voy.surface2,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.attractions_rounded, color: Voy.violet, size: 20),
+                      child: const Icon(Icons.attractions_rounded,
+                          color: Voy.violet, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -3604,15 +5549,30 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                           Row(
                             children: [
                               Expanded(
-                                child: Text(place['name'], style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+                                child: Text(place['name'],
+                                    style: const TextStyle(
+                                        color: Voy.ink,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
                               ),
-                              Text('★ ${place["rating"]}', style: const TextStyle(color: Voy.amber, fontSize: 11, fontWeight: FontWeight.bold)),
+                              Text('★ ${place["rating"]}',
+                                  style: const TextStyle(
+                                      color: Voy.amber,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold)),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(place['description'], maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 11)),
+                          Text(place['description'],
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                  color: Voy.sub, fontSize: 11)),
                           const SizedBox(height: 4),
-                          Text('Category: ${place["category"]} • Rec. Duration: ${place["duration"]}', style: const TextStyle(color: Voy.brand, fontSize: 10)),
+                          Text(
+                              'Category: ${place["category"]} • Rec. Duration: ${place["duration"]}',
+                              style: const TextStyle(
+                                  color: Voy.brand, fontSize: 10)),
                         ],
                       ),
                     ),
@@ -3624,7 +5584,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                           if (val == true) {
                             _selectedPlaces.add(place);
                           } else {
-                            _selectedPlaces.removeWhere((p) => p['name'] == place['name']);
+                            _selectedPlaces
+                                .removeWhere((p) => p['name'] == place['name']);
                           }
                         });
                       },
@@ -3647,12 +5608,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _sectionLabel('2.9 DAY-BY-DAY ITINERARY', Icons.calendar_view_day_rounded),
+            _sectionLabel(
+                '2.9 DAY-BY-DAY ITINERARY', Icons.calendar_view_day_rounded),
             if (_generatedItineraryDays.isEmpty)
               ElevatedButton.icon(
                 onPressed: _generateVacationItinerary,
                 icon: const Icon(Icons.auto_awesome, size: 14),
-                label: const Text('Generate Itinerary', style: TextStyle(fontSize: 12)),
+                label: const Text('Generate Itinerary',
+                    style: TextStyle(fontSize: 12)),
               ),
           ],
         ),
@@ -3661,28 +5624,38 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         if (_isGeneratingItinerary)
           Container(
             padding: const EdgeInsets.all(28),
-            decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+                color: Voy.surface, borderRadius: BorderRadius.circular(16)),
             child: const Column(
               children: [
                 CircularProgressIndicator(color: Voy.violet),
                 SizedBox(height: 16),
-                Text('AI generating realistic schedule...', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
+                Text('AI generating realistic schedule...',
+                    style:
+                        TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
                 SizedBox(height: 6),
-                Text('Validating against weather, road distance, opening hours and traffic corridors', style: TextStyle(color: Voy.sub, fontSize: 11), textAlign: TextAlign.center),
+                Text(
+                    'Validating against weather, road distance, opening hours and traffic corridors',
+                    style: TextStyle(color: Voy.sub, fontSize: 11),
+                    textAlign: TextAlign.center),
               ],
             ),
           )
         else if (_generatedItineraryDays.isEmpty)
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(16)),
+            decoration: BoxDecoration(
+                color: Voy.surface, borderRadius: BorderRadius.circular(16)),
             child: Column(
               children: [
                 const Icon(Icons.alt_route_rounded, color: Voy.sub, size: 36),
                 const SizedBox(height: 8),
-                const Text('Tap below to build day-by-day validated schedule', style: TextStyle(color: Voy.ink)),
+                const Text('Tap below to build day-by-day validated schedule',
+                    style: TextStyle(color: Voy.ink)),
                 const SizedBox(height: 12),
-                ElevatedButton(onPressed: _generateVacationItinerary, child: const Text('Build AI Itinerary')),
+                ElevatedButton(
+                    onPressed: _generateVacationItinerary,
+                    child: const Text('Build AI Itinerary')),
               ],
             ),
           )
@@ -3701,12 +5674,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   ),
                   child: const Row(
                     children: [
-                      Icon(Icons.verified_rounded, color: Voy.success, size: 20),
+                      Icon(Icons.verified_rounded,
+                          color: Voy.success, size: 20),
                       SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'SMART ITINERARY VALIDATED: Weather, Opening Hours, Traffic Corridors & Road Travel Times Verified.',
-                          style: TextStyle(color: Voy.success, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              color: Voy.success,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -3723,53 +5700,80 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                     border: Border.all(color: Voy.hairline),
                   ),
                   child: Theme(
-                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                    data: Theme.of(context)
+                        .copyWith(dividerColor: Colors.transparent),
                     child: ExpansionTile(
                       initiallyExpanded: true,
-                      title: Text('DAY ${day.day}: ${day.title.isNotEmpty ? day.title : "Exploration & Highlights"}',
-                          style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
-                      subtitle: Text('${day.blocks.length} activities scheduled', style: const TextStyle(color: Voy.sub, fontSize: 11)),
+                      title: Text(
+                          'DAY ${day.day}: ${day.title.isNotEmpty ? day.title : "Exploration & Highlights"}',
+                          style: const TextStyle(
+                              color: Voy.ink,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)),
+                      subtitle: Text(
+                          '${day.blocks.length} activities scheduled',
+                          style: const TextStyle(color: Voy.sub, fontSize: 11)),
                       children: [
                         Padding(
                           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                           child: Column(
                             children: day.blocks.map((block) {
-                              final timeStr = block.start.isNotEmpty ? block.start : '${block.durationMin}m';
+                              final timeStr = block.start.isNotEmpty
+                                  ? block.start
+                                  : '${block.durationMin}m';
                               final descStr = block.reason.isNotEmpty
                                   ? block.reason
-                                  : (block.place.isNotEmpty ? block.place : block.address);
+                                  : (block.place.isNotEmpty
+                                      ? block.place
+                                      : block.address);
                               return Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 6),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 6),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: Voy.surface2,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: Text(timeStr, style: const TextStyle(color: Voy.violet, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      child: Text(timeStr,
+                                          style: const TextStyle(
+                                              color: Voy.violet,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold)),
                                     ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text(block.title, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+                                          Text(block.title,
+                                              style: const TextStyle(
+                                                  color: Voy.ink,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12)),
                                           if (descStr.isNotEmpty)
-                                            Text(descStr, style: const TextStyle(color: Voy.sub, fontSize: 11)),
+                                            Text(descStr,
+                                                style: const TextStyle(
+                                                    color: Voy.sub,
+                                                    fontSize: 11)),
                                         ],
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.skip_next_rounded, size: 18, color: Voy.sub),
+                                      icon: const Icon(Icons.skip_next_rounded,
+                                          size: 18, color: Voy.sub),
                                       tooltip: 'Skip Activity',
                                       onPressed: () {
                                         setState(() {
                                           day.blocks.remove(block);
                                         });
-                                        _showToast('Recalculating remaining day schedule...');
+                                        _showToast(
+                                            'Recalculating remaining day schedule...');
                                       },
                                     ),
                                   ],
@@ -3794,7 +5798,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionLabel('2.12 VACATION BUDGET', Icons.account_balance_wallet_rounded),
+        _sectionLabel(
+            '2.12 VACATION BUDGET', Icons.account_balance_wallet_rounded),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
@@ -3808,19 +5813,37 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('TOTAL VACATION BUDGET', style: TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const Text('TOTAL VACATION BUDGET',
+                      style: TextStyle(
+                          color: Voy.sub,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold)),
                   Text(
                     '₹${_totalVacationBudget.toStringAsFixed(0)}',
-                    style: const TextStyle(color: Voy.violet, fontWeight: FontWeight.w800, fontSize: 16),
+                    style: const TextStyle(
+                        color: Voy.violet,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16),
                   ),
                 ],
               ),
               const Divider(height: 20, color: Voy.hairline),
-              _budgetItemRow('Transportation (${_selectedTransportMode.toUpperCase()})', _vacationBudgetTransport, (v) => setState(() => _vacationBudgetTransport = v)),
-              _budgetItemRow('Accommodation (${_vacationDays - 1} nights)', _vacationBudgetStay, (v) => setState(() => _vacationBudgetStay = v)),
-              _budgetItemRow('Food & Dining', _vacationBudgetFood, (v) => setState(() => _vacationBudgetFood = v)),
-              _budgetItemRow('Activities & Entry Tickets', _vacationBudgetActivities, (v) => setState(() => _vacationBudgetActivities = v)),
-              _budgetItemRow('Shopping & Misc', _vacationBudgetOther, (v) => setState(() => _vacationBudgetOther = v)),
+              _budgetItemRow(
+                  'Transportation (${_selectedTransportMode.toUpperCase()})',
+                  _vacationBudgetTransport,
+                  (v) => setState(() => _vacationBudgetTransport = v)),
+              _budgetItemRow(
+                  'Accommodation (${_vacationDays - 1} nights)',
+                  _vacationBudgetStay,
+                  (v) => setState(() => _vacationBudgetStay = v)),
+              _budgetItemRow('Food & Dining', _vacationBudgetFood,
+                  (v) => setState(() => _vacationBudgetFood = v)),
+              _budgetItemRow(
+                  'Activities & Entry Tickets',
+                  _vacationBudgetActivities,
+                  (v) => setState(() => _vacationBudgetActivities = v)),
+              _budgetItemRow('Shopping & Misc', _vacationBudgetOther,
+                  (v) => setState(() => _vacationBudgetOther = v)),
             ],
           ),
         ),
@@ -3843,10 +5866,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Split among $_vacationTravelers travelers:', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
+                  Text('Split among $_vacationTravelers travelers:',
+                      style: const TextStyle(
+                          color: Voy.ink, fontWeight: FontWeight.bold)),
                   Text(
                     '₹${_perPersonVacationBudget.toStringAsFixed(0)} / person',
-                    style: const TextStyle(color: Voy.violet, fontWeight: FontWeight.w800, fontSize: 15),
+                    style: const TextStyle(
+                        color: Voy.violet,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15),
                   ),
                 ],
               ),
@@ -3873,22 +5901,31 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           ),
           child: Column(
             children: [
-              _summaryItem('Starting Point', _vacationOriginCtrl.text.isNotEmpty ? _vacationOriginCtrl.text : 'Origin'),
+              _summaryItem(
+                  'Starting Point',
+                  _vacationOriginCtrl.text.isNotEmpty
+                      ? _vacationOriginCtrl.text
+                      : 'Origin'),
               _summaryItem('Destination', _vacationDestCtrl.text),
-              _summaryItem('Duration', '$_vacationDays Days (${_vacationDays - 1} Nights)'),
+              _summaryItem('Duration',
+                  '$_vacationDays Days (${_vacationDays - 1} Nights)'),
               _summaryItem('Travelers', '$_vacationTravelers'),
-              _summaryItem('Transportation', _selectedTransportMode.toUpperCase()),
-              _summaryItem('Selected Places', '${_selectedPlaces.length} attractions'),
+              _summaryItem(
+                  'Transportation', _selectedTransportMode.toUpperCase()),
+              _summaryItem(
+                  'Selected Places', '${_selectedPlaces.length} attractions'),
               _summaryItem('Itinerary Status', 'Validated & Optimized'),
               const Divider(height: 20, color: Voy.hairline),
-              _summaryItem('Total Trip Budget', '₹${_totalVacationBudget.toStringAsFixed(0)}', isHighlight: true),
-              _summaryItem('Cost Per Traveler', '₹${_perPersonVacationBudget.toStringAsFixed(0)}', isHighlight: true),
+              _summaryItem('Total Trip Budget',
+                  '₹${_totalVacationBudget.toStringAsFixed(0)}',
+                  isHighlight: true),
+              _summaryItem('Cost Per Traveler',
+                  '₹${_perPersonVacationBudget.toStringAsFixed(0)}',
+                  isHighlight: true),
             ],
           ),
         ),
-
         const SizedBox(height: 20),
-
         Row(
           children: [
             Expanded(
@@ -3938,7 +5975,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
               _startNavigation();
             },
             icon: const Icon(Icons.navigation_rounded, size: 20),
-            label: const Text('START DAILY NAVIGATION', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+            label: const Text('START DAILY NAVIGATION',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
           ),
         ),
       ],
@@ -4001,7 +6039,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       context: context,
       isScrollControlled: true,
       backgroundColor: Voy.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheetState) {
           return FractionallySizedBox(
@@ -4014,8 +6053,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('ADD STOP ALONG ROUTE', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15)),
-                      IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                      const Text('ADD STOP ALONG ROUTE',
+                          style: TextStyle(
+                              color: Voy.ink,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
+                      IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx)),
                     ],
                   ),
                   const SizedBox(height: 10),
@@ -4024,17 +6069,22 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children: ['FOOD', 'ATTRACTIONS', 'TRAVEL SERVICES'].map((cat) {
+                      children:
+                          ['FOOD', 'ATTRACTIONS', 'TRAVEL SERVICES'].map((cat) {
                         final isSel = _selectedStopCategory == cat;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: ChoiceChip(
                             label: Text(cat),
                             selected: isSel,
-                            onSelected: (s) => setSheetState(() => _selectedStopCategory = cat),
+                            onSelected: (s) => setSheetState(
+                                () => _selectedStopCategory = cat),
                             selectedColor: Voy.brand.withOpacity(0.2),
                             backgroundColor: Voy.surface2,
-                            labelStyle: TextStyle(color: isSel ? Voy.brand : Voy.ink, fontWeight: FontWeight.bold, fontSize: 11),
+                            labelStyle: TextStyle(
+                                color: isSel ? Voy.brand : Voy.ink,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11),
                           ),
                         );
                       }).toList(),
@@ -4045,19 +6095,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   // Search box for place
                   TextField(
                     decoration: InputDecoration(
-                      hintText: 'Search place (restaurant, viewpoint, ATM, etc.)...',
+                      hintText:
+                          'Search place (restaurant, viewpoint, ATM, etc.)...',
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
                       fillColor: Voy.surface2,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none),
                     ),
                     onSubmitted: (query) async {
                       if (query.trim().isEmpty) return;
                       try {
-                        final pt = await _api.geocode(query, near: _oneWayOrigin);
+                        final pt =
+                            await _api.geocode(query, near: _oneWayOrigin);
                         setState(() {
                           _addedStops.add({
-                            'id': 'stop_${DateTime.now().millisecondsSinceEpoch}',
+                            'id':
+                                'stop_${DateTime.now().millisecondsSinceEpoch}',
                             'name': query,
                             'lat': pt.lat,
                             'lng': pt.lng,
@@ -4077,18 +6132,29 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                   // Quick categorized places list
                   Expanded(
                     child: ListView(
-                      children: _getQuickCategoryStops(_selectedStopCategory).map((item) {
+                      children: _getQuickCategoryStops(_selectedStopCategory)
+                          .map((item) {
                         return ListTile(
-                          leading: Icon(item['icon'] as IconData, color: Voy.brand),
-                          title: Text(item['name'], style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.bold)),
-                          subtitle: Text(item['desc'], style: const TextStyle(color: Voy.sub, fontSize: 11)),
-                          trailing: const Icon(Icons.add_circle_outline, color: Voy.brand),
+                          leading:
+                              Icon(item['icon'] as IconData, color: Voy.brand),
+                          title: Text(item['name'],
+                              style: const TextStyle(
+                                  color: Voy.ink,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold)),
+                          subtitle: Text(item['desc'],
+                              style: const TextStyle(
+                                  color: Voy.sub, fontSize: 11)),
+                          trailing: const Icon(Icons.add_circle_outline,
+                              color: Voy.brand),
                           onTap: () async {
                             try {
-                              final pt = await _api.geocode(item['name'], near: _oneWayOrigin);
+                              final pt = await _api.geocode(item['name'],
+                                  near: _oneWayOrigin);
                               setState(() {
                                 _addedStops.add({
-                                  'id': 'stop_${DateTime.now().millisecondsSinceEpoch}',
+                                  'id':
+                                      'stop_${DateTime.now().millisecondsSinceEpoch}',
                                   'name': item['name'],
                                   'lat': pt.lat,
                                   'lng': pt.lng,
@@ -4102,7 +6168,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                               // Direct fallback coord near origin
                               setState(() {
                                 _addedStops.add({
-                                  'id': 'stop_${DateTime.now().millisecondsSinceEpoch}',
+                                  'id':
+                                      'stop_${DateTime.now().millisecondsSinceEpoch}',
                                   'name': item['name'],
                                   'lat': (_oneWayOrigin?.lat ?? 12.97) + 0.05,
                                   'lng': (_oneWayOrigin?.lng ?? 77.59) + 0.05,
@@ -4130,25 +6197,90 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
   List<Map<String, dynamic>> _getQuickCategoryStops(String category) {
     if (category == 'FOOD') {
       return [
-        {'name': 'Highway Food Court / Dhaba', 'desc': 'North & South Indian Thali, Fresh Chai', 'icon': Icons.restaurant_rounded, 'duration': 45},
-        {'name': 'Pure Veg Family Restaurant', 'desc': 'Bhavan / Veg Meals & Snacks', 'icon': Icons.eco_rounded, 'duration': 40},
-        {'name': 'Cafe Coffee Day / Tea Point', 'desc': 'Coffee, Sandwiches & Restroom', 'icon': Icons.local_cafe_rounded, 'duration': 20},
-        {'name': 'Non-Veg Highway Mess', 'desc': 'Biryani, Chicken & Kebabs', 'icon': Icons.dinner_dining_rounded, 'duration': 45},
+        {
+          'name': 'Highway Food Court / Dhaba',
+          'desc': 'North & South Indian Thali, Fresh Chai',
+          'icon': Icons.restaurant_rounded,
+          'duration': 45
+        },
+        {
+          'name': 'Pure Veg Family Restaurant',
+          'desc': 'Bhavan / Veg Meals & Snacks',
+          'icon': Icons.eco_rounded,
+          'duration': 40
+        },
+        {
+          'name': 'Cafe Coffee Day / Tea Point',
+          'desc': 'Coffee, Sandwiches & Restroom',
+          'icon': Icons.local_cafe_rounded,
+          'duration': 20
+        },
+        {
+          'name': 'Non-Veg Highway Mess',
+          'desc': 'Biryani, Chicken & Kebabs',
+          'icon': Icons.dinner_dining_rounded,
+          'duration': 45
+        },
       ];
     } else if (category == 'ATTRACTIONS') {
       return [
-        {'name': 'Scenic Hilltop Viewpoint', 'desc': 'Valley view & photography spot', 'icon': Icons.landscape_rounded, 'duration': 30},
-        {'name': 'Historical Fort & Monument', 'desc': 'Heritage architectural landmark', 'icon': Icons.castle_rounded, 'duration': 60},
-        {'name': 'Ancient Temple Shrine', 'desc': 'Historic stone temple with holy pond', 'icon': Icons.temple_hindu_rounded, 'duration': 45},
-        {'name': 'Waterfalls & Nature Park', 'desc': 'Forest trail and waterfall cascade', 'icon': Icons.water_drop_rounded, 'duration': 60},
+        {
+          'name': 'Scenic Hilltop Viewpoint',
+          'desc': 'Valley view & photography spot',
+          'icon': Icons.landscape_rounded,
+          'duration': 30
+        },
+        {
+          'name': 'Historical Fort & Monument',
+          'desc': 'Heritage architectural landmark',
+          'icon': Icons.castle_rounded,
+          'duration': 60
+        },
+        {
+          'name': 'Ancient Temple Shrine',
+          'desc': 'Historic stone temple with holy pond',
+          'icon': Icons.temple_hindu_rounded,
+          'duration': 45
+        },
+        {
+          'name': 'Waterfalls & Nature Park',
+          'desc': 'Forest trail and waterfall cascade',
+          'icon': Icons.water_drop_rounded,
+          'duration': 60
+        },
       ];
     } else {
       return [
-        {'name': 'Highway Fuel Station', 'desc': 'IOCL / BPCL / HPCL Fuel Station', 'icon': Icons.local_gas_station_rounded, 'duration': 15},
-        {'name': 'Tata Power EV Fast Charger', 'desc': '60 kW DC Fast Charging Station', 'icon': Icons.ev_station_rounded, 'duration': 35},
-        {'name': 'Highway Restroom & Convenience', 'desc': 'Clean washrooms and snacks', 'icon': Icons.wc_rounded, 'duration': 15},
-        {'name': '24/7 ATM & Cash Point', 'desc': 'Bank cash withdrawal counter', 'icon': Icons.atm_rounded, 'duration': 10},
-        {'name': 'Highway Emergency Hospital', 'desc': 'Trauma care and pharmacy', 'icon': Icons.local_hospital_rounded, 'duration': 30},
+        {
+          'name': 'Highway Fuel Station',
+          'desc': 'IOCL / BPCL / HPCL Fuel Station',
+          'icon': Icons.local_gas_station_rounded,
+          'duration': 15
+        },
+        {
+          'name': 'Tata Power EV Fast Charger',
+          'desc': '60 kW DC Fast Charging Station',
+          'icon': Icons.ev_station_rounded,
+          'duration': 35
+        },
+        {
+          'name': 'Highway Restroom & Convenience',
+          'desc': 'Clean washrooms and snacks',
+          'icon': Icons.wc_rounded,
+          'duration': 15
+        },
+        {
+          'name': '24/7 ATM & Cash Point',
+          'desc': 'Bank cash withdrawal counter',
+          'icon': Icons.atm_rounded,
+          'duration': 10
+        },
+        {
+          'name': 'Highway Emergency Hospital',
+          'desc': 'Trauma care and pharmacy',
+          'icon': Icons.local_hospital_rounded,
+          'duration': 30
+        },
       ];
     }
   }
@@ -4158,16 +6290,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Voy.surface,
-        title: const Text('Change Fuel Station', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
+        title: const Text('Change Fuel Station',
+            style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Search or choose a verified pump along your route:', style: TextStyle(color: Voy.sub, fontSize: 13)),
+            const Text('Search or choose a verified pump along your route:',
+                style: TextStyle(color: Voy.sub, fontSize: 13)),
             const SizedBox(height: 12),
-            ...['IndianOil COCO Highway Pump', 'Bharat Petroleum Speed Pump', 'Shell Highway Fuel & Deli', 'HPCL Auto Care'].map((st) {
+            ...[
+              'IndianOil COCO Highway Pump',
+              'Bharat Petroleum Speed Pump',
+              'Shell Highway Fuel & Deli',
+              'HPCL Auto Care'
+            ].map((st) {
               return ListTile(
                 leading: const Icon(Icons.local_gas_station, color: Voy.amber),
-                title: Text(st, style: const TextStyle(color: Voy.ink, fontSize: 13)),
+                title: Text(st,
+                    style: const TextStyle(color: Voy.ink, fontSize: 13)),
                 onTap: () {
                   setState(() {
                     if (_fuelStops.isNotEmpty) {
@@ -4192,7 +6332,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
         ],
       ),
     );
@@ -4206,7 +6347,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
       lastDate: DateTime.now().add(const Duration(days: 365)),
     ).then((pickedDate) {
       if (pickedDate != null) {
-        showTimePicker(context: context, initialTime: _scheduledTime).then((pickedTime) {
+        showTimePicker(context: context, initialTime: _scheduledTime)
+            .then((pickedTime) {
           if (pickedTime != null) {
             setState(() {
               _scheduledDate = pickedDate;
@@ -4229,7 +6371,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(color: Voy.ink, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.5),
+          style: const TextStyle(
+              color: Voy.ink,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.5),
         ),
       ],
     );
@@ -4268,14 +6414,20 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 14),
               ),
-              onChanged: (q) => _onSearchChanged(q, isOrigin: isOrigin, isOneWay: isOneWay),
+              onChanged: (q) =>
+                  _onSearchChanged(q, isOrigin: isOrigin, isOneWay: isOneWay),
             ),
           ),
           if (onGpsTap != null)
             IconButton(
               icon: _locatingGPS
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Voy.brand))
-                  : const Icon(Icons.gps_fixed_rounded, color: Voy.brand, size: 20),
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Voy.brand))
+                  : const Icon(Icons.gps_fixed_rounded,
+                      color: Voy.brand, size: 20),
               tooltip: 'Use Current Location',
               onPressed: onGpsTap,
             ),
@@ -4290,7 +6442,8 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
     );
   }
 
-  Widget _suggestionsList(List<Map<String, dynamic>> list, {required bool isOrigin, required bool isOneWay}) {
+  Widget _suggestionsList(List<Map<String, dynamic>> list,
+      {required bool isOrigin, required bool isOneWay}) {
     return Container(
       margin: const EdgeInsets.only(top: 4),
       decoration: BoxDecoration(
@@ -4304,10 +6457,17 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           final subtitle = item['subtitle'] ?? item['address'] ?? '';
           return ListTile(
             dense: true,
-            leading: const Icon(Icons.location_on_outlined, size: 18, color: Voy.sub),
-            title: Text(title, style: const TextStyle(color: Voy.ink, fontSize: 12, fontWeight: FontWeight.w600)),
-            subtitle: subtitle.isNotEmpty ? Text(subtitle, style: const TextStyle(color: Voy.sub, fontSize: 10)) : null,
-            onTap: () => _selectSuggestion(item, isOrigin: isOrigin, isOneWay: isOneWay),
+            leading: const Icon(Icons.location_on_outlined,
+                size: 18, color: Voy.sub),
+            title: Text(title,
+                style: const TextStyle(
+                    color: Voy.ink, fontSize: 12, fontWeight: FontWeight.w600)),
+            subtitle: subtitle.isNotEmpty
+                ? Text(subtitle,
+                    style: const TextStyle(color: Voy.sub, fontSize: 10))
+                : null,
+            onTap: () =>
+                _selectSuggestion(item, isOrigin: isOrigin, isOneWay: isOneWay),
           );
         }).toList(),
       ),
@@ -4327,11 +6487,119 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal> with SingleTickerPr
           children: [
             Icon(icon, color: Voy.brand, size: 16),
             const SizedBox(height: 4),
-            Text(value, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
+            Text(value,
+                style: const TextStyle(
+                    color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 12)),
             Text(label, style: const TextStyle(color: Voy.sub, fontSize: 9)),
           ],
         ),
       ),
     );
   }
+}
+
+class _SatelliteMapRoutePainter extends CustomPainter {
+  final List<GeoPoint> coordinates;
+
+  const _SatelliteMapRoutePainter({this.coordinates = const []});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Dark satellite terrain gradient
+    final bgPaint = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFF0F1A20), Color(0xFF091319), Color(0xFF0B1713)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), bgPaint);
+
+    // 2. Use the authoritative route when available. The fallback keeps the
+    // summary useful before the user has selected both locations.
+    final path = ui.Path();
+    Offset pStart;
+    Offset pEnd;
+    if (coordinates.length >= 2) {
+      final minLat = coordinates
+          .map((p) => p.lat)
+          .reduce((a, b) => math.min(a, b).toDouble());
+      final maxLat = coordinates
+          .map((p) => p.lat)
+          .reduce((a, b) => math.max(a, b).toDouble());
+      final minLng = coordinates
+          .map((p) => p.lng)
+          .reduce((a, b) => math.min(a, b).toDouble());
+      final maxLng = coordinates
+          .map((p) => p.lng)
+          .reduce((a, b) => math.max(a, b).toDouble());
+      final latSpan = math.max(maxLat - minLat, 0.001);
+      final lngSpan = math.max(maxLng - minLng, 0.001);
+      Offset project(GeoPoint point) => Offset(
+            16 + ((point.lng - minLng) / lngSpan) * (size.width - 32),
+            16 + ((maxLat - point.lat) / latSpan) * (size.height - 32),
+          );
+      pStart = project(coordinates.first);
+      pEnd = project(coordinates.last);
+      path.moveTo(pStart.dx, pStart.dy);
+      for (final point in coordinates.skip(1)) {
+        path.lineTo(project(point).dx, project(point).dy);
+      }
+    } else {
+      pStart = Offset(size.width * 0.82, size.height * 0.82);
+      pEnd = Offset(size.width * 0.22, size.height * 0.22);
+      path.moveTo(pStart.dx, pStart.dy);
+      path.cubicTo(
+        size.width * 0.70,
+        size.height * 0.45,
+        size.width * 0.40,
+        size.height * 0.60,
+        pEnd.dx,
+        pEnd.dy,
+      );
+    }
+
+    // Glow
+    final glowPaint = Paint()
+      ..color = const Color(0xFF00E5B0).withValues(alpha: 0.3)
+      ..strokeWidth = 8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, glowPaint);
+
+    // Main line
+    final linePaint = Paint()
+      ..color = const Color(0xFF00E5B0)
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawPath(path, linePaint);
+
+    // Fuel stops along route
+    final fuelPumps = coordinates.length >= 2
+        ? <Offset>[]
+        : [
+            Offset(size.width * 0.64, size.height * 0.52),
+            Offset(size.width * 0.48, size.height * 0.52),
+            Offset(size.width * 0.32, size.height * 0.38),
+          ];
+    for (final pt in fuelPumps) {
+      canvas.drawCircle(pt, 8, Paint()..color = const Color(0xFF8B5CF6));
+      canvas.drawCircle(pt, 6, Paint()..color = const Color(0xFF1E1B4B));
+      canvas.drawCircle(pt, 3, Paint()..color = const Color(0xFFA78BFA));
+    }
+
+    // Start Node (Bengaluru)
+    canvas.drawCircle(pStart, 8,
+        Paint()..color = const Color(0xFF00E5B0).withValues(alpha: 0.4));
+    canvas.drawCircle(pStart, 5, Paint()..color = const Color(0xFF00E5B0));
+
+    // End Node (Goa)
+    canvas.drawCircle(pEnd, 8,
+        Paint()..color = const Color(0xFFFF6B6B).withValues(alpha: 0.4));
+    canvas.drawCircle(pEnd, 5, Paint()..color = const Color(0xFFFF6B6B));
+  }
+
+  @override
+  bool shouldRepaint(covariant _SatelliteMapRoutePainter oldDelegate) =>
+      oldDelegate.coordinates != coordinates;
 }

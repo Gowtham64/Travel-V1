@@ -3,9 +3,57 @@
  */
 
 const express = require('express');
+const axios = require('axios');
 const router = express.Router();
 const { vehicleDataProvider } = require('../services/vehicleDataProvider');
 const { vehicleSyncService } = require('../services/vehicleSyncService');
+
+// Vahan Details does not expose browser CORS headers for its public images.
+// Proxy the selected model image on demand; bytes are never persisted.
+router.get('/image', async (req, res) => {
+  const brand = String(req.query.brand || '').trim();
+  const model = String(req.query.model || '').trim();
+  const kind = String(req.query.type || '').toLowerCase() === 'motorcycle' ? 'Bikes' : 'Cars';
+  if (!brand || !model) return res.status(400).json({ error: 'brand and model are required' });
+
+  const sourceBrand = brand.toLowerCase() === 'tata motors'
+    ? 'Tata'
+    : (brand.toLowerCase() === 'mg motor' || brand.toLowerCase() === 'mg motors' ? 'MG' : brand);
+  const models = [...new Set([model, model.replace(/\.ev$/i, ' EV'), model.replace(/\./g, '')])];
+  const candidates = [];
+  for (const modelName of models) {
+    const folders = [...new Set([`${sourceBrand} ${modelName}`, `${brand} ${modelName}`])];
+    const prefixes = [...new Set([
+      `${brand}-${sourceBrand} ${modelName}`,
+      `${brand}-${brand} ${modelName}`,
+      `${brand}-${modelName}`,
+    ])];
+    for (const folder of folders) {
+      for (const prefix of prefixes) {
+        candidates.push(`https://restapi.vahandetails.com/public/Vahandetails_Images/${kind}/${encodeURIComponent(brand)}/${encodeURIComponent(folder)}/${encodeURIComponent(`${prefix}-vahandetails-com1.webp`)}`);
+      }
+    }
+  }
+
+  for (const imageUrl of candidates) {
+    try {
+      const image = await axios.get(imageUrl, {
+        responseType: 'arraybuffer',
+        timeout: 6000,
+        validateStatus: () => true,
+      });
+      const contentType = String(image.headers['content-type'] || '');
+      if (image.status >= 200 && image.status < 300 && contentType.startsWith('image/')) {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Cache-Control', 'public, max-age=3600');
+        return res.type(contentType).send(image.data);
+      }
+    } catch (_) {
+      // Try the next naming variant.
+    }
+  }
+  return res.status(404).json({ error: 'Vehicle image not found' });
+});
 
 // 1. List all vehicle brands
 router.get('/brands', async (req, res) => {
