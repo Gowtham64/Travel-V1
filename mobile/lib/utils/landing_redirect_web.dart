@@ -7,7 +7,11 @@ void clearWebSessionData() {
     final storage = html.window.localStorage;
     final keysToRemove = <String>[];
     for (final key in storage.keys) {
-      if (key.startsWith('sb-') || key.contains('supabase') || key.contains('auth-token')) {
+      if (key.startsWith('sb-') ||
+          key.contains('supabase') ||
+          key.contains('auth-token') ||
+          key.contains('guest') ||
+          key.contains('voyplan')) {
         keysToRemove.add(key);
       }
     }
@@ -20,7 +24,11 @@ void clearWebSessionData() {
     final session = html.window.sessionStorage;
     final keysToRemove = <String>[];
     for (final key in session.keys) {
-      if (key.startsWith('sb-') || key.contains('supabase') || key.contains('auth-token')) {
+      if (key.startsWith('sb-') ||
+          key.contains('supabase') ||
+          key.contains('auth-token') ||
+          key.contains('guest') ||
+          key.contains('voyplan')) {
         keysToRemove.add(key);
       }
     }
@@ -36,13 +44,13 @@ void clearWebSessionData() {
 
 /// Sends the browser to the static landing page that hosts login. The Flutter
 /// app lives at `<base>/app/`; the landing page is one level up at `<base>/`.
-/// If [forLogout] is true, appends `?landing=true` to prevent auto-reentry into the app.
+/// If [forLogout] is true, appends `?logout=true` so the landing page purges its JS client session.
 void redirectToLanding({bool forLogout = false}) {
   final base = Uri.base;
   final segs = base.pathSegments.where((s) => s.isNotEmpty).toList();
   if (segs.isNotEmpty && segs.last == 'app') segs.removeLast();
   final path = segs.isEmpty ? '/' : '/${segs.join('/')}/';
-  final query = forLogout ? '?landing=true' : '';
+  final query = forLogout ? '?logout=true' : '';
   final target = '${base.origin}$path$query';
   html.window.location.href = target;
 }

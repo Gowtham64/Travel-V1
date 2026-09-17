@@ -3259,36 +3259,57 @@
 
             // If the user already has a valid session, redirect directly into the app
             const urlParams = new URLSearchParams(window.location.search);
-            const stayOnLanding = urlParams.get('landing') === 'true' || urlParams.get('preview') === 'true';
+            const isLogout = urlParams.get('logout') === 'true' || urlParams.get('landing') === 'true';
+            const stayOnLanding = isLogout || urlParams.get('preview') === 'true';
 
-            if (!stayOnLanding) {
+            if (isLogout) {
                 try {
-                    const hasStoredSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k));
-                    if (hasStoredSession && els.title && els.subtitle) {
-                        els.title.textContent = 'Opening VoyPlan…';
-                        els.subtitle.textContent = 'Resuming your session';
-                        setBusy(true, 'Opening VoyPlan…');
+                    sb.auth.signOut();
+                    Object.keys(localStorage).forEach(k => {
+                        if (k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token') || k.includes('guest') || k.includes('voyplan')) {
+                            localStorage.removeItem(k);
+                        }
+                    });
+                    Object.keys(sessionStorage).forEach(k => {
+                        if (k.startsWith('sb-') || k.includes('supabase') || k.includes('auth-token') || k.includes('guest') || k.includes('voyplan')) {
+                            sessionStorage.removeItem(k);
+                        }
+                    });
+                    if (window.history && window.history.replaceState) {
+                        window.history.replaceState(null, '', window.location.pathname);
                     }
                 } catch (_) {}
-            }
+                showLoginForm();
+            } else {
+                if (!stayOnLanding) {
+                    try {
+                        const hasStoredSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k));
+                        if (hasStoredSession && els.title && els.subtitle) {
+                            els.title.textContent = 'Opening VoyPlan…';
+                            els.subtitle.textContent = 'Resuming your session';
+                            setBusy(true, 'Opening VoyPlan…');
+                        }
+                    } catch (_) {}
+                }
 
-            sb.auth.getSession().then(({ data }) => {
-                if (data && data.session) {
-                    if (!stayOnLanding) {
-                        goToApp(data.session);
+                sb.auth.getSession().then(({ data }) => {
+                    if (data && data.session) {
+                        if (!stayOnLanding) {
+                            goToApp(data.session);
+                        } else {
+                            showAuthenticated(data.session);
+                        }
                     } else {
-                        showAuthenticated(data.session);
+                        showLoginForm();
                     }
-                } else {
-                    showLoginForm();
-                }
-            });
+                });
 
-            sb.auth.onAuthStateChange((event, session) => {
-                if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !stayOnLanding) {
-                    goToApp(session);
-                }
-            });
+                sb.auth.onAuthStateChange((event, session) => {
+                    if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session && !stayOnLanding) {
+                        goToApp(session);
+                    }
+                });
+            }
 
             renderMode();
         }
