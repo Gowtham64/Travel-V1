@@ -9,6 +9,17 @@ BUILD_DIR="$ROOT_DIR/mobile/build/web"
 APP_ENV="${APP_ENV:-production}"
 BACKEND_URL="${BACKEND_URL:-https://api.voyplan.in}"
 
+# Ensure Flutter is available (Cloudflare Pages build images do not have Flutter pre-installed)
+if ! command -v flutter &> /dev/null; then
+  echo "Flutter not found in environment. Installing Flutter stable..."
+  FLUTTER_DIR="$HOME/flutter"
+  if [ ! -d "$FLUTTER_DIR" ]; then
+    git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$FLUTTER_DIR"
+  fi
+  export PATH="$FLUTTER_DIR/bin:$PATH"
+  flutter --version
+fi
+
 cd "$ROOT_DIR/mobile"
 flutter pub get
 
