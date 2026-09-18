@@ -6,6 +6,3 @@ void sanitizeBrowserUrl() {}
 
 /// No-op on non-web platforms.
 void clearWebSessionData() {}
-
-/// No-op on non-web platforms.
-String? getStoredWebSessionRefreshToken() => null;

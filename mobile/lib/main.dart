@@ -218,18 +218,12 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
         return;
       }
 
-      // Session hand-off from landing page or shared web storage.
-      var refreshToken = _readHandoffRefreshToken(uri);
-      refreshToken ??= getStoredWebSessionRefreshToken();
-      if (refreshToken != null && refreshToken.isNotEmpty) {
-        try {
-          await Supabase.instance.client.auth.setSession(refreshToken);
-        } catch (_) {
-          debugPrint('Session hand-off failed; continuing.');
-        } finally {
-          sanitizeBrowserUrl();
-        }
-      } else if (uri.toString().contains('sb_refresh=')) {
+      // The landing page and Flutter share Supabase's canonical browser
+      // storage key. Do not refresh a copied token here: refresh-token rotation
+      // can make that copy stale and leave this screen loading indefinitely.
+      // This only removes legacy hand-off fragments emitted by older builds.
+      if (uri.queryParameters.containsKey('sb_refresh') ||
+          uri.fragment.contains('sb_refresh=')) {
         sanitizeBrowserUrl();
       }
     }
@@ -245,19 +239,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
 
     try {
       final client = Supabase.instance.client;
-      final session = client.auth.currentSession;
-
-      // Supabase has completed its browser-storage restoration during
-      // initialization. Reading the current session avoids a fixed one-second
-      // stream wait that could either flash the unauthenticated UI or leave a
-      // slow browser on a loading indicator.
-      if (mounted) {
-        setState(() {
-          _isAuthenticated = session != null;
-          _isLoading = false;
-        });
-      }
-
       _authSub?.cancel();
       _authSub = client.auth.onAuthStateChange.listen((data) {
         final current = data.session;
@@ -267,6 +248,17 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
           });
         }
       });
+
+      // Supabase continues any canonical browser-storage recovery in the
+      // background. Subscribe before reading the current state so that a late
+      // recovery event is never missed, and always release the loading UI.
+      final session = client.auth.currentSession;
+      if (mounted) {
+        setState(() {
+          _isAuthenticated = session != null;
+          _isLoading = false;
+        });
+      }
     } on Object catch (e) {
       debugPrint('Auth check error: $e');
       if (mounted) {
@@ -276,22 +268,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
         });
       }
     }
-  }
-
-  /// Extracts a refresh token from old custom hand-off links or Supabase's
-  /// standard auth fragment/query format.
-  String? _readHandoffRefreshToken(Uri uri) {
-    final fromQuery = uri.queryParameters['sb_refresh'] ??
-        uri.queryParameters['refresh_token'];
-    if (fromQuery != null && fromQuery.isNotEmpty) return fromQuery;
-    if (uri.fragment.isNotEmpty) {
-      try {
-        final frag = Uri.splitQueryString(uri.fragment);
-        final t = frag['sb_refresh'] ?? frag['refresh_token'];
-        if (t != null && t.isNotEmpty) return t;
-      } catch (_) {}
-    }
-    return null;
   }
 
   @override

@@ -2855,12 +2855,7 @@
             }
 
             function launchAppWithTrip(destName) {
-                let appUrl = `${window.location.origin}/app/?${buildPlannerParams(destName)}`;
-                const refreshToken = localStorage.getItem('sb_refresh_token');
-                if (refreshToken) {
-                    appUrl += '#sb_refresh=' + encodeURIComponent(refreshToken);
-                }
-                window.location.href = appUrl;
+                window.location.href = `${window.location.origin}/app/?${buildPlannerParams(destName)}`;
             }
 
             document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
@@ -2930,6 +2925,10 @@
             const authNotice = document.getElementById('authNotice');
             let isSignUp = false;
             let activeSession = null;
+            const authCallbackParams = new URLSearchParams(window.location.search);
+            const isOAuthCallback = authCallbackParams.has('code') ||
+                authCallbackParams.get('oauth_callback') === '1';
+            let oauthHandoffStarted = false;
 
             function syncBodyScroll() {
                 document.body.style.overflow = document.querySelector('.auth-modal-backdrop.active, .info-modal-backdrop.active') ? 'hidden' : '';
@@ -2940,10 +2939,9 @@
                 authNotice.textContent = message;
             }
 
-            function handoffUrl(session) {
-                const refresh = session?.refresh_token;
+            function handoffUrl() {
                 const query = buildPlannerParams();
-                return `${window.location.origin}/app/${query ? `?${query}` : ''}${refresh ? `#sb_refresh=${encodeURIComponent(refresh)}` : ''}`;
+                return `${window.location.origin}/app/${query ? `?${query}` : ''}`;
             }
 
             function openAuth() {
@@ -2984,21 +2982,34 @@
                 if (!session) return;
                 try {
                     const sessStr = JSON.stringify(session);
+                    // Supabase JS and Supabase Flutter intentionally share this
+                    // canonical same-origin web-storage key. Keeping one session
+                    // record avoids stale refresh-token races during the app handoff.
                     localStorage.setItem('sb-dtemayjpttktntooxraa-auth-token', sessStr);
-                    localStorage.setItem('flutter.sb-dtemayjpttktntooxraa-auth-token', sessStr);
-                    if (session.refresh_token) {
-                        localStorage.setItem('sb_refresh_token', session.refresh_token);
-                    }
-                    if (session.access_token) {
-                        localStorage.setItem('sb_access_token', session.access_token);
-                    }
-                    localStorage.setItem('flutter.supabase.auth.token', sessStr);
+                    ['flutter.sb-dtemayjpttktntooxraa-auth-token', 'flutter.supabase.auth.token', 'sb_refresh_token', 'sb_access_token']
+                        .forEach((key) => localStorage.removeItem(key));
                 } catch (_) {}
+            }
+
+            function setActiveSession(session) {
+                if (!session?.user) return;
+                syncSessionToStorage(session);
+                activeSession = session;
+                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Account';
+                btnSignIn.textContent = name;
+            }
+
+            function finishOAuthHandoff(session) {
+                if (!isOAuthCallback || oauthHandoffStarted || !session) return;
+                oauthHandoffStarted = true;
+                // Give Supabase JS a turn to persist the PKCE result before the
+                // Flutter bundle loads and reads the same canonical session.
+                window.setTimeout(() => window.location.replace(handoffUrl()), 0);
             }
 
             btnSignIn.addEventListener('click', () => {
                 if (activeSession) {
-                    window.location.href = handoffUrl(activeSession);
+                    window.location.href = handoffUrl();
                     return;
                 }
                 openAuth();
@@ -3068,7 +3079,7 @@
                         if (error) throw error;
                         if (data.session) {
                             syncSessionToStorage(data.session);
-                            window.location.href = handoffUrl(data.session);
+                            window.location.href = handoffUrl();
                         } else {
                             showAuthNotice('Check your email to verify your account, then sign in.');
                         }
@@ -3077,7 +3088,7 @@
                         if (error) throw error;
                         if (!data.session) throw new Error('No session was returned. Please try signing in again.');
                         syncSessionToStorage(data.session);
-                        window.location.href = handoffUrl(data.session);
+                        window.location.href = handoffUrl();
                     }
                 } catch (err) {
                     showAuthNotice(err?.message || 'Authentication failed.');
@@ -3093,10 +3104,14 @@
                     return;
                 }
                 try {
-                    await sb.auth.signInWithOAuth({
+                    const { error } = await sb.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: `${window.location.origin}/app/` }
+                        // Supabase JS owns this PKCE transaction, so its callback
+                        // must return here before the shared session is handed to
+                        // the Flutter app.
+                        options: { redirectTo: `${window.location.origin}/?oauth_callback=1` }
                     });
+                    if (error) throw error;
                 } catch (err) {
                     showAuthNotice(err?.message || 'Google sign-in could not start.');
                 }
@@ -3104,12 +3119,20 @@
 
             // Check if user is already signed in
             if (sb) {
-                sb.auth.getSession().then(({ data }) => {
-                    if (data && data.session && data.session.user) {
-                        syncSessionToStorage(data.session);
-                        activeSession = data.session;
-                        const name = data.session.user.user_metadata?.full_name || data.session.user.email.split('@')[0];
-                        btnSignIn.textContent = name;
+                sb.auth.onAuthStateChange((_event, session) => {
+                    if (!session) return;
+                    setActiveSession(session);
+                    finishOAuthHandoff(session);
+                });
+                sb.auth.getSession().then(({ data, error }) => {
+                    if (data?.session) {
+                        setActiveSession(data.session);
+                        finishOAuthHandoff(data.session);
+                        return;
+                    }
+                    if (isOAuthCallback) {
+                        openAuth();
+                        showAuthNotice(error?.message || authCallbackParams.get('error_description') || 'Google sign-in could not be completed. Please try again.');
                     }
                 });
             }
