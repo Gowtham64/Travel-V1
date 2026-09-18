@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import app from "../src/index";
 
 const mockEnv = {
@@ -12,6 +12,10 @@ const mockEnv = {
 };
 
 describe("VoyPlan Cloudflare Worker API", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   describe("Health & Liveness", () => {
     it("GET /health returns 200 with service metadata", async () => {
       const res = await app.request("/health", {}, mockEnv);
@@ -182,6 +186,16 @@ describe("VoyPlan Cloudflare Worker API", () => {
     });
 
     it("GET /api/currency/rates returns exchange rates", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue(
+          new Response(
+            JSON.stringify({ result: "success", rates: { INR: 83.2 } }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          )
+        )
+      );
+
       const res = await app.request("/api/currency/rates", {}, mockEnv);
       expect(res.status).toBe(200);
       const json = await res.json() as any;
@@ -242,4 +256,3 @@ describe("VoyPlan Cloudflare Worker API", () => {
     });
   });
 });
-

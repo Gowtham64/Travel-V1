@@ -97,7 +97,7 @@ LOW BUGS: 0
 FIXES APPLIED:
 - BUG-0001: Reconciled full journey fuel consumed (₹3,466) with total budget (₹5,251)
 - BUG-0002: Tirumala geographic spatial boundary ceiling (<75km radius)
-- BUG-0003: Render cloud environment PORT binding and Operator Sign-Off Center
+- BUG-0003: Worker runtime configuration and Operator Sign-Off Center
 
 REGRESSION TESTS:
 - backend/src/tests/destinationBoundaries.test.js

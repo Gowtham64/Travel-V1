@@ -19,15 +19,15 @@
       }
     },
     "web": {
-      "hosting": "GitHub Pages (gh-pages branch) with custom domain voyplan.in",
-      "deploy_script": "deploy_web.sh",
-      "app_mount": "voyplan.in/app/"
+      "hosting": "Cloudflare Pages with custom domain voyplan.in",
+      "deploy_workflow": ".github/workflows/deploy-production.yml",
+      "app_mount": "voyplan.in/"
     }
   },
   "invariants": [
     "Trip fuel cost in budget MUST ALWAYS reflect total fuel consumed for the journey (fuelRequired * fuelPricePerLiter). Out-of-pocket top-up is a separate secondary metric.",
     "Round-trip routes must preserve user stops and have route origin equal to route destination.",
     "Jest tests in backend must always be run with --forceExit because Supabase and websocket listeners remain open.",
-    "Never commit files exceeding 100MB to GitHub (use deploy_web.sh guard for APK files)."
+    "Never commit files exceeding 100MB to GitHub. Publish Android artifacts through the mobile-build workflow."
   ]
 }

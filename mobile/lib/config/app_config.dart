@@ -6,8 +6,7 @@
 ///   flutter run    --dart-define=MAPBOX_TOKEN=pk.your_token
 ///   flutter build web --dart-define=MAPBOX_TOKEN=pk.your_token
 ///
-/// (deploy_web.sh reads MAPBOX_TOKEN from the shell environment and passes it
-/// through automatically.)
+/// Local and CI builds can pass this value with `--dart-define`.
 class AppConfig {
   AppConfig._();
 
@@ -34,7 +33,7 @@ class AppConfig {
   //     --dart-define=APP_ENV=staging \
   //     --dart-define=SUPABASE_URL=https://<staging-ref>.supabase.co \
   //     --dart-define=SUPABASE_ANON_KEY=<staging anon key> \
-  //     --dart-define=BACKEND_URL=https://voyplan-staging-backend.onrender.com \
+  //     --dart-define=BACKEND_URL=https://staging-api.voyplan.in \
   //     --dart-define=MAPBOX_TOKEN=pk.xxx
   // ---------------------------------------------------------------------------
 

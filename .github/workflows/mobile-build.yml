@@ -11,6 +11,7 @@ on:
       - 'mobile/**'
       - '.github/workflows/mobile-build.yml'
   pull_request:
+    branches: [ main ]
     paths:
       - 'mobile/**'
       - '.github/workflows/mobile-build.yml'
@@ -49,7 +50,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: travel-app-android-apk
-          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          path: mobile/build/app/outputs/flutter-apk/app-prod-release.apk
           if-no-files-found: error
 
   ios:
@@ -90,7 +91,7 @@ jobs:
 
   # Publishes the freshly-built APK to a rolling "android-latest" GitHub Release
   # so the landing page's "Download for Android" button
-  # (releases/latest/download/app-release.apk) always serves the newest build.
+  # (releases/latest/download/app-prod-release.apk) always serves the newest build.
   # Only runs on a push to main — never on PRs — so releases stay under your
   # control and a PR can't publish anything.
   release:
@@ -114,6 +115,6 @@ jobs:
           body: >
             Auto-published Android APK from the latest main build.
             Sideload on Android (enable "Install from unknown sources").
-          files: apk/app-release.apk
+          files: apk/app-prod-release.apk
           fail_on_unmatched_files: true
           make_latest: true

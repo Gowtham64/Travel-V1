@@ -1,5 +1,5 @@
-# Pages static-asset headers. API responses are served by Render and are not
-# covered by this file.
+# Pages static-asset headers. API responses are served by the Cloudflare Worker
+# and are not covered by this file.
 
 /*
   X-Content-Type-Options: nosniff

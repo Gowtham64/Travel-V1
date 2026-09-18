@@ -28,12 +28,8 @@ echo "HTTP Status Code: $HTTP_CODE (Latency: ${TIME_TOTAL}s)"
 if [ "$HTTP_CODE" = "200" ]; then
   echo "✅ Health probe PASSED: $BODY"
 elif [ "$HTTP_CODE" = "503" ]; then
-  if echo "$BODY" | grep -qi "suspended"; then
-    echo "⚠️  Render Service is SUSPENDED by owner: This service has been suspended in the Render Dashboard."
-    echo "   Action required: Unsuspend service in Render Dashboard to resume live traffic."
-  else
-    echo "❌ Health probe FAILED with HTTP 503 (Service Unavailable): $BODY"
-  fi
+  echo "❌ Worker readiness is degraded (HTTP 503): $BODY"
+  echo "   Check Cloudflare Worker logs, bindings, and upstream provider credentials."
 else
   echo "❌ Health probe returned unexpected status: $HTTP_CODE"
   echo "   Response body: $BODY"

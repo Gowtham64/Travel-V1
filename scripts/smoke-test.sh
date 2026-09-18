@@ -3,7 +3,7 @@ set -euo pipefail
 
 # ==============================================================================
 # VoyPlan End-to-End Smoke Test Suite
-# Tests Landing Page, Web App (/app/), Backend API, and CORS configurations.
+# Tests the web app, Worker API, and CORS configuration.
 # ==============================================================================
 
 WEB_HOST="${1:-https://voyplan.in}"
@@ -79,15 +79,13 @@ else
   assert_fail "Flutter web app root returned unexpected HTTP $APP_STATUS"
 fi
 
-# 4. Backend Health & Readiness Probes
-echo "--- 4. Testing Backend Probes ($API_HOST) ---"
+# 4. Worker Health & Readiness Probes
+echo "--- 4. Testing Worker Probes ($API_HOST) ---"
 HEALTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_HOST/health" || echo "000")
 if [ "$HEALTH_CODE" = "200" ]; then
-  assert_pass "Backend /health returned 200 OK"
-elif [ "$HEALTH_CODE" = "503" ]; then
-  assert_warn "Backend /health returned 503 (Render service is suspended by user)"
+  assert_pass "Worker /health returned 200 OK"
 else
-  assert_fail "Backend /health returned unexpected status: $HEALTH_CODE"
+  assert_fail "Worker /health returned unexpected status: $HEALTH_CODE"
 fi
 
 # 5. CORS Preflight
@@ -99,7 +97,7 @@ CORS_HEADER=$(curl -sI -X OPTIONS "$API_HOST/health" \
 if echo "$CORS_HEADER" | grep -qi "access-control-allow-origin"; then
   assert_pass "CORS headers properly returned for https://voyplan.in"
 else
-  assert_warn "CORS headers not returned (API service might be suspended on Render)"
+  assert_warn "CORS headers not returned; check Worker routing and allowed origins"
 fi
 
 echo "========================================================="

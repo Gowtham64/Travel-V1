@@ -1,13 +1,13 @@
 name: CI (PR checks)
 
-# Runs on every PR into develop or main, plus pushes to develop. Lint + tests +
-# a web build must pass. Wire this as a required status check on main/develop
-# (Settings → Branches) so a failing build cannot be merged to production.
+# Runs on every PR into main and pushes to main. Lint, tests, and a web build
+# must pass before production deployment. Configure this as a required status
+# check on main.
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [main]
   push:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -35,23 +35,6 @@ jobs:
       - name: Web build (prod-default config; smoke-checks the build)
         run: flutter build web --release --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
 
-  backend:
-    name: Backend install + test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - name: Tests
-        run: npm test --if-present
-
   cloudflare-worker:
     name: Cloudflare Worker test + typecheck
     runs-on: ubuntu-latest
@@ -72,4 +55,3 @@ jobs:
         run: npm test
       - name: Bundle dry-run
         run: npx wrangler deploy --dry-run
-

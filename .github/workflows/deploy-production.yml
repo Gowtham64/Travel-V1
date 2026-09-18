@@ -1,8 +1,7 @@
-name: Deploy Production (voyplan.in → Cloudflare Pages)
+name: Deploy Production (Cloudflare Worker + Pages)
 
-# Deploy the production Pages project from the production branch, or manually
-# after staging QA and approval. This publishes only the Flutter static build;
-# the Node API remains an independent Cloudflare Worker deployment.
+# This is the only production deployment workflow. It deploys the API Worker,
+# verifies it, then publishes the Flutter SPA to Cloudflare Pages.
 on:
   push:
     branches: [main]
@@ -24,7 +23,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build + deploy to Cloudflare Pages (production)
+    name: Deploy Worker + Pages (production)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +53,25 @@ jobs:
             exit 1
           fi
           echo "Cloudflare authentication detected."
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm ci
+
+      - name: Deploy Cloudflare Worker
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy
+
+      - name: Verify API health
+        run: |
+          curl --fail --show-error --silent --retry 6 --retry-all-errors \
+            --retry-delay 5 --connect-timeout 10 --max-time 30 \
+            https://api.voyplan.in/health
+          echo
+          echo "Worker API health check passed."
 
       - uses: subosito/flutter-action@v2
         with:
@@ -85,12 +103,8 @@ jobs:
           fi
           echo "Build output verified: mobile/build/web"
 
-      - name: Install Wrangler
-        run: |
-          npm install --no-save --no-package-lock wrangler
-          npx wrangler --version
-
       - name: Confirm Cloudflare Pages project
+        working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -106,15 +120,17 @@ jobs:
           echo "Pages project detected: $CLOUDFLARE_PROJECT_NAME"
 
       - name: Deploy to Cloudflare Pages
+        working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          echo "Deploying mobile/build/web"
-          npx wrangler pages deploy mobile/build/web \
+          echo "Deploying ../mobile/build/web"
+          npx wrangler pages deploy ../mobile/build/web \
             --project-name="${{ env.CLOUDFLARE_PROJECT_NAME }}"
 
       - name: Verify Cloudflare Pages deployment
+        working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -128,4 +144,8 @@ jobs:
             exit 1
           fi
           printf '%s\n' "$DEPLOYMENTS"
-          echo "Deployment completed."
+          curl --fail --show-error --silent --retry 6 --retry-all-errors \
+            --retry-delay 5 --connect-timeout 10 --max-time 30 \
+            https://voyplan.in/
+          echo
+          echo "Pages deployment completed and is reachable."

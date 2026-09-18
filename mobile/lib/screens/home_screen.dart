@@ -4138,7 +4138,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case 'download_apk':
         launchUrl(
           Uri.parse(
-              'https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk'),
+              'https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-prod-release.apk'),
           mode: LaunchMode.externalApplication,
         );
         break;

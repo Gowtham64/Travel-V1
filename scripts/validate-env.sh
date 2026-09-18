@@ -55,46 +55,37 @@ if [ "$TARGET_ENV" = "production" ]; then
   fi
 fi
 
-# 3. Check Web Landing Index Configuration
+# 3. Check Flutter Production Configuration
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-INDEX_FILE="$ROOT_DIR/web/index.html"
+APP_CONFIG_FILE="$ROOT_DIR/mobile/lib/config/app_config.dart"
 
-if [ -f "$INDEX_FILE" ]; then
-  # Verify that APP_URL does NOT hardcode 'https://voyplan.in/' (which causes infinite loops)
-  if grep -q "const APP_URL = 'https://voyplan.in/';" "$INDEX_FILE"; then
-    report_error "web/index.html contains hardcoded APP_URL = 'https://voyplan.in/' which causes an infinite reload loop!"
+if [ -f "$APP_CONFIG_FILE" ]; then
+  if grep -q "https://api.voyplan.in" "$APP_CONFIG_FILE"; then
+    report_pass "mobile app_config.dart has the canonical production API URL"
   else
-    report_pass "web/index.html APP_URL contains loop guard and dynamic resolution"
-  fi
-
-  # Verify guest links point to /app/ and not the root /
-  if grep -q 'href="https://voyplan.in/?guest=true"' "$INDEX_FILE"; then
-    report_error "web/index.html contains guest links pointing to root (href=\"https://voyplan.in/?guest=true\") instead of /app/"
-  else
-    report_pass "web/index.html guest links correctly point to /app/"
+    report_error "mobile app_config.dart is missing the canonical production API URL"
   fi
 else
-  report_warn "web/index.html not found at $INDEX_FILE"
+  report_error "mobile app_config.dart is missing"
 fi
 
-# 4. Check Mobile App Configuration
-APP_CONFIG_FILE="$ROOT_DIR/mobile/lib/config/app_config.dart"
-if [ -f "$APP_CONFIG_FILE" ]; then
-  if grep -q 'static const String productionApiUrl =.*localhost' "$APP_CONFIG_FILE"; then
-    report_error "mobile app_config.dart productionApiUrl contains localhost"
+# 4. Check Cloudflare Worker Configuration
+WORKER_CONFIG="$ROOT_DIR/cloudflare-worker/wrangler.jsonc"
+if [ -f "$WORKER_CONFIG" ]; then
+  if grep -q '"name": "voyplan-api"' "$WORKER_CONFIG" && grep -q 'api.voyplan.in/\\*' "$WORKER_CONFIG"; then
+    report_pass "Cloudflare Worker is configured for api.voyplan.in"
   else
-    report_pass "mobile app_config.dart productionApiUrl is clean"
+    report_error "Cloudflare Worker configuration is missing the production name or route"
   fi
+else
+  report_error "cloudflare-worker/wrangler.jsonc is missing"
 fi
 
-# 5. Check Render Blueprint
-RENDER_YAML="$ROOT_DIR/render.yaml"
-if [ -f "$RENDER_YAML" ]; then
-  if grep -q 'name: voyplan-backend' "$RENDER_YAML"; then
-    report_pass "render.yaml declares voyplan-backend service"
-  else
-    report_error "render.yaml is missing voyplan-backend web service"
-  fi
+# 5. Ensure obsolete deployment infrastructure is absent
+if [ -e "$ROOT_DIR/render.yaml" ] || [ -e "$ROOT_DIR/deploy_web.sh" ]; then
+  report_error "Obsolete deployment infrastructure is still present"
+else
+  report_pass "obsolete deployment infrastructure is absent"
 fi
 
 # 6. Check Cloudflare Headers Security
