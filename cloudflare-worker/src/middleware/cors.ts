@@ -19,7 +19,6 @@ export const corsMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: AppVa
       const hostname = new URL(origin).hostname;
       if (
         configured.includes(origin) ||
-        hostname.endsWith('.pages.dev') ||
         hostname === 'localhost' ||
         hostname === '127.0.0.1'
       ) {

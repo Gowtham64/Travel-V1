@@ -2,8 +2,7 @@
 set -euo pipefail
 
 # Build the Flutter source once for Cloudflare Pages. The output directory is
-# mobile/build/web, Flutter's actual production build directory; committed
-# app/, web/app/, and public/app/ copies are not deployment sources of truth.
+# mobile/build/web, Flutter's actual production build directory.
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BUILD_DIR="$ROOT_DIR/mobile/build/web"
 APP_ENV="${APP_ENV:-production}"

@@ -81,11 +81,42 @@ else
   report_error "cloudflare-worker/wrangler.jsonc is missing"
 fi
 
-# 5. Ensure obsolete deployment infrastructure is absent
-if [ -e "$ROOT_DIR/render.yaml" ] || [ -e "$ROOT_DIR/deploy_web.sh" ]; then
-  report_error "Obsolete deployment infrastructure is still present"
+# 5. Guard the canonical production delivery topology
+LEGACY_DELIVERY_PATHS=(
+  "render.yaml"
+  "deploy_web.sh"
+  "Dockerfile.ai"
+  "docker-compose.ai.yml"
+  "gh-pages-deploy"
+  "app"
+  "public"
+  "web"
+  "voyplan-ai-engineering"
+  ".github/workflows/cloudflare-worker.yml"
+  ".github/workflows/deploy-staging.yml"
+  ".github/workflows/ai-engineering.yml"
+  ".github/workflows/ai-autonomous-qa.yml"
+)
+
+for legacy_path in "${LEGACY_DELIVERY_PATHS[@]}"; do
+  if [ -e "$ROOT_DIR/$legacy_path" ]; then
+    report_error "Obsolete delivery artifact is present: $legacy_path"
+  fi
+done
+
+if [ "$ERRORS" -eq 0 ]; then
+  report_pass "obsolete delivery artifacts are absent"
+fi
+
+PRODUCTION_WORKFLOW="$ROOT_DIR/.github/workflows/deploy-production.yml"
+if [ -f "$PRODUCTION_WORKFLOW" ] && \
+   grep -Fq 'branches: [main]' "$PRODUCTION_WORKFLOW" && \
+   grep -Fq 'PAGES_PROJECT: voyplan' "$PRODUCTION_WORKFLOW" && \
+   grep -Fq 'npx wrangler deploy' "$PRODUCTION_WORKFLOW" && \
+   grep -Fq 'npx wrangler pages deploy' "$PRODUCTION_WORKFLOW"; then
+  report_pass "the single production workflow deploys Worker then Pages from main"
 else
-  report_pass "obsolete deployment infrastructure is absent"
+  report_error "deploy-production.yml is missing the canonical Worker-to-Pages delivery path"
 fi
 
 # 6. Check Cloudflare Headers Security

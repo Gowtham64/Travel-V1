@@ -12,7 +12,7 @@ const axios = require('axios');
         currentFuelLiters: 10
       }
     };
-    const res = await axios.post('https://travel-v1-mzia.onrender.com/api/trip/plan', payload);
+    const res = await axios.post('https://api.voyplan.in/api/trip/plan', payload);
     console.log("Success:", res.data.distanceKm);
   } catch (err) {
     console.error("Error:", err.response ? err.response.data : err.message);

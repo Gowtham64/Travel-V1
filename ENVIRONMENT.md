@@ -37,4 +37,4 @@ npx wrangler secret put GEMINI_API_KEY
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account selection. |
 | `MAPBOX_TOKEN` | Production Flutter web and mobile builds. |
 
-`CLOUDFLARE_PROJECT_NAME=voyplan` is committed workflow configuration, not a secret.
+`PAGES_PROJECT=voyplan` is committed workflow configuration, not a secret.

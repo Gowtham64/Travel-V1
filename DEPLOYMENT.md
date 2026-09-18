@@ -9,7 +9,7 @@ Production is deployed only from `main` by `.github/workflows/deploy-production.
 - GitHub Actions secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `MAPBOX_TOKEN`.
 - Worker secrets configured in Cloudflare; see [ENVIRONMENT.md](ENVIRONMENT.md).
 
-The Pages project name is the workflow variable `CLOUDFLARE_PROJECT_NAME=voyplan`; it is intentionally not a secret.
+The Pages project name is the committed workflow variable `PAGES_PROJECT=voyplan`; it is intentionally not a secret.
 
 ## Pre-deployment checks
 

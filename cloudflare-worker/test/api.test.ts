@@ -71,7 +71,7 @@ describe("VoyPlan Cloudflare Worker API", () => {
       expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
     });
 
-    it("OPTIONS preflight with any web origin is allowed", async () => {
+    it("OPTIONS preflight permits a localhost development origin", async () => {
       const res = await app.request(
         "/api/trip/calculate-route",
         {

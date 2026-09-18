@@ -15,7 +15,7 @@ It copies `cloudflare/_headers` and `cloudflare/_redirects` into the build outpu
 
 1. Create the Pages project `voyplan` and attach `voyplan.in`.
 2. Set `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` in GitHub Actions.
-3. Keep `CLOUDFLARE_PROJECT_NAME=voyplan` as the workflow variable.
+3. Keep the committed `PAGES_PROJECT=voyplan` workflow variable unchanged.
 4. Confirm the SPA fallback rule `/* /index.html 200` remains in `cloudflare/_redirects`.
 
-The only deployment source is the generated `mobile/build/web` bundle. The tracked `app/`, `web/`, and `public/` copies are historical static artifacts and are not uploaded by the production workflow.
+The only deployment source is the generated `mobile/build/web` bundle.

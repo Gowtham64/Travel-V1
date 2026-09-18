@@ -61,9 +61,9 @@ def run_mobile_tests(test_path: Optional[str] = None, cwd: str = "mobile", timeo
     }
 
 def run_web_tests(cwd: str = ".", timeout: int = 120) -> Dict[str, Any]:
-    """Runs Playwright Web E2E tests against headless Chromium."""
-    cmd = "npx playwright test voyplan-itinerary.spec.js"
-    res = run_command(cmd, cwd=f"{cwd}/voyplan-ai-engineering/tests/e2e" if cwd != "." else "voyplan-ai-engineering/tests/e2e", timeout=timeout)
+    """Builds the canonical Flutter web app as a production web smoke check."""
+    cmd = "flutter build web --release"
+    res = run_command(cmd, cwd=f"{cwd}/mobile" if cwd != "." else "mobile", timeout=timeout)
     return {
         "suite": "web",
         "command": cmd,

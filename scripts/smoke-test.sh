@@ -15,16 +15,6 @@ echo " Web: $WEB_HOST"
 echo " API: $API_HOST"
 echo "========================================================="
 
-# Helper function to invoke curl with automatic DNS fallback if local resolver fails
-CURL_EXTRA_ARGS=()
-if ! curl -s -o /dev/null "$WEB_HOST" 2>/dev/null; then
-  # Local DNS resolver cannot resolve, resolve via Cloudflare edge IP
-  if [[ "$WEB_HOST" == *"voyplan.in"* ]]; then
-    echo "ℹ️  Local DNS failed to resolve voyplan.in directly. Using Cloudflare Edge IP resolution."
-    CURL_EXTRA_ARGS+=(--resolve "voyplan.in:443:104.21.40.173" --resolve "api.voyplan.in:443:104.21.40.173")
-  fi
-fi
-
 FAILED_TESTS=0
 
 function assert_pass() {
@@ -42,8 +32,8 @@ function assert_warn() {
 
 # 1. Landing Page Root Check
 echo "--- 1. Testing Web Root ($WEB_HOST) ---"
-LANDING_STATUS=$(curl -s "${CURL_EXTRA_ARGS[@]}" -o /dev/null -w "%{http_code}" "$WEB_HOST" || echo "000")
-LANDING_HTML=$(curl -s "${CURL_EXTRA_ARGS[@]}" "$WEB_HOST" || true)
+LANDING_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_HOST" || echo "000")
+LANDING_HTML=$(curl -s "$WEB_HOST" || true)
 
 if [ "$LANDING_STATUS" = "200" ]; then
   assert_pass "Web root loaded successfully (HTTP 200)"
@@ -60,7 +50,7 @@ fi
 
 # 2. Flutter App SPA /login Route Check
 echo "--- 2. Testing SPA Route ($WEB_HOST/login) ---"
-LOGIN_STATUS=$(curl -s "${CURL_EXTRA_ARGS[@]}" -o /dev/null -w "%{http_code}" "$WEB_HOST/login" || echo "000")
+LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_HOST/login" || echo "000")
 if [ "$LOGIN_STATUS" = "200" ]; then
   assert_pass "SPA /login route returns HTTP 200 (Cloudflare Pages fallback active)"
 elif [ "$LOGIN_STATUS" = "404" ]; then
@@ -71,7 +61,7 @@ fi
 
 # 3. Flutter Web App Subpath Check (/app/)
 echo "--- 3. Testing /app/ Redirect Behavior ($WEB_HOST/app/) ---"
-APP_STATUS=$(curl -s "${CURL_EXTRA_ARGS[@]}" -o /dev/null -w "%{http_code}" "$WEB_HOST/app/" || echo "000")
+APP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_HOST/app/" || echo "000")
 
 if [ "$APP_STATUS" = "200" ] || [ "$APP_STATUS" = "301" ]; then
   assert_pass "Flutter web app path responds validly (HTTP $APP_STATUS)"
