@@ -170,7 +170,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
 
   // Added optional stops along route
   final List<Map<String, dynamic>> _addedStops = [];
-  String _selectedStopCategory = 'FOOD';
+  String _selectedStopCategory = 'HOTELS';
   String _stopSearchQuery = '';
   String _catalogFilterCategory = 'ALL';
 
@@ -319,6 +319,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   // AI Itinerary & Validation
   bool _isGeneratingItinerary = false;
   List<SmartDay> _generatedItineraryDays = [];
+  TripPlan? _aroundTripPlan;
+  RouteInfo? _aroundRoute;
+  double _vacationDistanceKm = 0.0;
+  int _vacationDurationMin = 0;
   Map<String, dynamic>? _itineraryValidation;
   bool _validationPassed = false;
 
@@ -965,6 +969,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
 
       setState(() {
         _generatedItineraryDays = res.days;
+        _aroundTripPlan = res.tripPlan;
+        _aroundRoute = res.route;
+        if (res.totalDistanceKm != null && res.totalDistanceKm! > 0) {
+          _vacationDistanceKm = res.totalDistanceKm!;
+        }
+        if (res.totalDurationMin != null && res.totalDurationMin! > 0) {
+          _vacationDurationMin = res.totalDurationMin!;
+        }
         _itineraryValidation = validationReport;
         _validationPassed = true;
 
@@ -1133,121 +1145,286 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     }
   }
 
-  void _startNavigation() {
-    if (_oneWayOrigin == null || _oneWayDest == null) {
-      _showToast('Origin and Destination are required to navigate.');
-      return;
-    }
+  void _startNavigation() async {
+    final isOneWay = _activeMode == 'one_way';
 
-    final vehicle = Vehicle(
-      type: _vehicleType,
-      efficiencyKmPerLiter: _mileage > 0 ? _mileage : 15.0,
-      tankCapacityLiters: _tankCapacity > 0 ? _tankCapacity : 45.0,
-      currentFuelLiters: _currentFuel > 0 ? _currentFuel : 20.0,
-      fuelType: _fuelType,
-    );
+    if (isOneWay) {
+      if (_oneWayOrigin == null || _oneWayDest == null) {
+        _showToast('Origin and Destination are required to navigate.');
+        return;
+      }
 
-    // Formulate a robust TripPlan for TripScreen
-    final plan = TripPlan(
-      coordinates: _oneWayRoute != null && _oneWayRoute!.coordinates.isNotEmpty
-          ? _oneWayRoute!.coordinates
-          : [_oneWayOrigin!, _oneWayDest!],
-      distanceKm: _oneWayDistanceKm > 0 ? _oneWayDistanceKm : 50.0,
-      durationMin: _oneWayDurationMin > 0 ? _oneWayDurationMin : 60,
-      fuel: FuelPlan(
-        needsRefuel: _fuelStops.isNotEmpty,
-        totalDistanceKm: _oneWayDistanceKm,
-        totalRefuelCost: _budgetFuel,
-        totalRefillLiters: (_oneWayDistanceKm / math.max(1.0, _mileage)),
-        refuelStops: _fuelStops,
-      ),
-      estimatedDays: 1,
-      toll: TollEstimate(
-        hasTolls: _estimatedTollCost > 0,
-        currency: '₹',
-        totalAmount: _estimatedTollCost,
-        fastagTollCost: _estimatedTollCost,
-        cashTollCost: _estimatedTollCost * 1.5,
-        tolls: const [],
-        isEstimated: false,
-      ),
-      weather: const RouteWeather(hasAlerts: false, points: []),
-      departureAdvice: const DepartureAdvice(
-        bestOffsetHours: 0,
-        bestLabel: 'now',
-        driestRainPct: 0,
-        nowRainPct: 0,
-        recommendation: 'Clear to drive',
-      ),
-      restStops: const [],
-      itinerary: const [],
-      budget: null,
-      places: const {},
-      navigationWaypoints: [
-        _oneWayOrigin!,
-        ..._fuelStops.map((f) => GeoPoint(
-            lat: f.lat,
-            lng: f.lng,
-            name: f.name,
-            isFuelStop: true,
-            refuelStop: f)),
-        ..._addedStops.map((s) => GeoPoint(
-            lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
-            lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
-            name: s['name'])),
-        _oneWayDest!,
-      ],
-    );
+      final vehicle = Vehicle(
+        type: _vehicleType,
+        efficiencyKmPerLiter: _mileage > 0 ? _mileage : 15.0,
+        tankCapacityLiters: _tankCapacity > 0 ? _tankCapacity : 45.0,
+        currentFuelLiters: _currentFuel > 0 ? _currentFuel : 20.0,
+        fuelType: _fuelType,
+      );
 
-    // Save trip in history as ACTIVE / started
-    TripHistoryService.instance.saveTrip(TripHistoryItem(
-      id: 'active_${DateTime.now().millisecondsSinceEpoch}',
-      title: '${_oneWayOriginCtrl.text} to ${_oneWayDestCtrl.text}',
-      startAddress: _oneWayOriginCtrl.text,
-      endAddress: _oneWayDestCtrl.text,
-      waypoints: _addedStops.map((s) => s['name'].toString()).toList(),
-      distanceKm: _oneWayDistanceKm,
-      durationMinutes: _oneWayDurationMin,
-      vehicleType: _vehicleType,
-      fuelCost: _budgetFuel,
-      tollCost: _estimatedTollCost,
-      totalCost: _totalOneWayBudget,
-      completedAt: DateTime.now(),
-      isRoundTrip: _activeMode == 'round_trip',
-      routeCoordinates:
-          plan.coordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
-      totalStopsCount: _addedStops.length + _fuelStops.length,
-    ));
-
-    // Launch authoritative Navigation (TripScreen)
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TripScreen(
-          plan: plan,
-          startAddress: _oneWayOriginCtrl.text,
-          endAddress: _oneWayDestCtrl.text,
-          vehicleType: _vehicleType,
-          poiCategories: const [
-            'restaurant',
-            'attraction',
-            'viewpoint',
-            'fuel'
-          ],
-          start: _oneWayOrigin!,
-          end: _oneWayDest!,
-          waypoints: _addedStops
-              .map((s) => GeoPoint(
-                    lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
-                    lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
-                    name: s['name'],
-                  ))
-              .toList(),
-          vehicle: vehicle,
-          travellers: _oneWayTravelers,
+      // Formulate a robust TripPlan for TripScreen
+      final plan = TripPlan(
+        coordinates: _oneWayRoute != null && _oneWayRoute!.coordinates.isNotEmpty
+            ? _oneWayRoute!.coordinates
+            : [_oneWayOrigin!, _oneWayDest!],
+        distanceKm: _oneWayDistanceKm > 0 ? _oneWayDistanceKm : 50.0,
+        durationMin: _oneWayDurationMin > 0 ? _oneWayDurationMin : 60,
+        fuel: FuelPlan(
+          needsRefuel: _fuelStops.isNotEmpty,
+          totalDistanceKm: _oneWayDistanceKm,
+          totalRefuelCost: _budgetFuel,
+          totalRefillLiters: (_oneWayDistanceKm / math.max(1.0, _mileage)),
+          refuelStops: _fuelStops,
         ),
-      ),
-    );
+        estimatedDays: 1,
+        toll: TollEstimate(
+          hasTolls: _estimatedTollCost > 0,
+          currency: '₹',
+          totalAmount: _estimatedTollCost,
+          fastagTollCost: _estimatedTollCost,
+          cashTollCost: _estimatedTollCost * 1.5,
+          tolls: const [],
+          isEstimated: false,
+        ),
+        weather: const RouteWeather(hasAlerts: false, points: []),
+        departureAdvice: const DepartureAdvice(
+          bestOffsetHours: 0,
+          bestLabel: 'now',
+          driestRainPct: 0,
+          nowRainPct: 0,
+          recommendation: 'Clear to drive',
+        ),
+        restStops: const [],
+        itinerary: const [],
+        budget: null,
+        places: const {},
+        navigationWaypoints: [
+          _oneWayOrigin!,
+          ..._fuelStops.map((f) => GeoPoint(
+              lat: f.lat,
+              lng: f.lng,
+              name: f.name,
+              isFuelStop: true,
+              refuelStop: f)),
+          ..._addedStops.map((s) => GeoPoint(
+              lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
+              lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
+              name: s['name'])),
+          _oneWayDest!,
+        ],
+      );
+
+      // Save trip in history as ACTIVE / started
+      TripHistoryService.instance.saveTrip(TripHistoryItem(
+        id: 'active_${DateTime.now().millisecondsSinceEpoch}',
+        title: '${_oneWayOriginCtrl.text} to ${_oneWayDestCtrl.text}',
+        startAddress: _oneWayOriginCtrl.text,
+        endAddress: _oneWayDestCtrl.text,
+        waypoints: _addedStops.map((s) => s['name'].toString()).toList(),
+        distanceKm: _oneWayDistanceKm,
+        durationMinutes: _oneWayDurationMin,
+        vehicleType: _vehicleType,
+        fuelCost: _budgetFuel,
+        tollCost: _estimatedTollCost,
+        totalCost: _totalOneWayBudget,
+        completedAt: DateTime.now(),
+        isRoundTrip: false,
+        routeCoordinates:
+            plan.coordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+        totalStopsCount: _addedStops.length + _fuelStops.length,
+      ));
+
+      // Launch authoritative Navigation (TripScreen)
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TripScreen(
+            plan: plan,
+            startAddress: _oneWayOriginCtrl.text,
+            endAddress: _oneWayDestCtrl.text,
+            vehicleType: _vehicleType,
+            poiCategories: const [
+              'hotel',
+              'restaurant',
+              'temple',
+              'lake',
+              'river',
+              'viewpoint',
+              'attraction',
+              'fuel',
+              'charging',
+            ],
+            start: _oneWayOrigin!,
+            end: _oneWayDest!,
+            waypoints: _addedStops
+                .map((s) => GeoPoint(
+                      lat: (s['lat'] as num?)?.toDouble() ?? 0.0,
+                      lng: (s['lng'] as num?)?.toDouble() ?? 0.0,
+                      name: s['name'],
+                    ))
+                .toList(),
+            vehicle: vehicle,
+            travellers: _oneWayTravelers,
+          ),
+        ),
+      );
+    } else {
+      // Around Trip / Round Trip Navigation
+      if (_generatedItineraryDays.isEmpty && _aroundTripPlan == null) {
+        _showToast('Please generate an itinerary before starting navigation.');
+        return;
+      }
+
+      // Collect all stop waypoints from generated itinerary days
+      final List<GeoPoint> itineraryWaypoints = [];
+      for (final day in _generatedItineraryDays) {
+        for (final block in day.blocks) {
+          if (block.lat != null &&
+              block.lng != null &&
+              block.lat != 0.0 &&
+              block.lng != 0.0) {
+            itineraryWaypoints.add(GeoPoint(
+              lat: block.lat!,
+              lng: block.lng!,
+              name: block.place.trim().isNotEmpty ? block.place : block.title,
+            ));
+          }
+        }
+      }
+
+      // Resolve Origin & Destination points
+      GeoPoint? originPoint = _vacationOrigin;
+      GeoPoint? destPoint = _vacationDest;
+
+      if (_aroundTripPlan != null && _aroundTripPlan!.coordinates.isNotEmpty) {
+        originPoint ??= _aroundTripPlan!.coordinates.first;
+        destPoint ??= _aroundTripPlan!.coordinates.last;
+      } else if (itineraryWaypoints.isNotEmpty) {
+        originPoint ??= itineraryWaypoints.first;
+        destPoint ??= itineraryWaypoints.last;
+      }
+
+      final originName = _vacationOriginCtrl.text.trim().isNotEmpty
+          ? _vacationOriginCtrl.text.trim()
+          : (_aroundDestinations.isNotEmpty
+              ? _aroundDestinations.first
+              : 'Starting Point');
+      final destName = _aroundDestinations.isNotEmpty
+          ? _aroundDestinations.join(' → ')
+          : (_vacationDestCtrl.text.trim().isNotEmpty
+              ? _vacationDestCtrl.text.trim()
+              : 'Destination');
+
+      originPoint ??= const GeoPoint(lat: 12.9716, lng: 77.5946, name: 'Start');
+      destPoint ??= originPoint;
+
+      final vehicle = Vehicle(
+        type: _vehicleType,
+        efficiencyKmPerLiter: _mileage > 0 ? _mileage : 15.0,
+        tankCapacityLiters: _tankCapacity > 0 ? _tankCapacity : 45.0,
+        currentFuelLiters: _currentFuel > 0 ? _currentFuel : 20.0,
+        fuelType: _fuelType,
+      );
+
+      final TripPlan navPlan;
+      if (_aroundTripPlan != null && _aroundTripPlan!.coordinates.isNotEmpty) {
+        navPlan = _aroundTripPlan!;
+      } else {
+        final coords = itineraryWaypoints.isNotEmpty
+            ? itineraryWaypoints
+            : [originPoint, destPoint];
+        final dist = _vacationDistanceKm > 0 ? _vacationDistanceKm : 150.0;
+        final dur = _vacationDurationMin > 0 ? _vacationDurationMin : 180;
+        navPlan = TripPlan(
+          coordinates: coords,
+          distanceKm: dist,
+          durationMin: dur,
+          fuel: FuelPlan(
+            needsRefuel: false,
+            totalDistanceKm: dist,
+            totalRefuelCost: _vacationBudgetTransport,
+            totalRefillLiters: (dist / math.max(1.0, _mileage)),
+            refuelStops: const [],
+          ),
+          estimatedDays: _vacationDays,
+          toll: const TollEstimate(
+            hasTolls: true,
+            currency: '₹',
+            totalAmount: 250.0,
+            fastagTollCost: 250.0,
+            cashTollCost: 350.0,
+            tolls: [],
+            isEstimated: true,
+          ),
+          weather: const RouteWeather(hasAlerts: false, points: []),
+          departureAdvice: const DepartureAdvice(
+            bestOffsetHours: 0,
+            bestLabel: 'now',
+            driestRainPct: 0,
+            nowRainPct: 0,
+            recommendation: 'Clear to drive',
+          ),
+          restStops: const [],
+          itinerary: const [],
+          budget: null,
+          places: const {},
+          navigationWaypoints: [
+            originPoint,
+            ...itineraryWaypoints,
+            destPoint,
+          ],
+        );
+      }
+
+      // Save trip in history as ACTIVE / started
+      TripHistoryService.instance.saveTrip(TripHistoryItem(
+        id: 'around_${DateTime.now().millisecondsSinceEpoch}',
+        title: '$originName to $destName (Around Trip)',
+        startAddress: originName,
+        endAddress: destName,
+        waypoints: itineraryWaypoints.map((w) => w.name ?? 'Stop').toList(),
+        distanceKm: navPlan.distanceKm,
+        durationMinutes: navPlan.durationMin,
+        vehicleType: _vehicleType,
+        fuelCost: _vacationBudgetTransport,
+        tollCost: 250.0,
+        totalCost: _totalVacationBudget,
+        completedAt: DateTime.now(),
+        isRoundTrip: true,
+        routeCoordinates:
+            navPlan.coordinates.map((c) => {'lat': c.lat, 'lng': c.lng}).toList(),
+        totalStopsCount: itineraryWaypoints.length,
+      ));
+
+      // Launch authoritative Navigation (TripScreen)
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TripScreen(
+            plan: navPlan,
+            startAddress: originName,
+            endAddress: destName,
+            vehicleType: _vehicleType,
+            poiCategories: const [
+              'hotel',
+              'restaurant',
+              'temple',
+              'lake',
+              'river',
+              'viewpoint',
+              'attraction',
+              'fuel',
+              'charging',
+            ],
+            start: originPoint!,
+            end: destPoint!,
+            waypoints: itineraryWaypoints,
+            vehicle: vehicle,
+            travellers: _vacationTravelers,
+          ),
+        ),
+      );
+    }
   }
 
   void _showToast(String msg) {
@@ -6594,22 +6771,105 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  block.title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                // Full Place Name
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        block.place.trim().isNotEmpty
+                                            ? block.place
+                                            : block.title,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                    if (block.type.isNotEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(left: 6),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFF1E3A5F),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          block.type.toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Color(0xFF00E5B0),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                if (block.reason.isNotEmpty ||
-                                    block.place.isNotEmpty)
+                                const SizedBox(height: 3),
+                                // Full location address / city / state
+                                Builder(builder: (_) {
+                                  final fullName = block.place.trim().isNotEmpty
+                                      ? block.place
+                                      : block.title;
+                                  final addrParts = [
+                                    block.address,
+                                    block.city,
+                                    block.state
+                                  ]
+                                      .where((s) =>
+                                          s.trim().isNotEmpty &&
+                                          s.trim().toLowerCase() !=
+                                              fullName.toLowerCase())
+                                      .toSet()
+                                      .toList();
+                                  final locationText = addrParts.isNotEmpty
+                                      ? addrParts.join(', ')
+                                      : '';
+                                  if (locationText.isNotEmpty) {
+                                    return Padding(
+                                      padding: const EdgeInsets.only(bottom: 3),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 12,
+                                            color: Color(0xFF38BDF8),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              locationText,
+                                              style: const TextStyle(
+                                                color: Color(0xFF94A3B8),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                }),
+                                // Activity title or reason note
+                                if (block.reason.isNotEmpty &&
+                                    block.reason.trim().toLowerCase() !=
+                                        (block.place.trim().isNotEmpty
+                                                ? block.place
+                                                : block.title)
+                                            .toLowerCase())
                                   Text(
-                                    block.reason.isNotEmpty
-                                        ? block.reason
-                                        : block.place,
+                                    block.reason,
                                     style: const TextStyle(
-                                        color: Color(0xFF94A3B8), fontSize: 11),
+                                      color: Color(0xFF64748B),
+                                      fontSize: 10,
+                                      fontStyle: FontStyle.italic,
+                                    ),
                                   ),
                               ],
                             ),
@@ -6701,8 +6961,135 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   }
 
   Widget _buildAroundGeneratedMapCard() {
+    // Dynamically extract all plotted stops from the generated itinerary
+    final List<
+        ({
+          LatLng point,
+          String name,
+          IconData icon,
+          Color color,
+          int day,
+          int stopNum
+        })> plottedStops = [];
+    int counter = 1;
+
+    for (final day in _generatedItineraryDays) {
+      for (final block in day.blocks) {
+        if (block.lat != null &&
+            block.lng != null &&
+            block.lat != 0.0 &&
+            block.lng != 0.0) {
+          final pt = LatLng(block.lat!, block.lng!);
+          final name =
+              block.place.trim().isNotEmpty ? block.place : block.title;
+          final type = block.type.toLowerCase();
+          final tLower = block.title.toLowerCase();
+          final pLower = block.place.toLowerCase();
+
+          IconData icon = Icons.place_rounded;
+          Color color = const Color(0xFF38BDF8); // Sky blue (attraction)
+
+          if (type == 'hotel' ||
+              tLower.contains('hotel') ||
+              tLower.contains('stay') ||
+              tLower.contains('resort') ||
+              pLower.contains('resort')) {
+            icon = Icons.hotel_rounded;
+            color = const Color(0xFFA855F7); // Purple
+          } else if (type == 'meal' ||
+              type == 'coffee' ||
+              tLower.contains('lunch') ||
+              tLower.contains('dinner') ||
+              tLower.contains('restaurant') ||
+              tLower.contains('dhaba') ||
+              tLower.contains('food')) {
+            icon = Icons.restaurant_rounded;
+            color = const Color(0xFFF97316); // Coral
+          } else if (tLower.contains('temple') ||
+              pLower.contains('temple') ||
+              tLower.contains('mandir') ||
+              pLower.contains('shrine')) {
+            icon = Icons.temple_hindu_rounded;
+            color = const Color(0xFFFBBF24); // Gold / Amber
+          } else if (tLower.contains('lake') ||
+              pLower.contains('lake') ||
+              tLower.contains('river') ||
+              pLower.contains('river') ||
+              tLower.contains('falls') ||
+              pLower.contains('water')) {
+            icon = Icons.water_drop_rounded;
+            color = const Color(0xFF06B6D4); // Cyan
+          } else if (tLower.contains('viewpoint') ||
+              pLower.contains('viewpoint') ||
+              tLower.contains('hill') ||
+              pLower.contains('peak')) {
+            icon = Icons.landscape_rounded;
+            color = const Color(0xFF10B981); // Emerald
+          } else if (type == 'fuel' || block.isFuelStop) {
+            icon = Icons.local_gas_station_rounded;
+            color = const Color(0xFFEAB308); // Yellow
+          } else if (type == 'start') {
+            icon = Icons.trip_origin_rounded;
+            color = const Color(0xFF00E5B0); // Neon green
+          } else if (type == 'destination' || block.isDestination) {
+            icon = Icons.flag_rounded;
+            color = const Color(0xFFEC4899); // Pink
+          }
+
+          plottedStops.add((
+            point: pt,
+            name: name,
+            icon: icon,
+            color: color,
+            day: day.day,
+            stopNum: counter++,
+          ));
+        }
+      }
+    }
+
+    // Determine center and zoom dynamically
+    LatLng mapCenter = const LatLng(12.9716, 77.5946);
+    double mapZoom = 7.0;
+
+    if (plottedStops.isNotEmpty) {
+      double minLat = plottedStops.first.point.latitude;
+      double maxLat = plottedStops.first.point.latitude;
+      double minLng = plottedStops.first.point.longitude;
+      double maxLng = plottedStops.first.point.longitude;
+      for (final s in plottedStops) {
+        minLat = math.min(minLat, s.point.latitude);
+        maxLat = math.max(maxLat, s.point.latitude);
+        minLng = math.min(minLng, s.point.longitude);
+        maxLng = math.max(maxLng, s.point.longitude);
+      }
+      mapCenter = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+      final latSpan = maxLat - minLat;
+      final lngSpan = maxLng - minLng;
+      final maxSpan = math.max(latSpan, lngSpan);
+      if (maxSpan > 8.0) {
+        mapZoom = 5.2;
+      } else if (maxSpan > 4.0) {
+        mapZoom = 6.4;
+      } else if (maxSpan > 2.0) {
+        mapZoom = 7.6;
+      } else if (maxSpan > 1.0) {
+        mapZoom = 9.0;
+      } else if (maxSpan > 0.5) {
+        mapZoom = 10.2;
+      } else {
+        mapZoom = 11.5;
+      }
+    }
+
+    // Polyline coordinates from trip plan or stops
+    final List<LatLng> polylinePoints = _aroundTripPlan != null &&
+            _aroundTripPlan!.coordinates.isNotEmpty
+        ? _aroundTripPlan!.coordinates.map((c) => c.toLatLng()).toList()
+        : plottedStops.map((s) => s.point).toList();
+
     return Container(
-      height: 220,
+      height: 240,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: const Color(0xFF081526),
@@ -6713,46 +7100,54 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         fit: StackFit.expand,
         children: [
           FlutterMap(
-            options: const MapOptions(
-              initialCenter: LatLng(12.9716, 77.5946), // Bangalore region
-              initialZoom: 6.8,
+            options: MapOptions(
+              initialCenter: mapCenter,
+              initialZoom: mapZoom,
             ),
             children: [
               TileLayer(
                 urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.voyplan.travel_app',
               ),
+              if (polylinePoints.length >= 2)
+                PolylineLayer(
+                  polylines: [
+                    Polyline(
+                      points: polylinePoints,
+                      strokeWidth: 4.0,
+                      color: const Color(0xFF00E5B0),
+                    ),
+                  ],
+                ),
               MarkerLayer(
-                markers: [
-                  const Marker(
-                    point: LatLng(12.9716, 77.5946),
-                    width: 32,
-                    height: 32,
-                    child: Icon(Icons.trip_origin_rounded,
-                        color: Color(0xFF00E5B0), size: 28),
-                  ),
-                  const Marker(
-                    point: LatLng(12.3375, 75.8069), // Coorg
-                    width: 32,
-                    height: 32,
-                    child: Icon(Icons.place_rounded,
-                        color: Color(0xFFA855F7), size: 28),
-                  ),
-                  const Marker(
-                    point: LatLng(11.6854, 76.1320), // Wayanad
-                    width: 32,
-                    height: 32,
-                    child: Icon(Icons.place_rounded,
-                        color: Color(0xFF38BDF8), size: 28),
-                  ),
-                  const Marker(
-                    point: LatLng(12.2958, 76.6394), // Mysuru
-                    width: 32,
-                    height: 32,
-                    child: Icon(Icons.place_rounded,
-                        color: Color(0xFFF59E0B), size: 28),
-                  ),
-                ],
+                markers: plottedStops.map((stop) {
+                  return Marker(
+                    point: stop.point,
+                    width: 36,
+                    height: 36,
+                    child: Tooltip(
+                      message: 'Day ${stop.day} • ${stop.name}',
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF070E1A),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: stop.color, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: stop.color.withOpacity(0.4),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child:
+                              Icon(stop.icon, color: stop.color, size: 18),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
               ),
             ],
           ),
@@ -6760,22 +7155,27 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             top: 10,
             left: 10,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: const Color(0xFF070E1A).withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF1E3A5F)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.map_rounded, color: Color(0xFF00E5B0), size: 14),
-                  SizedBox(width: 6),
+                  const Icon(Icons.map_rounded,
+                      color: Color(0xFF00E5B0), size: 14),
+                  const SizedBox(width: 6),
                   Text(
-                    'Interactive Around Trip Route',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700),
+                    plottedStops.isNotEmpty
+                        ? '${plottedStops.length} Stops Plotted Across ${_generatedItineraryDays.length} Days'
+                        : 'Interactive Around Trip Route',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ],
               ),
@@ -8212,11 +8612,6 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                               final timeStr = block.start.isNotEmpty
                                   ? block.start
                                   : '${block.durationMin}m';
-                              final descStr = block.reason.isNotEmpty
-                                  ? block.reason
-                                  : (block.place.isNotEmpty
-                                      ? block.place
-                                      : block.address);
                               return Padding(
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 6),
@@ -8242,16 +8637,101 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          Text(block.title,
-                                              style: const TextStyle(
-                                                  color: Voy.ink,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12)),
-                                          if (descStr.isNotEmpty)
-                                            Text(descStr,
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  block.place.trim().isNotEmpty
+                                                      ? block.place
+                                                      : block.title,
+                                                  style: const TextStyle(
+                                                      color: Voy.ink,
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 13),
+                                                ),
+                                              ),
+                                              if (block.type.isNotEmpty)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 6),
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: Voy.surface2,
+                                                    borderRadius:
+                                                        BorderRadius.circular(4),
+                                                  ),
+                                                  child: Text(
+                                                    block.type.toUpperCase(),
+                                                    style: const TextStyle(
+                                                        color: Voy.violet,
+                                                        fontSize: 9,
+                                                        fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Builder(builder: (_) {
+                                            final fullName =
+                                                block.place.trim().isNotEmpty
+                                                    ? block.place
+                                                    : block.title;
+                                            final addrParts = [
+                                              block.address,
+                                              block.city,
+                                              block.state
+                                            ]
+                                                .where((s) =>
+                                                    s.trim().isNotEmpty &&
+                                                    s.trim().toLowerCase() !=
+                                                        fullName.toLowerCase())
+                                                .toSet()
+                                                .toList();
+                                            final locationText = addrParts.isNotEmpty
+                                                ? addrParts.join(', ')
+                                                : '';
+                                            if (locationText.isNotEmpty) {
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.only(bottom: 2),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.location_on_outlined,
+                                                      size: 11,
+                                                      color: Voy.brand,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Expanded(
+                                                      child: Text(
+                                                        locationText,
+                                                        style: const TextStyle(
+                                                          color: Voy.sub,
+                                                          fontSize: 11,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                            return const SizedBox.shrink();
+                                          }),
+                                          if (block.reason.isNotEmpty &&
+                                              block.reason.trim().toLowerCase() !=
+                                                  (block.place.trim().isNotEmpty
+                                                          ? block.place
+                                                          : block.title)
+                                                      .toLowerCase())
+                                            Text(block.reason,
                                                 style: const TextStyle(
                                                     color: Voy.sub,
-                                                    fontSize: 11)),
+                                                    fontSize: 10,
+                                                    fontStyle: FontStyle.italic)),
                                         ],
                                       ),
                                     ),
@@ -8560,8 +9040,15 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
-                      children:
-                          ['FOOD', 'ATTRACTIONS', 'TRAVEL SERVICES'].map((cat) {
+                      children: [
+                        'HOTELS',
+                        'RESTAURANTS',
+                        'TEMPLES',
+                        'RIVER / LAKE',
+                        'VIEWPOINTS',
+                        'FUEL & EV',
+                        'ATTRACTIONS'
+                      ].map((cat) {
                         final isSel = _selectedStopCategory == cat;
                         return Padding(
                           padding: const EdgeInsets.only(right: 8),
@@ -8686,91 +9173,187 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   }
 
   List<Map<String, dynamic>> _getQuickCategoryStops(String category) {
-    if (category == 'FOOD') {
+    if (category == 'HOTELS') {
+      return [
+        {
+          'name': 'Highway Resort & Stays',
+          'desc': 'Comfortable stay with secure parking & dining',
+          'icon': Icons.hotel_rounded,
+          'duration': 120,
+        },
+        {
+          'name': 'Boutique Heritage Hotel',
+          'desc': 'Premium rooms, swimming pool & local charm',
+          'icon': Icons.apartment_rounded,
+          'duration': 120,
+        },
+        {
+          'name': 'Budget Traveler Lodge',
+          'desc': 'Affordable AC rooms, 24/7 check-in & WiFi',
+          'icon': Icons.bed_rounded,
+          'duration': 60,
+        },
+        {
+          'name': 'Homestay & Nature Retreat',
+          'desc': 'Serene scenic stay surrounded by greenery',
+          'icon': Icons.cottage_rounded,
+          'duration': 120,
+        },
+      ];
+    } else if (category == 'RESTAURANTS' || category == 'FOOD') {
       return [
         {
           'name': 'Highway Food Court / Dhaba',
-          'desc': 'North & South Indian Thali, Fresh Chai',
+          'desc': 'North & South Indian Thali, Fresh Tandoor & Chai',
           'icon': Icons.restaurant_rounded,
           'duration': 45
         },
         {
           'name': 'Pure Veg Family Restaurant',
-          'desc': 'Bhavan / Veg Meals & Snacks',
+          'desc': 'Bhavan / Veg Meals, Ghee Roast Dosa & Filter Coffee',
           'icon': Icons.eco_rounded,
           'duration': 40
         },
         {
           'name': 'Cafe Coffee Day / Tea Point',
-          'desc': 'Coffee, Sandwiches & Restroom',
+          'desc': 'Espresso, Sandwiches, Snacks & Clean Restroom',
           'icon': Icons.local_cafe_rounded,
           'duration': 20
         },
         {
           'name': 'Non-Veg Highway Mess',
-          'desc': 'Biryani, Chicken & Kebabs',
+          'desc': 'Traditional Biryani, Chicken Sukka & Kebabs',
           'icon': Icons.dinner_dining_rounded,
           'duration': 45
         },
       ];
-    } else if (category == 'ATTRACTIONS') {
+    } else if (category == 'TEMPLES') {
       return [
         {
-          'name': 'Scenic Hilltop Viewpoint',
-          'desc': 'Valley view & photography spot',
-          'icon': Icons.landscape_rounded,
-          'duration': 30
+          'name': 'Historic Ancient Temple',
+          'desc': 'Centuries-old stone architecture & sacred darshan',
+          'icon': Icons.temple_hindu_rounded,
+          'duration': 50
         },
         {
-          'name': 'Historical Fort & Monument',
-          'desc': 'Heritage architectural landmark',
-          'icon': Icons.castle_rounded,
+          'name': 'Hilltop Devasthanam & Shrine',
+          'desc': 'Panoramic valley views with temple blessings',
+          'icon': Icons.account_balance_rounded,
           'duration': 60
         },
         {
-          'name': 'Ancient Temple Shrine',
-          'desc': 'Historic stone temple with holy pond',
-          'icon': Icons.temple_hindu_rounded,
-          'duration': 45
+          'name': 'Holy River Ghat & Temple Pond',
+          'desc': 'Sacred theertham holy bath & peaceful prayer',
+          'icon': Icons.water_rounded,
+          'duration': 40
         },
         {
-          'name': 'Waterfalls & Nature Park',
-          'desc': 'Forest trail and waterfall cascade',
-          'icon': Icons.water_drop_rounded,
+          'name': 'Heritage Jyotirlinga / Shakti Peeth',
+          'desc': 'Famed spiritual landmark and pilgrimage destination',
+          'icon': Icons.auto_awesome_rounded,
           'duration': 60
         },
       ];
-    } else {
+    } else if (category == 'RIVER / LAKE') {
+      return [
+        {
+          'name': 'Scenic Lake Promenade & Boating',
+          'desc': 'Peaceful lakeside breeze, pedal boats & walking trail',
+          'icon': Icons.water_drop_rounded,
+          'duration': 45
+        },
+        {
+          'name': 'Riverbank Ghat & Overlook',
+          'desc': 'Flowing river shores & picturesque photo opportunities',
+          'icon': Icons.waves_rounded,
+          'duration': 40
+        },
+        {
+          'name': 'Waterfall View & Cascades',
+          'desc': 'Natural fresh waterfall mist with lush forest backdrop',
+          'icon': Icons.tsunami_rounded,
+          'duration': 60
+        },
+        {
+          'name': 'Backwaters & Dam Reservoir',
+          'desc': 'Sprawling water body vista & sunset reflections',
+          'icon': Icons.pool_rounded,
+          'duration': 45
+        },
+      ];
+    } else if (category == 'VIEWPOINTS') {
+      return [
+        {
+          'name': 'Scenic Hilltop Viewpoint',
+          'desc': '360° valley panorama & photography overlook',
+          'icon': Icons.landscape_rounded,
+          'duration': 35
+        },
+        {
+          'name': 'Sunset & Sunrise Cliff Point',
+          'desc': 'Golden hour horizon view over rolling mountain peaks',
+          'icon': Icons.wb_twilight_rounded,
+          'duration': 40
+        },
+        {
+          'name': 'Highway Ghats Scenic Curve Point',
+          'desc': 'Hairpin bend overlook with deep forest gorge vista',
+          'icon': Icons.terrain_rounded,
+          'duration': 25
+        },
+        {
+          'name': 'Valley Edge Skydeck',
+          'desc': 'High observation deck looking over misty mountain valleys',
+          'icon': Icons.visibility_rounded,
+          'duration': 30
+        },
+      ];
+    } else if (category == 'FUEL & EV' || category == 'TRAVEL SERVICES') {
       return [
         {
           'name': 'Highway Fuel Station',
-          'desc': 'IOCL / BPCL / HPCL Fuel Station',
+          'desc': 'IOCL / BPCL / HPCL Fuel Station & Air',
           'icon': Icons.local_gas_station_rounded,
           'duration': 15
         },
         {
           'name': 'Tata Power EV Fast Charger',
-          'desc': '60 kW DC Fast Charging Station',
+          'desc': '60 kW DC CCS2 Fast Charging Station',
           'icon': Icons.ev_station_rounded,
           'duration': 35
         },
         {
           'name': 'Highway Restroom & Convenience',
-          'desc': 'Clean washrooms and snacks',
+          'desc': 'Clean washrooms, drinking water & travel snacks',
           'icon': Icons.wc_rounded,
           'duration': 15
         },
         {
-          'name': '24/7 ATM & Cash Point',
-          'desc': 'Bank cash withdrawal counter',
-          'icon': Icons.atm_rounded,
-          'duration': 10
+          'name': '24/7 Highway Medical & Pharmacy',
+          'desc': 'First aid, emergency care & essential medicines',
+          'icon': Icons.local_hospital_rounded,
+          'duration': 20
+        },
+      ];
+    } else {
+      return [
+        {
+          'name': 'Historical Fort & Monument',
+          'desc': 'Heritage architectural landmark & museum',
+          'icon': Icons.castle_rounded,
+          'duration': 60
         },
         {
-          'name': 'Highway Emergency Hospital',
-          'desc': 'Trauma care and pharmacy',
-          'icon': Icons.local_hospital_rounded,
-          'duration': 30
+          'name': 'Botanical Garden & Nature Park',
+          'desc': 'Lush greenery, rare flora & canopy pathways',
+          'icon': Icons.forest_rounded,
+          'duration': 45
+        },
+        {
+          'name': 'Heritage Museum & Gallery',
+          'desc': 'Cultural artifacts, royal exhibits & art gallery',
+          'icon': Icons.museum_rounded,
+          'duration': 50
         },
       ];
     }

@@ -2294,18 +2294,74 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   Future<void> _startLiveNavigation() async {
     _stopAnimation(); // clean up any preview/sim in progress
 
-    try {
-      await _ensureLocationPermission();
-    } catch (e) {
+    if (_currentPlan.coordinates.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$e'), backgroundColor: Colors.redAccent),
+          const SnackBar(content: Text('No route coordinates available to navigate.')),
         );
       }
       return;
     }
 
-    if (_currentPlan.coordinates.isEmpty) return;
+    bool fallbackToSimulation = false;
+    String fallbackReason = '';
+
+    // Check location permission & service capability
+    try {
+      if (kIsWeb) {
+        // Web browsers often block or lack continuous automotive GPS accuracy;
+        // start simulated navigation drive.
+        fallbackToSimulation = true;
+        fallbackReason = 'Web browser navigation';
+      } else {
+        await _ensureLocationPermission();
+      }
+    } catch (e) {
+      fallbackToSimulation = true;
+      fallbackReason = '$e';
+    }
+
+    // Check proximity if permission succeeded on native
+    if (!fallbackToSimulation) {
+      try {
+        final first = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
+        final here = LatLng(first.latitude, first.longitude);
+        final startDist = _distance.as(
+            LengthUnit.Meter, here, _currentPlan.coordinates.first.toLatLng());
+
+        // If user is far from the route starting point (e.g. testing remotely from home/office):
+        // do not overwrite the trip with an unwanted reroute to home!
+        if (startDist > 500.0) {
+          fallbackToSimulation = true;
+          fallbackReason = '${(startDist / 1000).toStringAsFixed(1)} km from start point';
+        } else {
+          _onLivePosition(first);
+        }
+      } catch (_) {
+        // If initial GPS read times out or fails, gracefully run simulation
+        fallbackToSimulation = true;
+        fallbackReason = 'GPS signal unavailable';
+      }
+    }
+
+    if (fallbackToSimulation) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Starting navigation ($fallbackReason)'),
+            backgroundColor: const Color(0xFF0F172A),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      _startAnimation(preview: false);
+      return;
+    }
 
     setState(() {
       _isPlayingAnimation = true;
@@ -2327,25 +2383,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       for (final fs in _currentPlan.fuel.refuelStops) {
         debugPrint('[FUEL] Stop passed to navigation: name=${fs.name}, lat=${fs.lat}, lng=${fs.lng}, refill=${fs.refillLiters}L, cost=${fs.estimatedCost}');
       }
-    }
-
-    // Initial fix: verify proximity to route start and reroute dynamically if needed
-    try {
-      final first = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-      final here = LatLng(first.latitude, first.longitude);
-      final startDist = _distance.as(LengthUnit.Meter, here, _currentPlan.coordinates.first.toLatLng());
-      if (startDist > 45.0) {
-        _triggerLiveReroute(here);
-      } else {
-        _onLivePosition(first);
-      }
-    } catch (_) {
-      // Stream will deliver a fix shortly; ignore a slow first read.
     }
 
     final LocationSettings settings;
