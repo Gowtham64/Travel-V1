@@ -1,23 +1,17 @@
-name: Cloudflare Worker Backend CI/CD
+name: Cloudflare Worker CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'cloudflare-worker/**'
       - '.github/workflows/cloudflare-worker.yml'
-    tags: ['v*']
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths:
       - 'cloudflare-worker/**'
       - '.github/workflows/cloudflare-worker.yml'
   workflow_dispatch:
-    inputs:
-      deploy:
-        description: 'Deploy to Cloudflare Workers'
-        type: boolean
-        default: true
 
 concurrency:
   group: worker-${{ github.ref }}
@@ -51,32 +45,3 @@ jobs:
 
       - name: Dry-run Wrangler Bundle
         run: npx wrangler deploy --dry-run
-
-  deploy:
-    name: Deploy to Cloudflare Workers
-    needs: test
-    if: (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.deploy == true))
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: cloudflare-worker
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: cloudflare-worker/package-lock.json
-
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: cloudflare-worker
-          command: deploy

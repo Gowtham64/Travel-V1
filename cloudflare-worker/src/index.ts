@@ -39,7 +39,7 @@ app.route('/', healthRouter);
 // 4. Rate Limiter on API routes
 app.use('/api/*', generalRateLimiter);
 
-// 5. Mount API Routes with strict parity to Render backend
+// 5. Mount API routes with strict parity to the legacy Node backend
 app.route('/api/trip', tripRouter);
 app.route('/api/geocode', geocodeRouter);
 app.route('/api/ai', aiRouter);

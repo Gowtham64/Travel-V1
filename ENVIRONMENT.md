@@ -1,65 +1,40 @@
-# VoyPlan Environment Variables Reference
+# VoyPlan Environment Variables
 
-## 1. Overview & Security Rules
+Never commit real secrets. Cloudflare Worker secrets are set with `npx wrangler secret put <NAME>` from `cloudflare-worker/`; non-secret defaults live in `wrangler.jsonc`.
 
-All configuration in VoyPlan is environment-aware and driven by 12-factor principles.
-- **Never commit `.env` files, API keys, or JWT secrets to Git.**
-- Secrets are injected via **GitHub Secrets**, **Render Environment Variables**, or **Cloudflare Pages Environment Variables**.
-- Public/client tokens (e.g. Supabase Anon Key, Mapbox public tokens) must be restricted by domain or bundle identifier.
+## Worker bindings
 
----
-
-## 2. Backend API Service (`voyplan-backend`)
-
-Configured in the **Render Dashboard → Environment** for service `voyplan-backend`:
-
-| Variable Name | Required | Secret? | Production Value / Description |
-|---|---|---|---|
-| `NODE_ENV` | Yes | No | `production` |
-| `PORT` | Yes | No | `3000` (assigned automatically by Render or defaults to 3000) |
-| `ALLOWED_ORIGINS` | Yes | No | `https://voyplan.in,https://www.voyplan.in,https://*.pages.dev` |
-| `SUPABASE_URL` | Yes | No | `https://dtemayjpttktntooxraa.supabase.co` |
-| `SUPABASE_ANON_KEY` | Yes | No | Supabase anonymous public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | **YES** | Supabase service role key (bypasses RLS for backend batch tasks) |
-| `SUPABASE_JWT_SECRET` | Yes | **YES** | Supabase JWT secret used to cryptographically verify user tokens |
-| `MAPBOX_ACCESS_TOKEN` | Yes | **YES** | Mapbox secret token for server-side matrix and routing calls |
-| `TOLLGURU_API_KEY` | Optional | **YES** | API key for toll rate calculations |
-| `GEMINI_API_KEY` | Optional | **YES** | Google AI Studio key for AI itinerary generation fallback |
-
----
-
-## 3. Flutter Web Frontend & Mobile Client
-
-Configured via Flutter compile-time definitions (`--dart-define`):
-
-| Define Name | Required | Secret? | Production Default | Description |
-|---|---|---|---|---|
-| `APP_ENV` | Yes | No | `production` | Environment profile (`production`, `staging`, `development`) |
-| `BACKEND_URL` | Yes | No | `https://api.voyplan.in` | Canonical HTTPS URL of the Express backend |
-| `MAPBOX_TOKEN` | Yes | No | Client-safe public token | Mapbox map tile and client search access token |
-| `SUPABASE_URL` | Yes | No | `https://dtemayjpttktntooxraa.supabase.co` | Supabase endpoint |
-| `SUPABASE_ANON_KEY` | Yes | No | `sb_publishable_...` | Supabase public client anon key |
-
----
-
-## 4. GitHub Actions CI/CD Secrets
-
-Configured in **GitHub Repository → Settings → Secrets and variables → Actions**:
-
-| Secret Name | Required By | Description |
+| Name | Stored as | Purpose |
 |---|---|---|
-| `CLOUDFLARE_API_TOKEN` | `deploy-production.yml`, `deploy-staging.yml` | Cloudflare API token with Pages Edit permission |
-| `CLOUDFLARE_ACCOUNT_ID` | `deploy-production.yml`, `deploy-staging.yml` | Cloudflare Account ID |
-| `CLOUDFLARE_PROJECT_NAME` | `deploy-production.yml` | Cloudflare Pages project name (e.g., `voyplan`) |
-| `MAPBOX_TOKEN` | `ci.yml`, `mobile-build.yml` | Mapbox token for Flutter test and web builds |
-| `RENDER_API_KEY` | Render deployment webhooks | Render API token if triggering webhook deploys |
+| `APP_VERSION`, `ALLOWED_ORIGINS` | Wrangler variable | Runtime metadata and allowed browser origins. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Wrangler variable | Public Supabase client configuration. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Worker secret | Elevated server-side Supabase access. |
+| `GEMINI_API_KEY`, `GOOGLE_API_KEY`, `GROQ_API_KEY`, `OPENROUTER_API_KEY` | Worker secret | AI provider credentials. |
+| `MAPBOX_TOKEN`, `ORS_API_KEY`, `TOLLGURU_API_KEY` | Worker secret | Mapping, routing, and toll-provider credentials. |
+| `PRICE_ADMIN_TOKEN` | Worker secret | Protects administrative price operations. |
 
----
-
-## 5. Verification Command
-
-To verify that your current terminal or CI environment has valid non-localhost configurations:
+Set a secret without exposing it in shell history:
 
 ```bash
-./scripts/validate-env.sh production
+cd cloudflare-worker
+npx wrangler secret put GEMINI_API_KEY
 ```
+
+## Flutter compile-time configuration
+
+| Define | Production value | Notes |
+|---|---|---|
+| `APP_ENV` | `production` | Use `development` for local work. |
+| `BACKEND_URL` | `https://api.voyplan.in` | Development defaults to `http://localhost:3000`. |
+| `MAPBOX_TOKEN` | URL-restricted public token | Client-visible; restrict it in Mapbox. |
+| `SUPABASE_URL`, `SUPABASE_ANON_KEY` | Production Supabase project | Public client configuration. |
+
+## GitHub Actions secrets
+
+| Secret | Used for |
+|---|---|
+| `CLOUDFLARE_API_TOKEN` | Worker and Pages deployment authorization. |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare account selection. |
+| `MAPBOX_TOKEN` | Production Flutter web and mobile builds. |
+
+`CLOUDFLARE_PROJECT_NAME=voyplan` is committed workflow configuration, not a secret.

@@ -27,9 +27,9 @@ project:
       lint_cmd: "flutter analyze"
       build_cmd: "flutter build web --release"
     web:
-      path: "web"
-      runtime: "static/html"
-      deploy_script: "./deploy_web.sh"
+      path: "mobile"
+      runtime: "flutter"
+      deploy_workflow: ".github/workflows/deploy-production.yml"
 
 llm:
   provider: "gemini" # gemini | openai | anthropic | local

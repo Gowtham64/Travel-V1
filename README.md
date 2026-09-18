@@ -1,56 +1,44 @@
-<p align="center"><strong>Voyplan</strong> — plan the trip, not the chaos.</p>
+<p align="center"><strong>VoyPlan</strong> — plan the trip, not the chaos.</p>
 
-An AI-powered travel planner: one-way road trips and AI round trips with
-time-blocked itineraries, live routing, fuel/toll/flight/hotel budgets, vehicle
-selection, AI flight/train/hotel suggestions, an active "today" trip view, and a
-travel photo gallery. Runs on the web, Android, and iPhone.
+VoyPlan is an AI-powered road-trip planner for web, Android, and iOS. The production application is a Flutter web SPA on Cloudflare Pages backed by a Cloudflare Worker and Supabase.
 
-- **Web app:** https://voyplan.in/
-- **Android:** [Download the APK](https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-release.apk)
-- **iPhone:** [install guide](https://voyplan.in/ios-install.html)
+- Web: https://voyplan.in/
+- API health: https://api.voyplan.in/health
+- Android: [Download the APK](https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-prod-release.apk)
 
 ## Repository layout
 
 ```
 .
-├── backend/       Node.js + Express API (AI planning, routing, budget, prices, account, collab)
-├── mobile/        Flutter app (web + Android + iOS) — the client
-├── web/           Landing site + install pages, PWA manifest, SideStore source, demo pages
-├── docs/          Branding and design notes
-├── scripts/       Cloudflare Pages Flutter build helper
-├── deploy_web.sh  Builds the Flutter web app; optional explicit Cloudflare publish
-└── LICENSE        MIT
+├── mobile/             Flutter client (web, Android, iOS)
+├── cloudflare-worker/  Hono API deployed to api.voyplan.in
+├── cloudflare/         Pages headers and SPA redirects
+├── backend/            Legacy Express reference; not production infrastructure
+├── scripts/            Build, health, and smoke-test helpers
+└── .github/workflows/  CI, production deployment, and mobile builds
 ```
 
-## Develop
+## Local development
 
-**Backend**
+Run the Worker on the URL used by the development app configuration:
+
 ```bash
-cd backend
-npm install
-cp .env.example .env   # add GEMINI_API_KEY, ORS_API_KEY, Supabase keys, etc.
-npm run dev
+cd cloudflare-worker
+npm ci
+npx wrangler dev --port 3000
 ```
 
-**Mobile (Flutter)**
+In another terminal, run the Flutter client:
+
 ```bash
 cd mobile
 flutter pub get
-flutter run --dart-define=MAPBOX_TOKEN=pk.your_token
+flutter run --dart-define=APP_ENV=development --dart-define=MAPBOX_TOKEN=pk.your_token
 ```
 
-## Deploy
+## Production deployment
 
-- **Web app** → Cloudflare Pages:
-  ```bash
-  export MAPBOX_TOKEN=pk.your_url_restricted_token
-  ./deploy_web.sh
-  ```
-  Builds `mobile/` with a root base href and stages `mobile/build/web`.
-  Set `DEPLOY_CLOUDFLARE=1` plus the Cloudflare variables to publish explicitly.
-- **Backend** → Render, auto-deploys on push to `main`.
-- **Android APK** → built with `flutter build apk --release` and published as
-  `Voyplan.apk` at the website root.
+Push or merge to `main`. `.github/workflows/deploy-production.yml` deploys the Worker, checks `https://api.voyplan.in/health`, builds the Flutter SPA, and deploys it to the `voyplan` Cloudflare Pages project. See [DEPLOYMENT.md](DEPLOYMENT.md) for prerequisites and verification.
 
 ## License
 
