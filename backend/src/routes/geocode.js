@@ -13,6 +13,7 @@ router.get("/suggest", async (req, res) => {
   }
   try {
     const suggestions = await suggestPlaces(query.trim(), 6);
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
     res.json({ suggestions });
   } catch (err) {
     console.error("Autocomplete failed:", err.message);
@@ -32,6 +33,7 @@ router.get("/", async (req, res) => {
     if (!result) {
       return res.status(404).json({ error: "No location found for that query" });
     }
+    res.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
     res.json(result);
   } catch (err) {
     console.error("Geocoding failed:", err.message);

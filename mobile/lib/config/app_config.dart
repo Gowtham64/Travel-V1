@@ -58,10 +58,17 @@ class AppConfig {
     defaultValue: 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh',
   );
 
-  /// Hosted backend base URL. Production uses the stable API custom-domain
-  /// alias. Development and staging builds override this with --dart-define.
+  /// Hosted backend base URL. Configurable by environment (`APP_ENV`) or
+  /// overridden via `--dart-define=BACKEND_URL=...`.
+  /// Development: http://localhost:3000
+  /// Staging:     https://staging-api.voyplan.in
+  /// Production:  https://api.voyplan.in
   static const String backendUrl = String.fromEnvironment(
     'BACKEND_URL',
-    defaultValue: 'https://api.voyplan.in',
+    defaultValue: appEnv == 'development'
+        ? 'http://localhost:3000'
+        : (appEnv == 'staging'
+            ? 'https://staging-api.voyplan.in'
+            : 'https://api.voyplan.in'),
   );
 }

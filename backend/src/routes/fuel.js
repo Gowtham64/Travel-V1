@@ -26,6 +26,7 @@ router.get('/prices', (req, res) => {
       fuelType: fuelType || 'petrol'
     });
 
+    res.set('Cache-Control', 'public, max-age=14400, stale-while-revalidate=86400');
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to retrieve fuel prices', message: err.message });

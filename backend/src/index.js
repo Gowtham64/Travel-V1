@@ -58,9 +58,14 @@ app.use(
     origin(origin, cb) {
       // Allow non-browser clients (mobile app, curl) which send no Origin.
       if (!origin) return cb(null, true);
-      // Only explicitly configured browser origins are allowed. Native clients
-      // and server-to-server calls omit Origin and are handled above.
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      let host = "";
+      try {
+        host = new URL(origin).hostname;
+      } catch (_) {
+        return cb(null, false);
+      }
+      // Explicitly configured browser origins or Cloudflare Pages preview domains
+      if (allowedOrigins.includes(origin) || host.endsWith(".pages.dev")) return cb(null, true);
       return cb(null, false);
     },
   })

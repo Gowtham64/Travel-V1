@@ -105,6 +105,30 @@ async function geocodeWithNominatim(query) {
   };
 }
 
+// In-memory LRU caching to eliminate repeated geocoding requests to external providers.
+const GEOCODE_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24h
+const MAX_GEOCODE_CACHE = 500;
+const geocodeCache = new Map();
+const suggestCache = new Map();
+
+function getCached(map, key) {
+  const hit = map.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.timestamp > GEOCODE_CACHE_TTL_MS) {
+    map.delete(key);
+    return null;
+  }
+  return hit.value;
+}
+
+function setCached(map, key, value) {
+  if (map.size >= MAX_GEOCODE_CACHE) {
+    const oldest = map.keys().next().value;
+    map.delete(oldest);
+  }
+  map.set(key, { value, timestamp: Date.now() });
+}
+
 /**
  * Turn a free-text address into coordinates. Tries Mapbox first, then falls
  * back to Nominatim if Mapbox errors out.
@@ -113,10 +137,16 @@ async function geocodeWithNominatim(query) {
  * @returns {Promise<{lat:number, lng:number, displayName:string}|null>}
  */
 async function geocodeAddress(query) {
+  const cacheKey = String(query || "").trim().toLowerCase();
+  if (!cacheKey) return null;
+  const cached = getCached(geocodeCache, cacheKey);
+  if (cached) return cached;
+
+  let result = null;
   // 1) ORS/Pelias first: reliable from cloud IPs and token-independent.
   try {
     const gp = await geocodeWithORS(query);
-    if (gp) return gp;
+    if (gp) result = gp;
   } catch (err) {
     console.warn(
       "ORS geocode failed, trying Mapbox:",
@@ -124,17 +154,26 @@ async function geocodeAddress(query) {
     );
   }
   // 2) Mapbox (server token, if configured and valid).
-  try {
-    const gp = await geocodeWithMapbox(query);
-    if (gp) return gp;
-  } catch (err) {
-    console.warn(
-      "Mapbox geocode failed, falling back to Nominatim:",
-      err.response ? err.response.status : err.message
-    );
+  if (!result) {
+    try {
+      const gp = await geocodeWithMapbox(query);
+      if (gp) result = gp;
+    } catch (err) {
+      console.warn(
+        "Mapbox geocode failed, falling back to Nominatim:",
+        err.response ? err.response.status : err.message
+      );
+    }
   }
   // 3) Nominatim last resort (rate-limited on shared cloud IPs).
-  return await geocodeWithNominatim(query);
+  if (!result) {
+    result = await geocodeWithNominatim(query);
+  }
+
+  if (result) {
+    setCached(geocodeCache, cacheKey, result);
+  }
+  return result;
 }
 
 /**
@@ -149,6 +188,10 @@ async function geocodeAddress(query) {
 async function suggestPlaces(query, limit = 6) {
   const q = (query || "").trim();
   if (q.length < 2) return [];
+
+  const cacheKey = `${q.toLowerCase()}:${limit}`;
+  const cached = getCached(suggestCache, cacheKey);
+  if (cached) return cached;
 
   // 0) OpenRouteService (Pelias) autocomplete — PRIMARY. Works from cloud IPs
   //    (unlike Nominatim, which blocks Render), worldwide, purpose-built for
@@ -183,7 +226,10 @@ async function suggestPlaces(query, limit = 6) {
           lat: parseFloat(f.geometry.coordinates[1]),
         }))
         .filter((s) => s.name);
-      if (list.length > 0) return list;
+      if (list.length > 0) {
+        setCached(suggestCache, cacheKey, list);
+        return list;
+      }
     } catch (err) {
       console.warn(
         "ORS autocomplete failed, trying Mapbox/Nominatim:",
@@ -219,7 +265,10 @@ async function suggestPlaces(query, limit = 6) {
           lat: parseFloat(f.center[1]),
         }))
         .filter((s) => s.name);
-      if (list.length > 0) return list;
+      if (list.length > 0) {
+        setCached(suggestCache, cacheKey, list);
+        return list;
+      }
     } catch (err) {
       console.warn(
         "Mapbox autocomplete failed, falling back to Nominatim:",
@@ -243,13 +292,17 @@ async function suggestPlaces(query, limit = 6) {
       }
     );
     const data = response.data || [];
-    return data
+    const result = data
       .map((r) => ({
         name: r.display_name || "",
         lat: parseFloat(r.lat),
         lng: parseFloat(r.lon),
       }))
       .filter((s) => s.name && !Number.isNaN(s.lat) && !Number.isNaN(s.lng));
+    if (result.length > 0) {
+      setCached(suggestCache, cacheKey, result);
+    }
+    return result;
   } catch (err) {
     console.error("Nominatim autocomplete failed:", err.message);
     return [];
