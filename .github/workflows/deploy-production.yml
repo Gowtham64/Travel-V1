@@ -1,18 +1,22 @@
 name: Deploy Production (voyplan.in → Cloudflare Pages)
 
-# EXPLICIT production deploy only — never automatic on every commit.
-# Trigger manually (Actions tab → Run workflow) after staging QA + approval,
-# OR on a version tag (v*). This publishes only the Flutter static build to
-# Cloudflare Pages; the Node API remains an independent Render deployment.
+# Deploy the production Pages project from the production branch, or manually
+# after staging QA and approval. This publishes only the Flutter static build;
+# the Node API remains an independent Cloudflare Worker deployment.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type DEPLOY to confirm production deployment'
         required: true
         default: ''
-  push:
-    tags: ['v*']
+
+# This is intentionally a workflow variable, not a secret: the Pages project
+# name is stable and must never resolve to an empty value during deployment.
+env:
+  CLOUDFLARE_PROJECT_NAME: voyplan
 
 concurrency:
   group: deploy-production
@@ -36,6 +40,21 @@ jobs:
         with:
           node-version: 22
 
+      - name: Validate Cloudflare credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::Missing required GitHub secret: CLOUDFLARE_API_TOKEN."
+            exit 1
+          fi
+          if [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Missing required GitHub secret: CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          echo "Cloudflare authentication detected."
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
@@ -44,27 +63,69 @@ jobs:
       - name: Build web (PRODUCTION config — defaults are prod)
         working-directory: mobile
         run: |
+          echo "Flutter build started."
           flutter pub get
           flutter build web --release \
             --base-href "/" \
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_URL=https://api.voyplan.in \
             --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
+          echo "Flutter build completed."
 
       - name: Add Cloudflare Pages headers and SPA fallback
         run: |
           cp cloudflare/_headers mobile/build/web/_headers
           cp cloudflare/_redirects mobile/build/web/_redirects
 
-      - name: Install pinned Wrangler
-        run: npm install --global wrangler@3.114.0
+      - name: Validate Pages build output
+        run: |
+          if [ ! -d mobile/build/web ] || [ ! -f mobile/build/web/index.html ]; then
+            echo "::error::Flutter web build output is missing at mobile/build/web."
+            exit 1
+          fi
+          echo "Build output verified: mobile/build/web"
+
+      - name: Install Wrangler
+        run: |
+          npm install --no-save --no-package-lock wrangler
+          npx wrangler --version
+
+      - name: Confirm Cloudflare Pages project
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! PROJECTS="$(npx wrangler pages project list)"; then
+            echo "::error::Unable to query Cloudflare Pages projects. Check CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID."
+            exit 1
+          fi
+          if ! printf '%s\n' "$PROJECTS" | grep -Fq "$CLOUDFLARE_PROJECT_NAME"; then
+            echo "::error::Cloudflare Pages project '$CLOUDFLARE_PROJECT_NAME' was not found. Create it in Cloudflare Dashboard before deploying."
+            exit 1
+          fi
+          echo "Pages project detected: $CLOUDFLARE_PROJECT_NAME"
 
       - name: Deploy to Cloudflare Pages
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME || 'voyplan' }}
         run: |
-          wrangler pages deploy mobile/build/web \
-            --project-name="$PAGES_PROJECT_NAME" \
-            --commit-dirty=true
+          echo "Deploying mobile/build/web"
+          npx wrangler pages deploy mobile/build/web \
+            --project-name="${{ env.CLOUDFLARE_PROJECT_NAME }}"
+
+      - name: Verify Cloudflare Pages deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if ! DEPLOYMENTS="$(npx wrangler pages deployment list --project-name="${{ env.CLOUDFLARE_PROJECT_NAME }}")"; then
+            echo "::error::Cloudflare Pages deployment verification failed."
+            exit 1
+          fi
+          if [ -z "$DEPLOYMENTS" ] || printf '%s\n' "$DEPLOYMENTS" | grep -qi 'no deployments'; then
+            echo "::error::Cloudflare Pages did not report a completed deployment for '$CLOUDFLARE_PROJECT_NAME'."
+            exit 1
+          fi
+          printf '%s\n' "$DEPLOYMENTS"
+          echo "Deployment completed."
