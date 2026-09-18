@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "voyplan-api",
+  "account_id": "fc3f2f9f88c74bdb580605433f51d033",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-18",
   "compatibility_flags": ["nodejs_compat"],
