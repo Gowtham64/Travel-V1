@@ -5,9 +5,9 @@ name: CI (PR checks)
 # (Settings → Branches) so a failing build cannot be merged to production.
 on:
   pull_request:
-    branches: [develop, main]
+    branches: [main]
   push:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
