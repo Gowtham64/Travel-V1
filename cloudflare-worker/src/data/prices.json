@@ -1,0 +1,48 @@
+{
+  "updatedAt": "2026-09-18T13:59:03.315Z",
+  "fxUpdatedAt": "2026-09-18T13:59:03.315Z",
+  "source": "live-fx",
+  "fx": {
+    "usdToInr": 95.96
+  },
+  "fuel": {
+    "petrolPerLiter": 102,
+    "dieselPerLiter": 90
+  },
+  "tollPerKm": 0.7,
+  "foodPerDay": 600,
+  "stayPerNight": 1800,
+  "localTaxiPerKm": 18,
+  "ticketRates": {
+    "flight": {
+      "perKm": 2.5,
+      "base": 1500,
+      "min": 2500
+    },
+    "train": {
+      "perKm": 1.2,
+      "base": 100,
+      "min": 250
+    },
+    "bus": {
+      "perKm": 1,
+      "base": 80,
+      "min": 150
+    },
+    "ferry": {
+      "perKm": 2,
+      "base": 200,
+      "min": 300
+    }
+  },
+  "intlUsd": {
+    "foodPerDay": 30,
+    "stayPerNight": 80,
+    "localTaxiPerKm": 0.55
+  },
+  "intl": {
+    "foodPerDay": 2879,
+    "stayPerNight": 7677,
+    "localTaxiPerKm": 53
+  }
+}

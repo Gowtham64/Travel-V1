@@ -1,0 +1,20 @@
+# Cloudflare Workers Local Development Secrets Template
+# Copy this file to .dev.vars (which is gitignored) for local development with wrangler dev
+
+# Supabase Credentials (public publishable defaults provided, can override with project keys)
+SUPABASE_URL=https://dtemayjpttktntooxraa.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh
+SUPABASE_SERVICE_ROLE_KEY=
+
+# AI Provider API Keys
+GEMINI_API_KEY=
+GROQ_API_KEY=
+OPENROUTER_API_KEY=
+
+# Mapping & Routing APIs
+MAPBOX_TOKEN=
+ORS_API_KEY=
+TOLLGURU_API_KEY=
+
+# Admin Tokens
+PRICE_ADMIN_TOKEN=

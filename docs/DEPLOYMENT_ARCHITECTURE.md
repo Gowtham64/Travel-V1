@@ -3,13 +3,14 @@
 ## Target topology
 
 ```text
-Browser
+Browser / Mobile Clients
   ├── https://voyplan.in      ── Cloudflare Pages (Flutter Web + static assets)
   ├── https://www.voyplan.in  ── Cloudflare Pages (same production project)
-  └── https://api.voyplan.in  ── custom domain ── Render Node/Express API
-                                                    ├── Supabase Auth/DB
-                                                    ├── routing/geocoding providers
-                                                    └── Gemini (server-side only)
+  └── https://api.voyplan.in  ── Cloudflare Workers Edge API (Hono TypeScript)
+                                  ├── Supabase Auth/DB
+                                  ├── Routing / Geocoding providers (Mapbox, ORS)
+                                  ├── Gemini 2.5 AI Trip Planner
+                                  └── Hot Standby Fallback: Render Node API (backend/)
 ```
 
 The repository's source of truth is `mobile/`. The committed `app/`,
@@ -22,14 +23,14 @@ loads the application. Existing `/app/` links are redirected to `/`.
 
 - Cloudflare Pages serves HTML, JavaScript, Flutter/CanvasKit assets, fonts,
   images, icons, PWA assets, legal pages, and install resources.
-- Render serves the Node.js API under `/api/*` and `/health` only. The Express
-  app does not serve Flutter static files.
+- Cloudflare Workers serves the primary production API under `https://api.voyplan.in`.
+  Built with Hono TypeScript on the V8 isolate runtime with zero bandwidth limits.
+- Render serves as an operational hot standby / rollback target running `backend/` Node.js service.
 - Supabase remains the authentication and database layer. Flutter receives only
   the public Supabase URL and publishable/anon key.
-- Gemini, Google, Groq, OpenRouter, ORS, TollGuru, and any future privileged
-  credentials remain Render environment variables.
-- The separate `voyplan-ai-engineering` Python service remains unchanged and is
-  not part of the Pages deployment.
+- Gemini, Google, Groq, OpenRouter, ORS, TollGuru, and all privileged credentials
+  are stored securely as Cloudflare Worker secrets.
+- The separate `voyplan-ai-engineering` Python service remains unchanged.
 
 ## Current Render hostname
 

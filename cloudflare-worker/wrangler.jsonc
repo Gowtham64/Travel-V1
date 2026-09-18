@@ -1,0 +1,23 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "voyplan-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    {
+      "pattern": "api.voyplan.in/*",
+      "zone_name": "voyplan.in"
+    }
+  ],
+  "vars": {
+    "APP_VERSION": "2.5.0",
+    "ALLOWED_ORIGINS": "https://voyplan.in,https://www.voyplan.in,http://localhost:3000,http://localhost:8080,http://localhost:5000",
+    "SUPABASE_URL": "https://dtemayjpttktntooxraa.supabase.co",
+    "SUPABASE_ANON_KEY": "sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

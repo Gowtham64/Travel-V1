@@ -1,0 +1,23 @@
+{
+  "name": "voyplan-worker-api",
+  "version": "2.5.0",
+  "description": "VoyPlan Cloudflare Workers Production Backend API",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "build": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "hono": "^4.7.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250224.0",
+    "@types/node": "^26.6.1",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8",
+    "wrangler": "^3.114.0"
+  }
+}

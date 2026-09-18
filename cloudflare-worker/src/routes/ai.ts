@@ -1,0 +1,662 @@
+import { Hono } from "hono";
+import type { Env, Variables } from "../types/env";
+import { aiRateLimiter } from "../middleware/rateLimit";
+import {
+  recommendStops,
+  searchPlaces,
+  travelOptions,
+  ask,
+  buildItinerary,
+  buildFallbackSmartItinerary,
+  listModels,
+  AiConfigError,
+  PROVIDER,
+  ACTIVE_MODEL,
+} from "../services/aiService";
+import { geocode } from "../services/itineraryGeo";
+import * as itineraryEngine from "../services/itineraryEngine";
+import { validateItineraryWithGemini } from "../services/geminiValidatorService";
+import { estimateBudget } from "../services/budgetService";
+import priceService from "../services/priceService";
+import { calculateTripRoute } from "../services/routeCalculationService";
+import { normalizeTripType } from "../utils/tripType";
+
+const aiRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
+
+// Apply AI rate limiter (30 req / 1 min)
+aiRouter.use("*", aiRateLimiter);
+
+// Generous bounding box for India (mainland + islands).
+function isInIndia(pt: { lat: number; lng: number } | null) {
+  return !!pt && pt.lat >= 6.5 && pt.lat <= 37.5 && pt.lng >= 68.0 && pt.lng <= 97.5;
+}
+
+// Accept either a place-name string or a { lat, lng } coordinate object.
+function toPlaceString(v: any): string {
+  if (v == null) return "";
+  if (typeof v === "object") {
+    const lat = v.lat ?? v.latitude;
+    const lng = v.lng ?? v.lon ?? v.longitude;
+    const name = v.name ? (typeof v.name === "object" ? (v.name.name || v.name.title || "") : String(v.name)) : "";
+    if (name && name !== "[object Object]") return name;
+    if (lat != null && lng != null && Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) return `${lat},${lng}`;
+    return "";
+  }
+  const s = String(v).trim();
+  return s === "[object Object]" ? "" : s;
+}
+
+function cleanObjectStrings(obj: any): any {
+  if (obj == null) return obj;
+  if (typeof obj === "string") {
+    if (obj === "[object Object]") return "";
+    if (obj.includes("[object Object]")) {
+      return obj.replace(/\[object Object\]/g, "").trim();
+    }
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanObjectStrings);
+  }
+  if (typeof obj === "object") {
+    const res: any = {};
+    for (const [k, v] of Object.entries(obj)) {
+      res[k] = cleanObjectStrings(v);
+    }
+    return res;
+  }
+  return obj;
+}
+
+function normalizeLocationInput(loc: any): any {
+  if (!loc) return "";
+  if (typeof loc === "object") {
+    return itineraryEngine.normalizeCanonicalLocation(loc);
+  }
+  const clean = itineraryEngine.extractLocationName(loc, "");
+  return clean || String(loc).trim();
+}
+
+function handleError(c: any, err: any) {
+  if (err instanceof AiConfigError) {
+    return c.json({ error: "AI is not configured on the server." }, 503);
+  }
+  const status = err.response ? err.response.status : 502;
+  const upstream = err.response && err.response.data ? err.response.data : null;
+  const upstreamMessage = upstream && upstream.error ? upstream.error.message : err.message;
+  console.error("AI request failed:", err.message);
+
+  if (status === 429) {
+    const m = /try again in ([0-9hms.\s]+)/i.exec(upstreamMessage || "");
+    return c.json({
+      error: m
+        ? `The AI is busy right now (daily limit reached). Please try again in ${m[1].trim()}.`
+        : "The AI is busy right now (rate limit reached). Please try again in a few minutes.",
+      upstreamStatus: 429,
+    }, 429);
+  }
+  return c.json({
+    error: "AI request failed",
+    upstreamStatus: status,
+    upstreamMessage,
+    upstreamStatusText: upstream && upstream.error ? upstream.error.status : undefined,
+  }, 502);
+}
+
+// GET /api/ai/status
+aiRouter.get("/status", (c) => {
+  const env = c.env;
+  const keyByProvider: Record<string, string | undefined> = {
+    gemini: env.GEMINI_API_KEY || env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY,
+    groq: env.GROQ_API_KEY || process.env.GROQ_API_KEY,
+    openrouter: env.OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY,
+  };
+  return c.json({
+    provider: PROVIDER,
+    model: ACTIVE_MODEL,
+    configured: !!keyByProvider[PROVIDER],
+  });
+});
+
+// GET /api/ai/models
+aiRouter.get("/models", async (c) => {
+  try {
+    const models = await listModels();
+    return c.json({ provider: PROVIDER, current: ACTIVE_MODEL, available: models });
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/recommend
+aiRouter.post("/recommend", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { start, end, waypoints } = body;
+  if (!start || !end) {
+    return c.json({ error: "start and end are required" }, 400);
+  }
+  try {
+    const places = await recommendStops({
+      start: toPlaceString(start),
+      end: toPlaceString(end),
+      waypoints: (Array.isArray(waypoints) ? waypoints : []).map(toPlaceString).filter(Boolean),
+    });
+    return c.json({ places });
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/search
+aiRouter.post("/search", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { query, near } = body;
+  if (!query || !String(query).trim()) {
+    return c.json({ error: "query is required" }, 400);
+  }
+  try {
+    const places = await searchPlaces({ query: String(query), near });
+    return c.json({ places });
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/travel-options
+aiRouter.post("/travel-options", async (c) => {
+  const b = await c.req.json().catch(() => ({}));
+  if (!b.to || !String(b.to).trim()) {
+    return c.json({ error: "to (destination) is required" }, 400);
+  }
+  try {
+    const options = await travelOptions({
+      from: b.from ? String(b.from) : "",
+      to: String(b.to),
+      startDate: b.startDate ? String(b.startDate) : "",
+      travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+      nights: Math.max(0, Math.min(Number(b.nights) || 0, 60)),
+    });
+    return c.json(options);
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/itinerary
+aiRouter.post("/itinerary", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { start, end, days, waypoints, travellers, purpose, startDate, startTime, startDateTime, timezone, weather } = body;
+  if (!start || !end) {
+    return c.json({ error: "start and end are required" }, 400);
+  }
+  try {
+    let resolvedDate = startDate ? String(startDate) : "";
+    let resolvedTime = startTime ? String(startTime) : "";
+    if (startDateTime && (!resolvedDate || !resolvedTime)) {
+      const dtParts = String(startDateTime).trim().split(/[T ]/);
+      if (dtParts.length >= 1 && !resolvedDate) resolvedDate = dtParts[0];
+      if (dtParts.length >= 2 && !resolvedTime) resolvedTime = dtParts[1];
+    }
+
+    const itinerary = await buildItinerary({
+      start: toPlaceString(start),
+      end: toPlaceString(end),
+      days: Number(days) || 1,
+      waypoints: (Array.isArray(waypoints) ? waypoints : []).map(toPlaceString).filter(Boolean),
+      travellers: Number(travellers) || 1,
+      purpose: purpose ? String(purpose) : "",
+      startDate: resolvedDate,
+      startTime: resolvedTime,
+      timezone: timezone ? String(timezone) : "",
+      weather: weather ? String(weather) : "",
+    } as any);
+    return c.json({ days: itinerary });
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/smart-itinerary
+aiRouter.post("/smart-itinerary", async (c) => {
+  const b = await c.req.json().catch(() => ({}));
+  if (!b.destination && !b.startLocation) {
+    return c.json({ error: "destination or startLocation is required" }, 400);
+  }
+  try {
+    const startLocation = normalizeLocationInput(b.startLocation) || normalizeLocationInput(b.destination);
+    const destination = normalizeLocationInput(b.destination) || startLocation;
+    let resolvedDate = b.startDate ? String(b.startDate) : "";
+    let resolvedTime = b.startTime ? String(b.startTime) : "";
+    if (b.startDateTime && (!resolvedDate || !resolvedTime)) {
+      const dtParts = String(b.startDateTime).trim().split(/[T ]/);
+      if (dtParts.length >= 1 && !resolvedDate) resolvedDate = dtParts[0];
+      if (dtParts.length >= 2 && !resolvedTime) resolvedTime = dtParts[1];
+    }
+    if (!resolvedTime) resolvedTime = "08:00";
+
+    const tripType = normalizeTripType(b.tripType);
+    const searchRadiusKm = Number(b.searchRadiusKm) > 0 ? Number(b.searchRadiusKm) : 25;
+    const durationDays = Math.max(1, Math.min(Number(b.durationDays) || 1, 14));
+    const vehicleType = String(b.vehicleType || "car").toLowerCase();
+    const fuelEfficiency = Number(b.fuelEfficiency) > 0 ? Number(b.fuelEfficiency) : (vehicleType === "bike" ? 35 : 15);
+    const tankCapacity = Number(b.tankCapacity) > 0 ? Number(b.tankCapacity) : (vehicleType === "bike" ? 13 : 45);
+    const currentFuel = Number(b.currentFuel) > 0 ? Number(b.currentFuel) : tankCapacity * 0.7;
+    const mode = ["relaxed", "balanced", "packed"].includes(b.mode) ? b.mode : "balanced";
+    const preferences = [b.preferences, b.customPreferences].filter(Boolean).join(". ");
+    const rawCategories = Array.isArray(b.selectedCategories) && b.selectedCategories.length > 0
+      ? b.selectedCategories
+      : (Array.isArray(b.categories) ? b.categories : []);
+    const selectedCategories = rawCategories.map(String).filter(Boolean);
+    const travellers = Math.max(1, Math.min(Number(b.travellers) || 1, 20));
+
+    const MAX_VALIDATION_CYCLES = 3;
+    let planResult: any = null;
+    let validationResult: any = null;
+    let correctionFeedback: any = null;
+    let approved = false;
+    let validationCycles = 0;
+
+    for (let cycle = 1; cycle <= MAX_VALIDATION_CYCLES; cycle++) {
+      validationCycles = cycle;
+      console.log(`[SMART PLANNER] === Generation Cycle ${cycle}/${MAX_VALIDATION_CYCLES} ===`);
+
+      planResult = await itineraryEngine.planItinerary({
+        startLocation,
+        destination,
+        tripType,
+        startDate: resolvedDate,
+        startTime: resolvedTime,
+        startDateTime: b.startDateTime ? String(b.startDateTime) : "",
+        timezone: b.timezone ? String(b.timezone) : "Asia/Kolkata",
+        durationDays,
+        mode,
+        places: (Array.isArray(b.places) ? b.places : []).map(String).filter(Boolean),
+        selectedCategories,
+        categoryPriorities: b.categoryPriorities && typeof b.categoryPriorities === "object" ? b.categoryPriorities : {},
+        preferences,
+        vehicle: {
+          type: vehicleType,
+          efficiencyKmPerLiter: fuelEfficiency,
+          tankCapacityLiters: tankCapacity,
+          currentFuelLiters: currentFuel,
+        },
+        travellers,
+        searchRadiusKm,
+        correctionFeedback,
+      });
+
+      validationResult = await validateItineraryWithGemini({
+        itinerary: planResult,
+        destination: planResult.destinationPoint || destination,
+        origin: planResult.startPoint || startLocation,
+        selectedCategories,
+        durationDays,
+        mode,
+        preferences,
+      });
+
+      if (validationResult.valid) {
+        console.log(`[SMART PLANNER] Itinerary APPROVED by Gemini on cycle ${cycle}.`);
+        approved = true;
+        break;
+      }
+
+      console.warn(`[SMART PLANNER] Itinerary REJECTED by Gemini on cycle ${cycle}. Issues: ${validationResult.issues.length}.`);
+
+      correctionFeedback = {
+        blacklistedPlaceIds: [
+          ...new Set([
+            ...(correctionFeedback?.blacklistedPlaceIds || []),
+            ...(validationResult.blacklistedPlaceIds || []),
+          ]),
+        ],
+        blacklistedNames: [
+          ...new Set([
+            ...(correctionFeedback?.blacklistedNames || []),
+            ...(validationResult.blacklistedNames || []),
+          ]),
+        ],
+        missingCategories: [
+          ...new Set([
+            ...(correctionFeedback?.missingCategories || []),
+            ...(validationResult.missingCategories || []),
+          ]),
+        ],
+        requiredCorrections: validationResult.requiredCorrections,
+      };
+    }
+
+    if (!approved) {
+      return c.json({
+        error: "Unable to generate an approved itinerary for the selected preferences. Please adjust your categories, dates, or pace.",
+        validation: {
+          approved: false,
+          cycles: validationCycles,
+          ...(validationResult || {}),
+        },
+      }, 422);
+    }
+
+    const days = planResult.days;
+    let budget: any = null;
+    try {
+      let groundKm = planResult.totalDistanceKm || 0;
+      const transportLegs: any[] = [];
+      let international = false;
+      try {
+        const destPt = await geocode(destination, "");
+        if (destPt) international = !isInIndia(destPt);
+      } catch (_) {}
+
+      const driveKm = international ? 0 : groundKm;
+      const localKm = international ? groundKm : 0;
+      const rates = priceService.getRates();
+      const tollGuess = Math.round(driveKm * rates.tollPerKm);
+
+      budget = estimateBudget({
+        driveKm: Math.round(driveKm),
+        localTransportKm: Math.round(localKm),
+        transportLegs,
+        ticketRates: rates.ticketRates,
+        estimatedDays: durationDays,
+        vehicle: { efficiencyKmPerLiter: fuelEfficiency },
+        toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+        options: {
+          international,
+          travellers,
+          fuelPricePerLiter: Number(b.fuelPrice) > 0 ? Number(b.fuelPrice) : rates.fuel.petrolPerLiter,
+          foodPerDay: international ? rates.intl.foodPerDay : rates.foodPerDay,
+          stayPerNight: international ? rates.intl.stayPerNight : rates.stayPerNight,
+          localTaxiPerKm: international ? rates.intl.localTaxiPerKm : rates.localTaxiPerKm,
+        },
+      });
+    } catch (err: any) {
+      console.error("Itinerary budget estimate skipped:", err.message);
+    }
+
+    return c.json(cleanObjectStrings({
+      days,
+      budget: planResult.budget || budget,
+      route: planResult.route || null,
+      navigationRoute: planResult.navigationRoute || null,
+      tripPlan: planResult.tripPlan || null,
+      routeVersion: planResult.routeVersion || 1,
+      tripType: planResult.tripType || "around",
+      startPoint: planResult.startPoint,
+      endPoint: planResult.endPoint,
+      destinationPoint: planResult.destinationPoint,
+      searchRadiusKm: planResult.searchRadiusKm,
+      placesFoundCount: planResult.placesFoundCount,
+      canExpandSearch: planResult.canExpandSearch,
+      nextSearchRadiusKm: planResult.nextSearchRadiusKm,
+      totalDistanceKm: planResult.totalDistanceKm,
+      totalDurationMin: planResult.totalDurationMin,
+      status: "APPROVED",
+      validation: {
+        approved: true,
+        cycles: validationCycles,
+        ...validationResult,
+      },
+    }));
+  } catch (err: any) {
+    console.warn("[SMART PLANNER] ItineraryEngine error:", err.message, "- generating smart fallback");
+    try {
+      const fb: any = buildFallbackSmartItinerary({
+        destination: b.destination,
+        startLocation: b.startLocation,
+        durationDays: Number(b.durationDays) || 1,
+        startTime: b.startTime || "08:00",
+        places: Array.isArray(b.places) ? b.places : [],
+        preferences: [b.preferences, b.customPreferences].filter(Boolean).join(". "),
+        travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+        selectedCategories: Array.isArray(b.selectedCategories) ? b.selectedCategories : (Array.isArray(b.categories) ? b.categories : []),
+      } as any);
+      if (fb && (fb.length > 0 || (fb.days && fb.days.length > 0))) {
+        const days = Array.isArray(fb) ? fb : fb.days;
+        let totalKm = 0;
+        for (const day of days) {
+          for (const blk of (day.blocks || [])) {
+            if (blk.distanceKm) totalKm += Number(blk.distanceKm) || 0;
+          }
+        }
+        totalKm = Math.round(totalKm * 10) / 10;
+        if (totalKm === 0) totalKm = 350;
+
+        const rates = priceService.getRates();
+        const eff = Number(b.fuelEfficiency) || 15;
+        const tollGuess = Math.round(totalKm * rates.tollPerKm);
+        const budget = estimateBudget({
+          distanceKm: totalKm,
+          driveKm: totalKm,
+          localTransportKm: 0,
+          transportLegs: [],
+          ticketRates: rates.ticketRates,
+          estimatedDays: days.length,
+          vehicle: { efficiencyKmPerLiter: eff },
+          toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+          options: {
+            travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+            fuelPricePerLiter: rates.fuel.petrolPerLiter,
+            foodPerDay: rates.foodPerDay,
+            stayPerNight: rates.stayPerNight,
+          },
+        });
+
+        return c.json(cleanObjectStrings({
+          days,
+          totalDistanceKm: totalKm,
+          totalDurationMin: Math.round((totalKm / 50) * 60),
+          budget,
+          status: "APPROVED",
+        }));
+      }
+    } catch (fbErr: any) {
+      console.error("[SMART PLANNER] Fallback generator failed:", fbErr.message);
+    }
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/recalculate-itinerary
+aiRouter.post("/recalculate-itinerary", async (c) => {
+  const b = await c.req.json().catch(() => ({}));
+  const days = Array.isArray(b.days) ? b.days : [];
+  if (days.length === 0) {
+    return c.json({ error: "days array is required" }, 400);
+  }
+
+  try {
+    const inputVersion = Number(b.routeVersion) || 1;
+    const nextRouteVersion = inputVersion + 1;
+
+    let startPoint: any = null;
+    let destPoint: any = null;
+    const intermediateStops: any[] = [];
+
+    if (b.origin || b.startLocation) {
+      try {
+        startPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.origin || b.startLocation), "Origin");
+      } catch (_) {}
+    }
+    if (b.destination) {
+      try {
+        destPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.destination), "Destination", startPoint);
+      } catch (_) {}
+    }
+
+    for (const day of days) {
+      const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+      for (const blk of blocks) {
+        if (!startPoint && blk.type === "start" && blk.lat && blk.lng) {
+          startPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address };
+        }
+        if (!destPoint && (blk.isDestination || blk.isDestinationAnchor) && blk.lat && blk.lng) {
+          destPoint = { lat: blk.lat, lng: blk.lng, name: blk.place || blk.title, address: blk.address, placeId: blk.placeId };
+        }
+        if (
+          blk.lat && blk.lng &&
+          blk.type !== "travel" && blk.type !== "return" && blk.type !== "start" &&
+          !blk.isDestination
+        ) {
+          const isDup = intermediateStops.length > 0 &&
+            intermediateStops[intermediateStops.length - 1].name === (blk.place || blk.title) &&
+            Math.sqrt(
+              Math.pow((intermediateStops[intermediateStops.length - 1].lat - blk.lat) * 111, 2) +
+              Math.pow((intermediateStops[intermediateStops.length - 1].lng - blk.lng) * 111 * Math.cos((blk.lat * Math.PI) / 180), 2)
+            ) < 0.05;
+          if (!isDup) {
+            intermediateStops.push({
+              id: blk.id,
+              name: blk.place || blk.title,
+              lat: blk.lat,
+              lng: blk.lng,
+              address: blk.address || blk.place || blk.title,
+              type: blk.type,
+              sequence: intermediateStops.length + 1,
+              durationMin: blk.durationMin,
+              stayDuration: blk.durationMin,
+              category: blk.category,
+              reason: blk.reason,
+            });
+          }
+        }
+      }
+    }
+
+    if (!startPoint && intermediateStops.length > 0) {
+      startPoint = { lat: intermediateStops[0].lat, lng: intermediateStops[0].lng, name: intermediateStops[0].name };
+    }
+    if (!destPoint) {
+      destPoint = intermediateStops.length > 0 ? intermediateStops[intermediateStops.length - 1] : startPoint;
+    }
+
+    let routeCalc: any = null;
+    if (startPoint && destPoint) {
+      try {
+        routeCalc = await calculateTripRoute({
+          origin: startPoint,
+          destination: destPoint,
+          stops: intermediateStops,
+          vehicle: {
+            type: b.vehicleType || "car",
+            efficiencyKmPerLiter: Number(b.fuelEfficiency) || 15,
+            tankCapacityLiters: Number(b.tankCapacity) || 45,
+            currentFuelLiters: Number(b.currentFuel) || 30,
+          },
+          tripType: normalizeTripType(b.tripType),
+          durationDays: days.length,
+          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          routeVersion: nextRouteVersion,
+        });
+      } catch (err: any) {
+        console.warn("[RECALCULATE ITINERARY] Route calculation warning:", err.message);
+      }
+    }
+
+    if (routeCalc && routeCalc.route && Array.isArray(routeCalc.route.legs) && routeCalc.route.legs.length > 0) {
+      const legs = routeCalc.route.legs;
+      let legIdx = 0;
+      for (const day of days) {
+        const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+        for (const blk of blocks) {
+          if ((blk.type === "travel" || blk.type === "return") && legIdx < legs.length) {
+            const rLeg = legs[legIdx++];
+            if (rLeg.distanceKm > 0) {
+              blk.distanceKm = Math.round(rLeg.distanceKm * 10) / 10;
+              blk.travelMin = Math.max(1, Math.round(rLeg.durationMin || (rLeg.durationSeconds / 60) || 5));
+            }
+          }
+        }
+      }
+    }
+
+    let startMin = b.startTime ? itineraryEngine.parseMinutes(b.startTime) : itineraryEngine.parseMinutes(days[0].blocks?.[0]?.start || "08:00");
+    let fallbackTotalKm = 0;
+
+    for (let d = 0; d < days.length; d++) {
+      const day = days[d];
+      let cur = d === 0 ? startMin : 510;
+      const blocks = Array.isArray(day.blocks) ? day.blocks : [];
+
+      for (let i = 0; i < blocks.length; i++) {
+        const blk = blocks[i];
+        blk.day = d + 1;
+        blk.sequence = i;
+
+        if (blk.type === "travel" || blk.type === "return") {
+          const travelDur = Math.max(1, Number(blk.travelMin) || Math.round(((Number(blk.distanceKm) || 15) / 50) * 60));
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur + travelDur);
+          cur += travelDur;
+          fallbackTotalKm += Number(blk.distanceKm) || 0;
+        } else if (blk.type === "start") {
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur);
+        } else {
+          const dur = Math.max(5, Number(blk.durationMin) || 30);
+          blk.start = itineraryEngine.formatMinutes(cur);
+          blk.end = itineraryEngine.formatMinutes(cur + dur);
+          cur += dur;
+        }
+      }
+    }
+
+    const authoritativeDistanceKm = routeCalc?.route?.distanceKm ?? (Math.round(fallbackTotalKm * 10) / 10);
+    const authoritativeDurationMin = routeCalc?.route?.durationMin ?? (Math.round((fallbackTotalKm / 50) * 60));
+
+    let budget = routeCalc?.budget;
+    if (!budget) {
+      const rates = priceService.getRates();
+      const eff = Number(b.fuelEfficiency) || 15;
+      const tollGuess = Math.round(authoritativeDistanceKm * rates.tollPerKm);
+      budget = estimateBudget({
+        distanceKm: Math.round(authoritativeDistanceKm),
+        driveKm: Math.round(authoritativeDistanceKm),
+        localTransportKm: 0,
+        transportLegs: [],
+        ticketRates: rates.ticketRates,
+        estimatedDays: days.length,
+        vehicle: { efficiencyKmPerLiter: eff },
+        toll: { hasTolls: tollGuess > 0, fastagTollCost: tollGuess },
+        options: {
+          travellers: Math.max(1, Math.min(Number(b.travellers) || 1, 20)),
+          fuelPricePerLiter: rates.fuel.petrolPerLiter,
+          foodPerDay: rates.foodPerDay,
+          stayPerNight: rates.stayPerNight,
+        },
+      });
+    }
+
+    return c.json(cleanObjectStrings({
+      days,
+      route: routeCalc?.route || null,
+      navigationRoute: routeCalc?.navigationRoute || null,
+      tripPlan: routeCalc?.tripPlan || null,
+      totalDistanceKm: authoritativeDistanceKm,
+      totalDurationMin: authoritativeDurationMin,
+      budget,
+      routeVersion: nextRouteVersion,
+      status: b.isConfirmed ? "CONFIRMED" : "DRAFT",
+    }));
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+// POST /api/ai/ask
+aiRouter.post("/ask", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { question, context } = body;
+  if (!question || !String(question).trim()) {
+    return c.json({ error: "question is required" }, 400);
+  }
+  try {
+    const text = await ask({ question: String(question), context });
+    return c.json({ text });
+  } catch (err: any) {
+    return handleError(c, err);
+  }
+});
+
+export { aiRouter };
+export default aiRouter;

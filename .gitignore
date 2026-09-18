@@ -1,6 +1,9 @@
 # Backend
 backend/node_modules/
 backend/.env
+cloudflare-worker/node_modules/
+cloudflare-worker/.dev.vars
+.dev.vars
 
 # Flutter
 mobile/.dart_tool/

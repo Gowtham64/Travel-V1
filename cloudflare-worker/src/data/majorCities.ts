@@ -1,0 +1,54 @@
+/**
+ * Curated Major Cities with accurate geographic coordinates and state/country metadata.
+ */
+export interface CityMeta {
+  lat: number;
+  lng: number;
+  name: string;
+  city: string;
+  state: string;
+  country: string;
+}
+
+export const MAJOR_CITIES: Record<string, CityMeta> = {
+  bengaluru: { lat: 12.9716, lng: 77.5946, name: "Bengaluru", city: "Bengaluru", state: "Karnataka", country: "India" },
+  bangalore: { lat: 12.9716, lng: 77.5946, name: "Bengaluru", city: "Bengaluru", state: "Karnataka", country: "India" },
+  mysuru: { lat: 12.2958, lng: 76.6394, name: "Mysuru", city: "Mysuru", state: "Karnataka", country: "India" },
+  mysore: { lat: 12.2958, lng: 76.6394, name: "Mysuru", city: "Mysuru", state: "Karnataka", country: "India" },
+  tirupati: { lat: 13.6288, lng: 79.4192, name: "Tirupati", city: "Tirupati", state: "Andhra Pradesh", country: "India" },
+  tirumala: { lat: 13.6833, lng: 79.3473, name: "Tirumala", city: "Tirupati", state: "Andhra Pradesh", country: "India" },
+  coorg: { lat: 12.4244, lng: 75.7382, name: "Madikeri (Coorg)", city: "Coorg", state: "Karnataka", country: "India" },
+  madikeri: { lat: 12.4244, lng: 75.7382, name: "Madikeri (Coorg)", city: "Coorg", state: "Karnataka", country: "India" },
+  ooty: { lat: 11.4102, lng: 76.6950, name: "Ooty", city: "Ooty", state: "Tamil Nadu", country: "India" },
+  chennai: { lat: 13.0827, lng: 80.2707, name: "Chennai", city: "Chennai", state: "Tamil Nadu", country: "India" },
+  hyderabad: { lat: 17.3850, lng: 78.4867, name: "Hyderabad", city: "Hyderabad", state: "Telangana", country: "India" },
+  mumbai: { lat: 19.0760, lng: 72.8777, name: "Mumbai", city: "Mumbai", state: "Maharashtra", country: "India" },
+  goa: { lat: 15.2993, lng: 74.1240, name: "Goa", city: "Goa", state: "Goa", country: "India" },
+  delhi: { lat: 28.6139, lng: 77.2090, name: "Delhi", city: "Delhi", state: "Delhi", country: "India" },
+  srirangapatna: { lat: 12.4237, lng: 76.6853, name: "Srirangapatna", city: "Srirangapatna", state: "Karnataka", country: "India" },
+  madurai: { lat: 9.9252, lng: 78.1198, name: "Madurai", city: "Madurai", state: "Tamil Nadu", country: "India" },
+  tiruchirappalli: { lat: 10.7905, lng: 78.7047, name: "Tiruchirappalli", city: "Tiruchirappalli", state: "Tamil Nadu", country: "India" },
+  trichy: { lat: 10.7905, lng: 78.7047, name: "Tiruchirappalli", city: "Tiruchirappalli", state: "Tamil Nadu", country: "India" },
+  thanjavur: { lat: 10.7870, lng: 79.1378, name: "Thanjavur", city: "Thanjavur", state: "Tamil Nadu", country: "India" },
+  dindigul: { lat: 10.3673, lng: 77.9803, name: "Dindigul", city: "Dindigul", state: "Tamil Nadu", country: "India" },
+  rameswaram: { lat: 9.2876, lng: 79.3129, name: "Rameswaram", city: "Rameswaram", state: "Tamil Nadu", country: "India" },
+  kodaikanal: { lat: 10.2381, lng: 77.4892, name: "Kodaikanal", city: "Kodaikanal", state: "Tamil Nadu", country: "India" },
+  pondicherry: { lat: 11.9416, lng: 79.8083, name: "Puducherry", city: "Puducherry", state: "Puducherry", country: "India" },
+  salem: { lat: 11.6643, lng: 78.1460, name: "Salem", city: "Salem", state: "Tamil Nadu", country: "India" },
+  vellore: { lat: 12.9165, lng: 79.1325, name: "Vellore", city: "Vellore", state: "Tamil Nadu", country: "India" },
+  tirunelveli: { lat: 8.7139, lng: 77.7567, name: "Tirunelveli", city: "Tirunelveli", state: "Tamil Nadu", country: "India" },
+  kanyakumari: { lat: 8.0883, lng: 77.5385, name: "Kanyakumari", city: "Kanyakumari", state: "Tamil Nadu", country: "India" },
+  coimbatore: { lat: 11.0168, lng: 76.9558, name: "Coimbatore", city: "Coimbatore", state: "Tamil Nadu", country: "India" },
+  maddur: { lat: 12.5844, lng: 77.0453, name: "Maddur", city: "Maddur", state: "Karnataka", country: "India" },
+  mandya: { lat: 12.5244, lng: 76.8967, name: "Mandya", city: "Mandya", state: "Karnataka", country: "India" },
+  channapatna: { lat: 12.6518, lng: 77.2089, name: "Channapatna", city: "Channapatna", state: "Karnataka", country: "India" },
+  ramanagara: { lat: 12.7209, lng: 77.2799, name: "Ramanagara", city: "Ramanagara", state: "Karnataka", country: "India" },
+  tumakuru: { lat: 13.3379, lng: 77.1173, name: "Tumakuru", city: "Tumakuru", state: "Karnataka", country: "India" },
+  tumkur: { lat: 13.3379, lng: 77.1173, name: "Tumakuru", city: "Tumakuru", state: "Karnataka", country: "India" },
+  hassan: { lat: 13.0033, lng: 76.1004, name: "Hassan", city: "Hassan", state: "Karnataka", country: "India" },
+  chikmagalur: { lat: 13.3153, lng: 75.7754, name: "Chikmagalur", city: "Chikmagalur", state: "Karnataka", country: "India" },
+  mangaluru: { lat: 12.9141, lng: 74.8560, name: "Mangaluru", city: "Mangaluru", state: "Karnataka", country: "India" },
+  mangalore: { lat: 12.9141, lng: 74.8560, name: "Mangaluru", city: "Mangaluru", state: "Karnataka", country: "India" },
+  udupi: { lat: 13.3409, lng: 74.7421, name: "Udupi", city: "Udupi", state: "Karnataka", country: "India" },
+  pune: { lat: 18.5204, lng: 73.8567, name: "Pune", city: "Pune", state: "Maharashtra", country: "India" },
+};
