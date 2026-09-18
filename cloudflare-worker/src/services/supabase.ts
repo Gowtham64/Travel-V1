@@ -19,6 +19,9 @@ export function getSupabaseClient(env?: Env, bearerToken?: string): SupabaseClie
       persistSession: false,
       autoRefreshToken: false,
     },
+    realtime: {
+      transport: (globalThis as any).WebSocket || class DummyWebSocket {},
+    },
     global: bearerToken
       ? { headers: { Authorization: `Bearer ${bearerToken}` } }
       : undefined,
