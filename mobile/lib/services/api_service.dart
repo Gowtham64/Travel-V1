@@ -39,6 +39,8 @@ class ApiService {
   ApiService({String? baseUrl})
       : baseUrl = baseUrl ?? _prodBackend;
 
+  static final Map<String, List<Map<String, dynamic>>> _autocompleteCache = {};
+
   // ---------------------------------------------------------------------------
   // Account API (profile-menu features) — all require a logged-in user; RLS on
   // the server scopes every row to that user.
@@ -946,6 +948,9 @@ class ApiService {
   Future<List<Map<String, dynamic>>> autocompletePlaces(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
+    if (_autocompleteCache.containsKey(q)) {
+      return List<Map<String, dynamic>>.from(_autocompleteCache[q]!);
+    }
 
     final results = <Map<String, dynamic>>[];
     final seenNames = <String>{};
@@ -1080,6 +1085,10 @@ class ApiService {
       }
     } catch (_) {}
 
+    if (results.isNotEmpty) {
+      if (_autocompleteCache.length > 200) _autocompleteCache.clear();
+      _autocompleteCache[q] = List<Map<String, dynamic>>.from(results);
+    }
     return results;
   }
 

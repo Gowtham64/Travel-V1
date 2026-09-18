@@ -28,10 +28,10 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get
-      - name: Analyze (non-blocking infos, fail on errors)
-        run: flutter analyze || true
+      - name: Analyze (fail on errors)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
       - name: Unit tests
-        run: flutter test || true
+        run: flutter test
       - name: Web build (prod-default config; smoke-checks the build)
         run: flutter build web --release --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
 

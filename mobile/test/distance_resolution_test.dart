@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app/data/venue_database.dart';
-import 'package:travel_app/models/trip_models.dart';
 import 'package:travel_app/services/api_service.dart';
 
 void main() {
@@ -37,9 +36,9 @@ void main() {
       final travelBlock = day1.blocks.firstWhere((b) => b.type == 'travel');
       expect(travelBlock.travelMode, equals('drive'));
       expect(travelBlock.distanceKm, isNotNull);
-      expect(travelBlock.distanceKm!, greaterThan(500));
-      expect(travelBlock.distanceKm!, lessThan(600));
-      expect(travelBlock.distanceKm!, isNot(equals(145.0)));
+      expect(travelBlock.distanceKm, greaterThan(500));
+      expect(travelBlock.distanceKm, lessThan(600));
+      expect(travelBlock.distanceKm, isNot(equals(145.0)));
 
       // Paced highway morning drive segment (capped before lunch at 300 mins), definitely not dummy 145 mins
       expect(travelBlock.durationMin, greaterThanOrEqualTo(300));
@@ -59,9 +58,9 @@ void main() {
       final day1 = res.days.first;
       final travelBlock = day1.blocks.firstWhere((b) => b.type == 'travel');
       expect(travelBlock.distanceKm, isNotNull);
-      expect(travelBlock.distanceKm!, greaterThan(55));
-      expect(travelBlock.distanceKm!, lessThan(85));
-      expect(travelBlock.distanceKm!, isNot(equals(145.0)));
+      expect(travelBlock.distanceKm, greaterThan(55));
+      expect(travelBlock.distanceKm, lessThan(85));
+      expect(travelBlock.distanceKm, isNot(equals(145.0)));
     });
 
     test('VenueDatabase returns authentic curated Mumbai venues instead of synthesized dummy', () {
@@ -95,9 +94,9 @@ void main() {
       expect(travelBlock.travelMode, equals('drive'));
       expect(travelBlock.distanceKm, isNotNull);
       // Maddur to Mumbai is ~980 to 1100 km, definitely NOT 145.0 km
-      expect(travelBlock.distanceKm!, greaterThan(900));
-      expect(travelBlock.distanceKm!, lessThan(1200));
-      expect(travelBlock.distanceKm!, isNot(equals(145.0)));
+      expect(travelBlock.distanceKm, greaterThan(900));
+      expect(travelBlock.distanceKm, lessThan(1200));
+      expect(travelBlock.distanceKm, isNot(equals(145.0)));
 
       // Day 1 Drive duration is paced and definitely NOT 145 mins
       expect(travelBlock.durationMin, isNot(equals(145)));
@@ -118,9 +117,9 @@ void main() {
       expect(travelBlock.travelMode, equals('flight'));
       expect(travelBlock.title, contains('Flight'));
       expect(travelBlock.distanceKm, isNotNull);
-      expect(travelBlock.distanceKm!, greaterThan(4500));
-      expect(travelBlock.distanceKm!, lessThan(5500));
-      expect(travelBlock.distanceKm!, isNot(equals(145.0)));
+      expect(travelBlock.distanceKm, greaterThan(4500));
+      expect(travelBlock.distanceKm, lessThan(5500));
+      expect(travelBlock.distanceKm, isNot(equals(145.0)));
     });
   });
 }

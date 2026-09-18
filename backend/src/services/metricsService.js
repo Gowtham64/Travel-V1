@@ -148,6 +148,15 @@ async function collectSystemTelemetry() {
     pingEndpoint("https://api.openrouteservice.org/v2/health").then(r => ({ name: "OpenRouteService API", ...r, ok: r.status === 200 || r.status === 404 }))
   ]);
 
+  const monthlyAllowanceBytes = 5 * 1024 * 1024 * 1024; // 5 GB Render Free Allowance
+  const usedBytes = metrics.totalResponseBytes;
+  const bandwidthUsedPercent = Number(((usedBytes / monthlyAllowanceBytes) * 100).toFixed(2));
+  let bandwidthWarning = null;
+  if (bandwidthUsedPercent >= 90) bandwidthWarning = '90% LIMIT_CRITICAL';
+  else if (bandwidthUsedPercent >= 80) bandwidthWarning = '80% LIMIT_ALERT';
+  else if (bandwidthUsedPercent >= 70) bandwidthWarning = '70% LIMIT_WARNING';
+  else if (bandwidthUsedPercent >= 50) bandwidthWarning = '50% LIMIT_NOTICE';
+
   return {
     timestamp: new Date().toISOString(),
     serverUptimeSeconds: Math.floor((Date.now() - metrics.startTime) / 1000),
@@ -177,7 +186,10 @@ async function collectSystemTelemetry() {
       p95LatencyMs: p95,
       endpointHits: metrics.endpointHits,
       endpointBytes: metrics.endpointBytes,
-      totalResponseBytes: metrics.totalResponseBytes
+      totalResponseBytes: metrics.totalResponseBytes,
+      bandwidthAllowanceBytes: monthlyAllowanceBytes,
+      bandwidthUsedPercent,
+      bandwidthWarning
     },
     dependencies: externalDependencies
   };

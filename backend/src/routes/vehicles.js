@@ -30,16 +30,7 @@ function rememberImage(key, value) {
   }
 }
 
-function sendCachedImage(res, cached, key) {
-  res.set('Access-Control-Allow-Origin', '*');
-  res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
-  res.set('ETag', cached.etag);
-  if (res.req.headers['if-none-match'] === cached.etag) return res.status(304).end();
-  return res.type(cached.contentType).send(cached.data);
-}
-
-// Vahan Details does not expose browser CORS headers for its public images.
-// Proxy the selected model image on demand; bytes are never persisted.
+// Vehicle model images are resolved directly from external CDN with 302 redirects to conserve Render bandwidth
 router.get('/image', async (req, res) => {
   const brand = String(req.query.brand || '').trim();
   const model = String(req.query.model || '').trim();
@@ -48,7 +39,12 @@ router.get('/image', async (req, res) => {
   const cacheKey = imageCacheKey(kind, brand, model);
   const cached = imageCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.data ? sendCachedImage(res, cached, cacheKey) : res.status(404).json({ error: 'Vehicle image not found' });
+    if (cached.url) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      return res.redirect(302, cached.url);
+    }
+    return res.status(404).json({ error: 'Vehicle image not found' });
   }
   imageCache.delete(cacheKey);
 
@@ -74,33 +70,33 @@ router.get('/image', async (req, res) => {
   const pending = imageRequests.get(cacheKey) || (async () => {
     for (const imageUrl of candidates) {
       try {
-        const image = await axios.get(imageUrl, {
-          responseType: 'arraybuffer',
-          timeout: 6000,
-          validateStatus: () => true,
+        const head = await axios.head(imageUrl, {
+          timeout: 4000,
+          validateStatus: (status) => status >= 200 && status < 300,
         });
-        const contentType = String(image.headers['content-type'] || '');
-        if (image.status >= 200 && image.status < 300 && contentType.startsWith('image/')) {
-          const data = Buffer.from(image.data);
+        if (head.status >= 200 && head.status < 300) {
           rememberImage(cacheKey, {
-            data,
-            contentType,
-            etag: `"${crypto.createHash('sha1').update(data).digest('hex')}"`,
+            url: imageUrl,
             ttlMs: IMAGE_CACHE_TTL_MS,
           });
           return imageCache.get(cacheKey);
         }
       } catch (_) {
-        // Try the next naming variant.
+        // Try next candidate
       }
     }
-    rememberImage(cacheKey, { data: null, ttlMs: IMAGE_MISS_TTL_MS });
+    rememberImage(cacheKey, { url: null, ttlMs: IMAGE_MISS_TTL_MS });
     return imageCache.get(cacheKey);
   })();
   imageRequests.set(cacheKey, pending);
   try {
     const image = await pending;
-    return image.data ? sendCachedImage(res, image, cacheKey) : res.status(404).json({ error: 'Vehicle image not found' });
+    if (image && image.url) {
+      res.set('Access-Control-Allow-Origin', '*');
+      res.set('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
+      return res.redirect(302, image.url);
+    }
+    return res.status(404).json({ error: 'Vehicle image not found' });
   } finally {
     if (imageRequests.get(cacheKey) === pending) imageRequests.delete(cacheKey);
   }

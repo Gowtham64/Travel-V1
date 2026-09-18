@@ -18,6 +18,7 @@ const fuelRouter = require("./routes/fuel");
 const vehiclesRouter = require("./routes/vehicles");
 const statusRouter = require("./routes/status");
 const priceService = require("./services/priceService");
+const dbService = require("./services/dbService");
 const { metricsMiddleware } = require("./services/metricsService");
 
 const app = express();
@@ -92,7 +93,48 @@ const aiLimiter = rateLimit({
   message: { error: "AI is busy — please wait a moment and try again." },
 });
 
-app.get("/health", (req, res) => res.json({ status: "ok" }));
+const APP_VERSION = process.env.APP_VERSION || "2.4.0";
+
+app.get("/health", (req, res) => {
+  res.json({
+    status: "ok",
+    version: APP_VERSION,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.get("/ready", async (req, res) => {
+  const checks = {
+    config: "ok",
+    database: "unknown",
+  };
+  let isReady = true;
+
+  try {
+    if (dbService.supabase) {
+      const { error } = await dbService.supabase
+        .from("route_cache")
+        .select("route_hash")
+        .limit(1);
+      if (error && error.code !== "PGRST116") {
+        checks.database = "degraded: " + error.message;
+      } else {
+        checks.database = "ok";
+      }
+    } else {
+      checks.database = "not_configured";
+    }
+  } catch (err) {
+    checks.database = "error: " + err.message;
+    isReady = false;
+  }
+
+  res.status(isReady ? 200 : 503).json({
+    status: isReady ? "ready" : "degraded",
+    version: APP_VERSION,
+    checks,
+  });
+});
 
 app.use("/api/trip", tripRouter);
 app.use("/api/geocode", geocodeRouter);

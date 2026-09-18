@@ -105,7 +105,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   // Live autocomplete for the place-search box.
   List<Map<String, dynamic>> _placeSuggestions = [];
   Timer? _placeSearchDebounce;
-  
+
   TripPlan? _currentPlan;
   GeoPoint? _currentStart;
   GeoPoint? _currentEnd;
@@ -127,7 +127,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   int? _activeSuggestIndex;
   Timer? _suggestDebounce;
   Vehicle? _tempVehicle;
-  
+
   Map<String, List<PlaceOfInterest>> _pois = {};
   bool _loadingPOIs = false;
   bool _hasSearchedPOIs = false;
@@ -137,8 +137,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   final ScrollController _formScrollController = ScrollController();
   final MapController _mapController = MapController();
-  
-  final String _bgUrl = 'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
+
+  final String _bgUrl =
+      'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
 
   @override
   void initState() {
@@ -154,9 +155,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
     _updateVehicleFields();
     // Apply pre-selected options AFTER _updateVehicleFields (which sets fuel).
-    if (widget.initialTravellers != null) _travellers = widget.initialTravellers!;
+    if (widget.initialTravellers != null)
+      _travellers = widget.initialTravellers!;
     if (widget.initialCurrentFuelLiters != null) {
-      _currentFuelController.text = _formatNum(widget.initialCurrentFuelLiters!);
+      _currentFuelController.text =
+          _formatNum(widget.initialCurrentFuelLiters!);
     }
     if (widget.initialPOIs != null) {
       _selectedPOIs
@@ -205,15 +208,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   /// embedded coordinates (no geocoding needed), then opens the trip screen.
   Future<void> _openSharedTrip(String encoded) async {
     try {
-      final jsonStr = utf8.decode(base64Url.decode(base64Url.normalize(encoded)));
+      final jsonStr =
+          utf8.decode(base64Url.decode(base64Url.normalize(encoded)));
       final data = jsonDecode(jsonStr) as Map<String, dynamic>;
 
-      GeoPoint pt(List<dynamic> a, [String? name]) =>
-          GeoPoint(lat: (a[0] as num).toDouble(), lng: (a[1] as num).toDouble(), name: name);
+      GeoPoint pt(List<dynamic> a, [String? name]) => GeoPoint(
+          lat: (a[0] as num).toDouble(),
+          lng: (a[1] as num).toDouble(),
+          name: name);
 
       final start = pt(data['s'] as List, data['sa'] as String?);
       final end = pt(data['e'] as List, data['ea'] as String?);
-      final waypoints = ((data['w'] as List?) ?? []).map((w) => pt(w as List)).toList();
+      final waypoints =
+          ((data['w'] as List?) ?? []).map((w) => pt(w as List)).toList();
       final v = data['v'] as Map<String, dynamic>;
       final vehicle = Vehicle(
         type: v['t'] as String? ?? 'car',
@@ -223,7 +230,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       );
 
       setState(() => _loading = true);
-      final plan = await _api.planTrip(start: start, end: end, waypoints: waypoints, vehicle: vehicle);
+      final plan = await _api.planTrip(
+          start: start, end: end, waypoints: waypoints, vehicle: vehicle);
       if (!mounted) return;
       Navigator.of(context).push(MaterialPageRoute(
         builder: (_) => TripScreen(
@@ -250,11 +258,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     print("RUNNING AUTOMATED TEST ROUTE SEARCH...");
     _stopControllers[0].text = "Bangalore";
     _stopControllers[1].text = "Mysore";
-    
+
     // Seed pre-resolved coordinate values to bypass geocoding lookup
-    _resolvedStopCoords[_stopControllers[0].hashCode] = const GeoPoint(lat: 12.9716, lng: 77.5946, name: "Bangalore");
-    _resolvedStopCoords[_stopControllers[1].hashCode] = const GeoPoint(lat: 12.2958, lng: 76.6394, name: "Mysore");
-    
+    _resolvedStopCoords[_stopControllers[0].hashCode] =
+        const GeoPoint(lat: 12.9716, lng: 77.5946, name: "Bangalore");
+    _resolvedStopCoords[_stopControllers[1].hashCode] =
+        const GeoPoint(lat: 12.2958, lng: 76.6394, name: "Mysore");
+
     setState(() {
       _selectedVehicle = predefinedVehicles.firstWhere((v) => v.type == 'car');
       _efficiencyController.text = "22";
@@ -263,7 +273,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _selectedPOIs.clear();
       _selectedPOIs.addAll(['restaurant', 'attraction']);
     });
-    
+
     await Future.delayed(const Duration(milliseconds: 500));
     await _findPlacesBeforeTrip();
   }
@@ -295,11 +305,13 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           .maybeSingle();
 
       if (response == null) {
-        final name = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'Traveler';
+        final name = user.userMetadata?['full_name'] ??
+            user.userMetadata?['name'] ??
+            'Traveler';
         final email = user.email ?? '';
         final phone = user.phone ?? '';
         final deviceAccess = _getDeviceAccessInfo();
-        
+
         await Supabase.instance.client.from('user_details').insert({
           'user_id': user.id,
           'name': name,
@@ -317,7 +329,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   void _updateVehicleFields() {
     if (_selectedVehicle != null) {
-      final saved = VehicleDatabaseService.instance.getVehicleSettings(_selectedVehicle!.id);
+      final saved = VehicleDatabaseService.instance
+          .getVehicleSettings(_selectedVehicle!.id);
       if (saved != null) {
         _efficiencyController.text = _formatNum(saved.mileage);
         _currentFuelController.text = _formatNum(saved.currentFuel);
@@ -327,8 +340,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           userCustomFuel: saved.currentFuel,
         );
       } else {
-        _efficiencyController.text = _formatNum(_selectedVehicle!.effectiveMileage);
-        final defaultFuel = _selectedVehicle!.tankCapacity > 0 ? _selectedVehicle!.tankCapacity : 0.0;
+        _efficiencyController.text =
+            _formatNum(_selectedVehicle!.effectiveMileage);
+        final defaultFuel = _selectedVehicle!.tankCapacity > 0
+            ? _selectedVehicle!.tankCapacity
+            : 0.0;
         _currentFuelController.text = _formatNum(defaultFuel);
       }
       _tankController.text = _formatNum(_selectedVehicle!.tankCapacity);
@@ -357,14 +373,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     final tankCap = _selectedVehicle!.tankCapacity;
     if (tankCap > 0 && fuel > tankCap) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Current fuel cannot exceed tank capacity (${_formatNum(tankCap)} L).')),
+        SnackBar(
+            content: Text(
+                'Current fuel cannot exceed tank capacity (${_formatNum(tankCap)} L).')),
       );
       return;
     }
 
     final mileageText = _efficiencyController.text.trim();
     final mileage = double.tryParse(mileageText);
-    if (mileageText.isEmpty || mileage == null || mileage.isNaN || mileage <= 0) {
+    if (mileageText.isEmpty ||
+        mileage == null ||
+        mileage.isNaN ||
+        mileage <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Enter a valid mileage.')),
       );
@@ -429,8 +450,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   /// Builds ordered itinerary points strictly preserving user waypoint order
   /// and guaranteeing origin == final destination for Around Trips.
-  ({GeoPoint start, GeoPoint end, List<GeoPoint> waypoints}) _buildItineraryPoints(List<GeoPoint> stops) {
-    if (stops.length < 2) throw Exception("Need at least a starting point and destination");
+  ({GeoPoint start, GeoPoint end, List<GeoPoint> waypoints})
+      _buildItineraryPoints(List<GeoPoint> stops) {
+    if (stops.length < 2)
+      throw Exception("Need at least a starting point and destination");
     if (_tripType == 'roundtrip') {
       final start = stops.first;
       final end = GeoPoint(lat: start.lat, lng: start.lng, name: start.name);
@@ -470,8 +493,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       end = points.end;
       waypoints = points.waypoints;
 
-      final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
-      final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+      final eff = double.tryParse(_efficiencyController.text.trim()) ??
+          _selectedVehicle!.effectiveMileage;
+      final curFuel =
+          double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
       final tankCap = _selectedVehicle!.tankCapacity > 0
           ? _selectedVehicle!.tankCapacity
           : (double.tryParse(_tankController.text.trim()) ?? 50.0);
@@ -493,9 +518,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           _tempWaypoints != null &&
           _tempWaypoints!.length == waypoints.length) {
         final startMatch = (_tempStart!.lat - start.lat).abs() < 0.0001 &&
-                           (_tempStart!.lng - start.lng).abs() < 0.0001;
+            (_tempStart!.lng - start.lng).abs() < 0.0001;
         final endMatch = (_tempEnd!.lat - end.lat).abs() < 0.0001 &&
-                         (_tempEnd!.lng - end.lng).abs() < 0.0001;
+            (_tempEnd!.lng - end.lng).abs() < 0.0001;
         bool waypointsMatch = true;
         for (int i = 0; i < waypoints.length; i++) {
           if ((_tempWaypoints![i].lat - waypoints[i].lat).abs() >= 0.0001 ||
@@ -531,14 +556,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       final startAddr = _stopControllers.first.text.trim();
       final endAddr = _stopControllers.last.text.trim();
       final stops = waypoints.map((w) => w.name ?? 'Waypoint').toList();
-      final double fuelCost = (plan.budget?.fuel ?? (plan.fuelEstimate?.totalCost ?? (plan.distanceKm / vehicle.efficiencyKmPerLiter * 102.86))).toDouble();
-      final double tollCost = (plan.budget?.tolls ?? (plan.toll?.fastagTollCost ?? 0.0)).toDouble();
-      final double totalCost = (plan.budget?.total ?? (fuelCost + tollCost)).toDouble();
+      final double fuelCost = (plan.budget?.fuel ??
+              (plan.fuelEstimate?.totalCost ??
+                  (plan.distanceKm / vehicle.efficiencyKmPerLiter * 102.86)))
+          .toDouble();
+      final double tollCost =
+          (plan.budget?.tolls ?? (plan.toll?.fastagTollCost ?? 0.0)).toDouble();
+      final double totalCost =
+          (plan.budget?.total ?? (fuelCost + tollCost)).toDouble();
 
       TripHistoryService.instance.saveTrip(
         TripHistoryItem(
           id: 'trip_${start.lat.toStringAsFixed(3)}_${end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
-          title: '$startAddr → $endAddr${_tripType == 'roundtrip' ? ' (round trip)' : ''}',
+          title:
+              '$startAddr → $endAddr${_tripType == 'roundtrip' ? ' (round trip)' : ''}',
           startAddress: startAddr,
           endAddress: endAddr,
           waypoints: stops,
@@ -616,8 +647,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       final List<GeoPoint> waypoints;
       final Vehicle vehicle;
 
-      if (_tempPlan != null && _tempStart != null && _tempEnd != null &&
-          _tempWaypoints != null && _tempVehicle != null) {
+      if (_tempPlan != null &&
+          _tempStart != null &&
+          _tempEnd != null &&
+          _tempWaypoints != null &&
+          _tempVehicle != null) {
         plan = _tempPlan!;
         start = _tempStart!;
         end = _tempEnd!;
@@ -630,8 +664,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         end = points.end;
         waypoints = points.waypoints;
 
-        final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
-        final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+        final eff = double.tryParse(_efficiencyController.text.trim()) ??
+            _selectedVehicle!.effectiveMileage;
+        final curFuel =
+            double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
         final tankCap = _selectedVehicle!.tankCapacity > 0
             ? _selectedVehicle!.tankCapacity
             : (double.tryParse(_tankController.text.trim()) ?? 50.0);
@@ -687,15 +723,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     final double? minT = toll?.minTollCost;
     final double? maxT = toll?.maxTollCost;
 
-    final fuelEst = plan.fuelEstimate ?? FuelPriceService.instance.calculateRouteFuel(
-      distanceKm: plan.distanceKm,
-      mileage: vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0,
-      fuelType: vehicle.fuelType,
-      currentFuelLiters: vehicle.currentFuelLiters,
-      tankCapacityLiters: vehicle.tankCapacityLiters,
-      originLocation: _stopControllers.isNotEmpty ? _stopControllers.first.text : null,
-      destLocation: _stopControllers.isNotEmpty ? _stopControllers.last.text : null,
-    );
+    final fuelEst = plan.fuelEstimate ??
+        FuelPriceService.instance.calculateRouteFuel(
+          distanceKm: plan.distanceKm,
+          mileage: vehicle.efficiencyKmPerLiter > 0
+              ? vehicle.efficiencyKmPerLiter
+              : 15.0,
+          fuelType: vehicle.fuelType,
+          currentFuelLiters: vehicle.currentFuelLiters,
+          tankCapacityLiters: vehicle.tankCapacityLiters,
+          originLocation:
+              _stopControllers.isNotEmpty ? _stopControllers.first.text : null,
+          destLocation:
+              _stopControllers.isNotEmpty ? _stopControllers.last.text : null,
+        );
 
     final b = plan.budget;
     final currencySym = fuelEst.currencySymbol;
@@ -730,7 +771,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     letterSpacing: 0.3)),
           ]),
         );
-    Widget row(String k, String v, {Color? valueColor, bool strong = false, String? subtitle}) =>
+    Widget row(String k, String v,
+            {Color? valueColor, bool strong = false, String? subtitle}) =>
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4),
           child: Row(
@@ -739,9 +781,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(k, style: TextStyle(color: Colors.white.withOpacity(0.68), fontSize: 13)),
+                  Text(k,
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.68), fontSize: 13)),
                   if (subtitle != null && subtitle.isNotEmpty)
-                    Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.38), fontSize: 11)),
+                    Text(subtitle,
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.38),
+                            fontSize: 11)),
                 ],
               ),
               Text(v,
@@ -773,7 +820,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           color: Color(0xFF12161F),
           borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
         ),
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20 + MediaQuery.of(ctx).padding.bottom),
+        padding: EdgeInsets.fromLTRB(
+            20, 12, 20, 20 + MediaQuery.of(ctx).padding.bottom),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -791,24 +839,34 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 ),
               ),
               const Text('Trip Summary & Budget',
-                  style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('${plan.formattedDistance} (${_tripType == 'roundtrip' ? 'Round Trip' : 'One-Way'}) · $durText',
-                  style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 13)),
+              Text(
+                  '${plan.formattedDistance} (${_tripType == 'roundtrip' ? 'Round Trip' : 'One-Way'}) · $durText',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.55), fontSize: 13)),
               const SizedBox(height: 16),
 
               // 1. ESTIMATED TRIP BUDGET (Separated cleanly)
               if (b != null)
                 card(Column(children: [
-                  sectionTitle(Icons.account_balance_wallet_rounded, 'ESTIMATED TRIP BUDGET'),
+                  sectionTitle(Icons.account_balance_wallet_rounded,
+                      'ESTIMATED TRIP BUDGET'),
                   row('Fuel', '$currencySym$fuelDisplay',
-                      subtitle: (fuelEst.additionalFuelRequiredLiters > 0 && fuelEst.additionalFuelRequiredLiters < fuelEst.fuelRequiredLiters)
+                      subtitle: (fuelEst.additionalFuelRequiredLiters > 0 &&
+                              fuelEst.additionalFuelRequiredLiters <
+                                  fuelEst.fuelRequiredLiters)
                           ? 'Top-up needed now: $currencySym${fuelEst.estimatedCost.round()}'
                           : null),
                   if (b.tolls > 0) row('Tolls', '$currencySym${b.tolls}'),
-                  if (b.breakfast > 0) row('Breakfast', '$currencySym${b.breakfast}'),
+                  if (b.breakfast > 0)
+                    row('Breakfast', '$currencySym${b.breakfast}'),
                   if (b.lunch > 0) row('Lunch', '$currencySym${b.lunch}'),
-                  if (b.teaSnacks > 0) row('Tea/Snacks', '$currencySym${b.teaSnacks}'),
+                  if (b.teaSnacks > 0)
+                    row('Tea/Snacks', '$currencySym${b.teaSnacks}'),
                   if (b.dinner > 0) row('Dinner', '$currencySym${b.dinner}'),
                   if (b.other > 0) row('Other', '$currencySym${b.other}'),
                   const Divider(color: Colors.white12, height: 18),
@@ -818,16 +876,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
               // 2. FUEL ESTIMATE DETAILS
               card(Column(children: [
-                sectionTitle(Icons.local_gas_station_rounded, 'FUEL ESTIMATE DETAILS'),
+                sectionTitle(
+                    Icons.local_gas_station_rounded, 'FUEL ESTIMATE DETAILS'),
                 row('Fuel Required', fuelEst.formattedFuelRequired),
                 row('Current Tank', fuelEst.formattedCurrentFuel),
-                row('Additional to Refill', fuelEst.formattedAdditionalRequired),
-                row('${fuelEst.fuelType.toUpperCase()} Price', fuelEst.formattedFuelPrice,
-                    subtitle: '${fuelEst.regionName} · ${fuelEst.updatedAtText}'),
+                row('Additional to Refill',
+                    fuelEst.formattedAdditionalRequired),
+                row('${fuelEst.fuelType.toUpperCase()} Price',
+                    fuelEst.formattedFuelPrice,
+                    subtitle:
+                        '${fuelEst.regionName} · ${fuelEst.updatedAtText}'),
                 const Divider(color: Colors.white12, height: 18),
-                row('Total Trip Fuel Cost', '$currencySym${fuelEst.totalFuelCost.toStringAsFixed(0)}',
+                row('Total Trip Fuel Cost',
+                    '$currencySym${fuelEst.totalFuelCost.toStringAsFixed(0)}',
                     valueColor: Colors.orangeAccent, strong: true),
-                if (fuelEst.additionalFuelRequiredLiters > 0 && fuelEst.additionalFuelRequiredLiters < fuelEst.fuelRequiredLiters)
+                if (fuelEst.additionalFuelRequiredLiters > 0 &&
+                    fuelEst.additionalFuelRequiredLiters <
+                        fuelEst.fuelRequiredLiters)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: row('Top-Up to Buy Now', fuelEst.formattedTopUpCost,
@@ -840,7 +905,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 card(Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    sectionTitle(Icons.toll_rounded, 'TOLLS (${toll.tolls.length} PLAZAS)'),
+                    sectionTitle(Icons.toll_rounded,
+                        'TOLLS (${toll.tolls.length} PLAZAS)'),
                     for (int i = 0; i < toll.tolls.length; i++)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -850,23 +916,30 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                             Expanded(
                               child: Text(
                                 '${i + 1}. ${toll.tolls[i].name}',
-                                style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12.5),
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.75),
+                                    fontSize: 12.5),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             Text(
                               '$currencySym${toll.tolls[i].amount.toStringAsFixed(0)}',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13),
                             ),
                           ],
                         ),
                       ),
                     const Divider(color: Colors.white12, height: 18),
-                    row('Total Toll Cost (FASTag)', '$currencySym${fastag.toStringAsFixed(0)}',
+                    row('Total Toll Cost (FASTag)',
+                        '$currencySym${fastag.toStringAsFixed(0)}',
                         valueColor: const Color(0xFF60A5FA), strong: true),
                     if (cash > 0 && cash != fastag)
-                      row('Cash Toll Total', '$currencySym${cash.toStringAsFixed(0)}',
+                      row('Cash Toll Total',
+                          '$currencySym${cash.toStringAsFixed(0)}',
                           valueColor: Colors.white54),
                   ],
                 )),
@@ -876,7 +949,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 sectionTitle(Icons.schedule, 'SCHEDULE'),
                 row('Driving time', durText),
                 row('Departure', clock(now)),
-                row('Arrival (ETA)', clock(eta), valueColor: Colors.greenAccent, strong: true),
+                row('Arrival (ETA)', clock(eta),
+                    valueColor: Colors.greenAccent, strong: true),
               ])),
 
               const SizedBox(height: 4),
@@ -884,7 +958,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 onPressed: () => Navigator.of(ctx).pop(),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: const Text('Confirm & Start Trip',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5)),
               ),
             ],
           ),
@@ -895,15 +972,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   Future<void> _findPlacesBeforeTrip({List<String>? categories}) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    if (_stopControllers.isEmpty || 
-        _stopControllers.first.text.trim().isEmpty || 
+    if (_stopControllers.isEmpty ||
+        _stopControllers.first.text.trim().isEmpty ||
         _stopControllers.last.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Please enter starting location and destination first to find places.'),
+          content: const Text(
+              'Please enter starting location and destination first to find places.'),
           backgroundColor: const Color(0xFF2E75B6),
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       return;
@@ -912,7 +991,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _selectedVehicle = predefinedVehicles.first;
     }
     final cats = (categories == null || categories.isEmpty)
-        ? (_selectedPOIs.isNotEmpty ? _selectedPOIs.toList() : ['attraction', 'viewpoint', 'restaurant', 'hotel', 'tea', 'fuel'])
+        ? (_selectedPOIs.isNotEmpty
+            ? _selectedPOIs.toList()
+            : ['attraction', 'viewpoint', 'restaurant', 'hotel', 'tea', 'fuel'])
         : categories;
 
     setState(() {
@@ -927,8 +1008,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       final end = points.end;
       final waypoints = points.waypoints;
 
-      final eff = double.tryParse(_efficiencyController.text.trim()) ?? _selectedVehicle!.effectiveMileage;
-      final curFuel = double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
+      final eff = double.tryParse(_efficiencyController.text.trim()) ??
+          _selectedVehicle!.effectiveMileage;
+      final curFuel =
+          double.tryParse(_currentFuelController.text.trim()) ?? 0.0;
       final tankCap = _selectedVehicle!.tankCapacity > 0
           ? _selectedVehicle!.tankCapacity
           : (double.tryParse(_tankController.text.trim()) ?? 50.0);
@@ -971,17 +1054,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
         // Center map camera on the route bounds
         if (tempPlan.coordinates.isNotEmpty) {
-          final routePoints = tempPlan.coordinates.map((c) => c.toLatLng()).toList();
+          final routePoints =
+              tempPlan.coordinates.map((c) => c.toLatLng()).toList();
           final lats = routePoints.map((p) => p.latitude).toList();
           final lngs = routePoints.map((p) => p.longitude).toList();
           final midLat = lats.reduce((a, b) => a + b) / lats.length;
           final midLng = lngs.reduce((a, b) => a + b) / lngs.length;
           final mapCenter = LatLng(midLat, midLng);
 
-          final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
-          final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+          final latSpan = lats.reduce((a, b) => a > b ? a : b) -
+              lats.reduce((a, b) => a < b ? a : b);
+          final lngSpan = lngs.reduce((a, b) => a > b ? a : b) -
+              lngs.reduce((a, b) => a < b ? a : b);
           final span = latSpan > lngSpan ? latSpan : lngSpan;
-          final mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+          final mapZoom = span < 0.5
+              ? 12.0
+              : span < 2
+                  ? 9.0
+                  : span < 5
+                      ? 7.0
+                      : span < 10
+                          ? 5.5
+                          : 4.5;
 
           try {
             _mapController.move(mapCenter, mapZoom);
@@ -1013,13 +1107,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   double _calcDistKm(double lat1, double lon1, double lat2, double lon2) {
     const p = 0.017453292519943295;
-    final a = 0.5 - cos((lat2 - lat1) * p) / 2 +
+    final a = 0.5 -
+        cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
     return 12742 * asin(sqrt(a));
   }
 
   void _confirmAddPOIFromPlanner(PlaceOfInterest place) {
-    final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
+    final newWaypoint =
+        GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
 
     // Get the currently resolved coordinates in order of the active controllers
     final List<GeoPoint> resolvedNodes = [];
@@ -1038,13 +1134,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       double minDetour = double.infinity;
 
       double _dist(GeoPoint p1, GeoPoint p2) {
-        return const Distance().as(LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
+        return const Distance().as(
+            LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
       }
 
       for (int i = 0; i < resolvedNodes.length - 1; i++) {
         final p1 = resolvedNodes[i];
         final p2 = resolvedNodes[i + 1];
-        final detour = _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
+        final detour =
+            _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
         if (detour < minDetour) {
           minDetour = detour;
           bestIndex = i;
@@ -1105,7 +1203,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       _tempStart = null;
       _tempEnd = null;
       _tempWaypoints = null;
-      _stopControllers.insert(_stopControllers.length - 1, TextEditingController());
+      _stopControllers.insert(
+          _stopControllers.length - 1, TextEditingController());
     });
   }
 
@@ -1168,14 +1267,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     if (!kIsWeb) {
       try {
         final last = await Geolocator.getLastKnownPosition();
-        if (last != null && DateTime.now().difference(last.timestamp).inMinutes < 15) {
+        if (last != null &&
+            DateTime.now().difference(last.timestamp).inMinutes < 15) {
           return last;
         }
       } catch (_) {}
     }
 
     // 3. Precision fix ladder: High -> Medium -> Low accuracy
-    for (final accuracy in const [LocationAccuracy.high, LocationAccuracy.medium, LocationAccuracy.low]) {
+    for (final accuracy in const [
+      LocationAccuracy.high,
+      LocationAccuracy.medium,
+      LocationAccuracy.low
+    ]) {
       try {
         return await Geolocator.getCurrentPosition(
           locationSettings: LocationSettings(
@@ -1208,7 +1312,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   Future<Position?> _ipApproxPosition() async {
     for (final url in const ['https://ipwho.is/', 'https://ipapi.co/json/']) {
       try {
-        final res = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
+        final res =
+            await http.get(Uri.parse(url)).timeout(const Duration(seconds: 8));
         if (res.statusCode != 200) continue;
         final m = jsonDecode(res.body) as Map<String, dynamic>;
         final lat = (m['latitude'] as num?)?.toDouble();
@@ -1243,7 +1348,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     if (index >= 0 && index < _stopControllers.length) {
       final controller = _stopControllers[index];
       final cached = _resolvedStopCoords[controller.hashCode];
-      if (cached != null && cached.name != null && cached.name!.trim().toLowerCase() != q.toLowerCase()) {
+      if (cached != null &&
+          cached.name != null &&
+          cached.name!.trim().toLowerCase() != q.toLowerCase()) {
         _resolvedStopCoords.remove(controller.hashCode);
         _tempPlan = null;
         _routeRequestId++; // Cancel any in-flight routing
@@ -1304,15 +1411,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             InkWell(
               onTap: () => _selectSuggestion(index, s),
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
                 child: Row(
                   children: [
-                    const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
+                    const Icon(Icons.place_outlined,
+                        color: Color(0xFF60A5FA), size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         s['name'] as String,
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 13),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1326,18 +1436,21 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
-  Future<void> _useCurrentLocation(int index, {bool isAutoFetch = false}) async {
+  Future<void> _useCurrentLocation(int index,
+      {bool isAutoFetch = false}) async {
     if (!mounted) return;
     setState(() => _loadingLocationForIndex[index] = true);
     try {
       final position = await _determinePosition();
-      final address = await _api.reverseGeocode(position.latitude, position.longitude);
-      
+      final address =
+          await _api.reverseGeocode(position.latitude, position.longitude);
+
       if (!mounted) return;
-      
-      final displayName = address ?? 'Current Location (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+
+      final displayName = address ??
+          'Current Location (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
       final controller = _stopControllers[index];
-      
+
       setState(() {
         controller.text = displayName;
         final pt = GeoPoint(
@@ -1356,10 +1469,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             content: Text(isApprox
                 ? '≈ Approximate location ($displayName). Refine on map or type an address if needed.'
                 : '✓ Updated to current location: $displayName'),
-            backgroundColor: isApprox ? const Color(0xFFB45309) : const Color(0xFF2E75B6),
+            backgroundColor:
+                isApprox ? const Color(0xFFB45309) : const Color(0xFF2E75B6),
             duration: Duration(seconds: isApprox ? 4 : 2),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -1371,7 +1486,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             backgroundColor: Colors.redAccent,
             duration: const Duration(seconds: 4),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -1390,7 +1506,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         initialCenter = LatLng(pos.latitude, pos.longitude);
       }
     } catch (_) {}
-    
+
     final controller = _stopControllers[index];
     final existingPoint = _resolvedStopCoords[controller.hashCode];
     if (existingPoint != null) {
@@ -1403,14 +1519,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       MaterialPageRoute(
         builder: (_) => MapLocationPickerScreen(
           initialCenter: initialCenter,
-          label: index == 0 ? 'Starting point' : (index == _stopControllers.length - 1 ? 'Destination' : 'Stop $index'),
+          label: index == 0
+              ? 'Starting point'
+              : (index == _stopControllers.length - 1
+                  ? 'Destination'
+                  : 'Stop $index'),
         ),
       ),
     );
 
     if (selectedPoint != null && mounted) {
       setState(() {
-        controller.text = selectedPoint.name ?? '${selectedPoint.lat.toStringAsFixed(4)}, ${selectedPoint.lng.toStringAsFixed(4)}';
+        controller.text = selectedPoint.name ??
+            '${selectedPoint.lat.toStringAsFixed(4)}, ${selectedPoint.lng.toStringAsFixed(4)}';
         _resolvedStopCoords[controller.hashCode] = selectedPoint;
         if (index == 0) _startFocusPoint = selectedPoint;
       });
@@ -1449,16 +1570,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       appBar: isDesktop
           ? null
           : AppBar(
-              title: const Text('Trip Planner', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: const Text('Trip Planner',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white)),
               backgroundColor: Colors.transparent,
               elevation: 0,
               iconTheme: const IconThemeData(color: Colors.white),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.history_rounded, color: Colors.white, size: 24),
+                  icon: const Icon(Icons.history_rounded,
+                      color: Colors.white, size: 24),
                   tooltip: 'Trip History',
                   onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const TripHistoryScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const TripHistoryScreen()),
                   ),
                 ),
               ],
@@ -1484,7 +1609,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               children: [
                 // 1. Map fills the entire screen edge-to-edge.
                 Positioned.fill(
-                  child: _currentPlan == null ? _buildDefaultMap() : _buildTripScreen(),
+                  child: _currentPlan == null
+                      ? _buildDefaultMap()
+                      : _buildTripScreen(),
                 ),
                 // The planning panel is only shown while planning. Once a trip
                 // is active the navigation view takes the whole screen so its
@@ -1543,7 +1670,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                             onTap: () => setState(() => _currentPlan = null),
                             child: const Padding(
                               padding: EdgeInsets.all(12),
-                              child: Icon(Icons.arrow_back, color: Colors.white),
+                              child:
+                                  Icon(Icons.arrow_back, color: Colors.white),
                             ),
                           ),
                         ),
@@ -1612,9 +1740,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       decoration: BoxDecoration(
                         color: Colors.white.withOpacity(0.10),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.15)),
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.15)),
                       ),
-                      child: const Icon(Icons.menu, color: Colors.white, size: 22),
+                      child:
+                          const Icon(Icons.menu, color: Colors.white, size: 22),
                     ),
                   ),
                 ),
@@ -1677,20 +1807,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     const SizedBox(width: 8),
                     const Text(
                       'Trip Planner',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
             ],
-            RevealIn(delay: const Duration(milliseconds: 40), child: _buildRouteCard()),
+            RevealIn(
+                delay: const Duration(milliseconds: 40),
+                child: _buildRouteCard()),
             const SizedBox(height: 24),
-            RevealIn(delay: const Duration(milliseconds: 100), child: _buildVehicleCard()),
+            RevealIn(
+                delay: const Duration(milliseconds: 100),
+                child: _buildVehicleCard()),
             const SizedBox(height: 24),
-            RevealIn(delay: const Duration(milliseconds: 160), child: _buildPOICard()),
+            RevealIn(
+                delay: const Duration(milliseconds: 160),
+                child: _buildPOICard()),
             const SizedBox(height: 32),
-
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -1701,21 +1839,29 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.red[300]!),
                   ),
-                  child: Text(_error!, style: const TextStyle(color: Colors.white)),
+                  child: Text(_error!,
+                      style: const TextStyle(color: Colors.white)),
                 ),
               ),
-              
             RevealIn(
               delay: const Duration(milliseconds: 220),
               child: AccentButton(
                 onPressed: _loading ? null : _planTrip,
                 padding: const EdgeInsets.symmetric(vertical: 18),
                 child: _loading
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
                     : const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text('Next', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                          Text('Next',
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5)),
                           SizedBox(width: 8),
                           Icon(Icons.arrow_forward_rounded, size: 22),
                         ],
@@ -1741,7 +1887,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         backgroundColor: const Color(0xFF080A18),
         appBar: AppBar(
           title: const Text('Trip Map',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
           backgroundColor: Colors.black.withOpacity(0.25),
           elevation: 0,
         ),
@@ -1761,10 +1908,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       final midLat = (lats.reduce((a, b) => a + b)) / lats.length;
       final midLng = (lngs.reduce((a, b) => a + b)) / lngs.length;
       mapCenter = LatLng(midLat, midLng);
-      final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
-      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+      final latSpan = lats.reduce((a, b) => a > b ? a : b) -
+          lats.reduce((a, b) => a < b ? a : b);
+      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) -
+          lngs.reduce((a, b) => a < b ? a : b);
       final span = latSpan > lngSpan ? latSpan : lngSpan;
-      mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+      mapZoom = span < 0.5
+          ? 12.0
+          : span < 2
+              ? 9.0
+              : span < 5
+                  ? 7.0
+                  : span < 10
+                      ? 5.5
+                      : 4.5;
     }
 
     return Scaffold(
@@ -1772,7 +1929,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: Text(hasRoute ? 'Route Preview' : 'Trip Map',
-            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            style: const TextStyle(
+                fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.black.withOpacity(0.4),
         elevation: 0,
       ),
@@ -1788,64 +1946,80 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             userAgentPackageName: 'com.example.travel_app',
           ),
-          if (hasRoute) ...([
-            PolylineLayer(
-              polylines: [
-                Polyline(
-                  points: routePoints,
-                  strokeWidth: 5.0,
-                  color: const Color(0xFF6C63FF),
-                  borderStrokeWidth: 2.0,
-                  borderColor: Colors.white.withOpacity(0.5),
-                ),
-              ],
-            ),
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: _tempStart != null ? LatLng(_tempStart!.lat, _tempStart!.lng) : routePoints.first,
-                  width: 36,
-                  height: 36,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF4CAF50),
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
-                    ),
-                    child: const Icon(Icons.trip_origin, color: Colors.white, size: 20),
+          if (hasRoute)
+            ...([
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: routePoints,
+                    strokeWidth: 5.0,
+                    color: const Color(0xFF6C63FF),
+                    borderStrokeWidth: 2.0,
+                    borderColor: Colors.white.withOpacity(0.5),
                   ),
-                ),
-                if (_tempWaypoints != null)
-                  ..._tempWaypoints!.map((wp) => Marker(
-                    point: LatLng(wp.lat, wp.lng),
+                ],
+              ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _tempStart != null
+                        ? LatLng(_tempStart!.lat, _tempStart!.lng)
+                        : routePoints.first,
                     width: 36,
                     height: 36,
                     child: Container(
                       decoration: const BoxDecoration(
-                        color: Color(0xFF2E75B6),
+                        color: Color(0xFF4CAF50),
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
+                        boxShadow: [
+                          BoxShadow(color: Colors.black38, blurRadius: 6)
+                        ],
                       ),
-                      child: const Icon(Icons.location_on, color: Colors.white, size: 20),
+                      child: const Icon(Icons.trip_origin,
+                          color: Colors.white, size: 20),
                     ),
-                  )),
-                Marker(
-                  point: _tempEnd != null ? LatLng(_tempEnd!.lat, _tempEnd!.lng) : routePoints.last,
-                  width: 36,
-                  height: 36,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE53935),
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: Colors.black38, blurRadius: 6)],
-                    ),
-                    child: const Icon(Icons.flag, color: Colors.white, size: 20),
                   ),
-                ),
-              ],
-            ),
+                  if (_tempWaypoints != null)
+                    ..._tempWaypoints!.map((wp) => Marker(
+                          point: LatLng(wp.lat, wp.lng),
+                          width: 36,
+                          height: 36,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF2E75B6),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(color: Colors.black38, blurRadius: 6)
+                              ],
+                            ),
+                            child: const Icon(Icons.location_on,
+                                color: Colors.white, size: 20),
+                          ),
+                        )),
+                  Marker(
+                    point: _tempEnd != null
+                        ? LatLng(_tempEnd!.lat, _tempEnd!.lng)
+                        : routePoints.last,
+                    width: 36,
+                    height: 36,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFE53935),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black38, blurRadius: 6)
+                        ],
+                      ),
+                      child:
+                          const Icon(Icons.flag, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ]),
+          RichAttributionWidget(attributions: [
+            TextSourceAttribution('OpenStreetMap contributors')
           ]),
-          RichAttributionWidget(attributions: [TextSourceAttribution('OpenStreetMap contributors')]),
         ],
       ),
     );
@@ -1874,8 +2048,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   }
 
   Widget _buildDrawer(User? user) {
-    final initials = (_userName != null && _userName!.isNotEmpty) 
-        ? _userName!.substring(0, 1).toUpperCase() 
+    final initials = (_userName != null && _userName!.isNotEmpty)
+        ? _userName!.substring(0, 1).toUpperCase()
         : (user?.email != null && user!.email!.isNotEmpty)
             ? user.email!.substring(0, 1).toUpperCase()
             : 'T';
@@ -1896,9 +2070,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           children: [
             // Custom Premium Header
             Container(
-              padding: const EdgeInsets.only(top: 80, bottom: 32, left: 24, right: 24),
+              padding: const EdgeInsets.only(
+                  top: 80, bottom: 32, left: 24, right: 24),
               decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: Colors.white.withOpacity(0.08))),
+                border: Border(
+                    bottom: BorderSide(color: Colors.white.withOpacity(0.08))),
               ),
               child: Row(
                 children: [
@@ -1960,50 +2136,95 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 children: [
-                  _drawerTile(Icons.map_outlined, 'Saved Trips', const Color(0xFF60A5FA), () {
+                  _drawerTile(Icons.map_outlined, 'Saved Trips',
+                      const Color(0xFF60A5FA), () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SavedTripsScreen()));
                   }),
-                  _drawerTile(Icons.history_rounded, 'Trip History', const Color(0xFF10B981), () {
+                  _drawerTile(Icons.history_rounded, 'Trip History',
+                      const Color(0xFF10B981), () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TripHistoryScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const TripHistoryScreen()));
                   }),
-                  _drawerTile(Icons.directions_car_rounded, 'My Vehicles', const Color(0xFFF59E0B), () {
+                  _drawerTile(Icons.directions_car_rounded, 'My Vehicles',
+                      const Color(0xFFF59E0B), () {
                     Navigator.pop(context);
                     final cfg = configForMenu('my_vehicles');
-                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                    if (cfg != null)
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => AccountCrudScreen(config: cfg)));
                   }),
-                  _drawerTile(Icons.account_balance_wallet_outlined, 'Travel Wallet & Budget', const Color(0xFF38BDF8), () {
+                  _drawerTile(Icons.account_balance_wallet_outlined,
+                      'Travel Wallet & Budget', const Color(0xFF38BDF8), () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TravelWalletScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const TravelWalletScreen()));
                   }),
-                  _drawerTile(Icons.favorite_border_rounded, 'Wishlist & Saved Places', const Color(0xFFF43F5E), () {
+                  _drawerTile(Icons.favorite_border_rounded,
+                      'Wishlist & Saved Places', const Color(0xFFF43F5E), () {
                     Navigator.pop(context);
                     final cfg = configForMenu('wishlist');
-                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                    if (cfg != null)
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => AccountCrudScreen(config: cfg)));
                   }),
-                  _drawerTile(Icons.flight_rounded, 'Bookings & Tickets', const Color(0xFFA855F7), () {
+                  _drawerTile(Icons.flight_rounded, 'Bookings & Tickets',
+                      const Color(0xFFA855F7), () {
                     Navigator.pop(context);
                     final cfg = configForMenu('flights');
-                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                    if (cfg != null)
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => AccountCrudScreen(config: cfg)));
                   }),
-                  _drawerTile(Icons.checklist_rtl_rounded, 'Packing Checklist', const Color(0xFF14B8A6), () {
+                  _drawerTile(Icons.checklist_rtl_rounded, 'Packing Checklist',
+                      const Color(0xFF14B8A6), () {
                     Navigator.pop(context);
                     final cfg = configForMenu('packing');
-                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                    if (cfg != null)
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => AccountCrudScreen(config: cfg)));
                   }),
-                  _drawerTile(Icons.emergency_outlined, 'Emergency SOS & Helplines', const Color(0xFFEF4444), () {
+                  _drawerTile(Icons.emergency_outlined,
+                      'Emergency SOS & Helplines', const Color(0xFFEF4444), () {
                     Navigator.pop(context);
                     final cfg = configForMenu('emergency');
-                    if (cfg != null) Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                    if (cfg != null)
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => AccountCrudScreen(config: cfg)));
                   }),
-                  _drawerTile(Icons.settings_outlined, 'Profile & Settings', const Color(0xFF94A3B8), () {
+                  _drawerTile(Icons.settings_outlined, 'Profile & Settings',
+                      const Color(0xFF94A3B8), () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const SettingsScreen()));
                   }),
-                  _drawerTile(Icons.help_outline_rounded, 'Help & Support', const Color(0xFF06B6D4), () {
+                  _drawerTile(Icons.help_outline_rounded, 'Help & Support',
+                      const Color(0xFF06B6D4), () {
                     Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpSupportScreen()));
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const HelpSupportScreen()));
                   }),
                 ],
               ),
@@ -2014,7 +2235,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 final currentUser = Supabase.instance.client.auth.currentUser;
                 final isGuest = currentUser == null;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -2029,16 +2251,21 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                           : Colors.redAccent.withOpacity(0.05),
                     ),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 20),
                       leading: Icon(
                         isGuest ? Icons.login_rounded : Icons.logout_rounded,
-                        color: isGuest ? const Color(0xFF38BDF8) : Colors.redAccent,
+                        color: isGuest
+                            ? const Color(0xFF38BDF8)
+                            : Colors.redAccent,
                         size: 22,
                       ),
                       title: Text(
                         isGuest ? 'Log in / Sign up' : 'Log out',
                         style: TextStyle(
-                          color: isGuest ? const Color(0xFF38BDF8) : Colors.redAccent,
+                          color: isGuest
+                              ? const Color(0xFF38BDF8)
+                              : Colors.redAccent,
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -2046,28 +2273,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       onTap: () async {
                         Navigator.pop(ctx);
                         if (isGuest) {
-                          if (kIsWeb) {
-                            redirectToLanding();
-                          } else {
-                            Navigator.push(
-                              ctx,
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
-                            );
-                          }
+                          Navigator.push(
+                            ctx,
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                          );
                         } else {
                           try {
                             await Supabase.instance.client.auth.signOut();
                           } catch (_) {}
                           clearWebSessionData();
-                          if (kIsWeb) {
-                            redirectToLanding(forLogout: true);
-                          } else {
-                            Navigator.pushAndRemoveUntil(
-                              ctx,
-                              MaterialPageRoute(builder: (_) => const LoginScreen()),
-                              (route) => false,
-                            );
-                          }
+                          Navigator.pushAndRemoveUntil(
+                            ctx,
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                            (route) => false,
+                          );
                         }
                       },
                     ),
@@ -2081,7 +2302,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
-  Widget _drawerTile(IconData icon, String title, Color color, VoidCallback onTap) {
+  Widget _drawerTile(
+      IconData icon, String title, Color color, VoidCallback onTap) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
@@ -2093,19 +2315,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
         leading: Container(
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, color: color, size: 20),
         ),
         title: Text(
           title,
-          style: const TextStyle(color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w600),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 14.5, fontWeight: FontWeight.w600),
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.white30, size: 18),
+        trailing:
+            const Icon(Icons.chevron_right, color: Colors.white30, size: 18),
         onTap: onTap,
       ),
     );
   }
-  
+
   Widget _buildSectionHeader(IconData icon, String title) {
     return Row(
       children: [
@@ -2139,7 +2365,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     );
   }
 
-  Widget _buildGlassCard({required Widget child, EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
+  Widget _buildGlassCard(
+      {required Widget child,
+      EdgeInsetsGeometry padding = const EdgeInsets.all(24.0)}) {
     return GlassCard(padding: padding, child: child);
   }
 
@@ -2164,18 +2392,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       keyboardType: keyboardType,
       validator: validator,
       onChanged: onChanged,
-      style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
+      style: const TextStyle(
+          color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
-        floatingLabelStyle: const TextStyle(color: Color(0xFF2E75B6), fontWeight: FontWeight.bold),
+        labelStyle:
+            TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 14),
+        floatingLabelStyle: const TextStyle(
+            color: Color(0xFF2E75B6), fontWeight: FontWeight.bold),
         prefixIcon: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: Icon(icon, color: iconColor ?? Colors.white.withOpacity(0.6), size: 22),
+          child: Icon(icon,
+              color: iconColor ?? Colors.white.withOpacity(0.6), size: 22),
         ),
         prefixIconConstraints: const BoxConstraints(minWidth: 40),
         suffixIcon: suffixIcon,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         filled: true,
         fillColor: Colors.white.withOpacity(0.05),
         enabledBorder: OutlineInputBorder(
@@ -2250,9 +2483,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             itemBuilder: (context, index) {
               final isStart = index == 0;
               final isEnd = index == _stopControllers.length - 1;
-              String label = isStart ? 'Starting point' : (isEnd ? 'Destination' : 'Stop ${index}');
-              IconData icon = isStart ? Icons.trip_origin : (isEnd ? Icons.location_on : Icons.adjust);
-              Color iconColor = isStart ? Colors.greenAccent : (isEnd ? Colors.redAccent : Colors.orangeAccent);
+              String label = isStart
+                  ? 'Starting point'
+                  : (isEnd ? 'Destination' : 'Stop ${index}');
+              IconData icon = isStart
+                  ? Icons.trip_origin
+                  : (isEnd ? Icons.location_on : Icons.adjust);
+              Color iconColor = isStart
+                  ? Colors.greenAccent
+                  : (isEnd ? Colors.redAccent : Colors.orangeAccent);
 
               return Container(
                 key: ValueKey(_stopControllers[index]),
@@ -2260,63 +2499,78 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                Row(
-                  children: [
-                    Icon(Icons.drag_indicator, color: Colors.white.withOpacity(0.5)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildTextField(
-                        controller: _stopControllers[index],
-                        label: label,
-                        icon: icon,
-                        iconColor: iconColor,
-                        textInputAction: isEnd ? TextInputAction.done : TextInputAction.next,
-                        onFieldSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                        onChanged: (v) => _onStopQueryChanged(index, v),
-                        suffixIcon: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            _loadingLocationForIndex[index] == true
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12.0),
-                                    child: SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    Row(
+                      children: [
+                        Icon(Icons.drag_indicator,
+                            color: Colors.white.withOpacity(0.5)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(
+                            controller: _stopControllers[index],
+                            label: label,
+                            icon: icon,
+                            iconColor: iconColor,
+                            textInputAction: isEnd
+                                ? TextInputAction.done
+                                : TextInputAction.next,
+                            onFieldSubmitted: (_) =>
+                                FocusManager.instance.primaryFocus?.unfocus(),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                            onChanged: (v) => _onStopQueryChanged(index, v),
+                            suffixIcon: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _loadingLocationForIndex[index] == true
+                                    ? const Padding(
+                                        padding: EdgeInsets.all(12.0),
+                                        child: SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            valueColor:
+                                                AlwaysStoppedAnimation<Color>(
+                                                    Colors.white),
+                                          ),
+                                        ),
+                                      )
+                                    : IconButton(
+                                        icon: const Icon(Icons.my_location,
+                                            color: Colors.greenAccent,
+                                            size: 20),
+                                        onPressed: () =>
+                                            _useCurrentLocation(index),
+                                        tooltip: 'Use current location',
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
                                       ),
-                                    ),
-                                  )
-                                : IconButton(
-                                    icon: const Icon(Icons.my_location, color: Colors.greenAccent, size: 20),
-                                    onPressed: () => _useCurrentLocation(index),
-                                    tooltip: 'Use current location',
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                            IconButton(
-                              icon: const Icon(Icons.map, color: Colors.blueAccent, size: 20),
-                              onPressed: () => _pickOnMap(index),
-                              tooltip: 'Pick on map',
-                              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                              constraints: const BoxConstraints(),
+                                IconButton(
+                                  icon: const Icon(Icons.map,
+                                      color: Colors.blueAccent, size: 20),
+                                  onPressed: () => _pickOnMap(index),
+                                  tooltip: 'Pick on map',
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8.0),
+                                  constraints: const BoxConstraints(),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+                        if (!isStart && !isEnd)
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle_outline,
+                                color: Colors.redAccent),
+                            onPressed: () => _removeStop(index),
+                          )
+                        else
+                          const SizedBox(
+                              width: 48), // Padding equivalent to icon button
+                      ],
                     ),
-                    if (!isStart && !isEnd)
-                      IconButton(
-                        icon: const Icon(Icons.remove_circle_outline, color: Colors.redAccent),
-                        onPressed: () => _removeStop(index),
-                      )
-                    else
-                      const SizedBox(width: 48), // Padding equivalent to icon button
-                  ],
-                ),
-                _buildSuggestions(index),
+                    _buildSuggestions(index),
                   ],
                 ),
               );
@@ -2332,8 +2586,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.white,
                   side: BorderSide(color: Colors.white.withOpacity(0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
               if (_stopControllers.length >= 4) ...[
@@ -2345,8 +2601,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFF60A5FA),
                     side: const BorderSide(color: Color(0xFF60A5FA)),
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ],
@@ -2363,14 +2621,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   void _optimizeRoute() {
     if (_stopControllers.length < 4) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Add at least two stops between start and destination to optimise.')));
+          content: Text(
+              'Add at least two stops between start and destination to optimise.')));
       return;
     }
     final startCoord = _resolvedStopCoords[_stopControllers.first.hashCode];
     final middle = _stopControllers.sublist(1, _stopControllers.length - 1);
-    if (startCoord == null || middle.any((c) => _resolvedStopCoords[c.hashCode] == null)) {
+    if (startCoord == null ||
+        middle.any((c) => _resolvedStopCoords[c.hashCode] == null)) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Resolve every stop first (pick from the suggestions), then optimise.')));
+          content: Text(
+              'Resolve every stop first (pick from the suggestions), then optimise.')));
       return;
     }
 
@@ -2392,7 +2653,11 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     }
 
     setState(() {
-      final reordered = [_stopControllers.first, ...ordered, _stopControllers.last];
+      final reordered = [
+        _stopControllers.first,
+        ...ordered,
+        _stopControllers.last
+      ];
       _stopControllers
         ..clear()
         ..addAll(reordered);
@@ -2405,7 +2670,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   Widget _buildVehicleCard() {
     final v = _selectedVehicle ?? predefinedVehicles.first;
-    final isCustomOverride = v.isUserMileageOverride && v.userCustomMileage != null;
+    final isCustomOverride =
+        v.isUserMileageOverride && v.userCustomMileage != null;
 
     Color fuelBadgeColor = const Color(0xFF3B82F6);
     switch (v.fuelType.toLowerCase()) {
@@ -2434,13 +2700,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: _buildSectionHeader(Icons.directions_car, 'Vehicle Details'),
+                child: _buildSectionHeader(
+                    Icons.directions_car, 'Vehicle Details'),
               ),
               const SizedBox(width: 8),
               InkWell(
                 onTap: () async {
                   FocusManager.instance.primaryFocus?.unfocus();
-                  final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+                  final picked = await VehicleSearchSheet.show(context,
+                      currentVehicle: _selectedVehicle);
                   FocusManager.instance.primaryFocus?.unfocus();
                   if (picked != null) {
                     setState(() {
@@ -2451,18 +2719,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: const Color(0xFF3B82F6).withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                    border: Border.all(
+                        color: const Color(0xFF3B82F6).withOpacity(0.3)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.search, size: 14, color: Color(0xFF60A5FA)),
                       SizedBox(width: 4),
-                      Text('Search Database', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA))),
+                      Text('Search Database',
+                          style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF60A5FA))),
                     ],
                   ),
                 ),
@@ -2474,7 +2748,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           InkWell(
             onTap: () async {
               FocusManager.instance.primaryFocus?.unfocus();
-              final picked = await VehicleSearchSheet.show(context, currentVehicle: _selectedVehicle);
+              final picked = await VehicleSearchSheet.show(context,
+                  currentVehicle: _selectedVehicle);
               FocusManager.instance.primaryFocus?.unfocus();
               if (picked != null) {
                 setState(() {
@@ -2500,7 +2775,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       color: fuelBadgeColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(v.type == 'motorcycle' ? Icons.two_wheeler_rounded : Icons.directions_car_filled_rounded, color: fuelBadgeColor, size: 22),
+                    child: Icon(
+                        v.type == 'motorcycle'
+                            ? Icons.two_wheeler_rounded
+                            : Icons.directions_car_filled_rounded,
+                        color: fuelBadgeColor,
+                        size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -2511,20 +2791,27 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                           v.fullDisplayName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                         ),
                         const SizedBox(height: 3),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: fuelBadgeColor.withOpacity(0.2),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 v.fuelType.toUpperCase(),
-                                style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: fuelBadgeColor),
+                                style: TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: fuelBadgeColor),
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -2534,8 +2821,12 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                                   : 'Mileage: ${v.mileage.toStringAsFixed(1)} km/L',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isCustomOverride ? const Color(0xFF60A5FA) : Colors.white60,
-                                fontWeight: isCustomOverride ? FontWeight.w600 : FontWeight.normal,
+                                color: isCustomOverride
+                                    ? const Color(0xFF60A5FA)
+                                    : Colors.white60,
+                                fontWeight: isCustomOverride
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
                               ),
                             ),
                           ],
@@ -2544,7 +2835,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.chevron_right_rounded, color: Colors.white.withOpacity(0.4), size: 22),
+                  Icon(Icons.chevron_right_rounded,
+                      color: Colors.white.withOpacity(0.4), size: 22),
                 ],
               ),
             ),
@@ -2591,12 +2883,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             child: ElevatedButton.icon(
               onPressed: _saveVehicleSettings,
               icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-              label: const Text('Save', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              label: const Text('Save',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E75B6),
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
                 elevation: 0,
               ),
             ),
@@ -2651,12 +2946,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           onFieldSubmitted: onFieldSubmitted,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           validator: validator ?? _numberValidator,
-          style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
+          style: const TextStyle(
+              color: Colors.white, fontSize: 17, fontWeight: FontWeight.w700),
           decoration: InputDecoration(
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
             suffixText: unit,
-            suffixStyle: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13, fontWeight: FontWeight.w600),
+            suffixStyle: TextStyle(
+                color: Colors.white.withOpacity(0.45),
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
             filled: true,
             fillColor: Colors.white.withOpacity(0.05),
             enabledBorder: OutlineInputBorder(
@@ -2699,25 +2999,28 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Travellers',
-                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.7), fontSize: 13)),
                 const SizedBox(height: 2),
                 Text('For the trip budget estimate',
-                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 11)),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.4), fontSize: 11)),
               ],
             ),
           ),
-          _stepBtn(Icons.remove, _travellers > 1
-              ? () => setState(() => _travellers--)
-              : null),
+          _stepBtn(Icons.remove,
+              _travellers > 1 ? () => setState(() => _travellers--) : null),
           Container(
             width: 34,
             alignment: Alignment.center,
             child: Text('$_travellers',
-                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
           ),
-          _stepBtn(Icons.add, _travellers < 12
-              ? () => setState(() => _travellers++)
-              : null),
+          _stepBtn(Icons.add,
+              _travellers < 12 ? () => setState(() => _travellers++) : null),
         ],
       ),
     );
@@ -2725,14 +3028,17 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   Widget _stepBtn(IconData icon, VoidCallback? onTap) {
     return Material(
-      color: onTap == null ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.12),
+      color: onTap == null
+          ? Colors.white.withOpacity(0.05)
+          : Colors.white.withOpacity(0.12),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, size: 20, color: onTap == null ? Colors.white24 : Colors.white),
+          child: Icon(icon,
+              size: 20, color: onTap == null ? Colors.white24 : Colors.white),
         ),
       ),
     );
@@ -2749,7 +3055,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   String? _currentFuelValidator(String? v) {
     if (v == null || v.trim().isEmpty) return 'Enter a valid fuel amount.';
     final fuel = double.tryParse(v.trim());
-    if (fuel == null || fuel.isNaN || fuel < 0) return 'Enter a valid fuel amount.';
+    if (fuel == null || fuel.isNaN || fuel < 0)
+      return 'Enter a valid fuel amount.';
     final tank = _selectedVehicle != null && _selectedVehicle!.tankCapacity > 0
         ? _selectedVehicle!.tankCapacity
         : double.tryParse(_tankController.text);
@@ -2803,7 +3110,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           content: Text('Couldn\'t find "$q". Try a more specific name.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ));
       }
     } finally {
@@ -2817,7 +3125,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     setState(() => _suggestingPopular = true);
     try {
       await _findPlacesBeforeTrip(
-        categories: const ['attraction', 'viewpoint', 'temple', 'hills', 'lake', 'river'],
+        categories: const [
+          'attraction',
+          'viewpoint',
+          'temple',
+          'hills',
+          'lake',
+          'river'
+        ],
       );
     } finally {
       if (mounted) setState(() => _suggestingPopular = false);
@@ -2873,7 +3188,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           content: Text('Couldn\'t locate "$name" on the map.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ));
       }
       return false;
@@ -2900,12 +3216,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
       context: context,
       isScrollControlled: true,
       backgroundColor: const Color(0xFF13233B),
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetCtx) {
         return StatefulBuilder(
           builder: (sheetCtx, setSheet) {
             Future<void> run(Future<void> Function() fn) async {
-              setSheet(() { busy = true; error = null; });
+              setSheet(() {
+                busy = true;
+                error = null;
+              });
               try {
                 await fn();
               } catch (e) {
@@ -2921,14 +3241,21 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: tab == i ? accent : Colors.white.withOpacity(0.06),
+                        color:
+                            tab == i ? accent : Colors.white.withOpacity(0.06),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        Icon(icon, size: 16, color: Colors.white),
-                        const SizedBox(width: 6),
-                        Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
-                      ]),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(icon, size: 16, color: Colors.white),
+                            const SizedBox(width: 6),
+                            Text(label,
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13)),
+                          ]),
                     ),
                   ),
                 );
@@ -2951,25 +3278,37 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(p['name'] ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                          Text(p['name'] ?? '',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15)),
                           if ((p['area'] ?? '').isNotEmpty)
-                            Text(p['area']!, style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 12)),
+                            Text(p['area']!,
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 12)),
                           if ((p['why'] ?? '').isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text(p['why']!, style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 12.5)),
+                              child: Text(p['why']!,
+                                  style: TextStyle(
+                                      color: Colors.white.withOpacity(0.75),
+                                      fontSize: 12.5)),
                             ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     isAdded
-                        ? const Icon(Icons.check_circle, color: Colors.greenAccent, size: 26)
+                        ? const Icon(Icons.check_circle,
+                            color: Colors.greenAccent, size: 26)
                         : IconButton(
                             icon: const Icon(Icons.add_circle, color: accent),
                             tooltip: 'Add to route',
                             onPressed: () async {
-                              final ok = await _addAiPlace(p['name'] ?? '', p['area'] ?? '');
+                              final ok = await _addAiPlace(
+                                  p['name'] ?? '', p['area'] ?? '');
                               if (ok) setSheet(() => added.add(key));
                             },
                           ),
@@ -2979,73 +3318,130 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             }
 
             return Padding(
-              padding: EdgeInsets.only(left: 18, right: 18, top: 14, bottom: 14 + MediaQuery.of(sheetCtx).viewInsets.bottom),
+              padding: EdgeInsets.only(
+                  left: 18,
+                  right: 18,
+                  top: 14,
+                  bottom: 14 + MediaQuery.of(sheetCtx).viewInsets.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+                  Center(
+                      child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                              color: Colors.white24,
+                              borderRadius: BorderRadius.circular(2)))),
                   const SizedBox(height: 14),
                   Row(children: [
                     const Icon(Icons.auto_awesome, color: accent, size: 20),
                     const SizedBox(width: 8),
-                    const Text('AI Assistant', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('AI Assistant',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    const Text('Gemini', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.w600)),
+                    const Text('Gemini',
+                        style: TextStyle(
+                            color: Colors.white38,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600)),
                   ]),
                   const SizedBox(height: 14),
-                  Row(children: [seg('Discover places', Icons.explore, 0), const SizedBox(width: 8), seg('Ask', Icons.chat_bubble_outline, 1)]),
+                  Row(children: [
+                    seg('Discover places', Icons.explore, 0),
+                    const SizedBox(width: 8),
+                    seg('Ask', Icons.chat_bubble_outline, 1)
+                  ]),
                   const SizedBox(height: 16),
-
                   if (tab == 0) ...[
                     ElevatedButton.icon(
                       onPressed: (busy || start.isEmpty || end.isEmpty)
                           ? null
                           : () => run(() async {
-                                places = await _api.aiRecommendStops(start: start, end: end);
+                                places = await _api.aiRecommendStops(
+                                    start: start, end: end);
                               }),
                       icon: const Icon(Icons.route, size: 18),
-                      label: Text(start.isEmpty || end.isEmpty ? 'Enter start & destination first' : 'Recommend stops on my route'),
-                      style: ElevatedButton.styleFrom(backgroundColor: accent, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 13)),
+                      label: Text(start.isEmpty || end.isEmpty
+                          ? 'Enter start & destination first'
+                          : 'Recommend stops on my route'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13)),
                     ),
                     const SizedBox(height: 10),
-                    _aiInputRow(searchCtl, 'e.g. waterfalls near Chikmagalur', busy, () {
+                    _aiInputRow(
+                        searchCtl, 'e.g. waterfalls near Chikmagalur', busy,
+                        () {
                       final q = searchCtl.text.trim();
                       if (q.isEmpty) return;
                       run(() async {
-                        places = await _api.aiSearchPlaces(query: q, near: start.isNotEmpty ? start : null);
+                        places = await _api.aiSearchPlaces(
+                            query: q, near: start.isNotEmpty ? start : null);
                       });
                     }),
                   ] else ...[
                     Wrap(spacing: 8, runSpacing: 8, children: [
-                      _aiChip('Plan my itinerary', busy, () => run(() async {
-                            answer = await _api.aiAsk(
-                              question: 'Write a day-by-day itinerary for this road trip.',
-                              context: {'from': start, 'to': end, 'vehicle': _selectedVehicle?.name, 'travellers': _travellers},
-                            );
-                          })),
-                      _aiChip('Best time to leave?', busy, () => run(() async {
-                            answer = await _api.aiAsk(question: 'What is the best time to start this drive and why?', context: {'from': start, 'to': end});
-                          })),
+                      _aiChip(
+                          'Plan my itinerary',
+                          busy,
+                          () => run(() async {
+                                answer = await _api.aiAsk(
+                                  question:
+                                      'Write a day-by-day itinerary for this road trip.',
+                                  context: {
+                                    'from': start,
+                                    'to': end,
+                                    'vehicle': _selectedVehicle?.name,
+                                    'travellers': _travellers
+                                  },
+                                );
+                              })),
+                      _aiChip(
+                          'Best time to leave?',
+                          busy,
+                          () => run(() async {
+                                answer = await _api.aiAsk(
+                                    question:
+                                        'What is the best time to start this drive and why?',
+                                    context: {'from': start, 'to': end});
+                              })),
                     ]),
                     const SizedBox(height: 10),
-                    _aiInputRow(askCtl, 'Ask anything about your trip…', busy, () {
+                    _aiInputRow(askCtl, 'Ask anything about your trip…', busy,
+                        () {
                       final q = askCtl.text.trim();
                       if (q.isEmpty) return;
                       run(() async {
-                        answer = await _api.aiAsk(question: q, context: {'from': start, 'to': end, 'vehicle': _selectedVehicle?.name, 'travellers': _travellers});
+                        answer = await _api.aiAsk(question: q, context: {
+                          'from': start,
+                          'to': end,
+                          'vehicle': _selectedVehicle?.name,
+                          'travellers': _travellers
+                        });
                       });
                     }),
                   ],
-
                   const SizedBox(height: 14),
                   if (busy)
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Center(child: CircularProgressIndicator(color: accent)))
+                    const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                            child: CircularProgressIndicator(color: accent)))
                   else if (error != null)
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
-                      child: Text(error!, style: const TextStyle(color: Color(0xFFFFB4A8), fontSize: 13)),
+                      decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Text(error!,
+                          style: const TextStyle(
+                              color: Color(0xFFFFB4A8), fontSize: 13)),
                     )
                   else
                     Flexible(
@@ -3053,8 +3449,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                         child: tab == 0
                             ? Column(children: places.map(placeCard).toList())
                             : (answer.isEmpty
-                                ? Text('Ask a question or tap a suggestion above.', style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13))
-                                : SelectableText(answer, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5))),
+                                ? Text(
+                                    'Ask a question or tap a suggestion above.',
+                                    style: TextStyle(
+                                        color: Colors.white.withOpacity(0.5),
+                                        fontSize: 13))
+                                : SelectableText(answer,
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 14,
+                                        height: 1.5))),
                       ),
                     ),
                 ],
@@ -3069,7 +3473,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     });
   }
 
-  Widget _aiInputRow(TextEditingController ctl, String hint, bool busy, VoidCallback onSend) {
+  Widget _aiInputRow(
+      TextEditingController ctl, String hint, bool busy, VoidCallback onSend) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.05),
@@ -3088,20 +3493,26 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               isDense: true,
               border: InputBorder.none,
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 13),
+              hintStyle: TextStyle(
+                  color: Colors.white.withOpacity(0.45), fontSize: 13),
             ),
           ),
         ),
-        IconButton(icon: const Icon(Icons.send, color: Color(0xFF60A5FA)), onPressed: busy ? null : onSend),
+        IconButton(
+            icon: const Icon(Icons.send, color: Color(0xFF60A5FA)),
+            onPressed: busy ? null : onSend),
       ]),
     );
   }
 
   Widget _aiChip(String label, bool busy, VoidCallback onTap) {
     return ActionChip(
-      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12.5)),
+      label: Text(label,
+          style: const TextStyle(color: Colors.white, fontSize: 12.5)),
       backgroundColor: Colors.white.withOpacity(0.08),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.white.withOpacity(0.15))),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withOpacity(0.15))),
       onPressed: busy ? null : onTap,
     );
   }
@@ -3119,7 +3530,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           child: Row(
             children: [
               const SizedBox(width: 14),
-              Icon(Icons.search, color: Colors.white.withOpacity(0.6), size: 20),
+              Icon(Icons.search,
+                  color: Colors.white.withOpacity(0.6), size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
@@ -3132,17 +3544,23 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     isDense: true,
                     border: InputBorder.none,
                     hintText: 'Search a place to add…',
-                    hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+                    hintStyle: TextStyle(
+                        color: Colors.white.withOpacity(0.5), fontSize: 14),
                   ),
                 ),
               ),
               _searchingPlace
                   ? const Padding(
                       padding: EdgeInsets.all(12),
-                      child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white)),
                     )
                   : IconButton(
-                      icon: const Icon(Icons.add_circle, color: Color(0xFF2E75B6)),
+                      icon: const Icon(Icons.add_circle,
+                          color: Color(0xFF2E75B6)),
                       tooltip: 'Add this place',
                       onPressed: _addManualPlace,
                     ),
@@ -3163,20 +3581,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   InkWell(
                     onTap: () => _selectPlaceSuggestion(s),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 11),
                       child: Row(
                         children: [
-                          const Icon(Icons.place_outlined, color: Color(0xFF60A5FA), size: 18),
+                          const Icon(Icons.place_outlined,
+                              color: Color(0xFF60A5FA), size: 18),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
                               s['name'] as String,
-                              style: const TextStyle(color: Colors.white, fontSize: 13),
+                              style: const TextStyle(
+                                  color: Colors.white, fontSize: 13),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.add, color: Colors.white38, size: 18),
+                          const Icon(Icons.add,
+                              color: Colors.white38, size: 18),
                         ],
                       ),
                     ),
@@ -3199,7 +3621,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           _buildPlaceSearchField(),
           const SizedBox(height: 20),
           Text('Or pick categories to find along your route',
-              style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 12.5)),
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.55), fontSize: 12.5)),
           const SizedBox(height: 14),
           Wrap(
             spacing: 12.0,
@@ -3208,14 +3631,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               final isSelected = _selectedPOIs.contains(option['id']);
               return FilterChip(
                 label: Text(option['label']),
-                avatar: Icon(option['icon'], size: 18, color: isSelected ? Colors.white : Colors.white70),
+                avatar: Icon(option['icon'],
+                    size: 18,
+                    color: isSelected ? Colors.white : Colors.white70),
                 selected: isSelected,
                 selectedColor: const Color(0xFF2E75B6),
                 checkmarkColor: Colors.white,
                 backgroundColor: Colors.black.withOpacity(0.3),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(color: isSelected ? const Color(0xFF2E75B6) : Colors.white.withOpacity(0.2)),
+                  side: BorderSide(
+                      color: isSelected
+                          ? const Color(0xFF2E75B6)
+                          : Colors.white.withOpacity(0.2)),
                 ),
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : Colors.white70,
@@ -3238,16 +3666,24 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: _loadingPOIs ? null : () => _findPlacesBeforeTrip(),
+                  onPressed:
+                      _loadingPOIs ? null : () => _findPlacesBeforeTrip(),
                   icon: (_loadingPOIs && !_suggestingPopular)
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.search, size: 20),
-                  label: Text((_loadingPOIs && !_suggestingPopular) ? 'Searching…' : 'Find Places'),
+                  label: Text((_loadingPOIs && !_suggestingPopular)
+                      ? 'Searching…'
+                      : 'Find Places'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF2E75B6),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -3256,14 +3692,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 child: OutlinedButton.icon(
                   onPressed: _loadingPOIs ? null : _suggestPopularStops,
                   icon: _suggestingPopular
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.auto_awesome, size: 20),
-                  label: Text(_suggestingPopular ? 'Finding…' : 'Popular stops'),
+                  label:
+                      Text(_suggestingPopular ? 'Finding…' : 'Popular stops'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: BorderSide(color: Colors.white.withOpacity(0.35)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -3274,12 +3716,15 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: _showAiAssistant,
-              icon: const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF60A5FA)),
-              label: const Text('AI Assistant', style: TextStyle(color: Color(0xFF60A5FA))),
+              icon: const Icon(Icons.auto_awesome,
+                  size: 18, color: Color(0xFF60A5FA)),
+              label: const Text('AI Assistant',
+                  style: TextStyle(color: Color(0xFF60A5FA))),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF60A5FA)),
                 padding: const EdgeInsets.symmetric(vertical: 13),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ),
@@ -3291,13 +3736,20 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               child: OutlinedButton.icon(
                 onPressed: _loading ? null : _planAndOpenItinerary,
                 icon: _loading
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF8F81F2)))
-                    : const Icon(Icons.event_note_rounded, size: 18, color: Color(0xFF8F81F2)),
-                label: const Text('Itinerary', style: TextStyle(color: Color(0xFF8F81F2))),
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Color(0xFF8F81F2)))
+                    : const Icon(Icons.event_note_rounded,
+                        size: 18, color: Color(0xFF8F81F2)),
+                label: const Text('Itinerary',
+                    style: TextStyle(color: Color(0xFF8F81F2))),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFF8F81F2)),
                   padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),
@@ -3325,12 +3777,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.white.withOpacity(0.6), size: 18),
+                    Icon(Icons.info_outline,
+                        color: Colors.white.withOpacity(0.6), size: 18),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'No places found near this route for those categories. Try different categories, or search a place by name above.',
-                        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.7), fontSize: 13),
                       ),
                     ),
                   ],
@@ -3353,11 +3807,16 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
     if (allPois.isEmpty) return const SizedBox.shrink();
 
     // Sort POIs progressively along the route corridor from start to destination
-    final startCoord = _tempStart ?? (_stopControllers.isNotEmpty ? _resolvedStopCoords[_stopControllers.first.hashCode] : null);
+    final startCoord = _tempStart ??
+        (_stopControllers.isNotEmpty
+            ? _resolvedStopCoords[_stopControllers.first.hashCode]
+            : null);
     if (startCoord != null) {
       allPois.sort((a, b) {
-        final distA = _calcDistKm(a.value.lat, a.value.lng, startCoord.lat, startCoord.lng);
-        final distB = _calcDistKm(b.value.lat, b.value.lng, startCoord.lat, startCoord.lng);
+        final distA = _calcDistKm(
+            a.value.lat, a.value.lng, startCoord.lat, startCoord.lng);
+        final distB = _calcDistKm(
+            b.value.lat, b.value.lng, startCoord.lat, startCoord.lng);
         return distA.compareTo(distB);
       });
     }
@@ -3379,39 +3838,61 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
           final poi = allPois[index];
           final category = poi.key;
           final place = poi.value;
-          final temple = (category == 'temple') ? TempleDatabase.findTemple(place.name) : null;
+          final temple = (category == 'temple')
+              ? TempleDatabase.findTemple(place.name)
+              : null;
           final isTemple = category == 'temple' || temple != null;
           final distFromOrigin = startCoord != null
-              ? _calcDistKm(place.lat, place.lng, startCoord.lat, startCoord.lng)
+              ? _calcDistKm(
+                  place.lat, place.lng, startCoord.lat, startCoord.lng)
               : null;
 
-          final cleanName = temple?.canonicalName ?? (place.name.toLowerCase().startsWith('unnamed')
-              ? (category == 'fuel'
-                  ? 'Petrol Bunk'
-                  : category == 'hotel'
-                      ? 'Hotel / Stay'
-                      : category == 'restaurant'
-                          ? 'Restaurant / Cafe'
-                          : category == 'attraction'
-                              ? 'Tourist Attraction'
-                              : isTemple
-                                  ? 'Sri Temple Shrine'
-                                  : category == 'viewpoint'
-                                      ? 'Scenic Viewpoint'
-                                      : '${category[0].toUpperCase()}${category.substring(1)}')
-              : place.name);
+          final cleanName = temple?.canonicalName ??
+              (place.name.toLowerCase().startsWith('unnamed')
+                  ? (category == 'fuel'
+                      ? 'Petrol Bunk'
+                      : category == 'hotel'
+                          ? 'Hotel / Stay'
+                          : category == 'restaurant'
+                              ? 'Restaurant / Cafe'
+                              : category == 'attraction'
+                                  ? 'Tourist Attraction'
+                                  : isTemple
+                                      ? 'Sri Temple Shrine'
+                                      : category == 'viewpoint'
+                                          ? 'Scenic Viewpoint'
+                                          : '${category[0].toUpperCase()}${category.substring(1)}')
+                  : place.name);
 
-          final rating = temple?.rating ?? place.rating ?? (isTemple ? 4.7 : 4.5);
+          final rating =
+              temple?.rating ?? place.rating ?? (isTemple ? 4.7 : 4.5);
           final deity = temple?.deity ?? place.deity;
-          final timing = temple?.timing ?? place.timing ?? (isTemple ? 'Opens 5:00 AM · Closes 9:00 PM' : null);
+          final timing = temple?.timing ??
+              place.timing ??
+              (isTemple ? 'Opens 5:00 AM · Closes 9:00 PM' : null);
           final highlights = temple?.highlights ?? place.highlights;
-          final categoryLabel = temple?.categoryType ?? place.categoryType ?? (isTemple ? '🛕 Hindu temple' : (category == 'attraction' ? '📍 Landmark' : '📌 Place of Interest'));
+          final categoryLabel = temple?.categoryType ??
+              place.categoryType ??
+              (isTemple
+                  ? '🛕 Hindu temple'
+                  : (category == 'attraction'
+                      ? '📍 Landmark'
+                      : '📌 Place of Interest'));
 
           final poiKey = '${place.lat},${place.lng}';
-          final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? (temple != null ? '${temple.city}, ${temple.state}' : category.toUpperCase());
+          final displayAddress = _resolvedAddresses[poiKey] ??
+              place.address ??
+              (temple != null
+                  ? '${temple.city}, ${temple.state}'
+                  : category.toUpperCase());
 
-          final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
-          if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
+          final isCoordinateFallback = place.address == null ||
+              place.address!.contains('°') ||
+              place.address!.contains('N,') ||
+              place.address!.contains('S,');
+          if (isCoordinateFallback &&
+              !_resolvedAddresses.containsKey(poiKey) &&
+              !_requestedAddresses.contains(poiKey)) {
             _requestedAddresses.add(poiKey);
             _api.reverseGeocode(place.lat, place.lng).then((addr) {
               if (addr != null && mounted) {
@@ -3429,7 +3910,9 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
               color: const Color(0xFF1E293B).withOpacity(0.7),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white.withOpacity(0.08),
+                color: isTemple
+                    ? const Color(0xFFF59E0B).withOpacity(0.35)
+                    : Colors.white.withOpacity(0.08),
               ),
             ),
             child: Column(
@@ -3441,11 +3924,19 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.15) : const Color(0xFF2E75B6).withOpacity(0.15),
+                        color: isTemple
+                            ? const Color(0xFFF59E0B).withOpacity(0.15)
+                            : const Color(0xFF2E75B6).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        isTemple ? '🛕' : (category == 'fuel' ? '⛽' : (category == 'restaurant' ? '🍽️' : (category == 'hotel' ? '🏨' : '📍'))),
+                        isTemple
+                            ? '🛕'
+                            : (category == 'fuel'
+                                ? '⛽'
+                                : (category == 'restaurant'
+                                    ? '🍽️'
+                                    : (category == 'hotel' ? '🏨' : '📍'))),
                         style: const TextStyle(fontSize: 20),
                       ),
                     ),
@@ -3471,38 +3962,49 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                             runSpacing: 4,
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                  color:
+                                      const Color(0xFFF59E0B).withOpacity(0.2),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.star, color: Color(0xFFF59E0B), size: 12),
+                                    const Icon(Icons.star,
+                                        color: Color(0xFFF59E0B), size: 12),
                                     const SizedBox(width: 3),
                                     Text(
                                       '$rating',
-                                      style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          color: Color(0xFFF59E0B),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
                               ),
                               Text(
                                 categoryLabel,
-                                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7),
+                                    fontSize: 11),
                               ),
                               if (distFromOrigin != null)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF38BDF8).withOpacity(0.18),
+                                    color: const Color(0xFF38BDF8)
+                                        .withOpacity(0.18),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.near_me_outlined, color: Color(0xFF38BDF8), size: 11),
+                                      const Icon(Icons.near_me_outlined,
+                                          color: Color(0xFF38BDF8), size: 11),
                                       const SizedBox(width: 3),
                                       Text(
                                         '${distFromOrigin.toStringAsFixed(1)} km',
@@ -3517,7 +4019,10 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                                 ),
                               Text(
                                 '• Open',
-                                style: TextStyle(color: Colors.greenAccent.shade400, fontSize: 11, fontWeight: FontWeight.w600),
+                                style: TextStyle(
+                                    color: Colors.greenAccent.shade400,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600),
                               ),
                             ],
                           ),
@@ -3525,7 +4030,8 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.add_circle, color: Color(0xFF38BDF8), size: 28),
+                      icon: const Icon(Icons.add_circle,
+                          color: Color(0xFF38BDF8), size: 28),
                       tooltip: 'Add stop to trip',
                       onPressed: () => _confirmAddPOIFromPlanner(place),
                     ),
@@ -3538,12 +4044,18 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     children: [
                       Text(
                         'Deity: ',
-                        style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12, fontWeight: FontWeight.w600),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600),
                       ),
                       Expanded(
                         child: Text(
                           deity,
-                          style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 12, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                              color: Color(0xFFFBBF24),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
@@ -3553,11 +4065,14 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                   const SizedBox(height: 4),
                   Row(
                     children: [
-                      Icon(Icons.access_time, size: 12, color: Colors.white.withOpacity(0.6)),
+                      Icon(Icons.access_time,
+                          size: 12, color: Colors.white.withOpacity(0.6)),
                       const SizedBox(width: 4),
                       Text(
                         timing,
-                        style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 11),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.65),
+                            fontSize: 11),
                       ),
                     ],
                   ),
@@ -3568,20 +4083,25 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                     'Highlights: $highlights',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 11, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.75),
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic),
                   ),
                 ],
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Icon(Icons.location_on_outlined, size: 12, color: Colors.white.withOpacity(0.4)),
+                    Icon(Icons.location_on_outlined,
+                        size: 12, color: Colors.white.withOpacity(0.4)),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         displayAddress,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 11),
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.5), fontSize: 11),
                       ),
                     ),
                   ],

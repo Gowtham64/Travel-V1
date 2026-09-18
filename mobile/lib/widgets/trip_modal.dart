@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -217,6 +220,10 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   // Round Trip Planning Mode: 0 = Describe It (NLP Prompt), 1 = Quick Wizard (Structured)
   int _roundTripMethod = 0;
   final TextEditingController _describeItCtrl = TextEditingController();
+
+  // Attached screenshot/image for Describe It mode
+  Uint8List? _describeItImageBytes;
+  String? _describeItImageName;
   final TextEditingController _aroundDestinationInputCtrl =
       TextEditingController();
   final List<String> _aroundDestinations = [];
@@ -5287,6 +5294,67 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             ),
           ),
 
+          const SizedBox(height: 12),
+
+          // ── Attach Screenshot / Reference Image (Around Trip) ──
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final result = await FilePicker.pickFiles(
+                    type: FileType.image,
+                    allowMultiple: false,
+                    withData: true,
+                  );
+                  if (result != null && result.files.isNotEmpty) {
+                    final file = result.files.first;
+                    if (file.bytes != null) {
+                      setState(() {
+                        _describeItImageBytes = file.bytes;
+                        _describeItImageName = file.name;
+                      });
+                    }
+                  }
+                },
+                icon: const Icon(Icons.image_rounded, size: 16),
+                label: Text(
+                  _describeItImageName != null ? 'Change Image' : 'Attach Screenshot',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF94A3B8),
+                  side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              if (_describeItImageBytes != null) ...[
+                const SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(_describeItImageBytes!, width: 40, height: 40, fit: BoxFit.cover),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    _describeItImageName ?? '',
+                    style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+                  onPressed: () => setState(() { _describeItImageBytes = null; _describeItImageName = null; }),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ] else ...[
+                const SizedBox(width: 8),
+                Text('Attach a photo for AI context', style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11)),
+              ],
+            ],
+          ),
+
           const SizedBox(height: 14),
 
           // Primary CTA: "Build My Road Trip →"
@@ -5298,7 +5366,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                 _showToast('Please describe your around trip first.');
                 return;
               }
-              _executeDescribeIt(_describeItCtrl.text);
+              _executeDescribeIt(
+                _describeItImageBytes != null
+                  ? '${_describeItCtrl.text}\n[Reference image attached: ${_describeItImageName ?? "screenshot"}]'
+                  : _describeItCtrl.text,
+              );
             },
           ),
 
@@ -7732,7 +7804,80 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 18),
+              const SizedBox(height: 12),
+
+              // ── Attach Screenshot / Reference Image ──
+              Row(
+                children: [
+                  // Attach button
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      final result = await FilePicker.pickFiles(
+                        type: FileType.image,
+                        allowMultiple: false,
+                        withData: true,
+                      );
+                      if (result != null && result.files.isNotEmpty) {
+                        final file = result.files.first;
+                        if (file.bytes != null) {
+                          setState(() {
+                            _describeItImageBytes = file.bytes;
+                            _describeItImageName = file.name;
+                          });
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.image_rounded, size: 16),
+                    label: Text(
+                      _describeItImageName != null ? 'Change Image' : 'Attach Screenshot',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF94A3B8),
+                      side: BorderSide(color: Colors.white.withOpacity(0.15)),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                  // Image preview thumbnail + remove
+                  if (_describeItImageBytes != null) ...[
+                    const SizedBox(width: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        _describeItImageBytes!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _describeItImageName ?? '',
+                        style: const TextStyle(color: Color(0xFF64748B), fontSize: 10),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16, color: Color(0xFF94A3B8)),
+                      onPressed: () => setState(() {
+                        _describeItImageBytes = null;
+                        _describeItImageName = null;
+                      }),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      'Attach a photo for AI context',
+                      style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 11),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 16),
 
               // Gradient Action Button: Build my road trip
               Container(
@@ -7757,7 +7902,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                   ],
                 ),
                 child: ElevatedButton.icon(
-                  onPressed: () => _executeDescribeIt(_describeItCtrl.text),
+                  onPressed: () => _executeDescribeIt(
+                    _describeItImageBytes != null
+                      ? '${_describeItCtrl.text}\n[Reference image attached: ${_describeItImageName ?? "screenshot"}]'
+                      : _describeItCtrl.text,
+                  ),
                   icon: const Icon(Icons.auto_awesome_rounded,
                       color: Colors.black, size: 18),
                   label: const Text(

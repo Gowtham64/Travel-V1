@@ -2052,7 +2052,7 @@
                         </div>
                         <div class="hero-actions word" style="animation-delay:.95s">
                             <a class="hero-btn primary"
-                                href="https://voyplan.in/?guest=true">Launch web app &rarr;</a>
+                                href="/app/?guest=true">Launch web app &rarr;</a>
 
                             <a class="hero-btn ghost"
                                 href="Voyplan.apk"
@@ -2160,7 +2160,7 @@
 
                             <div class="auth-msg" id="auth-msg"></div>
 
-                            <a class="auth-guest" href="https://voyplan.in/?guest=true">Continue as
+                            <a class="auth-guest" href="/app/?guest=true">Continue as
                                 guest &rarr;</a>
                         </div>
                     </div>
@@ -2464,7 +2464,7 @@
                     <h2>Your next road trip starts here.</h2>
                     <p>Sign in above, or jump straight in and explore.</p>
                     <div class="cta-actions">
-                        <a class="btn-cta" href="https://voyplan.in/?guest=true">Launch web app
+                        <a class="btn-cta" href="/app/?guest=true">Launch web app
                             &rarr;</a>
 
                         <a class="btn-cta ghost"
@@ -2935,11 +2935,8 @@
             }
 
             function renderItineraryResults(data, params) {
-                const sessionFrag = (window.currentAuthSession && window.currentAuthSession.refresh_token) 
-                    ? '#sb_refresh=' + encodeURIComponent(window.currentAuthSession.refresh_token) 
-                    : '';
                 const tripType = (params && params.tripType) ? params.tripType : 'roundtrip';
-                const appDeepLink = `${APP_URL}?guest=true&start=${encodeURIComponent(data.origin)}&dest=${encodeURIComponent(data.dest)}&days=${data.days}&type=${encodeURIComponent(tripType)}${sessionFrag}`;
+                const appDeepLink = `${APP_URL}?start=${encodeURIComponent(data.origin)}&dest=${encodeURIComponent(data.dest)}&days=${data.days}&type=${encodeURIComponent(tripType)}`;
 
                 let daysHtml = data.daysList.map(d => `
                     <div class="itinerary-day-card">
@@ -3060,7 +3057,13 @@
         // ── Landing-page login card ──────────────────────────────────────────
         const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
-            const APP_URL = 'https://voyplan.in/';
+        const APP_URL = (function() {
+            try {
+                return window.location.origin + '/app/';
+            } catch (_) {
+                return 'https://voyplan.in/app/';
+            }
+        })();
 
         function initAuth() {
             if (!window.supabase) {
@@ -3119,13 +3122,17 @@
                 return { phone, password };
             }
 
-            // On success we hand the session to the Flutter app via the URL fragment,
-            // which the app reads and restores so the user lands in already signed-in.
+            // Hands the session off to the Flutter app, avoiding infinite loops.
             function goToApp(session) {
-                const target = (session && session.refresh_token)
-                    ? (APP_URL + '#sb_refresh=' + encodeURIComponent(session.refresh_token))
-                    : APP_URL;
-                window.location.replace(target);
+                const target = APP_URL;
+                // Loop protection: never redirect to the current URL
+                const currentNorm = window.location.href.split('?')[0].replace(/\/+$/, '');
+                const targetNorm = target.split('?')[0].replace(/\/+$/, '');
+                if (currentNorm === targetNorm || window.location.pathname.startsWith('/app')) {
+                    console.log('Already at or on target app route');
+                    return;
+                }
+                window.location.assign(target);
             }
 
             let currentSession = null;
@@ -3152,7 +3159,7 @@
 
                 if (navCta) {
                     navCta.textContent = 'App Dashboard →';
-                    navCta.href = APP_URL + (session?.refresh_token ? '#sb_refresh=' + encodeURIComponent(session.refresh_token) : '');
+                    navCta.href = APP_URL;
                 }
             }
 
@@ -3281,17 +3288,6 @@
                 } catch (_) {}
                 showLoginForm();
             } else {
-                if (!stayOnLanding) {
-                    try {
-                        const hasStoredSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k));
-                        if (hasStoredSession && els.title && els.subtitle) {
-                            els.title.textContent = 'Opening VoyPlan…';
-                            els.subtitle.textContent = 'Resuming your session';
-                            setBusy(true, 'Opening VoyPlan…');
-                        }
-                    } catch (_) {}
-                }
-
                 sb.auth.getSession().then(({ data }) => {
                     if (data && data.session) {
                         if (!stayOnLanding) {
@@ -3302,6 +3298,8 @@
                     } else {
                         showLoginForm();
                     }
+                }).catch(() => {
+                    showLoginForm();
                 });
 
                 sb.auth.onAuthStateChange((event, session) => {

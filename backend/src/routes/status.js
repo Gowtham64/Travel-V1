@@ -301,8 +301,21 @@ router.get("/status", async (req, res) => {
       }
     }
 
+    let updateTimer = null;
+    function startMetricsPolling() {
+      if (updateTimer) clearInterval(updateTimer);
+      updateTimer = setInterval(() => {
+        if (!document.hidden) updateMetrics();
+      }, 60000);
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        updateMetrics();
+      }
+    });
+
     updateMetrics();
-    setInterval(updateMetrics, 5000);
+    startMetricsPolling();
   </script>
 </body>
 </html>`);

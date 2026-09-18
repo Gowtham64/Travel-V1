@@ -1,4 +1,33 @@
 services:
+  # VoyPlan Node.js Backend API Service (api.voyplan.in)
+  - type: web
+    name: voyplan-backend
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: "npm install"
+    startCommand: "node src/index.js"
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: "https://voyplan.in,https://www.voyplan.in"
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: MAPBOX_TOKEN
+        sync: false
+      - key: ORS_API_KEY
+        sync: false
+      - key: TOLLGURU_API_KEY
+        sync: false
+
   # VoyPlan AI Autonomous Engineering & QA Operations Hub
   - type: web
     name: voyplan-ai-engineering
@@ -9,6 +38,7 @@ services:
     rootDir: voyplan-ai-engineering
     buildCommand: "pip install -r requirements.txt"
     startCommand: "python3 dashboard/server.py"
+    healthCheckPath: /api/status
     envVars:
       - key: MODEL_PROVIDER
         value: gemini

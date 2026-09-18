@@ -845,7 +845,13 @@ class VehicleDatabaseService {
     final q = query.toLowerCase().trim();
     final normFuel = fuelType?.toLowerCase().trim();
 
-    // 1. Try backend search endpoint if online
+    // 1. High-performance, zero-latency local catalog search first (eliminates network calls)
+    final localResults = _searchLocal(q, normFuel, type, limit);
+    if (localResults.isNotEmpty || q.length < 3) {
+      return localResults;
+    }
+
+    // 2. Fallback to backend search endpoint only if local catalog had no match for query >= 3 chars
     try {
       final uri = Uri.parse('${AppConfig.backendUrl}/api/vehicles/search')
           .replace(queryParameters: {
@@ -878,11 +884,10 @@ class VehicleDatabaseService {
         }
       }
     } catch (_) {
-      // Gracefully fall through to fast local catalog search
+      // Gracefully fall through
     }
 
-    // 2. High-performance client-side search over catalog
-    return _searchLocal(q, normFuel, type, limit);
+    return localResults;
   }
 
   List<VehicleModel> _searchLocal(String query, String? fuelType, String? type, int limit) {

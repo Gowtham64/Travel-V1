@@ -9,6 +9,16 @@ BUILD_DIR="$ROOT_DIR/mobile/build/web"
 APP_ENV="${APP_ENV:-production}"
 BACKEND_URL="${BACKEND_URL:-https://api.voyplan.in}"
 
+# Fail before building if a dashboard/chat-formatted value was pasted into the
+# shell (for example: [https://api.voyplan.in](https://api.voyplan.in)). A bad
+# backend URL is compiled into the Flutter bundle and otherwise makes every
+# API-backed feature fail after an apparently successful Pages deployment.
+if [[ ! "$BACKEND_URL" =~ ^https?://[^[:space:][:punct:]] ]]; then
+  echo "Invalid BACKEND_URL: $BACKEND_URL" >&2
+  echo "Use a plain URL such as https://api.voyplan.in" >&2
+  exit 1
+fi
+
 # Ensure Flutter is available (Cloudflare Pages build images do not have Flutter pre-installed)
 if ! command -v flutter &> /dev/null; then
   echo "Flutter not found in environment. Installing Flutter stable..."
