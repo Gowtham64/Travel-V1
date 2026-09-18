@@ -63,6 +63,9 @@ cp -R "$TEMP_FLUTTER/"* "$BUILD_DIR/app/"
 rm -rf "$TEMP_FLUTTER"
 
 cp "$ROOT_DIR/web/index.html" "$BUILD_DIR/index.html"
+if [ -d "$ROOT_DIR/web/images" ]; then
+  cp -R "$ROOT_DIR/web/images" "$BUILD_DIR/images"
+fi
 cp "$ROOT_DIR/mobile/web/favicon"* "$BUILD_DIR/" 2>/dev/null || true
 cp "$ROOT_DIR/mobile/web/apple-touch-icon.png" "$BUILD_DIR/" 2>/dev/null || true
 cp "$ROOT_DIR/cloudflare/_headers" "$BUILD_DIR/_headers"

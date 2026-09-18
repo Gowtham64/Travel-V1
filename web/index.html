@@ -1,1379 +1,2644 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Google Search Console ownership verification -->
-    <meta name="google-site-verification" content="mB3kyKS54jOgaa9VSpPoDGlTnTdC4RpJB-zwRixM8Tg">
-
-    <!-- Google Analytics (GA4) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-F8JKP99Q44"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-F8JKP99Q44');
-    </script>
-
-    <!-- SEO Meta Tags -->
-    <title>VoyPlan — Plan the trip, not the chaos</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>VoyPlan — Plan less. Explore more.</title>
     <meta name="description"
-        content="A cinematic road-trip planner: intelligent routing, live GPS navigation, real-time weather, full trip budgets, and point-of-interest discovery — in one beautiful app.">
-    <meta name="keywords"
-        content="travel planner, itinerary builder, road trip planner, live navigation, flutter, dart, voyplan">
-    <meta name="author" content="Gowtham">
+        content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
-    <!-- Open Graph / Facebook -->
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://voyplan.in/">
-    <meta property="og:title" content="VoyPlan — Plan the trip, not the chaos">
-    <meta property="og:description"
-        content="A cinematic road-trip planner with intelligent routing, live navigation, weather, and budgets.">
-    <meta property="og:image" content="https://voyplan.in/preview.png">
-
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image">
-    <meta property="twitter:url" content="https://voyplan.in/">
-    <meta property="twitter:title" content="VoyPlan — Plan the trip, not the chaos">
-    <meta property="twitter:description"
-        content="A cinematic road-trip planner with intelligent routing, live navigation, weather, and budgets.">
-    <meta property="twitter:image" content="https://voyplan.in/preview.png">
-
-    <!-- Favicon & Touch Icons -->
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="icon" href="/favicon.png" type="image/png">
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-
-    <!-- Google Fonts -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
-        href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=IBM+Plex+Mono:wght@500&family=Inter:wght@400;500;600;700;800&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap"
         rel="stylesheet">
 
-    <!-- Supabase JS SDK for the landing-page login card -->
+    <!-- Supabase JS SDK for live Auth -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <style>
+        /* ════════════════════════════════════════════════════════════════════
+           VOYPLAN DESIGN TOKENS (LIGHT & DARK THEMES)
+           ════════════════════════════════════════════════════════════════════ */
         :root {
-            --bg: #070D18;
-            --bg-2: #0A192F;
-            --surface: #0D1726;
-            --surface-hover: #132238;
-            --ink: #FDFBF7;
-            --muted: #94A3B8;
-            --faint: rgba(253, 251, 247, 0.08);
-            --line: rgba(212, 175, 55, 0.22);
-            --teal: #D4AF37; /* Royal Champagne Gold */
-            --teal-deep: #A38018;
-            --coral: #E0A96D;
-            --gold: #D4AF37;
-            --gold-muted: #C5A880;
-            --font-heading: 'Fraunces', serif;
-            --font-body: 'Inter', sans-serif;
-            --font-mono: 'IBM Plex Mono', monospace;
+            --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --font-serif: 'Playfair Display', Georgia, serif;
+            --font-script: 'Caveat', cursive, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            /* Dark Theme Tokens (Default matching reference) */
+            --bg-base: #060c18;
+            --bg-surface: #0a1324;
+            --bg-card: rgba(13, 23, 42, 0.72);
+            --bg-card-hover: rgba(18, 31, 56, 0.85);
+            --bg-glass: rgba(10, 19, 36, 0.65);
+            --border-subtle: rgba(255, 255, 255, 0.08);
+            --border-card: rgba(255, 255, 255, 0.12);
+            --border-glow: rgba(6, 182, 212, 0.4);
+
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --text-accent: #38bdf8;
+
+            --grad-primary: linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #8b5cf6 100%);
+            --grad-cta: linear-gradient(95deg, #06b6d4 0%, #3b82f6 60%, #6366f1 100%);
+            --grad-text: linear-gradient(135deg, #38bdf8 0%, #818cf8 60%, #c084fc 100%);
+
+            --cyan: #06b6d4;
+            --cyan-glow: rgba(6, 182, 212, 0.25);
+            --blue: #3b82f6;
+            --purple: #8b5cf6;
+            --amber: #f59e0b;
+            --green: #10b981;
+
+            --shadow-glass: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-card);
+            --shadow-glow: 0 10px 30px rgba(6, 182, 212, 0.28);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+            --radius-sm: 10px;
+            --radius-pill: 9999px;
+            --nav-height: 76px;
         }
 
-        * {
+        [data-theme="light"] {
+            --bg-base: #f8fafc;
+            --bg-surface: #ffffff;
+            --bg-card: rgba(255, 255, 255, 0.85);
+            --bg-card-hover: rgba(255, 255, 255, 0.95);
+            --bg-glass: rgba(255, 255, 255, 0.75);
+            --border-subtle: rgba(15, 23, 42, 0.08);
+            --border-card: rgba(15, 23, 42, 0.1);
+            --border-glow: rgba(6, 182, 212, 0.5);
+
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --text-accent: #0284c7;
+
+            --grad-text: linear-gradient(135deg, #0284c7 0%, #4f46e5 60%, #7c3aed 100%);
+            --shadow-glass: 0 20px 50px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--border-card);
+            --shadow-glow: 0 10px 30px rgba(6, 182, 212, 0.2);
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           GLOBAL BASE STYLES
+           ════════════════════════════════════════════════════════════════════ */
+        *, *::before, *::after {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
 
         html {
             scroll-behavior: smooth;
-            scroll-padding-top: 6rem;
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--ink);
-            font-family: var(--font-body);
-            line-height: 1.65;
-            overflow-x: hidden;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
-        body.modal-open {
-            overflow: hidden;
+        body {
+            overflow-x: hidden;
+            background-color: var(--bg-base);
+            min-height: 100vh;
         }
 
-        /* Cinematic film grain overlay */
-        body::after {
-            content: "";
-            position: fixed;
-            inset: 0;
-            z-index: 9999;
-            pointer-events: none;
-            opacity: 0.04;
-            mix-blend-mode: overlay;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button, input, select {
+            font-family: inherit;
+            outline: none;
         }
 
         .container {
-            max-width: 1180px;
+            width: 100%;
+            max-width: 1320px;
             margin: 0 auto;
-            padding: 0 2rem;
+            padding: 0 1.5rem;
         }
 
-        h1, h2, h3 {
-            font-family: var(--font-heading);
-            font-weight: 600;
-            line-height: 1.08;
-            letter-spacing: -0.01em;
-        }
-
-        .eyebrow {
-            font-family: var(--font-mono);
-            text-transform: uppercase;
-            letter-spacing: 0.32em;
-            font-size: 0.72rem;
-            color: var(--gold);
-            margin-bottom: 1.4rem;
-        }
-
-        /* ─────────────  HEADER  ───────────── */
-        header {
+        /* ════════════════════════════════════════════════════════════════════
+           HEADER & NAVIGATION (OVERLAY ATOP HERO)
+           ════════════════════════════════════════════════════════════════════ */
+        header.header {
             position: fixed;
             top: 0;
             left: 0;
-            width: 100%;
-            padding: 1.4rem 0;
-            z-index: 1000;
-            transition: background-color 0.4s ease, padding 0.4s ease, border-color 0.4s ease;
-            border-bottom: 1px solid transparent;
-        }
-
-        header.scrolled {
-            background-color: rgba(7, 13, 24, 0.85);
-            backdrop-filter: blur(14px) saturate(140%);
-            -webkit-backdrop-filter: blur(14px) saturate(140%);
-            border-bottom-color: var(--line);
-            padding: 0.9rem 0;
-        }
-
-        nav {
+            right: 0;
+            height: var(--nav-height);
+            z-index: 100;
             display: flex;
+            align-items: center;
+            transition: background 0.3s ease, backdrop-filter 0.3s ease, border 0.3s ease;
+            background: linear-gradient(180deg, rgba(6, 12, 24, 0.7) 0%, rgba(6, 12, 24, 0) 100%);
+        }
+
+        header.header.scrolled {
+            background: rgba(6, 12, 24, 0.88);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        [data-theme="light"] header.header.scrolled {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .header-inner {
+            display: flex;
+            align-items: center;
             justify-content: space-between;
-            align-items: center;
+            width: 100%;
         }
 
-        .logo {
-            font-family: var(--font-heading);
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: var(--ink);
-            text-decoration: none;
+        .brand-logo {
             display: flex;
             align-items: center;
-            gap: 0.6rem;
+            gap: 0.65rem;
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: #ffffff;
             letter-spacing: -0.02em;
         }
 
-        .logo .dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: var(--gold);
-            box-shadow: 0 0 14px var(--gold);
+        [data-theme="light"] .header.scrolled .brand-logo {
+            color: var(--text-primary);
         }
 
-        .nav-links {
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #06b6d4, #3b82f6);
+            display: grid;
+            place-items: center;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4);
+        }
+
+        .brand-icon svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .nav-menu {
             display: flex;
             align-items: center;
-            gap: 2rem;
+            gap: 1.8rem;
             list-style: none;
         }
 
-        .nav-links a {
-            color: var(--muted);
-            text-decoration: none;
-            font-size: 0.92rem;
+        .nav-link {
+            font-size: 0.95rem;
             font-weight: 500;
-            transition: color 0.25s ease;
+            color: rgba(255, 255, 255, 0.82);
+            transition: color 0.2s ease;
+            position: relative;
         }
 
-        .nav-links a:hover {
-            color: var(--gold);
+        [data-theme="light"] .header.scrolled .nav-link {
+            color: var(--text-secondary);
         }
 
-        .nav-links .nav-cta a {
-            color: #070D18;
-            background: linear-gradient(135deg, #D4AF37, #C5A880);
-            border: 1px solid var(--gold);
-            padding: 0.55rem 1.3rem;
-            border-radius: 100px;
+        .nav-link:hover {
+            color: #38bdf8;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+
+        .search-btn, .theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--radius-pill);
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+        }
+
+        .search-btn:hover, .theme-toggle-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .sign-in-btn {
+            padding: 0.55rem 1.25rem;
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .sign-in-btn:hover {
+            background: rgba(255, 255, 255, 0.22);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        .get-started-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            padding: 0.58rem 1.4rem;
+            background: var(--grad-cta);
+            border: none;
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 0.95rem;
             font-weight: 700;
-            transition: all 0.25s ease;
+            cursor: pointer;
+            box-shadow: 0 4px 18px rgba(6, 182, 212, 0.4);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
         }
 
-        .nav-links .nav-cta a:hover {
+        .get-started-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(212, 175, 55, 0.35);
+            box-shadow: 0 8px 25px rgba(6, 182, 212, 0.55);
+            filter: brightness(1.06);
         }
 
-        /* ─────────────  HERO  ───────────── */
-        #hero {
+        /* ════════════════════════════════════════════════════════════════════
+           HERO SECTION (CINEMATIC 3D MOUNTAIN LANDSCAPE & TRIP PLANNER)
+           ════════════════════════════════════════════════════════════════════ */
+        .hero {
             position: relative;
             min-height: 100vh;
             display: flex;
-            align-items: center;
+            flex-direction: column;
+            justify-content: center;
+            padding-top: calc(var(--nav-height) + 1rem);
+            padding-bottom: 3.5rem;
             overflow: hidden;
-            padding: 8rem 0 4rem;
+            background: #060c18;
         }
 
-        .hero-bg {
+        /* 3D Landscape Background Layer */
+        .hero-backdrop {
             position: absolute;
             inset: 0;
-            z-index: 0;
-        }
-
-        .hero-bg .slide {
-            position: absolute;
-            inset: 0;
+            background-image: url('images/hero_3d_landscape.jpg');
             background-size: cover;
-            background-position: center;
-            opacity: 0;
-            animation: kenburns 27s infinite;
-            will-change: opacity, transform;
-        }
-
-        .hero-bg .slide:nth-child(1) {
-            background-image: url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=2400');
-            animation-delay: 0s;
-        }
-
-        .hero-bg .slide:nth-child(2) {
-            background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2400');
-            animation-delay: 9s;
-        }
-
-        .hero-bg .slide:nth-child(3) {
-            background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=2400');
-            animation-delay: 18s;
-        }
-
-        @keyframes kenburns {
-            0%   { opacity: 0; transform: scale(1.06); }
-            7%   { opacity: 1; }
-            30%  { opacity: 1; transform: scale(1.16); }
-            37%  { opacity: 0; }
-            100% { opacity: 0; transform: scale(1.16); }
+            background-position: center 30%;
+            transform: scale(1.02);
+            transition: transform 0.2s ease-out;
+            will-change: transform;
+            z-index: 1;
         }
 
         .hero-scrim {
             position: absolute;
             inset: 0;
-            z-index: 1;
             background:
-                radial-gradient(120% 90% at 20% 30%, rgba(7, 13, 24, 0.45), transparent 60%),
-                linear-gradient(180deg, rgba(7, 13, 24, 0.65) 0%, rgba(7, 13, 24, 0.45) 40%, rgba(7, 13, 24, 0.9) 100%),
-                linear-gradient(90deg, rgba(7, 13, 24, 0.92) 0%, rgba(7, 13, 24, 0.4) 55%, rgba(7, 13, 24, 0.75) 100%);
-        }
-
-        .hero-inner {
-            position: relative;
+                radial-gradient(ellipse at 25% 45%, rgba(6, 12, 24, 0.88) 0%, rgba(6, 12, 24, 0.65) 45%, rgba(6, 12, 24, 0.1) 75%),
+                linear-gradient(180deg, rgba(6, 12, 24, 0.4) 0%, transparent 40%, rgba(6, 12, 24, 0.95) 95%);
             z-index: 2;
-            display: grid;
-            grid-template-columns: 1.15fr 0.85fr;
-            align-items: center;
-            gap: 3.5rem;
-            width: 100%;
+            pointer-events: none;
         }
 
-        .hero-copy h1 {
-            font-size: clamp(2.8rem, 6.2vw, 5.2rem);
-            font-weight: 700;
-            color: #fff;
-            margin-bottom: 1.5rem;
-            text-shadow: 0 4px 40px rgba(0, 0, 0, 0.45);
+        [data-theme="light"] .hero-scrim {
+            background:
+                radial-gradient(ellipse at 25% 45%, rgba(248, 250, 252, 0.85) 0%, rgba(248, 250, 252, 0.5) 45%, rgba(248, 250, 252, 0.05) 75%),
+                linear-gradient(180deg, rgba(248, 250, 252, 0.2) 0%, transparent 40%, #f8fafc 95%);
         }
 
-        .hero-copy h1 .accent {
-            font-style: italic;
-            font-weight: 400;
-            background: linear-gradient(100deg, var(--gold), #F3E5AB 60%, var(--coral));
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .hero-copy p.lead {
-            font-size: 1.2rem;
-            max-width: 500px;
-            color: rgba(253, 251, 247, 0.88);
-            margin-bottom: 2.2rem;
-            text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
-        }
-
-        .hero-chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.7rem;
-        }
-
-        .hero-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.9rem;
-            margin-top: 1.8rem;
-        }
-
-        .hero-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.55rem;
-            padding: 0.85rem 1.6rem;
-            border-radius: 100px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 0.98rem;
-            transition: transform 0.2s ease, box-shadow 0.3s ease, background 0.2s ease;
-        }
-
-        .hero-btn svg { width: 19px; height: 19px; }
-
-        .hero-btn.primary {
-            background: linear-gradient(100deg, var(--gold), var(--teal-deep));
-            color: #070D18;
-            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.35);
-        }
-
-        .hero-btn.primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(212, 175, 55, 0.5); }
-
-        .hero-btn.ghost {
-            background: rgba(253, 251, 247, 0.08);
-            color: #fff;
-            border: 1px solid rgba(212, 175, 55, 0.35);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-        }
-
-        .hero-btn.ghost:hover { transform: translateY(-2px); background: rgba(212, 175, 55, 0.15); }
-
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border-radius: 100px;
-            border: 1px solid rgba(212, 175, 55, 0.25);
-            background: rgba(13, 23, 38, 0.6);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            font-size: 0.82rem;
-            font-weight: 500;
-            color: rgba(253, 251, 247, 0.92);
-        }
-
-        .chip svg { width: 15px; height: 15px; color: var(--gold); }
-
-        /* Word-by-word hero reveal */
-        .word {
-            display: inline-block;
-            opacity: 0;
-            transform: translateY(28px);
-            animation: wordUp 0.9s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        @keyframes wordUp {
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Scroll cue */
-        .scroll-cue {
-            position: absolute;
-            left: 50%;
-            bottom: 2rem;
-            transform: translateX(-50%);
-            z-index: 3;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.5rem;
-            color: rgba(253, 251, 247, 0.55);
-            font-family: var(--font-mono);
-            font-size: 0.65rem;
-            letter-spacing: 0.25em;
-            text-transform: uppercase;
-        }
-
-        .scroll-cue .mouse {
-            width: 22px;
-            height: 36px;
-            border: 1.5px solid rgba(212, 175, 55, 0.5);
-            border-radius: 12px;
+        .hero-content {
             position: relative;
-        }
-
-        .scroll-cue .mouse::after {
-            content: "";
-            position: absolute;
-            top: 6px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 3px;
-            height: 7px;
-            border-radius: 3px;
-            background: var(--gold);
-            animation: scrollDot 1.8s infinite;
-        }
-
-        @keyframes scrollDot {
-            0% { opacity: 0; top: 6px; }
-            40% { opacity: 1; }
-            80% { opacity: 0; top: 16px; }
-            100% { opacity: 0; }
-        }
-
-        /* ─────────────  GLASS AUTH CARD  ───────────── */
-        .auth-card {
-            width: 100%;
-            max-width: 420px;
-            margin-left: auto;
-            background: rgba(13, 23, 38, 0.75);
-            backdrop-filter: blur(26px) saturate(140%);
-            -webkit-backdrop-filter: blur(26px) saturate(140%);
-            border: 1px solid var(--line);
-            border-radius: 26px;
-            padding: 2.4rem 2rem;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.65);
-        }
-
-        .auth-card h2 {
-            font-family: var(--font-heading);
-            color: #fff;
-            font-size: 2rem;
-            text-align: center;
-            margin-bottom: 0.35rem;
-        }
-
-        .auth-sub {
-            text-align: center;
-            color: rgba(253, 251, 247, 0.75);
-            margin-bottom: 1.7rem;
-            font-size: 0.95rem;
-        }
-
-        .auth-field {
-            display: flex;
+            z-index: 10;
+            display: grid;
+            grid-template-columns: 1.05fr 0.95fr;
+            gap: 2.5rem;
             align-items: center;
-            gap: 0.75rem;
-            background: rgba(7, 13, 24, 0.6);
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 0 1rem;
-            margin-bottom: 0.9rem;
-            transition: border-color 0.2s ease, background 0.2s ease;
         }
 
-        .auth-field:focus-within {
-            border-color: var(--gold);
-            background: rgba(13, 23, 38, 0.9);
+        /* Hero Left Copy */
+        .hero-copy {
+            max-width: 580px;
         }
 
-        .auth-field svg {
-            width: 20px;
-            height: 20px;
-            color: var(--gold);
-            flex-shrink: 0;
-        }
-
-        .auth-field input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            outline: none;
-            color: #fff;
-            font-family: var(--font-body);
-            font-size: 1.02rem;
-            padding: 0.95rem 0;
-        }
-
-        .auth-field input::placeholder { color: rgba(253, 251, 247, 0.5); }
-
-        .auth-field input:-webkit-autofill,
-        .auth-field input:-webkit-autofill:focus {
-            -webkit-text-fill-color: #fff;
-            transition: background-color 9999s ease-in-out 0s;
-        }
-
-        .btn-primary {
-            width: 100%;
-            padding: 1rem;
-            margin-top: 0.4rem;
-            background: linear-gradient(100deg, var(--gold), var(--teal-deep));
-            color: #070D18;
-            border: none;
-            border-radius: 14px;
-            font-family: var(--font-body);
-            font-size: 1.05rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: transform 0.15s ease, box-shadow 0.25s ease, filter 0.2s ease;
-            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            filter: brightness(1.08);
-            box-shadow: 0 16px 40px rgba(212, 175, 55, 0.45);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .auth-toggle {
-            display: block;
-            width: 100%;
-            text-align: center;
-            background: none;
-            border: none;
-            color: rgba(253, 251, 247, 0.85);
-            font-family: var(--font-body);
-            font-weight: 600;
-            font-size: 0.95rem;
-            margin: 1.1rem 0 0.25rem;
-            cursor: pointer;
-        }
-
-        .auth-toggle span { color: var(--gold); }
-
-        .auth-divider {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: rgba(253, 251, 247, 0.5);
+        .hero-eyebrow {
+            display: inline-block;
             font-size: 0.8rem;
-            margin: 1.2rem 0;
-        }
-
-        .auth-divider::before,
-        .auth-divider::after {
-            content: "";
-            flex: 1;
-            height: 1px;
-            background: var(--line);
-        }
-
-        .btn-google {
-            width: 100%;
-            padding: 0.9rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            background: rgba(7, 13, 24, 0.6);
-            color: #fff;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            font-family: var(--font-body);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s ease, border-color 0.2s ease;
-        }
-
-        .btn-google:hover { background: rgba(13, 23, 38, 0.9); border-color: var(--gold); }
-
-        .auth-msg {
-            min-height: 1.2rem;
-            text-align: center;
-            font-size: 0.9rem;
-            margin-top: 0.6rem;
-        }
-
-        .auth-msg.error { color: #ff8b7b; }
-        .auth-msg.success { color: #86efac; }
-
-        .auth-guest {
-            display: block;
-            text-align: center;
-            margin-top: 0.8rem;
-            color: rgba(253, 251, 247, 0.72);
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: color 0.2s ease;
-        }
-
-        .auth-guest:hover { color: var(--gold); }
-
-        /* Authenticated View */
-        .auth-user-view {
-            text-align: center;
-        }
-
-        .auth-user-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.4rem 1rem;
-            border-radius: 100px;
-            background: rgba(212, 175, 55, 0.15);
-            border: 1px solid var(--gold);
-            color: var(--gold);
-            font-size: 0.82rem;
             font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #38bdf8;
+            margin-bottom: 0.85rem;
+        }
+
+        .hero-title {
+            font-size: clamp(2.8rem, 5.2vw, 4.2rem);
+            line-height: 1.05;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            color: #ffffff;
             margin-bottom: 1.2rem;
         }
 
-        .auth-user-name {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--ink);
-            margin-bottom: 1.5rem;
+        [data-theme="light"] .hero-title {
+            color: #0f172a;
         }
 
-        .btn-auth-signout {
-            background: none;
-            border: none;
-            color: var(--muted);
-            font-size: 0.88rem;
-            cursor: pointer;
-            margin-top: 1rem;
-            transition: color 0.2s ease;
+        .hero-title .accent {
+            background: var(--grad-text);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: inline-block;
         }
 
-        .btn-auth-signout:hover { color: #ff8b7b; }
-
-        .hide { display: none !important; }
-
-        /* ─────────────  MARQUEE  ───────────── */
-        .marquee {
-            border-top: 1px solid var(--line);
-            border-bottom: 1px solid var(--line);
-            padding: 1.5rem 0;
-            overflow: hidden;
-            background: var(--bg-2);
+        .hero-lead {
+            font-size: 1.15rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 2.2rem;
+            max-width: 520px;
         }
 
-        .marquee-track {
+        [data-theme="light"] .hero-lead {
+            color: #334155;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           FLOATING 3D TRIP PLANNER CARD (EXACT SPECIFICATION)
+           ════════════════════════════════════════════════════════════════════ */
+        .planner-card {
+            background: rgba(10, 18, 32, 0.78);
+            backdrop-filter: blur(28px) saturate(140%);
+            -webkit-backdrop-filter: blur(28px) saturate(140%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        [data-theme="light"] .planner-card {
+            background: rgba(255, 255, 255, 0.88);
+            border-color: rgba(15, 23, 42, 0.12);
+            box-shadow: 0 30px 80px rgba(15, 23, 42, 0.12);
+        }
+
+        /* Tabs (One Way / Around Trip / Vacation) */
+        .planner-tabs {
             display: flex;
-            gap: 3rem;
-            white-space: nowrap;
-            width: max-content;
-            animation: marquee 38s linear infinite;
+            gap: 0.5rem;
+            margin-bottom: 1.4rem;
         }
 
-        .marquee-track span {
-            font-family: var(--font-heading);
-            font-size: 1.5rem;
-            font-style: italic;
-            color: var(--muted);
+        .planner-tab {
             display: inline-flex;
             align-items: center;
-            gap: 3rem;
-        }
-
-        .marquee-track span::after {
-            content: "◆";
-            font-size: 0.6rem;
-            color: var(--gold);
-            font-style: normal;
-        }
-
-        @keyframes marquee {
-            to { transform: translateX(-50%); }
-        }
-
-        /* ─────────────  SECTIONS  ───────────── */
-        section.block { padding: 7rem 0; position: relative; }
-
-        .section-head {
-            max-width: 640px;
-            margin-bottom: 3.5rem;
-        }
-
-        .section-head.center {
-            margin-left: auto;
-            margin-right: auto;
-            text-align: center;
-        }
-
-        .section-head h2 {
-            font-size: clamp(2rem, 4.5vw, 3.2rem);
-            margin-bottom: 1rem;
-            color: var(--ink);
-        }
-
-        .section-head p {
-            color: var(--muted);
-            font-size: 1.1rem;
-        }
-
-        /* Features Grid */
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.4rem;
-        }
-
-        .feature-card {
-            position: relative;
-            padding: 2rem;
-            border-radius: 20px;
-            background: linear-gradient(180deg, rgba(13, 23, 38, 0.7), rgba(13, 23, 38, 0.3));
-            border: 1px solid var(--line);
-            overflow: hidden;
-            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease;
-        }
-
-        .feature-card::before {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(400px circle at var(--mx, 50%) var(--my, 0%), rgba(212, 175, 55, 0.15), transparent 40%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-        }
-
-        .feature-card:hover {
-            transform: translateY(-6px);
-            border-color: var(--gold);
-        }
-
-        .feature-card:hover::before { opacity: 1; }
-
-        .feature-card .icon {
-            font-size: 1.8rem;
-            width: 56px;
-            height: 56px;
-            display: grid;
-            place-items: center;
-            border-radius: 14px;
-            background: rgba(212, 175, 55, 0.12);
-            border: 1px solid rgba(212, 175, 55, 0.25);
-            margin-bottom: 1.3rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.3rem;
-            margin-bottom: 0.5rem;
-            position: relative;
-            color: var(--ink);
-        }
-
-        .feature-card p {
-            color: var(--muted);
-            font-size: 0.95rem;
-            position: relative;
-        }
-
-        /* Experience / preview */
-        #preview { background: var(--bg-2); }
-
-        .exp-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1.4rem;
-        }
-
-        .exp-card {
-            border-radius: 20px;
-            overflow: hidden;
-            border: 1px solid var(--line);
-            aspect-ratio: 4 / 3;
-            position: relative;
-            display: flex;
-            align-items: flex-end;
-            padding: 1.6rem;
-            background-size: cover;
-            background-position: center;
-            transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .exp-card::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(180deg, transparent 30%, rgba(7, 13, 24, 0.92));
-        }
-
-        .exp-card:hover { transform: scale(1.02); }
-
-        .exp-card .cap {
-            position: relative;
-            z-index: 1;
-        }
-
-        .exp-card .cap .k {
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            letter-spacing: 0.2em;
-            text-transform: uppercase;
-            color: var(--gold);
-        }
-
-        .exp-card .cap h3 {
-            font-size: 1.4rem;
-            color: #fff;
-            margin-top: 0.3rem;
-        }
-
-        .exp-a { background-image: linear-gradient(135deg, rgba(163,128,24,0.4), rgba(7,13,24,0.2)), url('https://images.unsplash.com/photo-1502920917128-1aa500764cbd?q=80&w=1600'); }
-        .exp-b { background-image: linear-gradient(135deg, rgba(212,175,55,0.35), rgba(7,13,24,0.2)), url('https://images.unsplash.com/photo-1526772662000-3f88f10405ff?q=80&w=1600'); }
-        .exp-c { background-image: linear-gradient(135deg, rgba(224,169,109,0.4), rgba(7,13,24,0.2)), url('https://images.unsplash.com/photo-1451337516015-6b6e9a44a8a3?q=80&w=1600'); }
-
-        /* Tech stack */
-        .tech-stack-list {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 0.8rem;
-            list-style: none;
-        }
-
-        .tech-stack-list li {
-            padding: 0.6rem 1.4rem;
-            border-radius: 100px;
-            font-family: var(--font-mono);
-            font-size: 0.85rem;
-            color: var(--muted);
-            border: 1px solid var(--line);
-            background: rgba(13, 23, 38, 0.5);
-            transition: all 0.25s ease;
-        }
-
-        .tech-stack-list li:hover {
-            color: var(--ink);
-            border-color: var(--gold);
-            background: rgba(212, 175, 55, 0.12);
-        }
-
-        /* CTA band */
-        .cta-band {
-            text-align: center;
-            border-radius: 28px;
-            padding: 4.5rem 2rem;
-            background:
-                radial-gradient(120% 140% at 50% 0%, rgba(212, 175, 55, 0.18), transparent 60%),
-                linear-gradient(180deg, rgba(13, 23, 38, 0.6), rgba(7, 13, 24, 0.4));
-            border: 1px solid var(--line);
-        }
-
-        .cta-band h2 { font-size: clamp(2rem, 5vw, 3.4rem); margin-bottom: 1rem; color: var(--ink); }
-        .cta-band p { color: var(--muted); font-size: 1.1rem; margin-bottom: 2rem; }
-
-        .btn-cta {
-            display: inline-block;
-            padding: 1rem 2.6rem;
-            background: linear-gradient(135deg, var(--gold), #C5A880);
-            color: #070D18;
-            border-radius: 100px;
-            text-decoration: none;
-            font-weight: 700;
-            transition: transform 0.2s ease, box-shadow 0.3s ease;
-        }
-
-        .btn-cta:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 16px 40px rgba(212, 175, 55, 0.35);
-        }
-
-        .cta-actions {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        .btn-cta.ghost {
+            gap: 0.5rem;
+            padding: 0.55rem 1.1rem;
+            border-radius: var(--radius-pill);
             background: transparent;
-            color: var(--ink);
-            border: 1px solid var(--line);
-            display: inline-flex;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        [data-theme="light"] .planner-tab {
+            color: #475569;
+            border-color: rgba(15, 23, 42, 0.1);
+        }
+
+        .planner-tab.active {
+            background: #06b6d4;
+            color: #060c18;
+            border-color: #06b6d4;
+            font-weight: 700;
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4);
+        }
+
+        .planner-tab svg {
+            width: 15px;
+            height: 15px;
+        }
+
+        /* Origin & Destination Row with Swap */
+        .planner-grid-route {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 0.6rem;
+            align-items: center;
+            margin-bottom: 0.9rem;
+        }
+
+        .input-box {
+            background: rgba(6, 12, 24, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-md);
+            padding: 0.7rem 0.95rem;
+            position: relative;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        [data-theme="light"] .input-box {
+            background: rgba(241, 245, 249, 0.8);
+            border-color: rgba(15, 23, 42, 0.12);
+        }
+
+        .input-box:focus-within {
+            border-color: #06b6d4;
+            background: rgba(6, 12, 24, 0.85);
+        }
+
+        .input-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .input-inline {
+            display: flex;
             align-items: center;
             gap: 0.6rem;
         }
 
-        .btn-cta.ghost:hover {
-            border-color: var(--gold);
-            box-shadow: 0 16px 40px rgba(212, 175, 55, 0.2);
+        .input-inline svg {
+            color: #06b6d4;
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
         }
 
-        .btn-cta.ghost svg { width: 20px; height: 20px; color: var(--gold); }
+        .input-inline input, .input-inline select {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            font-size: 0.98rem;
+            font-weight: 600;
+            width: 100%;
+        }
 
-        .cta-note {
+        .use-loc-pill {
+            background: rgba(6, 182, 212, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #38bdf8;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.2rem 0.55rem;
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .use-loc-pill:hover {
+            background: rgba(6, 182, 212, 0.3);
+        }
+
+        .swap-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: rgba(255, 255, 255, 0.8);
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: transform 0.25s ease, background 0.2s ease;
+        }
+
+        [data-theme="light"] .swap-btn {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.15);
+            color: #0f172a;
+        }
+
+        .swap-btn:hover {
+            transform: rotate(180deg);
+            background: #06b6d4;
+            color: #060c18;
+        }
+
+        /* 3-Column Params Row: Date / Vehicle / Travelers */
+        .planner-grid-params {
+            display: grid;
+            grid-template-columns: 1.15fr 1fr 1fr;
+            gap: 0.6rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .planner-grid-params .input-box {
+            padding: 0.65rem 0.85rem;
+        }
+
+        .planner-grid-params select {
+            cursor: pointer;
+        }
+
+        /* Primary Action Button */
+        .btn-plan-trip {
+            width: 100%;
+            padding: 1.05rem;
+            border-radius: var(--radius-pill);
+            background: var(--grad-cta);
+            border: none;
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(6, 182, 212, 0.4);
+            transition: transform 0.2s ease, box-shadow 0.25s ease, filter 0.2s ease;
+        }
+
+        .btn-plan-trip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 40px rgba(6, 182, 212, 0.6);
+            filter: brightness(1.08);
+        }
+
+        /* Bottom Feature Indicators */
+        .planner-features {
+            display: flex;
+            justify-content: space-between;
             margin-top: 1.25rem;
-            font-size: 0.85rem;
-            color: var(--muted);
+            padding-top: 1.1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        /* Footer */
-        footer {
-            text-align: center;
-            padding: 4rem 0 3rem;
-            border-top: 1px solid var(--line);
-            margin-top: 5rem;
+        [data-theme="light"] .planner-features {
+            border-color: rgba(15, 23, 42, 0.08);
         }
 
-        .social-links a {
-            color: var(--muted);
-            margin: 0 0.75rem;
+        .planner-feat-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        [data-theme="light"] .planner-feat-item {
+            color: #475569;
+        }
+
+        .planner-feat-item svg {
+            width: 14px;
+            height: 14px;
+            color: #06b6d4;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           3D FLOATING ROUTE HUD & MARKERS (SCATTERED ON HERO HIGHWAY)
+           ════════════════════════════════════════════════════════════════════ */
+        .floating-marker {
+            position: absolute;
+            z-index: 15;
+            background: rgba(10, 18, 34, 0.82);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: var(--radius-pill);
+            padding: 0.45rem 0.95rem;
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #ffffff;
+            pointer-events: auto;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        .floating-marker:hover {
+            transform: scale(1.06) translateY(-4px);
+            border-color: #06b6d4;
+        }
+
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-7px); }
+        }
+
+        .marker-icon {
+            width: 26px;
+            height: 26px;
+            border-radius: 8px;
+            display: grid;
+            place-items: center;
+            color: #fff;
+        }
+
+        .marker-icon svg { width: 14px; height: 14px; }
+        .marker-blue .marker-icon { background: #0284c7; }
+        .marker-purple .marker-icon { background: #8b5cf6; }
+        .marker-green .marker-icon { background: #10b981; }
+
+        .marker-text {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .marker-title { font-weight: 700; }
+        .marker-dist { font-size: 0.68rem; color: #94a3b8; }
+
+        /* Marker Positions matching reference */
+        .marker-scenic { top: 22%; right: 28%; animation-delay: 0s; }
+        .marker-fuel { top: 32%; right: 16%; animation-delay: 1.5s; }
+        .marker-coorg { top: 43%; right: 11%; animation-delay: 0.8s; }
+
+        /* Route HUD Card on Lower Highway */
+        .route-hud-card {
+            position: absolute;
+            bottom: 12%;
+            right: 14%;
+            z-index: 16;
+            background: rgba(8, 15, 28, 0.88);
+            backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: var(--radius-pill);
+            padding: 0.55rem 1.25rem 0.55rem 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+        }
+
+        .hud-left {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+        }
+
+        .hud-pin {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-pill);
+            background: rgba(6, 182, 212, 0.2);
+            border: 1px solid #06b6d4;
+            color: #38bdf8;
+            display: grid;
+            place-items: center;
+        }
+
+        .hud-pin svg { width: 16px; height: 16px; }
+
+        .hud-route-name { font-size: 0.88rem; font-weight: 700; color: #ffffff; }
+        .hud-route-meta { font-size: 0.75rem; color: #94a3b8; }
+
+        .btn-watch-3d {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            padding: 0.35rem 0.85rem 0.35rem 0.4rem;
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-watch-3d:hover {
+            background: #3b82f6;
+            border-color: #3b82f6;
+        }
+
+        .play-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--radius-pill);
+            background: #3b82f6;
+            display: grid;
+            place-items: center;
+            color: #fff;
+        }
+
+        .play-circle svg { width: 12px; height: 12px; fill: currentColor; }
+
+        /* Floating Script flourish on upper right: "Same Roads New Stories" */
+        .hero-script-flourish {
+            position: absolute;
+            top: 14%;
+            right: 13%;
+            z-index: 12;
+            font-family: var(--font-script);
+            font-size: 1.75rem;
+            color: rgba(255, 255, 255, 0.9);
+            transform: rotate(-12deg);
+            pointer-events: none;
+            text-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            line-height: 1.1;
+        }
+
+        .hero-script-flourish svg {
+            width: 38px;
+            height: 24px;
+            margin-top: 4px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Vertical Category Rail (Far Right Edge) */
+        .category-rail {
+            position: absolute;
+            top: 20%;
+            right: 2.2rem;
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .cat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.35rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .cat-item:hover {
+            transform: scale(1.1);
+        }
+
+        .cat-thumb {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--radius-pill);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+            background-size: cover;
+            background-position: center;
+            transition: border-color 0.2s ease;
+        }
+
+        .cat-item:hover .cat-thumb {
+            border-color: #06b6d4;
+        }
+
+        .cat-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.85);
+            letter-spacing: 0.02em;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           HERO BOTTOM STATS RAIL & SCROLL CUE
+           ════════════════════════════════════════════════════════════════════ */
+        .hero-bottom-bar {
+            position: relative;
+            z-index: 15;
+            margin-top: 3.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        [data-theme="light"] .hero-bottom-bar {
+            border-color: rgba(15, 23, 42, 0.08);
+        }
+
+        .stats-group {
+            display: flex;
+            align-items: center;
+            gap: 2.8rem;
+        }
+
+        .stat-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .stat-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-pill);
+            background: rgba(6, 182, 212, 0.15);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            color: #38bdf8;
+            display: grid;
+            place-items: center;
+        }
+
+        .stat-icon svg { width: 18px; height: 18px; }
+
+        .stat-val { font-size: 1.05rem; font-weight: 800; color: #ffffff; }
+        [data-theme="light"] .stat-val { color: #0f172a; }
+        .stat-lbl { font-size: 0.75rem; color: #94a3b8; }
+
+        .scroll-cue {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            letter-spacing: 0.04em;
+        }
+
+        .mouse-icon {
+            width: 18px;
+            height: 28px;
+            border: 1.5px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .mouse-icon::after {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2.5px;
+            height: 6px;
+            background: #38bdf8;
+            border-radius: 2px;
+            animation: mouseWheel 1.6s infinite;
+        }
+
+        @keyframes mouseWheel {
+            0% { top: 4px; opacity: 1; }
+            100% { top: 14px; opacity: 0; }
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           SECTION 2: POPULAR DESTINATIONS
+           ════════════════════════════════════════════════════════════════════ */
+        section.destinations {
+            padding: 5.5rem 0 4.5rem;
+            background: var(--bg-surface);
+            position: relative;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .dest-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2.2rem;
+        }
+
+        .dest-eyebrow {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #06b6d4;
+            margin-bottom: 0.5rem;
+        }
+
+        .dest-title {
+            font-family: var(--font-serif);
+            font-size: clamp(2rem, 3.8vw, 2.8rem);
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            margin-bottom: 0.35rem;
+        }
+
+        .dest-subtitle {
+            font-size: 1.02rem;
+            color: var(--text-secondary);
+        }
+
+        .dest-nav {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+        }
+
+        .view-all-link {
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #06b6d4;
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            transition: color 0.2s ease;
+        }
+
+        .view-all-link:hover { color: #38bdf8; }
+
+        .carousel-arrows {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .carousel-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .carousel-btn:hover {
+            background: #06b6d4;
+            color: #060c18;
+            border-color: #06b6d4;
+        }
+
+        /* 6 Horizontal Destination Cards */
+        .dest-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1.15rem;
+            overflow-x: auto;
+            padding-bottom: 0.8rem;
+            scrollbar-width: none;
+        }
+
+        .dest-cards-grid::-webkit-scrollbar { display: none; }
+
+        .dest-card {
+            position: relative;
+            height: 290px;
+            border-radius: 18px;
+            overflow: hidden;
+            background: #0f172a;
+            border: 1px solid var(--border-card);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            padding: 1.2rem;
+        }
+
+        .dest-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45);
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+
+        .dest-card-img {
+            position: absolute;
+            inset: 0;
+            background-size: cover;
+            background-position: center;
+            transition: transform 0.5s ease;
+        }
+
+        .dest-card:hover .dest-card-img {
+            transform: scale(1.08);
+        }
+
+        .dest-card-scrim {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, transparent 40%, rgba(6, 12, 24, 0.92) 85%);
+            z-index: 1;
+        }
+
+        .dest-badge {
+            position: absolute;
+            top: 0.9rem;
+            left: 0.9rem;
+            z-index: 2;
+            background: rgba(10, 18, 34, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            font-size: 0.68rem;
+            font-weight: 700;
+            padding: 0.25rem 0.65rem;
+            border-radius: var(--radius-pill);
+        }
+
+        .dest-content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .dest-info-name {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 0.15rem;
+        }
+
+        .dest-info-state {
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-bottom: 0.35rem;
+        }
+
+        .dest-info-meta {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #38bdf8;
+        }
+
+        .dest-arrow-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #ffffff;
+            display: grid;
+            place-items: center;
+            transition: all 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .dest-card:hover .dest-arrow-btn {
+            background: #06b6d4;
+            color: #060c18;
+            border-color: #06b6d4;
+            transform: translateX(3px);
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           SECTION 3: AI TRAVEL CO-PILOT (ISLAND & ITINERARY HUD)
+           ════════════════════════════════════════════════════════════════════ */
+        section.ai-copilot {
+            padding: 6.5rem 0;
+            background: var(--bg-base);
+            position: relative;
+            overflow: hidden;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .ai-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr;
+            gap: 3.5rem;
+            align-items: center;
+        }
+
+        .ai-copy {
+            position: relative;
+        }
+
+        .ai-script-flourish {
+            position: absolute;
+            top: -2.4rem;
+            right: 1.5rem;
+            font-family: var(--font-script);
+            font-size: 1.65rem;
+            color: #38bdf8;
+            transform: rotate(-8deg);
+            line-height: 1;
+        }
+
+        .ai-eyebrow {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #06b6d4;
+            margin-bottom: 0.6rem;
+        }
+
+        .ai-title {
+            font-size: clamp(2.4rem, 4vw, 3.4rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+            color: var(--text-primary);
+            margin-bottom: 1.2rem;
+        }
+
+        .ai-title .accent {
+            background: var(--grad-text);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .ai-desc {
+            font-size: 1.05rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            margin-bottom: 2.2rem;
+        }
+
+        .ai-features-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .ai-feat-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+
+        .ai-feat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: rgba(6, 182, 212, 0.14);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            color: #38bdf8;
+            display: grid;
+            place-items: center;
+            flex-shrink: 0;
+        }
+
+        .ai-feat-icon svg { width: 20px; height: 20px; }
+
+        .ai-feat-title {
+            font-size: 1.02rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.15rem;
+        }
+
+        .ai-feat-sub {
+            font-size: 0.86rem;
+            color: var(--text-secondary);
+        }
+
+        .btn-try-ai {
             display: inline-flex;
-            transition: color 0.3s ease, transform 0.3s ease;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.85rem 1.8rem;
+            background: var(--grad-cta);
+            border: none;
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(6, 182, 212, 0.4);
+            transition: all 0.2s ease;
         }
 
-        .social-links a:hover { color: var(--gold); transform: translateY(-2px); }
-
-        footer p {
-            margin-top: 1.2rem;
-            font-size: 0.88rem;
-            color: var(--muted);
+        .btn-try-ai:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(6, 182, 212, 0.55);
         }
 
-        /* Scroll reveal */
-        .reveal {
+        /* AI Right Column: 3D Miniature Route Island & Floating Itinerary HUD */
+        .ai-visual-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .island-container {
+            position: relative;
+            width: 100%;
+            max-width: 540px;
+        }
+
+        .island-img {
+            width: 100%;
+            height: auto;
+            border-radius: 24px;
+            filter: drop-shadow(0 30px 60px rgba(0, 0, 0, 0.55));
+            animation: floatSlow 5s ease-in-out infinite;
+        }
+
+        /* Waypoint markers on the miniature island */
+        .island-pin {
+            position: absolute;
+            z-index: 5;
+            background: rgba(8, 15, 28, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-pill);
+            padding: 0.3rem 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .island-pin.start { top: 68%; left: 34%; }
+        .island-pin.ram { top: 48%; left: 45%; }
+        .island-pin.fuel { top: 38%; left: 52%; }
+        .island-pin.scenic { top: 44%; left: 62%; }
+        .island-pin.dest { top: 22%; left: 50%; border-color: #ef4444; background: rgba(239, 68, 68, 0.25); }
+
+        /* Floating AI Itinerary Panel on Top Right */
+        .ai-itinerary-hud {
+            position: absolute;
+            top: -10px;
+            right: -25px;
+            width: 360px;
+            z-index: 10;
+            background: rgba(10, 18, 34, 0.86);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: var(--radius-lg);
+            padding: 1.25rem;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+        }
+
+        [data-theme="light"] .ai-itinerary-hud {
+            background: rgba(255, 255, 255, 0.92);
+            border-color: rgba(15, 23, 42, 0.12);
+            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.15);
+        }
+
+        .hud-prompt-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            background: rgba(6, 12, 24, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius-pill);
+            padding: 0.45rem 0.8rem;
+            margin-bottom: 0.85rem;
+        }
+
+        [data-theme="light"] .hud-prompt-bar {
+            background: #f1f5f9;
+            border-color: rgba(15, 23, 42, 0.1);
+        }
+
+        .hud-prompt-bar svg { color: #06b6d4; width: 16px; height: 16px; flex-shrink: 0; }
+        .hud-prompt-text {
+            flex: 1;
+            font-size: 0.74rem;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .hud-prompt-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: var(--radius-pill);
+            background: #06b6d4;
+            border: none;
+            color: #060c18;
+            display: grid;
+            place-items: center;
+            cursor: pointer;
+        }
+
+        .hud-prompt-btn svg { width: 12px; height: 12px; }
+
+        /* HUD Sub-Tabs */
+        .hud-tabs {
+            display: flex;
+            gap: 0.35rem;
+            margin-bottom: 0.85rem;
+            background: rgba(6, 12, 24, 0.5);
+            padding: 0.25rem;
+            border-radius: var(--radius-pill);
+        }
+
+        .hud-tab {
+            flex: 1;
+            text-align: center;
+            padding: 0.35rem 0;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-radius: var(--radius-pill);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .hud-tab.active {
+            background: #0284c7;
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        /* Destination Preview Block */
+        .hud-preview-block {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 0.85rem;
+        }
+
+        .hud-preview-img {
+            width: 72px;
+            height: 52px;
+            border-radius: 10px;
+            background-size: cover;
+            background-position: center;
+            flex-shrink: 0;
+        }
+
+        .hud-preview-info { flex: 1; }
+        .hud-prev-title { font-size: 0.95rem; font-weight: 800; color: var(--text-primary); }
+        .hud-prev-meta { font-size: 0.72rem; color: #94a3b8; margin-bottom: 0.3rem; }
+
+        .hud-thumbs {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .hud-thumb-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: var(--radius-pill);
+            background-size: cover;
+            background-position: center;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        /* Quick Stats Grid */
+        .hud-stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 0.85rem;
+            padding: 0.6rem;
+            background: rgba(6, 12, 24, 0.5);
+            border-radius: var(--radius-sm);
+        }
+
+        [data-theme="light"] .hud-stats-grid {
+            background: #f1f5f9;
+        }
+
+        .hud-stat-item {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .hud-stat-item strong {
+            color: var(--text-primary);
+            font-weight: 700;
+        }
+
+        /* Stop Chips */
+        .hud-chips-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .hud-chip {
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 0.22rem 0.55rem;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: rgba(255, 255, 255, 0.85);
+        }
+
+        [data-theme="light"] .hud-chip {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.1);
+            color: #334155;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           SECTION 4: FEATURE GRID (EVERYTHING YOU NEED FOR A BETTER ROAD TRIP)
+           ════════════════════════════════════════════════════════════════════ */
+        section.features {
+            padding: 6rem 0;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .feat-head {
+            text-align: center;
+            max-width: 720px;
+            margin: 0 auto 3.5rem;
+        }
+
+        .feat-eyebrow {
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+            color: #06b6d4;
+            margin-bottom: 0.6rem;
+        }
+
+        .feat-title {
+            font-size: clamp(2.2rem, 3.5vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: var(--text-primary);
+        }
+
+        .features-grid-6 {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 1.25rem;
+        }
+
+        .feat-card {
+            background: rgba(13, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-card);
+            border-radius: 20px;
+            padding: 1.8rem 1.25rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        [data-theme="light"] .feat-card {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(15, 23, 42, 0.1);
+        }
+
+        .feat-card:hover {
+            transform: translateY(-6px);
+            border-color: #06b6d4;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+        }
+
+        .feat-card-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 16px;
+            display: grid;
+            place-items: center;
+            margin-bottom: 1.15rem;
+            color: #ffffff;
+        }
+
+        .feat-card-icon.icon-cyan { background: linear-gradient(135deg, #06b6d4, #0284c7); box-shadow: 0 6px 18px rgba(6, 182, 212, 0.35); }
+        .feat-card-icon.icon-blue { background: linear-gradient(135deg, #3b82f6, #1d4ed8); box-shadow: 0 6px 18px rgba(59, 130, 246, 0.35); }
+        .feat-card-icon.icon-orange { background: linear-gradient(135deg, #f97316, #ea580c); box-shadow: 0 6px 18px rgba(249, 115, 22, 0.35); }
+        .feat-card-icon.icon-purple { background: linear-gradient(135deg, #a855f7, #7e22ce); box-shadow: 0 6px 18px rgba(168, 85, 247, 0.35); }
+        .feat-card-icon.icon-teal { background: linear-gradient(135deg, #14b8a6, #0d9488); box-shadow: 0 6px 18px rgba(20, 184, 166, 0.35); }
+        .feat-card-icon.icon-pink { background: linear-gradient(135deg, #ec4899, #be185d); box-shadow: 0 6px 18px rgba(236, 72, 153, 0.35); }
+
+        .feat-card-icon svg { width: 24px; height: 24px; }
+
+        .feat-card-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.45rem;
+        }
+
+        .feat-card-desc {
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           SECTION 5: FINAL 3D CTA (CINEMATIC TRAVEL BACKPACK & SCENE)
+           ════════════════════════════════════════════════════════════════════ */
+        section.final-cta {
+            position: relative;
+            min-height: 580px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #060c18;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        .cta-backdrop {
+            position: absolute;
+            inset: 0;
+            background-image: url('images/cta_backpack_scene.jpg');
+            background-size: cover;
+            background-position: center 50%;
+            z-index: 1;
+        }
+
+        .cta-scrim {
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 50% 60%, rgba(6, 12, 24, 0.75) 0%, rgba(6, 12, 24, 0.9) 70%),
+                linear-gradient(180deg, rgba(6, 12, 24, 0.4) 0%, rgba(6, 12, 24, 0.95) 100%);
+            z-index: 2;
+        }
+
+        [data-theme="light"] .cta-scrim {
+            background:
+                radial-gradient(ellipse at 50% 60%, rgba(248, 250, 252, 0.75) 0%, rgba(248, 250, 252, 0.9) 70%),
+                linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, #f8fafc 100%);
+        }
+
+        .cta-content {
+            position: relative;
+            z-index: 10;
+            text-align: center;
+            max-width: 620px;
+            padding: 3rem 1.5rem;
+        }
+
+        .cta-title {
+            font-size: clamp(2.3rem, 4.2vw, 3.4rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+
+        [data-theme="light"] .cta-title { color: #0f172a; }
+
+        .cta-desc {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.85);
+            margin-bottom: 2.2rem;
+        }
+
+        [data-theme="light"] .cta-desc { color: #475569; }
+
+        .cta-buttons {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+        }
+
+        .btn-cta-primary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2.2rem;
+            background: var(--grad-cta);
+            border: none;
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 8px 24px rgba(6, 182, 212, 0.45);
+            transition: all 0.2s ease;
+        }
+
+        .btn-cta-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 34px rgba(6, 182, 212, 0.6);
+        }
+
+        .btn-cta-secondary {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-pill);
+            color: #ffffff;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        [data-theme="light"] .btn-cta-secondary {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.2);
+            color: #0f172a;
+        }
+
+        .btn-cta-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.35);
+        }
+
+        /* Floating Handwritten Callouts on CTA Scene */
+        .cta-callout-sign {
+            position: absolute;
+            left: 18%;
+            top: 48%;
+            z-index: 12;
+            font-family: var(--font-script);
+            font-size: 1.55rem;
+            color: rgba(255, 255, 255, 0.85);
+            transform: rotate(-6deg);
+            line-height: 1.15;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        .cta-callout-map {
+            position: absolute;
+            right: 18%;
+            top: 52%;
+            z-index: 12;
+            font-family: var(--font-script);
+            font-size: 1.55rem;
+            color: rgba(255, 255, 255, 0.85);
+            transform: rotate(5deg);
+            line-height: 1.15;
+            text-align: center;
+            pointer-events: none;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        /* Floating Support / Chat Widget at bottom right */
+        .chat-widget-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 99;
+            width: 52px;
+            height: 52px;
+            border-radius: var(--radius-pill);
+            background: #0284c7;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            display: grid;
+            place-items: center;
+            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.5);
+            cursor: pointer;
+            transition: transform 0.2s ease, filter 0.2s ease;
+        }
+
+        .chat-widget-btn:hover {
+            transform: scale(1.08);
+            filter: brightness(1.1);
+        }
+
+        .chat-widget-btn svg { width: 24px; height: 24px; }
+
+        /* ════════════════════════════════════════════════════════════════════
+           GLASS AUTH MODAL (POPUPS OVER ANY SECTION)
+           ════════════════════════════════════════════════════════════════════ */
+        .auth-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 999;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
             opacity: 0;
-            transform: translateY(34px);
-            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+            transition: opacity 0.25s ease;
         }
 
-        .reveal.visible {
+        .auth-modal-backdrop.active {
             opacity: 1;
-            transform: translateY(0);
+            pointer-events: auto;
         }
 
-        /* ─────────────  RESPONSIVE  ───────────── */
-        @media (max-width: 940px) {
-            .hero-inner {
+        .auth-modal-card {
+            width: 100%;
+            max-width: 440px;
+            background: rgba(10, 18, 34, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: var(--radius-lg);
+            padding: 2.2rem;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+            position: relative;
+            transform: scale(0.95);
+            transition: transform 0.25s ease;
+        }
+
+        .auth-modal-backdrop.active .auth-modal-card {
+            transform: scale(1);
+        }
+
+        .auth-close-btn {
+            position: absolute;
+            top: 1.2rem;
+            right: 1.2rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        .auth-close-btn:hover { color: #ffffff; }
+
+        .auth-form-title { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 0.3rem; color: #ffffff; }
+        .auth-form-sub { font-size: 0.9rem; text-align: center; color: var(--text-secondary); margin-bottom: 1.6rem; }
+
+        .auth-field-row {
+            margin-bottom: 0.9rem;
+        }
+
+        .auth-input-wrap {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(6, 12, 24, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: var(--radius-md);
+            padding: 0.85rem 1rem;
+        }
+
+        .auth-input-wrap svg { color: #06b6d4; width: 18px; height: 18px; }
+        .auth-input-wrap input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 0.95rem;
+        }
+
+        .btn-auth-submit {
+            width: 100%;
+            padding: 0.95rem;
+            border-radius: var(--radius-pill);
+            background: var(--grad-cta);
+            border: none;
+            color: #ffffff;
+            font-size: 1.02rem;
+            font-weight: 700;
+            cursor: pointer;
+            margin-top: 0.8rem;
+            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-auth-google {
+            width: 100%;
+            padding: 0.85rem;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            font-size: 0.95rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            margin-top: 0.9rem;
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
+           RESPONSIVE REFLOW RULES
+           ════════════════════════════════════════════════════════════════════ */
+        @media (max-width: 1180px) {
+            .hero-content {
                 grid-template-columns: 1fr;
-                gap: 2.5rem;
+                gap: 3rem;
             }
-
-            .auth-card { margin: 0 auto; }
-
-            .nav-links li:not(.nav-cta) { display: none; }
-
-            .scroll-cue { display: none; }
+            .hero-copy { max-width: 100%; }
+            .category-rail { display: none; }
+            .hero-script-flourish { display: none; }
+            .floating-marker { display: none; }
+            .route-hud-card { display: none; }
+            .features-grid-6 { grid-template-columns: repeat(3, 1fr); }
+            .dest-cards-grid { grid-template-columns: repeat(3, 240px); }
+            .ai-grid { grid-template-columns: 1fr; }
+            .ai-itinerary-hud { position: static; margin-top: 1.5rem; width: 100%; }
         }
 
-        @media (prefers-reduced-motion: reduce) {
-            *, *::before, *::after {
-                animation-duration: 0.001s !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.001s !important;
-            }
-            .hero-bg .slide:nth-child(1) { opacity: 1; }
+        @media (max-width: 768px) {
+            .nav-menu { display: none; }
+            .planner-grid-route { grid-template-columns: 1fr; }
+            .swap-btn { display: none; }
+            .planner-grid-params { grid-template-columns: 1fr; }
+            .features-grid-6 { grid-template-columns: repeat(2, 1fr); }
+            .dest-cards-grid { grid-template-columns: repeat(2, 220px); }
+            .stats-group { flex-wrap: wrap; gap: 1.2rem; }
+            .cta-buttons { flex-direction: column; width: 100%; }
+            .btn-cta-primary, .btn-cta-secondary { width: 100%; justify-content: center; }
+            .cta-callout-sign, .cta-callout-map { display: none; }
         }
     </style>
 </head>
 
 <body>
 
-    <header id="main-header">
-        <nav class="container">
-            <a href="#" class="logo"><span class="dot"></span>VoyPlan</a>
-            <ul class="nav-links">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#preview">Experience</a></li>
-                <li><a href="#tech-stack">Tech</a></li>
-                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-prod-release.apk">Download APK</a></li>
-                <li class="nav-cta"><a href="/app/?guest=true" id="nav-cta-link">Start Planning</a></li>
+    <!-- ════════════════════════════════════════════════════════════════════
+         1. HEADER & TOP NAVIGATION
+         ════════════════════════════════════════════════════════════════════ -->
+    <header class="header" id="mainHeader">
+        <div class="container header-inner">
+            <a href="#" class="brand-logo">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                    </svg>
+                </div>
+                Voyplan
+            </a>
+
+            <ul class="nav-menu">
+                <li><a href="#hero" class="nav-link">Plan Trip</a></li>
+                <li><a href="#destinations" class="nav-link">Explore</a></li>
+                <li><a href="/app/" class="nav-link">My Trips</a></li>
+                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="#copilot" class="nav-link">Blog</a></li>
+                <li><a href="#cta" class="nav-link">About</a></li>
             </ul>
-        </nav>
+
+            <div class="header-actions">
+                <button class="search-btn" id="btnSearch" aria-label="Search">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                </button>
+                <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
+                    <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+                </button>
+                <button class="sign-in-btn" id="btnSignIn">Sign In</button>
+                <button class="get-started-btn" id="btnGetStarted">Get Started &rarr;</button>
+            </div>
+        </div>
     </header>
 
     <main>
-        <section id="hero">
-            <div class="hero-bg" id="hero-bg">
-                <div class="slide"></div>
-                <div class="slide"></div>
-                <div class="slide"></div>
-            </div>
+        <!-- ════════════════════════════════════════════════════════════════════
+             2. HERO SECTION
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="hero" id="hero">
+            <div class="hero-backdrop" id="heroBackdrop"></div>
             <div class="hero-scrim"></div>
 
-            <div class="container">
-                <div class="hero-inner">
-                    <div class="hero-copy">
-                        <div class="eyebrow word" style="animation-delay:.05s">The cinematic road-trip planner</div>
-                        <h1>
-                            <span class="word" style="animation-delay:.15s">Plan</span>
-                            <span class="word" style="animation-delay:.25s">the</span>
-                            <span class="word" style="animation-delay:.35s">trip,</span>
-                            <br>
-                            <span class="word accent" style="animation-delay:.5s">not the chaos.</span>
-                        </h1>
-                        <p class="lead word" style="animation-delay:.7s">
-                            Intelligent routing, live GPS navigation, real-time weather, full trip
-                            budgets, and point-of-interest discovery — playing out like a movie of
-                            your journey.
-                        </p>
-                        <div class="hero-chips word" style="animation-delay:.85s">
-                            <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"></path><path d="M12 8v4l3 2"></path></svg>
-                                Live navigation
-                            </span>
-                            <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z"></path><path d="M9 3v15M15 6v15"></path></svg>
-                                3D cinematic playback
-                            </span>
-                            <span class="chip">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 16.58A5 5 0 0 0 18 7h-1.26A8 8 0 1 0 4 15.25"></path><path d="M8 19v1M12 19v2M16 19v1"></path></svg>
-                                Route weather
-                            </span>
-                        </div>
-                        <div class="hero-actions word" style="animation-delay:.95s">
-                            <a class="hero-btn primary" href="/app/?guest=true">Launch web app &rarr;</a>
-                            <a class="hero-btn ghost" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-prod-release.apk">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
-                                Download for Android
-                            </a>
-                        </div>
+            <!-- Floating Script on Road: "Same Roads New Stories" -->
+            <div class="hero-script-flourish">
+                <span>Same Roads</span>
+                <span>New Stories</span>
+                <svg viewBox="0 0 50 30" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 25 C20 28, 35 15, 45 5 M45 5 L35 7 M45 5 L43 17"></path></svg>
+            </div>
+
+            <!-- 3D Floating Route Markers along Highway -->
+            <div class="floating-marker marker-scenic">
+                <div class="marker-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></div>
+                <div class="marker-text"><span class="marker-title">Scenic View</span><span class="marker-dist">12 km</span></div>
+            </div>
+
+            <div class="floating-marker marker-fuel">
+                <div class="marker-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="22" x2="15" y2="22"></line><line x1="4" y1="9" x2="14" y2="9"></line><path d="M4 22V4a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v18"></path><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"></path></svg></div>
+                <div class="marker-text"><span class="marker-title">Fuel Stop</span><span class="marker-dist">28 km</span></div>
+            </div>
+
+            <div class="floating-marker marker-coorg">
+                <div class="marker-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+                <div class="marker-text"><span class="marker-title">Coorg</span><span class="marker-dist">165 km</span></div>
+            </div>
+
+            <!-- Route HUD Card on Highway -->
+            <div class="route-hud-card">
+                <div class="hud-left">
+                    <div class="hud-pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"></path></svg></div>
+                    <div>
+                        <div class="hud-route-name">Bengaluru &rarr; Coorg</div>
+                        <div class="hud-route-meta">265 km &bull; 5h 40m</div>
                     </div>
+                </div>
+                <button class="btn-watch-3d" id="btnWatch3D">
+                    <div class="play-circle"><svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></div>
+                    Watch Route in 3D
+                </button>
+            </div>
 
-                    <div class="auth-card">
-                        <!-- Authenticated User View -->
-                        <div id="auth-authenticated-container" class="auth-user-view hide">
-                            <div class="auth-user-badge">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                                <span id="auth-user-greeting">Signed In</span>
-                            </div>
-                            <div class="auth-user-name" id="auth-welcome-name">Ready for your trip?</div>
-                            <div id="auth-redirect-notice" style="color:var(--gold);font-size:0.92rem;margin-bottom:1.1rem;display:none;font-weight:600;">✨ Launching VoyPlan...</div>
-                            <a href="/app/" class="btn-primary" id="btn-auth-open-app" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">Open VoyPlan App &rarr;</a>
-                            <button type="button" class="btn-auth-signout" id="btn-auth-signout">Sign Out</button>
+            <!-- Vertical Category Rail on Far Right -->
+            <div class="category-rail">
+                <div class="cat-item" data-cat="mountains">
+                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=200');"></div>
+                    <span class="cat-label">Mountains</span>
+                </div>
+                <div class="cat-item" data-cat="beaches">
+                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=200');"></div>
+                    <span class="cat-label">Beaches</span>
+                </div>
+                <div class="cat-item" data-cat="temples">
+                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=200');"></div>
+                    <span class="cat-label">Temples</span>
+                </div>
+                <div class="cat-item" data-cat="waterfalls">
+                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=200');"></div>
+                    <span class="cat-label">Waterfalls</span>
+                </div>
+            </div>
+
+            <div class="container hero-content">
+                <!-- Left: Hero Headline Copy -->
+                <div class="hero-copy">
+                    <span class="hero-eyebrow">YOUR ROAD TRIP CO-PILOT</span>
+                    <h1 class="hero-title">
+                        Plan less.<br>
+                        <span class="accent">Explore more.</span>
+                    </h1>
+                    <p class="hero-lead">
+                        AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.
+                    </p>
+
+                    <!-- Floating Trip Planner Card -->
+                    <div class="planner-card">
+                        <!-- Mode Tabs -->
+                        <div class="planner-tabs">
+                            <button class="planner-tab active" data-mode="one_way">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                                One Way
+                            </button>
+                            <button class="planner-tab" data-mode="round_trip">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                                Around Trip
+                            </button>
+                            <button class="planner-tab" data-mode="vacation">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                                Vacation
+                            </button>
                         </div>
 
-                        <!-- Login/Signup Form -->
-                        <div id="auth-form-container">
-                            <h2 id="auth-title">Welcome Back</h2>
-                            <p class="auth-sub" id="auth-subtitle">Log in to continue exploring</p>
-
-                            <!-- Name field (sign-up only) -->
-                            <div class="auth-field hide" id="name-field">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                <input type="text" id="auth-name" placeholder="Full Name" autocomplete="name">
+                        <!-- Route Row with Swap -->
+                        <div class="planner-grid-route">
+                            <div class="input-box">
+                                <div class="input-label">
+                                    <span>From</span>
+                                    <span class="use-loc-pill" id="btnUseLocation">Use my location</span>
+                                </div>
+                                <div class="input-inline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                    <input type="text" id="inputOrigin" value="Bengaluru" placeholder="Starting city">
+                                </div>
                             </div>
 
-                            <div class="auth-field">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round">
-                                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                                    <circle cx="12" cy="7" r="4"></circle>
-                                </svg>
-                                <input type="text" id="auth-identifier" placeholder="Email or Phone Number"
-                                    autocomplete="username">
-                            </div>
-
-                            <div class="auth-field">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                    stroke-linecap="round" stroke-linejoin="round">
-                                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-                                </svg>
-                                <input type="password" id="auth-password" placeholder="Password"
-                                    autocomplete="current-password">
-                            </div>
-
-                            <button class="btn-primary" id="auth-submit">Log In</button>
-
-                            <button class="auth-toggle" id="auth-toggle">Need an account? <span>Sign Up</span></button>
-
-                            <div class="auth-divider">OR</div>
-
-                            <button class="btn-google" id="auth-google">
-                                <svg width="18" height="18" viewBox="0 0 48 48">
-                                    <path fill="#FFC107"
-                                        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z">
-                                    </path>
-                                    <path fill="#FF3D00"
-                                        d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z">
-                                    </path>
-                                    <path fill="#4CAF50"
-                                        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z">
-                                    </path>
-                                    <path fill="#1976D2"
-                                        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z">
-                                    </path>
-                                </svg>
-                                Sign in with Google
+                            <button class="swap-btn" id="btnSwapRoute" title="Swap From and To">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="8 21 3 21 3 16"></polyline><line x1="20" y1="4" x2="3" y2="21"></line></svg>
                             </button>
 
-                            <div class="auth-msg" id="auth-msg"></div>
+                            <div class="input-box">
+                                <div class="input-label"><span>To</span></div>
+                                <div class="input-inline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"></circle><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 6.9 8 11.7z"></path></svg>
+                                    <input type="text" id="inputDestination" placeholder="Where to?" value="Coorg">
+                                </div>
+                            </div>
+                        </div>
 
-                            <a class="auth-guest" href="/app/?guest=true">Continue as guest &rarr;</a>
+                        <!-- Params Grid: Date / Vehicle / Travelers -->
+                        <div class="planner-grid-params">
+                            <div class="input-box">
+                                <div class="input-label"><span>Travel Date</span></div>
+                                <div class="input-inline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                    <input type="date" id="inputDate" value="2026-09-20">
+                                </div>
+                            </div>
+
+                            <div class="input-box">
+                                <div class="input-label"><span>Vehicle</span></div>
+                                <div class="input-inline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                                    <select id="selectVehicle">
+                                        <option value="car_petrol">Car (Petrol)</option>
+                                        <option value="car_diesel">Car (Diesel)</option>
+                                        <option value="ev">Electric Vehicle (EV)</option>
+                                        <option value="suv">SUV 4x4</option>
+                                        <option value="bike">Motorcycle</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="input-box">
+                                <div class="input-label"><span>Travelers</span></div>
+                                <div class="input-inline">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                                    <select id="selectTravelers">
+                                        <option value="1">1 Adult</option>
+                                        <option value="2" selected>2 Adults</option>
+                                        <option value="3">3 Adults</option>
+                                        <option value="4">4 Adults</option>
+                                        <option value="5">Family (5+)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button class="btn-plan-trip" id="btnPlanTrip">
+                            Plan My Trip &rarr;
+                        </button>
+
+                        <!-- Bottom Feature Checkmarks -->
+                        <div class="planner-features">
+                            <span class="planner-feat-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Smart Routes</span>
+                            <span class="planner-feat-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Fuel & Toll Estimates</span>
+                            <span class="planner-feat-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Scenic Stops</span>
+                            <span class="planner-feat-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> AI Itinerary</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side Empty Placeholder to preserve Road View -->
+                <div class="hero-right-spacer"></div>
+            </div>
+
+            <!-- Bottom Stats Rail & Scroll Indicator -->
+            <div class="container hero-bottom-bar">
+                <div class="stats-group">
+                    <div class="stat-badge">
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg></div>
+                        <div><div class="stat-val">10K+</div><div class="stat-lbl">Happy Travelers</div></div>
+                    </div>
+                    <div class="stat-badge">
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path></svg></div>
+                        <div><div class="stat-val">500+</div><div class="stat-lbl">Destinations</div></div>
+                    </div>
+                    <div class="stat-badge">
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                        <div><div class="stat-val">Real-time</div><div class="stat-lbl">Fuel & Toll Data</div></div>
+                    </div>
+                    <div class="stat-badge">
+                        <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></div>
+                        <div><div class="stat-val">AI Powered</div><div class="stat-lbl">Itineraries</div></div>
+                    </div>
+                </div>
+
+                <div class="scroll-cue">
+                    <span>Scroll to explore</span>
+                    <div class="mouse-icon"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             3. POPULAR DESTINATIONS SECTION (6 CARDS)
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="destinations" id="destinations">
+            <div class="container">
+                <div class="dest-head">
+                    <div>
+                        <div class="dest-eyebrow">EXPLORE INDIA'S MOST LOVED ROAD TRIPS</div>
+                        <h2 class="dest-title">Popular Destinations</h2>
+                        <p class="dest-subtitle">Handpicked routes to fuel your wanderlust.</p>
+                    </div>
+                    <div class="dest-nav">
+                        <a href="/app/?explore=true" class="view-all-link">View all destinations &rarr;</a>
+                        <div class="carousel-arrows">
+                            <button class="carousel-btn" id="btnPrevDest" aria-label="Previous">&larr;</button>
+                            <button class="carousel-btn" id="btnNextDest" aria-label="Next">&rarr;</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dest-cards-grid" id="destCardsGrid">
+                    <!-- 1. Coorg -->
+                    <div class="dest-card" data-dest="Coorg" data-dist="265 km">
+                        <div class="dest-badge">Most Popular</div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1596422846543-75c6fc197f07?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Coorg</div>
+                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-meta">3 Days &bull; 265 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 2. Ooty -->
+                    <div class="dest-card" data-dest="Ooty" data-dist="320 km">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Ooty</div>
+                                <div class="dest-info-state">Tamil Nadu</div>
+                                <div class="dest-info-meta">4 Days &bull; 320 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 3. Mysuru -->
+                    <div class="dest-card" data-dest="Mysuru" data-dist="145 km">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1600100397608-f010f443b749?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Mysuru</div>
+                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-meta">2 Days &bull; 145 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 4. Chikmagalur -->
+                    <div class="dest-card" data-dest="Chikmagalur" data-dist="245 km">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Chikmagalur</div>
+                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-meta">3 Days &bull; 245 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 5. Hampi -->
+                    <div class="dest-card" data-dest="Hampi" data-dist="345 km">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1600100397937-67c29b28b6d3?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Hampi</div>
+                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-meta">3 Days &bull; 345 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 6. Goa -->
+                    <div class="dest-card" data-dest="Goa" data-dist="560 km">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?q=80&w=600');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Goa</div>
+                                <div class="dest-info-state">Beach Vibes</div>
+                                <div class="dest-info-meta">4 Days &bull; 560 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div class="scroll-cue">
-                <div class="mouse"></div>
-                <span>Scroll</span>
-            </div>
         </section>
 
-        <!-- Marquee -->
-        <div class="marquee" aria-hidden="true">
-            <div class="marquee-track">
-                <span>Coastal highways</span><span>Mountain passes</span><span>Desert crossings</span>
-                <span>City to city</span><span>Weekend escapes</span><span>Epic road trips</span>
-                <span>Coastal highways</span><span>Mountain passes</span><span>Desert crossings</span>
-                <span>City to city</span><span>Weekend escapes</span><span>Epic road trips</span>
-            </div>
-        </div>
-
-        <!-- Features -->
-        <section id="features" class="block">
-            <div class="container">
-                <div class="section-head reveal">
-                    <div class="eyebrow">What's inside</div>
-                    <h2>Everything a journey needs, in one frame.</h2>
-                    <p>From the first search to the final destination, every step is planned,
-                        priced, and beautifully visualized.</p>
-                </div>
-                <div class="features-grid">
-                    <div class="feature-card reveal">
-                        <div class="icon">🗺️</div>
-                        <h3>Intelligent Routing</h3>
-                        <p>Optimized multi-stop routes computed on real-world road networks, with reorderable waypoints.</p>
+        <!-- ════════════════════════════════════════════════════════════════════
+             4. AI TRAVEL CO-PILOT (ISLAND & ITINERARY HUD)
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="ai-copilot" id="copilot">
+            <div class="container ai-grid">
+                <!-- Left: Headline & Feature List -->
+                <div class="ai-copy">
+                    <div class="ai-script-flourish">
+                        <span>Turn Roads into</span><br>
+                        <span>Memories &hearts;</span>
                     </div>
-                    <div class="feature-card reveal">
-                        <div class="icon">🧭</div>
-                        <h3>Live GPS Navigation</h3>
-                        <p>Start a trip and follow your real location in real time — speed, heading, remaining distance and ETA.</p>
-                    </div>
-                    <div class="feature-card reveal">
-                        <div class="icon">⛽</div>
-                        <h3>Tolls &amp; Fuel Costs</h3>
-                        <p>FASTag toll estimates plus fuel requirement calculated for your exact vehicle profile and tank range.</p>
-                    </div>
-                    <div class="feature-card reveal">
-                        <div class="icon">🏞️</div>
-                        <h3>Smart Stop Catalog</h3>
-                        <p>13 categories: restaurants, hotels, fuel, EV charging, temples, viewpoints, and attractions along your route.</p>
-                    </div>
-                    <div class="feature-card reveal">
-                        <div class="icon">🎬</div>
-                        <h3>3D Cinematic Playback</h3>
-                        <p>Preview the whole route as an aerial fly-through, or watch a full simulated drive with stopovers.</p>
-                    </div>
-                    <div class="feature-card reveal">
-                        <div class="icon">🌦️</div>
-                        <h3>Route Weather</h3>
-                        <p>Real-time weather along the way and a suggested best departure time for a smoother trip.</p>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Experience / preview -->
-        <section id="preview" class="block">
-            <div class="container">
-                <div class="section-head center reveal">
-                    <div class="eyebrow">The experience</div>
-                    <h2>A trip that plays like a film.</h2>
-                    <p>Plan it, price it, then press play — and watch your journey unfold.</p>
-                </div>
-                <div class="exp-grid">
-                    <div class="exp-card exp-a reveal">
-                        <div class="cap"><div class="k">01 · Plan</div><h3>Set your route &amp; stops</h3></div>
-                    </div>
-                    <div class="exp-card exp-b reveal">
-                        <div class="cap"><div class="k">02 · Discover</div><h3>Find places along the way</h3></div>
-                    </div>
-                    <div class="exp-card exp-c reveal">
-                        <div class="cap"><div class="k">03 · Drive</div><h3>Preview &amp; navigate live</h3></div>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Tech stack -->
-        <section id="tech-stack" class="block">
-            <div class="container">
-                <div class="section-head center reveal">
-                    <div class="eyebrow">Built with</div>
-                    <h2>A modern, full-stack toolkit.</h2>
-                </div>
-                <ul class="tech-stack-list reveal">
-                    <li>Flutter</li>
-                    <li>Dart</li>
-                    <li>Cloudflare Workers</li>
-                    <li>Supabase</li>
-                    <li>Mapbox</li>
-                    <li>OpenRouteService</li>
-                    <li>TollGuru</li>
-                    <li>Overpass</li>
-                    <li>Nominatim</li>
-                    <li>Open-Meteo</li>
-                </ul>
-            </div>
-        </section>
-
-        <!-- CTA -->
-        <section class="block">
-            <div class="container">
-                <div class="cta-band reveal">
-                    <div class="eyebrow" style="justify-content:center">Ready when you are</div>
-                    <h2>Your next road trip starts here.</h2>
-                    <p>Sign in above, or jump straight in and explore.</p>
-                    <div class="cta-actions">
-                        <a class="btn-cta" href="/app/?guest=true">Launch web app &rarr;</a>
-                        <a class="btn-cta ghost" href="https://github.com/Gowtham64/Travel-V1/releases/latest/download/app-prod-release.apk">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg>
-                            Download for Android
-                        </a>
-                    </div>
-                    <p class="cta-note">
-                        Runs in any browser (incl. iPhone). Android users can install the APK directly. Or open the web app and tap
-                        <strong>Install&nbsp;App</strong> (Android/desktop) /
-                        <strong>Share&nbsp;→&nbsp;Add&nbsp;to&nbsp;Home&nbsp;Screen</strong> (iPhone).
+                    <div class="ai-eyebrow">AI TRAVEL PLANNER</div>
+                    <h2 class="ai-title">
+                        Your personal<br>
+                        <span class="accent">travel co-pilot</span>
+                    </h2>
+                    <p class="ai-desc">
+                        Just tell us where you want to go. Our AI creates a complete itinerary with the best routes, scenic stops, stay options, estimated costs and more.
                     </p>
+
+                    <div class="ai-features-list">
+                        <div class="ai-feat-row">
+                            <div class="ai-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
+                            <div>
+                                <div class="ai-feat-title">Smart day-wise itinerary</div>
+                                <div class="ai-feat-sub">Curated places, not random results</div>
+                            </div>
+                        </div>
+                        <div class="ai-feat-row">
+                            <div class="ai-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
+                            <div>
+                                <div class="ai-feat-title">Real-time insights</div>
+                                <div class="ai-feat-sub">Fuel, tolls, weather & travel time</div>
+                            </div>
+                        </div>
+                        <div class="ai-feat-row">
+                            <div class="ai-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg></div>
+                            <div>
+                                <div class="ai-feat-title">Curated places</div>
+                                <div class="ai-feat-sub">Attractions, food, stays and more</div>
+                            </div>
+                        </div>
+                        <div class="ai-feat-row">
+                            <div class="ai-feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line></svg></div>
+                            <div>
+                                <div class="ai-feat-title">Customizable plans</div>
+                                <div class="ai-feat-sub">Tailor it to your travel style</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-try-ai" id="btnTryAi">
+                        Try AI Planner &rarr;
+                    </button>
+                </div>
+
+                <!-- Right: 3D Floating Route Island & Floating AI Itinerary Panel -->
+                <div class="ai-visual-wrap">
+                    <div class="island-container">
+                        <img src="images/ai_route_island.jpg" alt="3D Terrain Route Island" class="island-img">
+
+                        <!-- Interactive Island Pins -->
+                        <div class="island-pin start"><span>&bull;</span> Bengaluru</div>
+                        <div class="island-pin ram">Ramanagara &bull; 1h 30m</div>
+                        <div class="island-pin fuel">Fuel Stop &bull; 2h 10m</div>
+                        <div class="island-pin scenic">Scenic View &bull; 3h 20m</div>
+                        <div class="island-pin dest"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8c0 5.4 7 11.5 7.4 11.8a1 1 0 0 0 1.2 0c.4-.3 7.4-6.4 7.4-11.8a8 8 0 0 0-8-8z"/></svg> Coorg &bull; 3 Days</div>
+                    </div>
+
+                    <!-- Floating AI Itinerary Glass Card -->
+                    <div class="ai-itinerary-hud">
+                        <div class="hud-prompt-bar">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                            <span class="hud-prompt-text">Plan a 3 day trip from Bengaluru to Coorg with scenic routes...</span>
+                            <button class="hud-prompt-btn">&rarr;</button>
+                        </div>
+
+                        <div class="hud-tabs">
+                            <div class="hud-tab active">Overview</div>
+                            <div class="hud-tab">Day Plan</div>
+                            <div class="hud-tab">Route & Map</div>
+                            <div class="hud-tab">Budget</div>
+                        </div>
+
+                        <div class="hud-preview-block">
+                            <div class="hud-preview-img" style="background-image: url('https://images.unsplash.com/photo-1596422846543-75c6fc197f07?q=80&w=200');"></div>
+                            <div class="hud-preview-info">
+                                <div class="hud-prev-title">Bengaluru &rarr; Coorg</div>
+                                <div class="hud-prev-meta">3 Days &bull; 265 km</div>
+                                <div class="hud-thumbs">
+                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=100');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=100');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=100');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=100');"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hud-stats-grid">
+                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path></svg> 2 Travelers</div>
+                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect></svg> Car (Petrol)</div>
+                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="22" x2="15" y2="22"></line></svg> <strong>&inr; 2,850</strong> Est. Fuel</div>
+                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg> <strong>&inr; 320</strong> Est. Tolls</div>
+                        </div>
+
+                        <div class="hud-chips-row">
+                            <span class="hud-chip">Waterfalls</span>
+                            <span class="hud-chip">Coffee Estates</span>
+                            <span class="hud-chip">View Points</span>
+                            <span class="hud-chip">Local Food</span>
+                            <span class="hud-chip">+ 5 more</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             5. FEATURE SECTION: EVERYTHING YOU NEED FOR A BETTER ROAD TRIP
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="features" id="features">
+            <div class="container">
+                <div class="feat-head">
+                    <div class="feat-eyebrow">POWERFUL TOOLS, REAL DATA, SMARTER JOURNEYS</div>
+                    <h2 class="feat-title">Everything you need for a better road trip</h2>
+                </div>
+
+                <div class="features-grid-6">
+                    <!-- 1. Smart Routing -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-cyan">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="19" r="3"></circle><path d="M9 19h8.5a4.5 4.5 0 0 0 4.5-4.5v0A4.5 4.5 0 0 0 17.5 10H14"></path><circle cx="6" cy="5" r="3"></circle><path d="M6 8v8"></path></svg>
+                        </div>
+                        <div class="feat-card-name">Smart Routing</div>
+                        <p class="feat-card-desc">Best routes with real-time traffic</p>
+                    </div>
+
+                    <!-- 2. Live Navigation -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-blue">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+                        </div>
+                        <div class="feat-card-name">Live Navigation</div>
+                        <p class="feat-card-desc">Turn-by-turn with voice guidance</p>
+                    </div>
+
+                    <!-- 3. Fuel & Toll Costs -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-orange">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line></svg>
+                        </div>
+                        <div class="feat-card-name">Fuel & Toll Costs</div>
+                        <p class="feat-card-desc">Live prices & accurate estimates</p>
+                    </div>
+
+                    <!-- 4. Discover Places -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-purple">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        </div>
+                        <div class="feat-card-name">Discover Places</div>
+                        <p class="feat-card-desc">Attractions, food, stays and more</p>
+                    </div>
+
+                    <!-- 5. Route Weather -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-teal">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path></svg>
+                        </div>
+                        <div class="feat-card-name">Route Weather</div>
+                        <p class="feat-card-desc">Weather forecast along your journey</p>
+                    </div>
+
+                    <!-- 6. AI Itineraries -->
+                    <div class="feat-card">
+                        <div class="feat-card-icon icon-pink">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+                        </div>
+                        <div class="feat-card-name">AI Itineraries</div>
+                        <p class="feat-card-desc">Personalized travel plans</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             6. FINAL 3D CTA (CINEMATIC TRAVEL BACKPACK & SCENE)
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="final-cta" id="cta">
+            <div class="cta-backdrop"></div>
+            <div class="cta-scrim"></div>
+
+            <!-- Callout: Wooden sign script on left -->
+            <div class="cta-callout-sign">
+                <span>Good Trips</span><br>
+                <span>Create Better</span><br>
+                <span>People &hearts;</span>
+            </div>
+
+            <!-- Callout: Map note script on right -->
+            <div class="cta-callout-map">
+                <span>Collect</span><br>
+                <span>Moments</span><br>
+                <span>Not Things</span>
+            </div>
+
+            <div class="cta-content">
+                <h2 class="cta-title">Ready for your next adventure?</h2>
+                <p class="cta-desc">Choose a destination. We'll help plan the journey.</p>
+                <div class="cta-buttons">
+                    <button class="btn-cta-primary" id="btnCtaPlan">Start Planning &rarr;</button>
+                    <button class="btn-cta-secondary" id="btnCtaExplore">Explore Destinations</button>
                 </div>
             </div>
         </section>
     </main>
 
-    <footer>
-        <div class="container">
-            <div class="social-links reveal">
-                <a href="https://www.linkedin.com/in/gowtham-ec/" target="_blank" rel="noopener noreferrer"
-                    aria-label="LinkedIn">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
-                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
-                        <rect x="2" y="9" width="4" height="12"></rect>
-                        <circle cx="4" cy="4" r="2"></circle>
-                    </svg>
-                </a>
-            </div>
-            <p class="reveal">&copy; 2026 VoyPlan. All rights reserved.</p>
-        </div>
-    </footer>
+    <!-- Floating Chat Support Widget -->
+    <div class="chat-widget-btn" id="btnChatWidget" title="Need help? Chat with VoyPlan">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+    </div>
 
+    <!-- ════════════════════════════════════════════════════════════════════
+         7. GLASS AUTH MODAL (POPUPS ON SIGN IN CLICK)
+         ════════════════════════════════════════════════════════════════════ -->
+    <div class="auth-modal-backdrop" id="authModal">
+        <div class="auth-modal-card">
+            <button class="auth-close-btn" id="btnAuthClose">&times;</button>
+            <h3 class="auth-form-title" id="authModalTitle">Welcome Back</h3>
+            <p class="auth-form-sub" id="authModalSub">Log in to save and access your road trips</p>
+
+            <div id="authNotice" style="color:#38bdf8;font-size:0.9rem;text-align:center;margin-bottom:1rem;display:none;"></div>
+
+            <div class="auth-field-row" id="authNameRow" style="display:none;">
+                <div class="auth-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <input type="text" id="authModalName" placeholder="Full Name">
+                </div>
+            </div>
+
+            <div class="auth-field-row">
+                <div class="auth-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <input type="text" id="authModalEmail" placeholder="Email or Phone">
+                </div>
+            </div>
+
+            <div class="auth-field-row">
+                <div class="auth-input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input type="password" id="authModalPassword" placeholder="Password">
+                </div>
+            </div>
+
+            <button class="btn-auth-submit" id="btnAuthSubmit">Log In</button>
+
+            <button class="btn-auth-google" id="btnAuthGoogle">
+                <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                Continue with Google
+            </button>
+
+            <div style="text-align:center;margin-top:1.2rem;">
+                <button type="button" id="btnToggleAuthMode" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.9rem;">
+                    Don't have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════════════════
+         JAVASCRIPT FUNCTIONALITY & INTERACTION
+         ════════════════════════════════════════════════════════════════════ -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // --- Smooth Scroll for Nav Links ---
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function (e) {
-                    const targetId = this.getAttribute('href');
-                    if (!targetId || targetId === '#' || targetId.length <= 1) return;
-                    e.preventDefault();
-                    try {
-                        const targetElement = document.querySelector(targetId);
-                        if (targetElement) {
-                            targetElement.scrollIntoView({
-                                behavior: 'smooth'
-                            });
-                        }
-                    } catch (_) {}
-                });
-            });
-
-            // --- Header Scroll Effect ---
-            const header = document.getElementById('main-header');
+            // --- 1. Header scroll effect ---
+            const header = document.getElementById('mainHeader');
             window.addEventListener('scroll', () => {
-                if (window.scrollY > 50) {
+                if (window.scrollY > 40) {
                     header.classList.add('scrolled');
                 } else {
                     header.classList.remove('scrolled');
                 }
             });
 
-            // --- Scroll Reveal Animation ---
-            const revealObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach((entry, i) => {
-                    if (entry.isIntersecting) {
-                        const siblings = Array.from(entry.target.parentElement.children).filter(c => c.classList.contains('reveal'));
-                        const idx = siblings.indexOf(entry.target);
-                        entry.target.style.transitionDelay = (idx > 0 ? idx * 0.09 : 0) + 's';
-                        entry.target.classList.add('visible');
-                        observer.unobserve(entry.target);
-                    }
-                });
-            }, { root: null, threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+            // --- 2. Light / Dark Theme Toggle ---
+            const themeBtn = document.getElementById('btnThemeToggle');
+            const savedTheme = localStorage.getItem('voyplan_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
 
-            document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+            themeBtn.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme');
+                const next = current === 'light' ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('voyplan_theme', next);
+            });
 
-            // --- Hero parallax on pointer move ---
-            const heroBg = document.getElementById('hero-bg');
+            // --- 3. Hero Parallax on mouse move ---
             const hero = document.getElementById('hero');
-            if (heroBg && hero && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            const heroBackdrop = document.getElementById('heroBackdrop');
+            if (hero && heroBackdrop && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 hero.addEventListener('mousemove', (e) => {
-                    const r = hero.getBoundingClientRect();
-                    const x = (e.clientX / r.width - 0.5) * 18;
-                    const y = (e.clientY / r.height - 0.5) * 18;
-                    heroBg.style.transform = `translate(${-x}px, ${-y}px) scale(1.06)`;
+                    const rect = hero.getBoundingClientRect();
+                    const x = (e.clientX / rect.width - 0.5) * 16;
+                    const y = (e.clientY / rect.height - 0.5) * 16;
+                    heroBackdrop.style.transform = `scale(1.04) translate(${-x}px, ${-y}px)`;
                 });
-                hero.addEventListener('mouseleave', () => { heroBg.style.transform = ''; });
+                hero.addEventListener('mouseleave', () => {
+                    heroBackdrop.style.transform = 'scale(1.02)';
+                });
             }
 
-            // --- Feature card spotlight follows cursor ---
-            document.querySelectorAll('.feature-card').forEach(card => {
-                card.addEventListener('mousemove', (e) => {
-                    const r = card.getBoundingClientRect();
-                    card.style.setProperty('--mx', (e.clientX - r.left) + 'px');
-                    card.style.setProperty('--my', (e.clientY - r.top) + 'px');
+            // --- 4. Trip Planner Mode Tabs ---
+            let activeTripMode = 'one_way';
+            const modeTabs = document.querySelectorAll('.planner-tab');
+            modeTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    modeTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    activeTripMode = tab.getAttribute('data-mode') || 'one_way';
                 });
             });
 
-            initAuth();
-        });
-
-        // ── Landing-page login card ──────────────────────────────────────────
-        const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
-        const APP_URL = (function() {
-            try {
-                return window.location.origin + '/app/';
-            } catch (_) {
-                return 'https://voyplan.in/app/';
+            // --- 5. Swap Origin and Destination ---
+            const swapBtn = document.getElementById('btnSwapRoute');
+            const originInput = document.getElementById('inputOrigin');
+            const destInput = document.getElementById('inputDestination');
+            if (swapBtn && originInput && destInput) {
+                swapBtn.addEventListener('click', () => {
+                    const tmp = originInput.value;
+                    originInput.value = destInput.value;
+                    destInput.value = tmp;
+                });
             }
-        })();
 
-        function initAuth() {
-            if (!window.supabase) {
-                console.error('Supabase SDK failed to load');
-                return;
+            // --- 6. Geolocation ("Use my location") ---
+            const useLocBtn = document.getElementById('btnUseLocation');
+            if (useLocBtn && originInput) {
+                useLocBtn.addEventListener('click', () => {
+                    if (navigator.geolocation) {
+                        useLocBtn.textContent = 'Locating…';
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                originInput.value = `Lat ${pos.coords.latitude.toFixed(3)}, Lng ${pos.coords.longitude.toFixed(3)}`;
+                                useLocBtn.textContent = 'Current GPS';
+                            },
+                            () => {
+                                originInput.value = 'Bengaluru';
+                                useLocBtn.textContent = 'Use my location';
+                            }
+                        );
+                    }
+                });
             }
-            const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-            const els = {
-                formContainer: document.getElementById('auth-form-container'),
-                authContainer: document.getElementById('auth-authenticated-container'),
-                userName: document.getElementById('auth-welcome-name'),
-                userGreeting: document.getElementById('auth-user-greeting'),
-                redirectNotice: document.getElementById('auth-redirect-notice'),
-                openAppBtn: document.getElementById('btn-auth-open-app'),
-                signOutBtn: document.getElementById('btn-auth-signout'),
-                navCta: document.getElementById('nav-cta-link'),
-                title: document.getElementById('auth-title'),
-                subtitle: document.getElementById('auth-subtitle'),
-                nameField: document.getElementById('name-field'),
-                name: document.getElementById('auth-name'),
-                identifier: document.getElementById('auth-identifier'),
-                password: document.getElementById('auth-password'),
-                submit: document.getElementById('auth-submit'),
-                toggle: document.getElementById('auth-toggle'),
-                google: document.getElementById('auth-google'),
-                msg: document.getElementById('auth-msg'),
-            };
+            // --- 7. Primary Plan Trip Action -> Launches /app/ ---
+            function launchAppWithTrip(destName) {
+                const origin = encodeURIComponent(originInput.value.trim() || 'Bengaluru');
+                const dest = encodeURIComponent(destName || destInput.value.trim() || 'Coorg');
+                const date = encodeURIComponent(document.getElementById('inputDate').value);
+                const vehicle = encodeURIComponent(document.getElementById('selectVehicle').value);
+                const travelers = encodeURIComponent(document.getElementById('selectTravelers').value);
 
+                let appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
+                
+                const refreshToken = localStorage.getItem('sb_refresh_token');
+                if (refreshToken) {
+                    appUrl += '#sb_refresh=' + encodeURIComponent(refreshToken);
+                }
+                window.location.href = appUrl;
+            }
+
+            document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
+            document.getElementById('btnGetStarted').addEventListener('click', () => launchAppWithTrip());
+            document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
+            document.getElementById('btnCtaExplore').addEventListener('click', () => {
+                window.location.href = `${window.location.origin}/app/?explore=true`;
+            });
+            document.getElementById('btnTryAi').addEventListener('click', () => {
+                window.location.href = `${window.location.origin}/app/?ai=true`;
+            });
+            document.getElementById('btnWatch3D').addEventListener('click', () => {
+                window.location.href = `${window.location.origin}/app/?view3d=true&to=Coorg`;
+            });
+
+            // --- 8. Destination Card Clicks ---
+            document.querySelectorAll('.dest-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const d = card.getAttribute('data-dest');
+                    destInput.value = d;
+                    launchAppWithTrip(d);
+                });
+            });
+
+            // Destination Carousel Scroll
+            const destGrid = document.getElementById('destCardsGrid');
+            document.getElementById('btnPrevDest').addEventListener('click', () => {
+                destGrid.scrollBy({ left: -260, behavior: 'smooth' });
+            });
+            document.getElementById('btnNextDest').addEventListener('click', () => {
+                destGrid.scrollBy({ left: 260, behavior: 'smooth' });
+            });
+
+            // Category Rail Clicks
+            document.querySelectorAll('.cat-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const cat = item.getAttribute('data-cat');
+                    window.location.href = `${window.location.origin}/app/?category=${cat}`;
+                });
+            });
+
+            // --- 9. Supabase Auth Modal & Cross-Engine Storage Sync ---
+            const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
+            const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
+            let sb = null;
+            if (window.supabase) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+
+            const authModal = document.getElementById('authModal');
+            const btnSignIn = document.getElementById('btnSignIn');
+            const btnAuthClose = document.getElementById('btnAuthClose');
+            const btnToggleAuthMode = document.getElementById('btnToggleAuthMode');
+            const authModalTitle = document.getElementById('authModalTitle');
+            const authModalSub = document.getElementById('authModalSub');
+            const authNameRow = document.getElementById('authNameRow');
+            const btnAuthSubmit = document.getElementById('btnAuthSubmit');
+            const btnAuthGoogle = document.getElementById('btnAuthGoogle');
+            const authNotice = document.getElementById('authNotice');
             let isSignUp = false;
-            let activeSession = null;
-
-            function setMsg(text, kind) {
-                els.msg.textContent = text || '';
-                els.msg.className = 'auth-msg' + (kind ? ' ' + kind : '');
-            }
-
-            function setBusy(busy, label) {
-                els.submit.disabled = busy;
-                els.google.disabled = busy;
-                els.submit.textContent = busy ? (label || 'Please wait…') : (isSignUp ? 'Sign Up' : 'Log In');
-            }
 
             function syncSessionToStorage(session) {
                 if (!session) return;
@@ -1387,199 +2652,101 @@
                 } catch (_) {}
             }
 
-            function getAppUrl(session) {
-                const s = session || activeSession;
-                if (s && s.refresh_token) {
-                    return APP_URL + '#sb_refresh=' + encodeURIComponent(s.refresh_token);
-                }
-                return APP_URL;
-            }
-
-            function goToApp(session) {
-                const s = session || activeSession;
-                syncSessionToStorage(s);
-                window.location.href = getAppUrl(s);
-            }
-
-            function renderMode() {
-                els.title.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
-                els.subtitle.textContent = isSignUp ? 'Sign up to start exploring' : 'Log in to continue exploring';
-                els.submit.textContent = isSignUp ? 'Sign Up' : 'Log In';
-                els.toggle.innerHTML = isSignUp
-                    ? 'Already have an account? <span>Log In</span>'
-                    : 'Need an account? <span>Sign Up</span>';
-                els.nameField.classList.toggle('hide', !isSignUp);
-                els.password.setAttribute('autocomplete', isSignUp ? 'new-password' : 'current-password');
-                setMsg('');
-            }
-
-            function renderAuthenticatedState(user, session) {
-                if (!user) return;
-                activeSession = session || activeSession;
-                syncSessionToStorage(activeSession);
-
-                const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler';
-                els.formContainer.classList.add('hide');
-                els.authContainer.classList.remove('hide');
-                els.userName.textContent = displayName;
-                els.userGreeting.textContent = 'Signed In';
-
-                const appLink = getAppUrl(activeSession);
-                if (els.openAppBtn) {
-                    els.openAppBtn.href = appLink;
-                }
-                if (els.navCta) {
-                    els.navCta.textContent = 'Open App';
-                    els.navCta.href = appLink;
-                }
-                const heroPrimaryBtn = document.querySelector('.hero-btn.primary');
-                if (heroPrimaryBtn) {
-                    heroPrimaryBtn.href = appLink;
-                    heroPrimaryBtn.textContent = 'Go to VoyPlan App →';
-                }
-                const bottomCtaBtn = document.querySelector('.btn-cta');
-                if (bottomCtaBtn) {
-                    bottomCtaBtn.href = appLink;
-                }
-
-                // Smooth automatic transition into the app unless explicitly staying or logging out
-                const urlParams = new URLSearchParams(window.location.search);
-                const stayOnLanding = urlParams.get('stay') === 'true' || urlParams.get('logout') === 'true' || window.location.hash.includes('stay');
-                if (!stayOnLanding) {
-                    if (els.redirectNotice) {
-                        els.redirectNotice.style.display = 'block';
-                    }
-                    setTimeout(() => {
-                        goToApp(activeSession);
-                    }, 600);
-                }
-            }
-
-            function showLoginForm() {
-                els.formContainer.classList.remove('hide');
-                els.authContainer.classList.add('hide');
-                if (els.redirectNotice) {
-                    els.redirectNotice.style.display = 'none';
-                }
-                if (els.navCta) {
-                    els.navCta.textContent = 'Start Planning';
-                    els.navCta.href = '/app/?guest=true';
-                }
-            }
-
-            function buildCredentials(identifier, password) {
-                const id = identifier.trim();
-                if (id.includes('@')) return { email: id, password };
-                let phone = id.replace(/[\s-]/g, '');
-                if (!phone.startsWith('+')) {
-                    phone = phone.length === 10 ? '+91' + phone : '+' + phone;
-                }
-                return { phone, password };
-            }
-
-            els.toggle.addEventListener('click', () => {
-                isSignUp = !isSignUp;
-                renderMode();
+            btnSignIn.addEventListener('click', () => {
+                authModal.classList.add('active');
             });
 
-            els.submit.addEventListener('click', async () => {
-                const identifier = els.identifier.value.trim();
-                const password = els.password.value;
-                if (!identifier || !password) {
-                    setMsg('Please enter your credentials.', 'error');
+            btnAuthClose.addEventListener('click', () => {
+                authModal.classList.remove('active');
+            });
+
+            authModal.addEventListener('click', (e) => {
+                if (e.target === authModal) authModal.classList.remove('active');
+            });
+
+            btnToggleAuthMode.addEventListener('click', () => {
+                isSignUp = !isSignUp;
+                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
+                authNameRow.style.display = isSignUp ? 'block' : 'none';
+                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
+                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
+            });
+
+            btnAuthSubmit.addEventListener('click', async () => {
+                if (!sb) return;
+                const email = document.getElementById('authModalEmail').value.trim();
+                const password = document.getElementById('authModalPassword').value;
+                const fullName = document.getElementById('authModalName').value.trim();
+                if (!email || !password) {
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = 'Please enter your email and password.';
                     return;
                 }
-                const creds = buildCredentials(identifier, password);
-                setBusy(true);
-                setMsg('');
+                btnAuthSubmit.disabled = true;
+                btnAuthSubmit.textContent = 'Please wait…';
                 try {
                     if (isSignUp) {
                         const { data, error } = await sb.auth.signUp({
-                            ...creds,
-                            options: { data: { full_name: els.name.value.trim() } },
+                            email, password,
+                            options: { data: { full_name: fullName } }
                         });
                         if (error) throw error;
                         if (data.session) {
-                            activeSession = data.session;
-                            syncSessionToStorage(activeSession);
-                            setMsg('Account created! Opening VoyPlan…', 'success');
-                            goToApp(activeSession);
+                            syncSessionToStorage(data.session);
+                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
                         } else {
-                            setMsg('Check your email to confirm your account, then log in.', 'success');
-                            isSignUp = false;
-                            renderMode();
+                            authNotice.style.display = 'block';
+                            authNotice.textContent = 'Check your email to verify your account!';
                         }
                     } else {
-                        const { data, error } = await sb.auth.signInWithPassword(creds);
+                        const { data, error } = await sb.auth.signInWithPassword({ email, password });
                         if (error) throw error;
-                        activeSession = data.session;
-                        syncSessionToStorage(activeSession);
-                        setMsg('Welcome back! Opening VoyPlan…', 'success');
-                        goToApp(activeSession);
+                        syncSessionToStorage(data.session);
+                        window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
                     }
                 } catch (err) {
-                    setMsg(err.message || 'Something went wrong. Please try again.', 'error');
-                    setBusy(false);
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = err.message || 'Authentication failed.';
+                } finally {
+                    btnAuthSubmit.disabled = false;
+                    btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
                 }
             });
 
-            // Enter key submits
-            [els.identifier, els.password, els.name].forEach(input => {
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') els.submit.click();
-                });
-            });
-
-            // Google OAuth
-            els.google.addEventListener('click', async () => {
-                setBusy(true, 'Opening Google…');
+            btnAuthGoogle.addEventListener('click', async () => {
+                if (!sb) return;
                 try {
-                    const { error } = await sb.auth.signInWithOAuth({
+                    await sb.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: APP_URL },
+                        options: { redirectTo: `${window.location.origin}/app/` }
                     });
-                    if (error) throw error;
                 } catch (err) {
-                    setMsg(err.message || 'Google sign-in failed.', 'error');
-                    setBusy(false);
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = err.message;
                 }
             });
 
-            // Open App button for signed-in user
-            els.openAppBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                goToApp(activeSession);
-            });
+            // Check if user is already signed in
+            if (sb) {
+                sb.auth.getSession().then(({ data }) => {
+                    if (data && data.session && data.session.user) {
+                        syncSessionToStorage(data.session);
+                        const name = data.session.user.user_metadata?.full_name || data.session.user.email.split('@')[0];
+                        btnSignIn.textContent = name;
+                        btnSignIn.onclick = () => {
+                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
+                        };
+                    }
+                });
+            }
 
-            // Sign out button
-            els.signOutBtn.addEventListener('click', async () => {
-                activeSession = null;
-                try {
-                    localStorage.removeItem('sb_refresh_token');
-                    localStorage.removeItem('flutter.sb-dtemayjpttktntooxraa-auth-token');
-                    localStorage.removeItem('flutter.supabase.auth.token');
-                } catch (_) {}
-                await sb.auth.signOut();
-                showLoginForm();
-                setMsg('Signed out successfully.', 'success');
+            // Chat Widget Click
+            document.getElementById('btnChatWidget').addEventListener('click', () => {
+                window.location.href = `${window.location.origin}/app/?chat=true`;
             });
-
-            // Check active session
-            sb.auth.getSession().then(({ data }) => {
-                if (data && data.session && data.session.user) {
-                    activeSession = data.session;
-                    renderAuthenticatedState(data.session.user, data.session);
-                } else {
-                    showLoginForm();
-                }
-            }).catch(() => {
-                showLoginForm();
-            });
-
-            renderMode();
-        }
+        });
     </script>
-
 </body>
 
 </html>
