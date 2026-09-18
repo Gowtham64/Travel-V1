@@ -568,7 +568,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
 
     showVoyPlanTripModal(
       context,
-      initialMode: isRound ? 'round_trip' : 'one_way',
+      initialMode: isRound ? 'vacation' : 'one_way',
       initialOrigin: start.isNotEmpty ? start : null,
       initialDestination: end.isNotEmpty ? end : null,
     );

@@ -4,17 +4,25 @@ import 'package:flutter/material.dart';
 /// widget (buttons, inputs, dialogs, date/time pickers, snackbars, menus)
 /// looks consistent instead of falling back to Material's light defaults.
 class Voy {
-  // Core palette
-  static const bg = Color(0xFF0E1116);
-  static const surface = Color(0xFF161B22);
-  static const surface2 = Color(0xFF1B212C);
-  static const hairline = Color(0xFF242C38);
-  static const ink = Color(0xFFEDEFF3);
-  static const sub = Color(0xFF8B97A7);
+  // Core Classic Royal palette
+  static const bg = Color(0xFF070D18);
+  static const surface = Color(0xFF0D1726);
+  static const surface2 = Color(0xFF132238);
+  static const hairline = Color(0xFF1F314D);
+  static const ink = Color(0xFFFDFBF7); // Warm Ivory
+  static const sub = Color(0xFF94A3B8); // Slate Subtext
 
-  // Accents
-  static const brand = Color(0xFF22C7C0); // teal
-  static const brandDeep = Color(0xFF0FA7A0);
+  // Royal Accents
+  static const gold = Color(0xFFD4AF37); // Champagne Gold
+  static const goldLight = Color(0xFFF3E5AB);
+  static const goldMuted = Color(0xFFC5A880);
+  static const navy = Color(0xFF0A192F); // Deep Royal Navy
+  static const navyLight = Color(0xFF172A45);
+
+  // Accents & Compatibility aliases
+  static const brand = Color(0xFFD4AF37); // Champagne gold is the primary brand accent
+  static const brandDeep = Color(0xFFAA8A39);
+  static const teal = Color(0xFF22C7C0);
   static const violet = Color(0xFF8F81F2);
   static const pink = Color(0xFFF472B6);
   static const amber = Color(0xFFFBBF24);
@@ -24,10 +32,35 @@ class Voy {
   static const info = Color(0xFF60A5FA);
 
   static const gradient = LinearGradient(
-    colors: [brand, violet],
+    colors: [gold, goldMuted],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
+
+  static const royalGradient = LinearGradient(
+    colors: [Color(0xFF0A192F), Color(0xFF172A45)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  /// Classic Royal Serif style helper for headings, titles, and hero elements
+  static TextStyle royalSerif({
+    double fontSize = 24,
+    FontWeight fontWeight = FontWeight.w700,
+    Color color = ink,
+    double letterSpacing = 0.2,
+    double? height,
+  }) {
+    return TextStyle(
+      fontFamily: 'Playfair Display',
+      fontFamilyFallback: const ['Cinzel', 'Georgia', 'serif'],
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: height,
+    );
+  }
 
   static ThemeData dark(TextTheme textTheme) {
     const scheme = ColorScheme(

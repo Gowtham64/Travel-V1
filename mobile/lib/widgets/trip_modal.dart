@@ -27,6 +27,8 @@ import '../services/toll_calculation_service.dart';
 import '../services/trip_history_service.dart';
 import '../services/vehicle_database_service.dart';
 import '../services/saved_places_service.dart';
+import '../services/budget_service.dart';
+import '../services/stop_catalog_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/trip_date_time.dart';
 import '../widgets/vehicle_search_sheet.dart';
@@ -358,7 +360,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   @override
   void initState() {
     super.initState();
-    _activeMode = widget.initialMode == 'round_trip' ? 'round_trip' : 'one_way';
+    _activeMode = (widget.initialMode == 'vacation' || widget.initialMode == 'round_trip') ? 'vacation' : 'one_way';
 
     if (widget.initialOrigin != null) {
       _oneWayOriginCtrl.text = widget.initialOrigin!;
@@ -816,24 +818,25 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   }
 
   void _generateBudget() {
-    // 1.7 Deterministic Budget Generator based on actual route distance & vehicle specs
-    final litersNeeded = _oneWayDistanceKm > 0 && _mileage > 0
-        ? (_oneWayDistanceKm / _mileage)
-        : 0.0;
-    _budgetFuel = (litersNeeded * _fuelPricePerUnit).roundToDouble();
-    _budgetTolls = _estimatedTollCost > 0
-        ? _estimatedTollCost
-        : (_oneWayDistanceKm * 1.8).roundToDouble();
-    _budgetFood = (350.0 *
-            _oneWayTravelers *
-            math.max(1, (_oneWayDurationMin / 240).ceil()))
-        .roundToDouble();
-    _budgetParking = 150.0;
-    _budgetActivities = _addedStops.isNotEmpty
-        ? (250.0 * _addedStops.length * _oneWayTravelers)
-        : 0.0;
+    // Synchronized Authoritative Budget Service calculation
+    final b = BudgetService.instance.calculate(
+      distanceKm: _oneWayDistanceKm,
+      travelers: _oneWayTravelers,
+      days: math.max(1, (_oneWayDurationMin / (12 * 60)).ceil()),
+      mileage: _mileage > 0 ? _mileage : 15.0,
+      fuelPrice: _fuelPricePerUnit > 0 ? _fuelPricePerUnit : 102.5,
+      customTolls: _estimatedTollCost > 0 ? _estimatedTollCost : null,
+      customActivitiesTotal: _addedStops.isNotEmpty
+          ? (250.0 * _addedStops.length * _oneWayTravelers)
+          : 0.0,
+    );
+    _budgetFuel = b.fuelCost;
+    _budgetTolls = b.tolls;
+    _budgetFood = b.food;
+    _budgetParking = b.parking;
+    _budgetActivities = b.activities;
     _budgetTickets = 0.0;
-    _budgetMisc = (100.0 * _oneWayTravelers).roundToDouble();
+    _budgetMisc = b.miscellaneous;
     _budgetGenerated = true;
 
     _recalculateSplit();
@@ -987,27 +990,24 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         _itineraryValidation = validationReport;
         _validationPassed = true;
 
-        // Populate vacation budget
-        if (res.budget != null) {
-          _vacationBudgetTransport = res.budget!.transport > 0
-              ? res.budget!.transport.toDouble()
-              : (res.budget!.fuel + res.budget!.tolls).toDouble();
-          _vacationBudgetStay = res.budget!.stay > 0
-              ? res.budget!.stay.toDouble()
-              : (2500.0 * (_vacationDays - 1));
-          _vacationBudgetFood = res.budget!.food > 0
-              ? res.budget!.food.toDouble()
-              : (1200.0 * _vacationDays * _vacationTravelers);
-          _vacationBudgetActivities = (1000.0 * _vacationTravelers);
-          _vacationBudgetOther =
-              res.budget!.other > 0 ? res.budget!.other.toDouble() : 500.0;
-        } else {
-          _vacationBudgetTransport = 4500.0;
-          _vacationBudgetStay = 2500.0 * (_vacationDays - 1);
-          _vacationBudgetFood = 1200.0 * _vacationDays * _vacationTravelers;
-          _vacationBudgetActivities = 1200.0 * _vacationTravelers;
-          _vacationBudgetOther = 800.0;
-        }
+        // Populate vacation budget using authoritative BudgetService
+        final vb = BudgetService.instance.calculate(
+          distanceKm: (res.totalDistanceKm != null && res.totalDistanceKm! > 0)
+              ? res.totalDistanceKm!
+              : (_vacationDays * 180.0),
+          travelers: _vacationTravelers,
+          days: _vacationDays,
+          mileage: _mileage > 0 ? _mileage : 15.0,
+          fuelPrice: _fuelPricePerUnit > 0 ? _fuelPricePerUnit : 102.5,
+          customStayNightly: _vacationBudgetTier == 'Budget'
+              ? 1800.0
+              : (_vacationBudgetTier == 'Premium' ? 5500.0 : 3200.0),
+        );
+        _vacationBudgetTransport = vb.transportationTotal;
+        _vacationBudgetStay = vb.accommodation;
+        _vacationBudgetFood = vb.food;
+        _vacationBudgetActivities = vb.activities;
+        _vacationBudgetOther = vb.miscellaneous;
       });
     } catch (e) {
       _showToast('Generating itinerary: $e');
@@ -1610,7 +1610,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     );
   }
 
-  // ── 2. Three-Card Trip Type Selector ──
+  // ── 2. Two-Card Trip Type Selector (One Way & Vacation) ──
   Widget _buildRedesignedModeSelector() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
@@ -1620,32 +1620,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             child: _redesignedModeCard(
               id: 'one_way',
               title: 'One Way',
-              subtitle: 'From one place to another',
+              subtitle: 'Direct road corridor & stops',
               icon: Icons.arrow_forward_rounded,
-              iconColor: const Color(0xFF00E5B0),
-              iconBg: const Color(0xFF00E5B0).withValues(alpha: 0.2),
+              iconColor: const Color(0xFF10B981),
+              iconBg: const Color(0xFF10B981).withValues(alpha: 0.2),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _redesignedModeCard(
-              id: 'round_trip',
-              title: 'Round Trip',
-              subtitle: 'Go and come back',
-              icon: Icons.cached_rounded,
-              iconColor: const Color(0xFF38BDF8),
-              iconBg: const Color(0xFF0284C7).withValues(alpha: 0.15),
-            ),
-          ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 14),
           Expanded(
             child: _redesignedModeCard(
               id: 'vacation',
               title: 'Vacation',
-              subtitle: 'Multi-destination adventure',
+              subtitle: 'Multi-day journey & itinerary',
               icon: Icons.beach_access_rounded,
-              iconColor: const Color(0xFF818CF8),
-              iconBg: const Color(0xFF4F46E5).withValues(alpha: 0.15),
+              iconColor: Voy.gold,
+              iconBg: Voy.gold.withValues(alpha: 0.15),
             ),
           ),
         ],
@@ -6531,6 +6520,11 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             );
           }).toList(),
         ),
+        const SizedBox(height: 24),
+        const Divider(color: Voy.hairline),
+        const SizedBox(height: 16),
+        // Stop Point Catalog for Vacation
+        _buildRecommendedStopsCatalog(),
       ],
     );
   }

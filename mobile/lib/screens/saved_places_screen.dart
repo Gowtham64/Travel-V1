@@ -262,7 +262,7 @@ class _SavedPlacesScreenState extends State<SavedPlacesScreen> {
                   Navigator.pop(ctx);
                   showVoyPlanTripModal(
                     context,
-                    initialMode: 'round_trip',
+                    initialMode: 'vacation',
                     initialDestination: place.name,
                   );
                 },

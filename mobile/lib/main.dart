@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/landing_screen.dart';
 import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
 import 'config/app_config.dart';
@@ -310,10 +311,18 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_isAuthenticated) return const HomeScreen();
-    // The Cloudflare Pages deployment serves this Flutter app at the domain
-    // root. Keep authentication in the app on every platform; redirecting web
-    // users to the old static landing page causes an infinite redirect loop
-    // because that page is no longer part of the production build.
-    return const LoginScreen();
+    // Serve the public VoyPlan landing page for unauthenticated visitors
+    return LandingScreen(
+      onLogin: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+        );
+      },
+      onPlanTrip: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const HomeScreen()),
+        );
+      },
+    );
   }
 }

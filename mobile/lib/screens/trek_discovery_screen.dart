@@ -758,7 +758,7 @@ class _TrekDetailScreenState extends State<TrekDetailScreen> {
   void _planTrip() {
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => UnifiedTripBuilderScreen(
-        initialTripType: 'round_trip',
+        initialTripType: 'vacation',
         initialDestination: widget.trek.name,
         initialVehicle: _vehicle,
         initialVibe: 'Trekking',

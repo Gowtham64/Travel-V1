@@ -74,8 +74,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // Active trip state
   Map<String, dynamic>? _activeTrip;
 
-  // Hero Trip Planner State
-  String _tripType = 'one_way'; // 'one_way', 'round_trip', 'vacation'
+  // Hero Trip Planner State (Strictly One Way and Vacation)
+  String _tripType = 'one_way'; // 'one_way', 'vacation'
   final TextEditingController _fromController =
       TextEditingController(text: 'Bangalore, Karnataka');
   final TextEditingController _toController = TextEditingController();
@@ -572,7 +572,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 backgroundColor: const Color(0xFF111726),
                 onRefresh: _loadTrips,
                 child: ListView(
-                  physics: const BouncingScrollPhysics(
+                  physics: const ClampingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics()),
                   padding: EdgeInsets.fromLTRB(
                     isDesktop ? 28 : 16,
@@ -841,19 +841,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const Spacer(),
 
-          // Navigation Links
+          // Navigation Links (Canonical Menu)
           Row(
             children: [
               _desktopNavItem('Home', Icons.home_rounded,
                   isActive: true, onTap: () {}),
               _desktopNavItem('Plan Trip', Icons.add_road_rounded,
                   onTap: () => _planTrip()),
-              _desktopNavItem('Trip Inspiration', Icons.auto_awesome_rounded,
-                  onTap: () => _openTripInspiration()),
               _desktopNavItem('Explore', Icons.explore_rounded,
                   onTap: _openExplore),
-              _desktopNavItem('Vehicles', Icons.directions_car_rounded,
-                  onTap: _openVehicles),
+              _desktopNavItem('My Trips', Icons.bookmark_rounded,
+                  onTap: _openSaved),
+              _desktopNavItem('Saved Places', Icons.favorite_rounded,
+                  onTap: _openSavedPlaces),
             ],
           ),
           const Spacer(),
@@ -1263,15 +1263,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Trip Type Selector
+          // Trip Type Selector (Strictly One Way and Vacation)
           Row(
             children: [
               _tripTypeButton(
                   'One Way', 'one_way', Icons.arrow_forward_rounded),
-              const SizedBox(width: 8),
-              _tripTypeButton(
-                  'Round Trip', 'round_trip', Icons.sync_alt_rounded),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               _tripTypeButton(
                   'Vacation', 'vacation', Icons.beach_access_rounded),
             ],
@@ -1965,7 +1962,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
             const SizedBox(width: 16),
             _Pressable(
-              onTap: () => _planTrip(tripType: 'round_trip'),
+              onTap: () => _planTrip(tripType: 'vacation'),
               child: Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 18, vertical: 12),

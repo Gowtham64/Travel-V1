@@ -882,20 +882,16 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Top 3 large cards for Trip Type
+        // Top 2 cards for Trip Type (Strictly One Way and Vacation)
         Row(
           children: [
             Expanded(
                 child: _tripTypeCard('one_way', 'ONE WAY',
-                    'From one place to another', Icons.trending_flat_rounded)),
-            const SizedBox(width: 12),
-            Expanded(
-                child: _tripTypeCard('round_trip', 'ROUND TRIP',
-                    'Go and come back', Icons.sync_alt_rounded)),
-            const SizedBox(width: 12),
+                    'Direct route & stops corridor', Icons.trending_flat_rounded)),
+            const SizedBox(width: 14),
             Expanded(
                 child: _tripTypeCard('vacation', 'VACATION',
-                    'Multi-destination adventure', Icons.map_rounded)),
+                    'Multi-day itinerary & stay', Icons.beach_access_rounded)),
           ],
         ),
         const SizedBox(height: 32),
@@ -1015,11 +1011,9 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                        _tripType == 'round_trip'
-                            ? 'DEPARTURE DATE'
-                            : (_tripType == 'vacation'
-                                ? 'START DATE'
-                                : 'TRAVEL DATE'),
+                        _tripType == 'vacation'
+                            ? 'START DATE'
+                            : 'TRAVEL DATE',
                         style: const TextStyle(
                             color: Color(0xFF8B97A7),
                             fontSize: 11,
@@ -1058,7 +1052,7 @@ class _UnifiedTripBuilderScreenState extends State<UnifiedTripBuilderScreen>
           ),
         ),
 
-        if (_tripType == 'vacation' || _tripType == 'round_trip') ...[
+        if (_tripType == 'vacation') ...[
           const SizedBox(height: 12),
           _premiumCard(
             child: Row(
