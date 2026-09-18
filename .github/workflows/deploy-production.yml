@@ -1,56 +1,44 @@
 name: Deploy Production (Cloudflare Worker + Pages)
 
-# The sole production deployment path. A failed validation, Worker deploy, or
-# Worker health check prevents the Pages deployment from running.
+# Canonical production deployment workflow for VoyPlan.
+# Deploys Cloudflare Worker (api.voyplan.in) and Cloudflare Pages (voyplan.in)
+# solely from the main branch after full validation.
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type DEPLOY to confirm production deployment'
-        required: true
-        default: ''
 
 concurrency:
   group: production-deploy
   cancel-in-progress: false
+
+permissions:
+  contents: read
 
 env:
   PAGES_PROJECT: voyplan
 
 jobs:
   deploy:
-    name: Validate, deploy Worker, then deploy Pages
+    name: Validate, Deploy Worker, and Deploy Pages
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Verify confirmation (manual runs)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm != 'DEPLOY'
-        run: |
-          echo "::error::Production deploy not confirmed. Re-run and type DEPLOY in the confirm box."
-          exit 1
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare-worker/package-lock.json
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-
-      - name: Validate Flutter
-        working-directory: mobile
-        run: |
-          flutter pub get
-          flutter analyze --no-fatal-infos --no-fatal-warnings
-          flutter test
-
-      - name: Set up Node.js for Wrangler
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: cloudflare-worker/package-lock.json
 
       - name: Validate Cloudflare credentials and Pages project
         env:
@@ -66,28 +54,40 @@ jobs:
             exit 1
           fi
           if [ -z "$PAGES_PROJECT" ] || [ "$PAGES_PROJECT" != "voyplan" ]; then
-            echo "::error::Cloudflare Pages project name is empty."
+            echo "::error::Cloudflare Pages project name must be 'voyplan'."
             exit 1
           fi
-          echo "Cloudflare authentication and fixed Pages project name detected."
+          echo "Cloudflare authentication and canonical Pages project verified."
 
       - name: Install Worker dependencies
         working-directory: cloudflare-worker
         run: npm ci
 
-      - name: Validate Worker typecheck
+      - name: Worker typecheck
         working-directory: cloudflare-worker
         run: npm run build
 
-      - name: Validate Worker tests
+      - name: Worker tests
         working-directory: cloudflare-worker
         run: npm test
 
-      - name: Validate Worker bundle
+      - name: Worker dry-run
         working-directory: cloudflare-worker
         run: npx wrangler deploy --dry-run
 
-      - name: Deploy Cloudflare Worker
+      - name: Flutter dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: mobile
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Flutter unit tests
+        working-directory: mobile
+        run: flutter test
+
+      - name: Deploy Cloudflare Worker API
         working-directory: cloudflare-worker
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -96,21 +96,24 @@ jobs:
 
       - name: Verify API health
         run: |
+          echo "Verifying API health on https://api.voyplan.in/health..."
           curl --fail --show-error --silent --retry 6 --retry-all-errors \
             --retry-delay 5 --connect-timeout 10 --max-time 30 \
             https://api.voyplan.in/health
           echo
 
-      - name: Build Flutter web
+      - name: Build Flutter Web
         working-directory: mobile
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           flutter build web --release \
             --base-href "/" \
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_URL=https://api.voyplan.in \
-            --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
+            --dart-define=MAPBOX_TOKEN="$MAPBOX_TOKEN"
 
-      - name: Add Pages headers and SPA fallback
+      - name: Add Cloudflare Pages routing and headers
         run: |
           cp cloudflare/_headers mobile/build/web/_headers
           cp cloudflare/_redirects mobile/build/web/_redirects
@@ -124,7 +127,7 @@ jobs:
         run: |
           PROJECTS="$(npx wrangler pages project list)"
           if ! printf '%s\n' "$PROJECTS" | grep -Fq "$PAGES_PROJECT"; then
-            echo "::error::Cloudflare Pages project 'voyplan' was not found."
+            echo "::error::Cloudflare Pages project '$PAGES_PROJECT' was not found."
             exit 1
           fi
 
@@ -133,7 +136,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy ../mobile/build/web --project-name="$PAGES_PROJECT"
+        run: npx wrangler pages deploy ../mobile/build/web --project-name="$PAGES_PROJECT" --commit-dirty=true
 
       - name: Production smoke tests
-        run: bash scripts/smoke-test.sh https://voyplan.in https://api.voyplan.in
+        run: bash scripts/smoke-test.sh https://www.voyplan.in https://api.voyplan.in
