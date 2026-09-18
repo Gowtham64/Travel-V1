@@ -5,3 +5,6 @@
 # SPA route alias for login
 /login /index.html 200
 
+# Static landing-page legal routes
+/terms /index.html 200
+/privacy /index.html 200

@@ -124,6 +124,9 @@ jobs:
           rm -rf mobile/build/web_flutter
 
           cp web/index.html mobile/build/web/index.html
+          if [ -d web/images ]; then
+            cp -R web/images mobile/build/web/images
+          fi
           cp mobile/web/favicon* mobile/build/web/ 2>/dev/null || true
           cp mobile/web/apple-touch-icon.png mobile/build/web/ 2>/dev/null || true
           cp cloudflare/_headers mobile/build/web/_headers
@@ -152,4 +155,3 @@ jobs:
 
       - name: Production smoke tests
         run: bash scripts/smoke-test.sh https://www.voyplan.in https://api.voyplan.in
-

@@ -147,14 +147,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   void _checkWebDeepLinks() {
     try {
       final uri = Uri.base;
-      final start = uri.queryParameters['start'];
-      final dest = uri.queryParameters['dest'];
+      final start = uri.queryParameters['from'] ?? uri.queryParameters['start'];
+      final dest = uri.queryParameters['to'] ?? uri.queryParameters['dest'];
       final days = int.tryParse(uri.queryParameters['days'] ?? '');
+      final mode = uri.queryParameters['mode'];
+
+      if (uri.queryParameters['explore'] == 'true' ||
+          (uri.queryParameters['category']?.isNotEmpty ?? false)) {
+        _openExplore();
+        return;
+      }
+      if (uri.queryParameters['saved_places'] == 'true') {
+        _openSavedPlaces();
+        return;
+      }
+      if (uri.queryParameters['ai'] == 'true' ||
+          uri.queryParameters['chat'] == 'true') {
+        _planTrip(tripType: 'vacation', start: start, dest: dest, days: days);
+        return;
+      }
       if ((dest != null && dest.isNotEmpty) ||
           (start != null && start.isNotEmpty)) {
-        if (start != null && start.isNotEmpty) _fromController.text = start;
-        if (dest != null && dest.isNotEmpty) _toController.text = dest;
-        _planTrip(start: start, dest: dest, days: days);
+        if (start != null && start.isNotEmpty) {
+          _fromController.text = start;
+        }
+        if (dest != null && dest.isNotEmpty) {
+          _toController.text = dest;
+        }
+        _planTrip(
+          tripType: mode == 'vacation' ? 'vacation' : null,
+          start: start,
+          dest: dest,
+          days: days,
+        );
       }
     } catch (_) {}
   }

@@ -46,8 +46,8 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: "assets/icon/voyplan.png"
-    background_color: "#0f766e"
-    theme_color: "#0f766e"
+    background_color: "#f8fafc"
+    theme_color: "#071a2b"
 
 flutter:
   uses-material-design: true

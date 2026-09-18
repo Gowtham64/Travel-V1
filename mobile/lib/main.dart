@@ -245,22 +245,12 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
 
     try {
       final client = Supabase.instance.client;
-      var session = client.auth.currentSession;
+      final session = client.auth.currentSession;
 
-      // Allow local storage session restoration to settle on web or slow storage
-      if (session == null) {
-        try {
-          final firstState = await client.auth.onAuthStateChange
-              .firstWhere((data) =>
-                  data.event == AuthChangeEvent.initialSession ||
-                  data.session != null)
-              .timeout(const Duration(milliseconds: 1000));
-          session = firstState.session;
-        } catch (_) {
-          session = client.auth.currentSession;
-        }
-      }
-
+      // Supabase has completed its browser-storage restoration during
+      // initialization. Reading the current session avoids a fixed one-second
+      // stream wait that could either flash the unauthenticated UI or leave a
+      // slow browser on a loading indicator.
       if (mounted) {
         setState(() {
           _isAuthenticated = session != null;

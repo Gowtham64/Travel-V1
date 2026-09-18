@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -24,8 +25,34 @@ class _LoginScreenState extends State<LoginScreen> {
   
   bool _isLoading = false;
   bool _isSignUp = false;
+  bool _waitingForOAuth = false;
+  bool _hasNavigatedHome = false;
+  StreamSubscription<AuthState>? _authSubscription;
 
   final String _bgUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
+
+  @override
+  void initState() {
+    super.initState();
+    // Password auth is handled immediately below; this listener specifically
+    // completes the return journey from an external OAuth/Google browser.
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
+      (state) {
+        if (_waitingForOAuth && state.session != null) {
+          _navigateToHome();
+        }
+      },
+    );
+  }
+
+  void _navigateToHome() {
+    if (!mounted || _hasNavigatedHome) return;
+    _hasNavigatedHome = true;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  }
 
   /// Where the auth provider should send the user back to.
   /// - Web: the current page URL (Supabase completes the session in-page).
@@ -122,6 +149,8 @@ class _LoginScreenState extends State<LoginScreen> {
             );
             if (needsConfirmation) {
               setState(() => _isSignUp = false);
+            } else {
+              _navigateToHome();
             }
           }
         }
@@ -156,6 +185,9 @@ class _LoginScreenState extends State<LoginScreen> {
             password: password,
           ).timeout(const Duration(seconds: 10));
         }
+        if (Supabase.instance.client.auth.currentSession != null) {
+          _navigateToHome();
+        }
       } on AuthException catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
       } catch (e) {
@@ -178,6 +210,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
+    _waitingForOAuth = true;
     try {
       await Supabase.instance.client.auth.signInWithOAuth(
         OAuthProvider.google,
@@ -190,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
             kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
       ).timeout(const Duration(seconds: 30));
     } catch (e) {
+      _waitingForOAuth = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -215,6 +249,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _identifierController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
