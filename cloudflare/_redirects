@@ -1,9 +1,7 @@
-# Preserve existing /app/ share links while the Flutter app is served at the
-# domain root. Query parameters such as ?trip= and ?join= are retained by the
-# browser redirect.
-/app / 301
-/app/ / 301
-/app/* /:splat 301
+# Flutter Web SPA client-side routes under /app/
+/app/* /app/index.html 200
+/app /app/ 301
 
-# Flutter Web client-side routes must work on direct navigation and refresh.
-/* /index.html 200
+# SPA route alias for login
+/login /index.html 200
+

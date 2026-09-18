@@ -34,7 +34,7 @@ flutter pub get
 
 BUILD_ARGS=(
   --release
-  --base-href "/"
+  --base-href "/app/"
   "--dart-define=APP_ENV=$APP_ENV"
   "--dart-define=BACKEND_URL=$BACKEND_URL"
 )
@@ -48,9 +48,17 @@ fi
 
 flutter build web "${BUILD_ARGS[@]}"
 
-cp "$ROOT_DIR/cloudflare/_headers" "$BUILD_DIR/_headers"
-cp "$ROOT_DIR/cloudflare/_redirects" "$BUILD_DIR/_redirects"
+DEPLOY_DIR="$ROOT_DIR/deploy_pages"
+rm -rf "$DEPLOY_DIR"
+mkdir -p "$DEPLOY_DIR/app"
 
-echo "Cloudflare Pages build ready: $BUILD_DIR"
-echo "APP_ENV=$APP_ENV"
-echo "BACKEND_URL=$BACKEND_URL"
+cp -R "$ROOT_DIR/mobile/build/web/"* "$DEPLOY_DIR/app/"
+cp "$ROOT_DIR/web/index.html" "$DEPLOY_DIR/index.html"
+cp "$ROOT_DIR/mobile/web/favicon"* "$DEPLOY_DIR/" 2>/dev/null || true
+cp "$ROOT_DIR/mobile/web/apple-touch-icon.png" "$DEPLOY_DIR/" 2>/dev/null || true
+cp "$ROOT_DIR/cloudflare/_headers" "$DEPLOY_DIR/_headers"
+cp "$ROOT_DIR/cloudflare/_redirects" "$DEPLOY_DIR/_redirects"
+
+echo "Cloudflare Pages deployment payload ready: $DEPLOY_DIR"
+echo "Root landing page: $DEPLOY_DIR/index.html"
+echo "Flutter Web app: $DEPLOY_DIR/app/index.html"
