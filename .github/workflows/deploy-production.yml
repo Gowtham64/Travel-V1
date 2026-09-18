@@ -1,70 +1,142 @@
-name: Deploy Production (voyplan.in → Cloudflare Pages)
+name: Deploy Production
 
-# EXPLICIT production deploy only — never automatic on every commit.
-# Trigger manually (Actions tab → Run workflow) after staging QA + approval,
-# OR on a version tag (v*). This publishes only the Flutter static build to
-# Cloudflare Pages; the Node API remains an independent Render deployment.
 on:
-  workflow_dispatch:
-    inputs:
-      confirm:
-        description: 'Type DEPLOY to confirm production deployment'
-        required: true
-        default: ''
   push:
-    tags: ['v*']
+    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-production
+  group: production-deploy
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
-    name: Build + deploy to Cloudflare Pages (production)
+  validate:
+    name: Validate application
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify confirmation (manual runs)
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.confirm != 'DEPLOY'
-        run: |
-          echo "::error::Production deploy not confirmed. Re-run and type DEPLOY in the confirm box."
-          exit 1
-
-      - name: Set up Node.js for Wrangler
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare-worker/package-lock.json
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm ci
+
+      - name: Worker typecheck
+        working-directory: cloudflare-worker
+        run: npm run build
+
+      - name: Worker tests
+        working-directory: cloudflare-worker
+        run: npm test
+
+      - name: Worker dry run
+        working-directory: cloudflare-worker
+        run: npx wrangler deploy --dry-run
 
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
 
-      - name: Build web (PRODUCTION config — defaults are prod)
+      - name: Flutter dependencies
         working-directory: mobile
+        run: flutter pub get
+
+      - name: Flutter analyze
+        working-directory: mobile
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Flutter tests
+        working-directory: mobile
+        run: flutter test
+
+  deploy-api:
+    name: Deploy Cloudflare Worker API
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare-worker/package-lock.json
+
+      - name: Install Worker dependencies
+        working-directory: cloudflare-worker
+        run: npm ci
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare-worker
+          command: deploy
+
+      - name: Verify API health
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 15 https://api.voyplan.in/health; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Cloudflare Worker health check failed"
+          exit 1
+
+  deploy-web:
+    name: Deploy Cloudflare Pages
+    needs: deploy-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build Flutter Web
+        working-directory: mobile
+        env:
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           flutter pub get
           flutter build web --release \
             --base-href "/" \
             --dart-define=APP_ENV=production \
             --dart-define=BACKEND_URL=https://api.voyplan.in \
-            --dart-define=MAPBOX_TOKEN=${{ secrets.MAPBOX_TOKEN }}
+            --dart-define=MAPBOX_TOKEN="$MAPBOX_TOKEN"
 
-      - name: Add Cloudflare Pages headers and SPA fallback
+      - name: Add Cloudflare Pages routing and headers
         run: |
           cp cloudflare/_headers mobile/build/web/_headers
           cp cloudflare/_redirects mobile/build/web/_redirects
 
-      - name: Install pinned Wrangler
-        run: npm install --global wrangler@3.114.0
+      - name: Deploy Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy mobile/build/web --project-name=voyplan --commit-dirty=true
 
-      - name: Deploy to Cloudflare Pages
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          PAGES_PROJECT_NAME: ${{ secrets.CLOUDFLARE_PROJECT_NAME || 'voyplan' }}
+      - name: Verify production website
         run: |
-          wrangler pages deploy mobile/build/web \
-            --project-name="$PAGES_PROJECT_NAME" \
-            --commit-dirty=true
+          for i in 1 2 3 4 5; do
+            if curl --fail --silent --show-error --max-time 20 https://voyplan.in/ >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Production website health check failed"
+          exit 1
