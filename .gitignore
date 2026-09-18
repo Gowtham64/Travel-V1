@@ -35,3 +35,6 @@ live.js
 logs/
 *.log
 agents-office/
+
+# Cloudflare Wrangler CLI cache/state
+.wrangler/
