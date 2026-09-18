@@ -1036,7 +1036,8 @@
                                 <span id="auth-user-greeting">Signed In</span>
                             </div>
                             <div class="auth-user-name" id="auth-welcome-name">Ready for your trip?</div>
-                            <button type="button" class="btn-primary" id="btn-auth-open-app">Open VoyPlan App &rarr;</button>
+                            <div id="auth-redirect-notice" style="color:var(--gold);font-size:0.92rem;margin-bottom:1.1rem;display:none;font-weight:600;">✨ Launching VoyPlan...</div>
+                            <a href="/app/" class="btn-primary" id="btn-auth-open-app" style="display:flex;align-items:center;justify-content:center;text-decoration:none;">Open VoyPlan App &rarr;</a>
                             <button type="button" class="btn-auth-signout" id="btn-auth-signout">Sign Out</button>
                         </div>
 
@@ -1257,14 +1258,17 @@
             // --- Smooth Scroll for Nav Links ---
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
-                    e.preventDefault();
                     const targetId = this.getAttribute('href');
-                    const targetElement = document.querySelector(targetId);
-                    if (targetElement) {
-                        targetElement.scrollIntoView({
-                            behavior: 'smooth'
-                        });
-                    }
+                    if (!targetId || targetId === '#' || targetId.length <= 1) return;
+                    e.preventDefault();
+                    try {
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            targetElement.scrollIntoView({
+                                behavior: 'smooth'
+                            });
+                        }
+                    } catch (_) {}
                 });
             });
 
@@ -1341,6 +1345,7 @@
                 authContainer: document.getElementById('auth-authenticated-container'),
                 userName: document.getElementById('auth-welcome-name'),
                 userGreeting: document.getElementById('auth-user-greeting'),
+                redirectNotice: document.getElementById('auth-redirect-notice'),
                 openAppBtn: document.getElementById('btn-auth-open-app'),
                 signOutBtn: document.getElementById('btn-auth-signout'),
                 navCta: document.getElementById('nav-cta-link'),
@@ -1357,6 +1362,7 @@
             };
 
             let isSignUp = false;
+            let activeSession = null;
 
             function setMsg(text, kind) {
                 els.msg.textContent = text || '';
@@ -1367,6 +1373,32 @@
                 els.submit.disabled = busy;
                 els.google.disabled = busy;
                 els.submit.textContent = busy ? (label || 'Please wait…') : (isSignUp ? 'Sign Up' : 'Log In');
+            }
+
+            function syncSessionToStorage(session) {
+                if (!session) return;
+                try {
+                    if (session.refresh_token) {
+                        localStorage.setItem('sb_refresh_token', session.refresh_token);
+                    }
+                    const sessStr = JSON.stringify(session);
+                    localStorage.setItem('flutter.sb-dtemayjpttktntooxraa-auth-token', sessStr);
+                    localStorage.setItem('flutter.supabase.auth.token', sessStr);
+                } catch (_) {}
+            }
+
+            function getAppUrl(session) {
+                const s = session || activeSession;
+                if (s && s.refresh_token) {
+                    return APP_URL + '#sb_refresh=' + encodeURIComponent(s.refresh_token);
+                }
+                return APP_URL;
+            }
+
+            function goToApp(session) {
+                const s = session || activeSession;
+                syncSessionToStorage(s);
+                window.location.href = getAppUrl(s);
             }
 
             function renderMode() {
@@ -1381,22 +1413,54 @@
                 setMsg('');
             }
 
-            function renderAuthenticatedState(user) {
+            function renderAuthenticatedState(user, session) {
                 if (!user) return;
+                activeSession = session || activeSession;
+                syncSessionToStorage(activeSession);
+
                 const displayName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Traveler';
                 els.formContainer.classList.add('hide');
                 els.authContainer.classList.remove('hide');
                 els.userName.textContent = displayName;
                 els.userGreeting.textContent = 'Signed In';
+
+                const appLink = getAppUrl(activeSession);
+                if (els.openAppBtn) {
+                    els.openAppBtn.href = appLink;
+                }
                 if (els.navCta) {
                     els.navCta.textContent = 'Open App';
-                    els.navCta.href = APP_URL;
+                    els.navCta.href = appLink;
+                }
+                const heroPrimaryBtn = document.querySelector('.hero-btn.primary');
+                if (heroPrimaryBtn) {
+                    heroPrimaryBtn.href = appLink;
+                    heroPrimaryBtn.textContent = 'Go to VoyPlan App →';
+                }
+                const bottomCtaBtn = document.querySelector('.btn-cta');
+                if (bottomCtaBtn) {
+                    bottomCtaBtn.href = appLink;
+                }
+
+                // Smooth automatic transition into the app unless explicitly staying or logging out
+                const urlParams = new URLSearchParams(window.location.search);
+                const stayOnLanding = urlParams.get('stay') === 'true' || urlParams.get('logout') === 'true' || window.location.hash.includes('stay');
+                if (!stayOnLanding) {
+                    if (els.redirectNotice) {
+                        els.redirectNotice.style.display = 'block';
+                    }
+                    setTimeout(() => {
+                        goToApp(activeSession);
+                    }, 600);
                 }
             }
 
             function showLoginForm() {
                 els.formContainer.classList.remove('hide');
                 els.authContainer.classList.add('hide');
+                if (els.redirectNotice) {
+                    els.redirectNotice.style.display = 'none';
+                }
                 if (els.navCta) {
                     els.navCta.textContent = 'Start Planning';
                     els.navCta.href = '/app/?guest=true';
@@ -1411,14 +1475,6 @@
                     phone = phone.length === 10 ? '+91' + phone : '+' + phone;
                 }
                 return { phone, password };
-            }
-
-            function goToApp(session) {
-                if (session && session.refresh_token) {
-                    window.location.href = APP_URL + '#sb_refresh=' + encodeURIComponent(session.refresh_token);
-                } else {
-                    window.location.href = APP_URL;
-                }
             }
 
             els.toggle.addEventListener('click', () => {
@@ -1444,8 +1500,10 @@
                         });
                         if (error) throw error;
                         if (data.session) {
-                            setMsg('Account created! Redirecting…', 'success');
-                            goToApp(data.session);
+                            activeSession = data.session;
+                            syncSessionToStorage(activeSession);
+                            setMsg('Account created! Opening VoyPlan…', 'success');
+                            goToApp(activeSession);
                         } else {
                             setMsg('Check your email to confirm your account, then log in.', 'success');
                             isSignUp = false;
@@ -1454,8 +1512,10 @@
                     } else {
                         const { data, error } = await sb.auth.signInWithPassword(creds);
                         if (error) throw error;
-                        setMsg('Welcome! Redirecting…', 'success');
-                        goToApp(data.session);
+                        activeSession = data.session;
+                        syncSessionToStorage(activeSession);
+                        setMsg('Welcome back! Opening VoyPlan…', 'success');
+                        goToApp(activeSession);
                     }
                 } catch (err) {
                     setMsg(err.message || 'Something went wrong. Please try again.', 'error');
@@ -1486,12 +1546,19 @@
             });
 
             // Open App button for signed-in user
-            els.openAppBtn.addEventListener('click', () => {
-                goToApp();
+            els.openAppBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                goToApp(activeSession);
             });
 
             // Sign out button
             els.signOutBtn.addEventListener('click', async () => {
+                activeSession = null;
+                try {
+                    localStorage.removeItem('sb_refresh_token');
+                    localStorage.removeItem('flutter.sb-dtemayjpttktntooxraa-auth-token');
+                    localStorage.removeItem('flutter.supabase.auth.token');
+                } catch (_) {}
                 await sb.auth.signOut();
                 showLoginForm();
                 setMsg('Signed out successfully.', 'success');
@@ -1500,7 +1567,8 @@
             // Check active session
             sb.auth.getSession().then(({ data }) => {
                 if (data && data.session && data.session.user) {
-                    renderAuthenticatedState(data.session.user);
+                    activeSession = data.session;
+                    renderAuthenticatedState(data.session.user, data.session);
                 } else {
                     showLoginForm();
                 }

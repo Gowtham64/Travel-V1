@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:html' as html;
 
 /// Clears cached browser session data from localStorage and sessionStorage
@@ -69,4 +70,35 @@ void sanitizeBrowserUrl() {
     final cleanUrl = '$path$cleanSearch';
     html.window.history.replaceState(null, '', cleanUrl);
   } catch (_) {}
+}
+
+/// Retrieves stored Supabase session refresh token from browser localStorage
+/// to seamlessly hydrate auth state without requiring URL query fragments.
+String? getStoredWebSessionRefreshToken() {
+  try {
+    final storage = html.window.localStorage;
+    // 1. Direct key saved by landing page
+    final direct = storage['sb_refresh_token'];
+    if (direct != null && direct.isNotEmpty) return direct;
+
+    // 2. Search for standard Supabase token keys
+    for (final entry in storage.entries) {
+      if ((entry.key.startsWith('sb-') || entry.key.contains('supabase')) &&
+          (entry.key.endsWith('-auth-token') || entry.key.contains('token'))) {
+        try {
+          final data = jsonDecode(entry.value);
+          if (data is Map) {
+            final refresh = data['refresh_token'] ??
+                (data['currentSession'] is Map
+                    ? data['currentSession']['refresh_token']
+                    : null);
+            if (refresh is String && refresh.isNotEmpty) {
+              return refresh;
+            }
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (_) {}
+  return null;
 }
