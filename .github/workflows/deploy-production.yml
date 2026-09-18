@@ -115,16 +115,21 @@ jobs:
 
       - name: Assemble Cloudflare Pages deployment payload
         run: |
-          rm -rf deploy_pages
-          mkdir -p deploy_pages/app
-          cp -R mobile/build/web/* deploy_pages/app/
-          cp web/index.html deploy_pages/index.html
-          cp mobile/web/favicon* deploy_pages/ 2>/dev/null || true
-          cp mobile/web/apple-touch-icon.png deploy_pages/ 2>/dev/null || true
-          cp cloudflare/_headers deploy_pages/_headers
-          cp cloudflare/_redirects deploy_pages/_redirects
-          test -f deploy_pages/index.html
-          test -f deploy_pages/app/index.html
+          mkdir -p mobile/build/web_flutter
+          cp -R mobile/build/web/* mobile/build/web_flutter/
+          rm -rf mobile/build/web
+          mkdir -p mobile/build/web/app
+
+          cp -R mobile/build/web_flutter/* mobile/build/web/app/
+          rm -rf mobile/build/web_flutter
+
+          cp web/index.html mobile/build/web/index.html
+          cp mobile/web/favicon* mobile/build/web/ 2>/dev/null || true
+          cp mobile/web/apple-touch-icon.png mobile/build/web/ 2>/dev/null || true
+          cp cloudflare/_headers mobile/build/web/_headers
+          cp cloudflare/_redirects mobile/build/web/_redirects
+          test -f mobile/build/web/index.html
+          test -f mobile/build/web/app/index.html
 
       - name: Confirm Cloudflare Pages project
         working-directory: cloudflare-worker
@@ -143,7 +148,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npx wrangler pages deploy ../deploy_pages --project-name="$PAGES_PROJECT" --commit-dirty=true
+        run: npx wrangler pages deploy ../mobile/build/web --project-name="$PAGES_PROJECT" --commit-dirty=true
 
       - name: Production smoke tests
         run: bash scripts/smoke-test.sh https://www.voyplan.in https://api.voyplan.in

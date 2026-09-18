@@ -48,17 +48,26 @@ fi
 
 flutter build web "${BUILD_ARGS[@]}"
 
-DEPLOY_DIR="$ROOT_DIR/deploy_pages"
-rm -rf "$DEPLOY_DIR"
-mkdir -p "$DEPLOY_DIR/app"
+# Reorganize mobile/build/web so that:
+# 1. Root index.html is the high-performance static landing page
+# 2. /app/ contains the Flutter Web SPA
+BUILD_DIR="$ROOT_DIR/mobile/build/web"
+TEMP_FLUTTER="$ROOT_DIR/mobile/build/web_flutter"
 
-cp -R "$ROOT_DIR/mobile/build/web/"* "$DEPLOY_DIR/app/"
-cp "$ROOT_DIR/web/index.html" "$DEPLOY_DIR/index.html"
-cp "$ROOT_DIR/mobile/web/favicon"* "$DEPLOY_DIR/" 2>/dev/null || true
-cp "$ROOT_DIR/mobile/web/apple-touch-icon.png" "$DEPLOY_DIR/" 2>/dev/null || true
-cp "$ROOT_DIR/cloudflare/_headers" "$DEPLOY_DIR/_headers"
-cp "$ROOT_DIR/cloudflare/_redirects" "$DEPLOY_DIR/_redirects"
+mkdir -p "$TEMP_FLUTTER"
+cp -R "$BUILD_DIR/"* "$TEMP_FLUTTER/"
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR/app"
 
-echo "Cloudflare Pages deployment payload ready: $DEPLOY_DIR"
-echo "Root landing page: $DEPLOY_DIR/index.html"
-echo "Flutter Web app: $DEPLOY_DIR/app/index.html"
+cp -R "$TEMP_FLUTTER/"* "$BUILD_DIR/app/"
+rm -rf "$TEMP_FLUTTER"
+
+cp "$ROOT_DIR/web/index.html" "$BUILD_DIR/index.html"
+cp "$ROOT_DIR/mobile/web/favicon"* "$BUILD_DIR/" 2>/dev/null || true
+cp "$ROOT_DIR/mobile/web/apple-touch-icon.png" "$BUILD_DIR/" 2>/dev/null || true
+cp "$ROOT_DIR/cloudflare/_headers" "$BUILD_DIR/_headers"
+cp "$ROOT_DIR/cloudflare/_redirects" "$BUILD_DIR/_redirects"
+
+echo "Cloudflare Pages deployment payload ready: $BUILD_DIR"
+echo "Root landing page: $BUILD_DIR/index.html"
+echo "Flutter Web app: $BUILD_DIR/app/index.html"
