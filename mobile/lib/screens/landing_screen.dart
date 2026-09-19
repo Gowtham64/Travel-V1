@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../theme/app_theme.dart';
 import '../widgets/trip_modal.dart';
 import '../screens/login_screen.dart';
@@ -88,6 +89,18 @@ class _LandingScreenState extends State<LandingScreen> {
         builder: (_) => const TrekDiscoveryScreen(),
       ),
     );
+  }
+
+  Future<void> _openPublicPage(String path) async {
+    final uri = Uri.parse('https://voyplan.in$path');
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open this page. Please try again.'),
+        ),
+      );
+    }
   }
 
   void _setActiveNavigation(VoyPlanNavigationItem item) {
@@ -2427,14 +2440,14 @@ class _LandingScreenState extends State<LandingScreen> {
                     _footerCol('COMPANY', [
                       ('About', () => _scrollToSection(_howItWorksKey)),
                       ('Features', () => _scrollToSection(_featuresKey)),
-                      ('Contact', () {}),
+                      ('Contact', () => _openPublicPage('/contact')),
                     ]),
                     const SizedBox(width: 48),
                     // Support Links
                     _footerCol('SUPPORT', [
                       ('Help Center', () {}),
-                      ('Privacy Policy', () {}),
-                      ('Terms of Service', () {}),
+                      ('Data & Privacy', () => _openPublicPage('/privacy')),
+                      ('Terms & Conditions', () => _openPublicPage('/terms')),
                     ]),
                   ],
                 ],

@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>VoyPlan — Plan less. Explore more.</title>
+    <title>VoyPlan — Discover. Design. Drive.</title>
+    <meta name="theme-color" content="#060c18">
+    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png">
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
@@ -159,18 +161,22 @@
         }
 
         .brand-logo {
-            display: flex;
-            align-items: center;
-            gap: 0.65rem;
-            font-size: 1.45rem;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: -0.02em;
+            display: block;
+            flex: 0 0 auto;
+            width: 9rem;
+            line-height: 0;
         }
 
-        [data-theme="light"] .header.scrolled .brand-logo {
-            color: var(--text-primary);
+        .brand-logo-image {
+            display: block;
+            width: 100%;
+            height: auto;
         }
+
+        .brand-logo-image--light,
+        .brand-logo-image--dark { display: none; }
+        [data-theme="light"] .brand-logo-image--light,
+        [data-theme="dark"] .brand-logo-image--dark { display: block; }
 
         .brand-icon {
             width: 34px;
@@ -1876,6 +1882,236 @@
             margin-top: 0.9rem;
         }
 
+        /* ════════════════════════════════════════════════════════════════════
+           BRAND FOOTER & INFORMATION PAGES
+           ════════════════════════════════════════════════════════════════════ */
+        .site-footer {
+            background:
+                radial-gradient(circle at 16% 0%, rgba(6, 182, 212, 0.13), transparent 22rem),
+                #050b16;
+            border-top: 1px solid rgba(125, 211, 252, 0.17);
+            color: #ffffff;
+            padding: 3.25rem 0 1.35rem;
+        }
+
+        [data-theme="light"] .site-footer {
+            background:
+                radial-gradient(circle at 16% 0%, rgba(34, 211, 238, 0.11), transparent 22rem),
+                #f8fbff;
+            border-top-color: rgba(15, 23, 42, 0.1);
+            color: #10213d;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: minmax(12rem, 1.42fr) repeat(4, minmax(8rem, 1fr));
+            gap: 2.25rem;
+        }
+
+        .footer-brand-lockup {
+            display: block;
+            width: 10.25rem;
+            line-height: 0;
+        }
+
+        .footer-brand-logo-image {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .footer-brand-logo-image--light,
+        .footer-brand-logo-image--dark { display: none; }
+        [data-theme="light"] .footer-brand-logo-image--light,
+        [data-theme="dark"] .footer-brand-logo-image--dark { display: block; }
+
+        .footer-summary {
+            max-width: 17.5rem;
+            margin-top: 0.55rem;
+            color: #9fb1c8;
+            font-size: 0.88rem;
+            line-height: 1.65;
+        }
+
+        [data-theme="light"] .footer-summary { color: #52647d; }
+
+        .footer-heading {
+            margin: 0 0 1rem;
+            color: inherit;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+        }
+
+        .footer-links { display: grid; gap: 0.7rem; }
+
+        .footer-links a {
+            width: fit-content;
+            color: #aebdd0;
+            font-size: 0.88rem;
+            transition: color 0.18s ease;
+        }
+
+        [data-theme="light"] .footer-links a { color: #52647d; }
+        .footer-links a:hover, .footer-links a:focus-visible { color: #22d3ee; }
+
+        .footer-bottom {
+            display: flex;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin-top: 2rem;
+            padding-top: 1.4rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            color: #8ba0bb;
+            font-size: 0.78rem;
+        }
+
+        [data-theme="light"] .footer-bottom {
+            border-top-color: rgba(15, 23, 42, 0.1);
+            color: #64748b;
+        }
+
+        .info-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: block;
+            overflow-y: auto;
+            padding: calc(var(--nav-height) + 2rem) 1.25rem 4rem;
+            background: var(--bg-base);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .info-modal-backdrop.active { opacity: 1; pointer-events: auto; }
+
+        .info-modal-card {
+            position: relative;
+            width: min(100%, 62rem);
+            margin: 0 auto;
+            border: 1px solid var(--border-card);
+            border-radius: 1.5rem;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            box-shadow: var(--shadow-glass);
+            padding: clamp(1.5rem, 4vw, 3.5rem);
+            transform: translateY(10px);
+            transition: transform 0.2s ease;
+        }
+
+        .info-modal-backdrop.active .info-modal-card { transform: translateY(0) scale(1); }
+
+        .info-modal-close {
+            position: absolute;
+            top: 1.35rem;
+            right: 1.35rem;
+            float: right;
+            width: 2.25rem;
+            height: 2.25rem;
+            border: 1px solid currentColor;
+            border-radius: 50%;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.35rem;
+            line-height: 1;
+        }
+
+        .info-modal-eyebrow {
+            margin-bottom: 0.65rem;
+            color: #22d3ee;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.15em;
+        }
+
+        .info-modal-title {
+            margin: 0 2.75rem 0.65rem 0;
+            color: inherit;
+            font-family: var(--font-serif);
+            font-size: clamp(2rem, 5vw, 2.75rem);
+            line-height: 1.05;
+        }
+
+        .info-modal-intro,
+        .info-modal-content p,
+        .info-modal-content li {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            line-height: 1.7;
+        }
+
+        .info-modal-content { margin-top: 1.7rem; }
+        .info-modal-content section + section { margin-top: 1.5rem; }
+        .info-modal-content h3 { margin-bottom: 0.35rem; color: inherit; font-size: 1.05rem; }
+        .info-modal-content ul { padding-left: 1.2rem; }
+        .info-modal-content a { color: #22d3ee; font-weight: 700; }
+
+        .legal-page-brand {
+            display: block;
+            width: min(100%, 14rem);
+            margin-bottom: 2.5rem;
+            line-height: 0;
+        }
+
+        .legal-page-logo-image { display: none; width: 100%; height: auto; }
+        [data-theme="light"] .legal-page-logo-image--light,
+        [data-theme="dark"] .legal-page-logo-image--dark { display: block; }
+
+        .info-modal-meta {
+            margin-top: 0.9rem;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+
+        .contact-details {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.9rem;
+            margin-top: 1.8rem;
+        }
+
+        .contact-detail,
+        .contact-form {
+            border: 1px solid var(--border-card);
+            border-radius: 1rem;
+            background: var(--bg-card);
+        }
+
+        .contact-detail { padding: 1.1rem; }
+        .contact-detail-label { color: var(--text-muted); font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; }
+        .contact-detail-value { display: block; margin-top: 0.35rem; color: var(--text-primary); font-size: 0.92rem; font-weight: 700; }
+        .contact-detail-note { display: block; margin-top: 0.35rem; color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; }
+
+        .contact-form { margin-top: 2rem; padding: clamp(1.1rem, 3vw, 1.75rem); }
+        .contact-form h3 { font-size: 1.2rem; }
+        .contact-form-sub { margin-top: 0.35rem; color: var(--text-secondary); font-size: 0.88rem; line-height: 1.55; }
+        .contact-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1.4rem; }
+        .contact-field { display: grid; gap: 0.42rem; }
+        .contact-field--full { grid-column: 1 / -1; }
+        .contact-field label { color: var(--text-primary); font-size: 0.8rem; font-weight: 700; }
+        .contact-field input, .contact-field textarea {
+            width: 100%;
+            border: 1px solid var(--border-card);
+            border-radius: 0.75rem;
+            background: var(--bg-surface);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 0.9rem;
+            padding: 0.78rem 0.9rem;
+            resize: vertical;
+        }
+        .contact-field input:focus, .contact-field textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px var(--cyan-glow); }
+        .contact-field [aria-invalid="true"] { border-color: #fb7185; }
+        .contact-field-error { min-height: 1em; color: #fb7185; font-size: 0.74rem; }
+        .contact-form-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; margin-top: 1.25rem; }
+        .contact-submit { border: 0; border-radius: 999px; background: var(--grad-cta); color: #ffffff; cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 800; padding: 0.8rem 1.25rem; }
+        .contact-submit:disabled { cursor: wait; opacity: 0.7; }
+        .contact-form-status { color: var(--text-secondary); font-size: 0.8rem; line-height: 1.45; }
+
+        body.info-modal-open { overflow: hidden; }
+
         /* Destination, planner, and feature sections carry their own full
            visual treatment in both themes instead of being forced to light. */
         [data-theme="dark"] section.destinations,
@@ -2021,6 +2257,8 @@
         }
 
         @media (max-width: 768px) {
+            .brand-logo { width: 7.5rem; }
+            .footer-brand-lockup { width: 9rem; }
             .nav-menu { display: none; }
             .planner-grid-route { grid-template-columns: 1fr; }
             .swap-btn { display: none; }
@@ -2031,6 +2269,18 @@
             .cta-buttons { flex-direction: column; width: 100%; }
             .btn-cta-primary, .btn-cta-secondary { width: 100%; justify-content: center; }
             .cta-callout-sign, .cta-callout-map { display: none; }
+            .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 1.25rem; }
+            .footer-brand { grid-column: 1 / -1; }
+            .footer-bottom { flex-direction: column; gap: 0.6rem; }
+            .contact-details, .contact-form-grid { grid-template-columns: 1fr; }
+            .contact-field--full { grid-column: auto; }
+            .info-modal-backdrop { padding: calc(var(--nav-height) + 1rem) 0.9rem 2rem; }
+            .info-modal-card { border-radius: 1.1rem; }
+        }
+
+        @media (max-width: 430px) {
+            .footer-grid { grid-template-columns: 1fr; }
+            .footer-brand { grid-column: auto; }
         }
     </style>
 </head>
@@ -2042,13 +2292,9 @@
          ════════════════════════════════════════════════════════════════════ -->
     <header class="header" id="mainHeader">
         <div class="container header-inner">
-            <a href="#" class="brand-logo">
-                <div class="brand-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-                    </svg>
-                </div>
-                Voyplan
+            <a href="#hero" class="brand-logo" aria-label="VoyPlan home">
+                <img class="brand-logo-image brand-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
+                <img class="brand-logo-image brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
             </a>
 
             <ul class="nav-menu">
@@ -2144,8 +2390,8 @@
                 <div class="hero-copy">
                     <span class="hero-eyebrow">YOUR ROAD TRIP CO-PILOT</span>
                     <h1 class="hero-title">
-                        Plan less.<br>
-                        <span class="accent">Explore more.</span>
+                        Discover.<br>
+                        <span class="accent">Design. Drive.</span>
                     </h1>
                     <p class="hero-lead">
                         AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.
@@ -2607,9 +2853,158 @@
         </section>
     </main>
 
+    <footer class="site-footer" aria-label="VoyPlan footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="footer-brand-lockup" aria-label="VoyPlan home">
+                        <img class="footer-brand-logo-image footer-brand-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
+                        <img class="footer-brand-logo-image footer-brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                    </a>
+                    <p class="footer-summary">Thoughtful travel technology for planning memorable road trips with confidence.</p>
+                </div>
+                <nav aria-label="Quick links">
+                    <p class="footer-heading">QUICK LINKS</p>
+                    <div class="footer-links">
+                        <a href="/">Home</a>
+                        <a href="/app/">Plan Trip</a>
+                        <a href="/app/?explore=true">Destinations</a>
+                        <a href="/app/?inspiration=true">Trip Inspiration</a>
+                        <a href="/app/">My Trips</a>
+                        <a href="/app/?savedPlaces=true">Saved Places</a>
+                    </div>
+                </nav>
+                <nav aria-label="Product">
+                    <p class="footer-heading">PRODUCT</p>
+                    <div class="footer-links">
+                        <a href="/#features">Features</a>
+                        <a href="/app/?ai=true">AI Co-Pilot</a>
+                        <a href="/app/?mode=round_trip">Around Trip / Vacation</a>
+                        <a href="/app/?mode=one_way">One Way Trip</a>
+                    </div>
+                </nav>
+                <nav aria-label="Support">
+                    <p class="footer-heading">SUPPORT</p>
+                    <div class="footer-links">
+                        <a href="/contact" data-info-modal="contactModal">Contact Us</a>
+                        <a href="/app/?chat=true">Help / FAQ</a>
+                        <a href="/terms" data-info-modal="termsModal">Terms &amp; Conditions</a>
+                        <a href="/privacy" data-info-modal="privacyModal">Data &amp; Privacy</a>
+                    </div>
+                </nav>
+                <nav aria-label="Company">
+                    <p class="footer-heading">COMPANY</p>
+                    <div class="footer-links">
+                        <a href="/#cta">About Us</a>
+                        <a href="/contact" data-info-modal="contactModal">Contact Us</a>
+                    </div>
+                </nav>
+            </div>
+            <div class="footer-bottom">
+                <span>© 2026 VoyPlan. All rights reserved.</span>
+                <span>DISCOVER. DESIGN. DRIVE.</span>
+            </div>
+        </div>
+    </footer>
+
     <!-- Floating Chat Support Widget -->
     <div class="chat-widget-btn" id="btnChatWidget" title="Need help? Chat with VoyPlan">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+    </div>
+
+    <!-- Dedicated, history-aware information routes. The footer links retain
+         their canonical URLs so direct visits also render the matching page. -->
+    <div class="info-modal-backdrop" id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsTitle" aria-hidden="true">
+        <article class="info-modal-card">
+            <button class="info-modal-close" type="button" aria-label="Close terms and conditions">&times;</button>
+            <div class="legal-page-brand" aria-label="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+            </div>
+            <p class="info-modal-eyebrow">VOYPLAN LEGAL</p>
+            <h2 class="info-modal-title" id="termsTitle">Terms &amp; Conditions</h2>
+            <p class="info-modal-intro">The rules for using VoyPlan to explore, plan and organise your journeys.</p>
+            <p class="info-modal-meta"><time datetime="2026-09-19">Last updated: 19 September 2026</time></p>
+            <div class="info-modal-content">
+                <section><h3>Introduction</h3><p>VoyPlan is a travel-planning service. These terms describe the basic conditions that apply when you access or use the service.</p></section>
+                <section><h3>Acceptance of terms</h3><p>By using VoyPlan, you agree to these terms and to use the service in accordance with applicable law. If you do not agree, please do not use the service.</p></section>
+                <section><h3>Use of VoyPlan</h3><p>You may use VoyPlan for lawful personal travel planning. Do not interfere with the service, attempt to access information that is not yours, or use the service in a way that could harm people, systems or other users.</p></section>
+                <section><h3>User accounts</h3><p>Where you create an account, keep your credentials secure and provide information that is accurate when you choose to add or update it. You are responsible for activity carried out through your account.</p></section>
+                <section><h3>Trip planning &amp; travel information</h3><p>Routes, travel times, costs, places, weather, traffic and other information may change and can be incomplete or approximate. You remain responsible for your travel, safety, bookings and decisions on the road.</p></section>
+                <section><h3>Maps &amp; navigation</h3><p>Map, navigation and location-based results are planning aids. Always follow road conditions, traffic rules, official signage and local guidance rather than relying solely on information shown in VoyPlan.</p></section>
+                <section><h3>Third-party services</h3><p>Some features rely on third-party services for authentication, maps, search, geocoding, routing or related functionality. Their availability and their own terms may apply when you use those features.</p></section>
+                <section><h3>User responsibilities</h3><p>Make sure your trip details are suitable for your circumstances and respect the rules, permissions and requirements that apply to destinations, roads and activities you choose.</p></section>
+                <section><h3>Intellectual property</h3><p>VoyPlan and its service materials may be protected by applicable intellectual-property laws. Do not copy, modify or use them beyond what is permitted by law or these terms.</p></section>
+                <section><h3>Service availability</h3><p>We may update, change, suspend or discontinue parts of the service as it evolves. We do not guarantee that every feature or source of trip information will always be available.</p></section>
+                <section><h3>Limitation of liability</h3><p>To the extent permitted by applicable law, use of VoyPlan and reliance on travel information is at your own risk. Nothing in these terms limits rights that cannot legally be limited.</p></section>
+                <section><h3>Changes to terms</h3><p>We may update these terms as the service changes. The current version will be available at this address.</p></section>
+                <section><h3>Contact information</h3><p>For questions about these terms, contact <a href="mailto:support@voyplan.in">support@voyplan.in</a>.</p></section>
+            </div>
+        </article>
+    </div>
+
+    <div class="info-modal-backdrop" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" aria-hidden="true">
+        <article class="info-modal-card">
+            <button class="info-modal-close" type="button" aria-label="Close data and privacy">&times;</button>
+            <div class="legal-page-brand" aria-label="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+            </div>
+            <p class="info-modal-eyebrow">VOYPLAN LEGAL</p>
+            <h2 class="info-modal-title" id="privacyTitle">Data &amp; Privacy</h2>
+            <p class="info-modal-intro">How information may be processed when you use VoyPlan and the choices available to you.</p>
+            <p class="info-modal-meta"><time datetime="2026-09-19">Last updated: 19 September 2026</time></p>
+            <div class="info-modal-content">
+                <section><h3>Information we collect</h3><p>Depending on how you use VoyPlan, the service may process account details, trip inputs, saved places, vehicle preferences, location information you choose to provide, and technical information needed to run the app.</p></section>
+                <section><h3>Account information</h3><p>When you create an account, authentication and profile information such as an email address, display name or other details you provide may be processed to sign you in and personalise your experience.</p></section>
+                <section><h3>Trip &amp; planning data</h3><p>Origins, destinations, dates, routes, stops, trip preferences and itinerary choices may be processed to create and display the planning features you request.</p></section>
+                <section><h3>Saved places</h3><p>Places, trips and preferences you choose to save may be stored so they remain available in your account or on your device, depending on the feature.</p></section>
+                <section><h3>Vehicle information</h3><p>Vehicle type, fuel and related preferences you enter may be used for trip planning and cost-related estimates.</p></section>
+                <section><h3>Location data</h3><p>Location is used only when you provide it or grant the relevant device permission. You can manage location permissions through your device or browser settings.</p></section>
+                <section><h3>Device &amp; technical information</h3><p>Browser storage and technical data may be used to maintain sessions, remember settings and support the operation of the service.</p></section>
+                <section><h3>How we use information</h3><p>Information may be used to provide planning and navigation features, save your preferences, support your account, protect the service and respond to requests you send us.</p></section>
+                <section><h3>Third-party services</h3><p>VoyPlan integrates third-party services for functions including authentication, maps, geocoding, routing and AI-assisted planning. Those providers process information according to their own terms and privacy practices when their services are used.</p></section>
+                <section><h3>Data security</h3><p>We use appropriate safeguards for the service, but no internet-based system can be guaranteed completely secure. Please protect your account credentials and contact us if you believe your account has been accessed without permission.</p></section>
+                <section><h3>Data retention</h3><p>Information may be retained for as long as needed to provide the service, meet legal obligations, resolve disputes or enforce agreements. Retention can vary by data type and feature.</p></section>
+                <section><h3>User rights</h3><p>You can contact us to ask about access to, correction of or deletion of personal information, subject to applicable requirements.</p></section>
+                <section><h3>Account &amp; data deletion</h3><p>For account or data-deletion requests, email <a href="mailto:support@voyplan.in">support@voyplan.in</a> from the email associated with your account. We will review requests in accordance with applicable requirements.</p></section>
+                <section><h3>Cookies &amp; similar technologies</h3><p>VoyPlan may use cookies, browser storage or similar technologies to maintain sessions, remember preferences and help the service function. Your browser controls may allow you to manage them.</p></section>
+                <section><h3>Policy changes</h3><p>This page may be updated as the product changes. The current version will remain available at this address.</p></section>
+                <section><h3>Contact</h3><p>For privacy questions, contact <a href="mailto:support@voyplan.in">support@voyplan.in</a>.</p></section>
+            </div>
+        </article>
+    </div>
+
+    <div class="info-modal-backdrop" id="contactModal" role="dialog" aria-modal="true" aria-labelledby="contactTitle" aria-hidden="true">
+        <article class="info-modal-card">
+            <button class="info-modal-close" type="button" aria-label="Close contact information">&times;</button>
+            <div class="legal-page-brand" aria-label="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+            </div>
+            <p class="info-modal-eyebrow">VOYPLAN SUPPORT</p>
+            <h2 class="info-modal-title" id="contactTitle">Contact Us</h2>
+            <p class="info-modal-intro">Have a question about your journey? We are here to help with the VoyPlan experience.</p>
+            <div class="contact-details" aria-label="Contact information">
+                <div class="contact-detail"><span class="contact-detail-label">EMAIL</span><a class="contact-detail-value" href="mailto:support@voyplan.in">support@voyplan.in</a><span class="contact-detail-note">For product, account, privacy and legal questions.</span></div>
+                <div class="contact-detail"><span class="contact-detail-label">PHONE</span><span class="contact-detail-value">Not published</span><span class="contact-detail-note">No public phone contact is configured.</span></div>
+                <div class="contact-detail"><span class="contact-detail-label">LOCATION</span><span class="contact-detail-value">Not published</span><span class="contact-detail-note">No public office location is configured.</span></div>
+            </div>
+            <form class="contact-form" id="contactForm" data-contact-email="support@voyplan.in" novalidate>
+                <h3>Send a message</h3>
+                <p class="contact-form-sub">This form opens a draft in your email app using VoyPlan’s verified support address. No message is sent until you send that email.</p>
+                <div class="contact-form-grid">
+                    <div class="contact-field"><label for="contactName">Name</label><input id="contactName" name="name" autocomplete="name" required><span class="contact-field-error" data-error-for="name"></span></div>
+                    <div class="contact-field"><label for="contactEmail">Email</label><input id="contactEmail" name="email" type="email" autocomplete="email" required><span class="contact-field-error" data-error-for="email"></span></div>
+                    <div class="contact-field contact-field--full"><label for="contactSubject">Subject</label><input id="contactSubject" name="subject" required><span class="contact-field-error" data-error-for="subject"></span></div>
+                    <div class="contact-field contact-field--full"><label for="contactMessage">Message</label><textarea id="contactMessage" name="message" rows="5" required></textarea><span class="contact-field-error" data-error-for="message"></span></div>
+                </div>
+                <div class="contact-form-actions"><button class="contact-submit" type="submit">Send Message</button><p class="contact-form-status" id="contactFormStatus" role="status" aria-live="polite"></p></div>
+            </form>
+            <div class="info-modal-content">
+                <section><h3>Privacy and account requests</h3><p>Please include the email associated with your VoyPlan account when you contact us about privacy, account or data requests.</p></section>
+            </div>
+        </article>
     </div>
 
     <!-- ════════════════════════════════════════════════════════════════════
@@ -2676,6 +3071,7 @@
 
             // --- 2. Light / Dark Theme Toggle ---
             const themeBtn = document.getElementById('btnThemeToggle');
+            const themeColorMeta = document.querySelector('meta[name="theme-color"]');
             const colorScheme = window.matchMedia('(prefers-color-scheme: light)');
             const systemTheme = colorScheme.matches ? 'light' : 'dark';
             const savedTheme = localStorage.getItem('voyplan_theme');
@@ -2683,6 +3079,7 @@
                 document.documentElement.setAttribute('data-theme', theme);
                 themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
                 themeBtn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+                themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
                 if (persist) localStorage.setItem('voyplan_theme', theme);
             };
             applyTheme(savedTheme || systemTheme);
@@ -2699,7 +3096,127 @@
                 }
             });
 
-            // --- 3. Hero Parallax on mouse move ---
+            // --- 3. Information routes: /terms, /privacy and /contact ---
+            const infoRoutes = {
+                termsModal: '/terms',
+                privacyModal: '/privacy',
+                contactModal: '/contact',
+            };
+            const infoModals = Object.keys(infoRoutes).map((id) => document.getElementById(id));
+
+            function syncInfoModalToRoute() {
+                const targetId = Object.entries(infoRoutes).find(([, path]) => path === window.location.pathname)?.[0];
+                infoModals.forEach((modal) => {
+                    const isActive = modal.id === targetId;
+                    modal.classList.toggle('active', isActive);
+                    modal.setAttribute('aria-hidden', String(!isActive));
+                });
+                document.body.classList.toggle('info-modal-open', Boolean(targetId));
+            }
+
+            function openInfoModal(id) {
+                const path = infoRoutes[id];
+                if (!path) return;
+                if (window.location.pathname !== path) {
+                    history.pushState({ voyplanInfoModal: id }, '', path);
+                }
+                syncInfoModalToRoute();
+                document.querySelector(`#${id} .info-modal-close`)?.focus();
+            }
+
+            function closeInfoModal(id) {
+                if (window.location.pathname !== infoRoutes[id]) return;
+                if (history.state?.voyplanInfoModal === id) {
+                    history.back();
+                } else {
+                    history.replaceState({}, '', '/');
+                    syncInfoModalToRoute();
+                }
+            }
+
+            document.querySelectorAll('[data-info-modal]').forEach((trigger) => {
+                trigger.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    openInfoModal(trigger.dataset.infoModal);
+                });
+            });
+
+            infoModals.forEach((modal) => {
+                modal.querySelector('.info-modal-close').addEventListener('click', () => closeInfoModal(modal.id));
+                modal.addEventListener('click', (event) => {
+                    if (event.target === modal) closeInfoModal(modal.id);
+                });
+            });
+
+            window.addEventListener('popstate', syncInfoModalToRoute);
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') {
+                    const activeModal = infoModals.find((modal) => modal.classList.contains('active'));
+                    if (activeModal) closeInfoModal(activeModal.id);
+                }
+            });
+            syncInfoModalToRoute();
+
+            // --- 4. Contact form: validate and hand off to verified email ---
+            const contactForm = document.getElementById('contactForm');
+            const contactStatus = document.getElementById('contactFormStatus');
+            let contactIsSubmitting = false;
+
+            function setContactFieldError(field, message = '') {
+                const input = contactForm.elements[field];
+                const error = contactForm.querySelector(`[data-error-for="${field}"]`);
+                input.setAttribute('aria-invalid', String(Boolean(message)));
+                error.textContent = message;
+            }
+
+            if (contactForm) {
+                contactForm.addEventListener('submit', (event) => {
+                    event.preventDefault();
+                    if (contactIsSubmitting) return;
+
+                    const formData = new FormData(contactForm);
+                    const values = Object.fromEntries(formData.entries());
+                    const errors = {
+                        name: values.name?.trim() ? '' : 'Enter your name.',
+                        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email?.trim() || '') ? '' : 'Enter a valid email address.',
+                        subject: values.subject?.trim() ? '' : 'Enter a subject.',
+                        message: values.message?.trim() ? '' : 'Enter a message.',
+                    };
+
+                    Object.entries(errors).forEach(([field, message]) => setContactFieldError(field, message));
+                    const firstInvalid = Object.keys(errors).find((field) => errors[field]);
+                    if (firstInvalid) {
+                        contactStatus.textContent = 'Please correct the highlighted fields.';
+                        contactForm.elements[firstInvalid].focus();
+                        return;
+                    }
+
+                    const supportEmail = contactForm.dataset.contactEmail;
+                    if (!supportEmail) {
+                        contactStatus.textContent = 'Email support is not configured. Please try again later.';
+                        return;
+                    }
+
+                    contactIsSubmitting = true;
+                    const submitButton = contactForm.querySelector('.contact-submit');
+                    submitButton.disabled = true;
+                    submitButton.textContent = 'Opening email…';
+                    contactStatus.textContent = 'Preparing your email draft…';
+
+                    const subject = `VoyPlan contact: ${values.subject.trim()}`;
+                    const body = `Name: ${values.name.trim()}\nEmail: ${values.email.trim()}\n\n${values.message.trim()}`;
+                    window.location.href = `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    contactStatus.textContent = 'A draft has been prepared in your email app. Send it there to contact VoyPlan.';
+
+                    window.setTimeout(() => {
+                        contactIsSubmitting = false;
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Send Message';
+                    }, 800);
+                });
+            }
+
+            // --- 5. Hero Parallax on mouse move ---
             const hero = document.getElementById('hero');
             const heroBackdrop = document.getElementById('heroBackdrop');
             if (hero && heroBackdrop && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
