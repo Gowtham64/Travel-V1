@@ -4,12 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>VoyPlan — Discover. Design. Drive.</title>
+    <title>VoyPlan — Plan less. Explore more.</title>
     <meta name="description"
-        content="VoyPlan — Discover. Design. Drive. AI-powered road trips with real routes, fuel costs, scenic stops and live navigation.">
-    <meta name="theme-color" content="#071a2b">
-    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png">
-    <link rel="apple-touch-icon" href="images/brand/voyplan-pin.png">
+        content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,7 +56,6 @@
 
             --shadow-glass: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px var(--border-card);
             --shadow-glow: 0 10px 30px rgba(6, 182, 212, 0.28);
-            --brand-logo-shadow: 0 2px 8px rgba(0, 0, 0, 0.58);
             --radius-lg: 24px;
             --radius-md: 16px;
             --radius-sm: 10px;
@@ -85,7 +81,6 @@
             --grad-text: linear-gradient(135deg, #0284c7 0%, #4f46e5 60%, #7c3aed 100%);
             --shadow-glass: 0 20px 50px rgba(15, 23, 42, 0.08), 0 0 0 1px var(--border-card);
             --shadow-glow: 0 10px 30px rgba(6, 182, 212, 0.2);
-            --brand-logo-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -111,9 +106,6 @@
             background-color: var(--bg-base);
             min-height: 100vh;
         }
-
-        main > section[id] { scroll-margin-top: 85px; }
-        #plan-trip { scroll-margin-top: 92px; }
 
         a {
             color: inherit;
@@ -163,48 +155,52 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: clamp(0.75rem, 1.25vw, 1.25rem);
             width: 100%;
         }
 
         .brand-logo {
-            background: transparent;
-            border: 0;
-            border-radius: 0;
-            box-shadow: none;
-            display: block;
-            flex: 0 0 auto;
-            line-height: 0;
-            padding: 0;
-            width: 9.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-size: 1.45rem;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.02em;
         }
 
-        .brand-logo-image {
-            display: block;
-            filter: drop-shadow(var(--brand-logo-shadow));
-            height: auto;
-            width: 100%;
+        [data-theme="light"] .header.scrolled .brand-logo {
+            color: var(--text-primary);
+        }
+
+        .brand-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #06b6d4, #3b82f6);
+            display: grid;
+            place-items: center;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(6, 182, 212, 0.4);
+        }
+
+        .brand-icon svg {
+            width: 20px;
+            height: 20px;
         }
 
         .nav-menu {
             display: flex;
             align-items: center;
-            flex: 1 1 auto;
-            justify-content: center;
-            gap: clamp(0.7rem, 1vw, 1rem);
+            gap: 1.8rem;
             list-style: none;
-            margin: 0;
-            min-width: 0;
-            padding: 0;
         }
 
         .nav-link {
-            font-size: clamp(0.82rem, 0.88vw, 0.93rem);
+            font-size: 0.95rem;
             font-weight: 500;
             color: rgba(255, 255, 255, 0.82);
             transition: color 0.2s ease;
             position: relative;
-            white-space: nowrap;
         }
 
         [data-theme="light"] .header.scrolled .nav-link {
@@ -215,36 +211,18 @@
             color: #38bdf8;
         }
 
-        .nav-link.active {
-            color: #38bdf8;
-            font-weight: 700;
-        }
-
         .header-actions {
             display: flex;
             align-items: center;
-            flex: 0 0 auto;
-            gap: 0.55rem;
-        }
-
-        .menu-toggle-btn {
-            display: none;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            color: #ffffff;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            place-items: center;
-            cursor: pointer;
+            gap: 0.9rem;
         }
 
         .search-btn, .theme-toggle-btn {
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.14);
             color: #ffffff;
-            width: 38px;
-            height: 38px;
+            width: 40px;
+            height: 40px;
             border-radius: var(--radius-pill);
             display: grid;
             place-items: center;
@@ -259,11 +237,7 @@
         }
 
         .sign-in-btn {
-            max-width: 10.5rem;
-            overflow: hidden;
-            padding: 0.55rem 0.9rem;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            padding: 0.55rem 1.25rem;
             background: rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.18);
@@ -284,7 +258,7 @@
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.58rem 1.05rem;
+            padding: 0.58rem 1.4rem;
             background: var(--grad-cta);
             border: none;
             border-radius: var(--radius-pill);
@@ -294,7 +268,6 @@
             cursor: pointer;
             box-shadow: 0 4px 18px rgba(6, 182, 212, 0.4);
             transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
-            white-space: nowrap;
         }
 
         .get-started-btn:hover {
@@ -322,9 +295,9 @@
         .hero-backdrop {
             position: absolute;
             inset: 0;
-            background-image: url('images/hero_3d_landscape.jpg');
+            background-image: url('images/hero_roadtrip_reference_v2.png');
             background-size: cover;
-            background-position: center 30%;
+            background-position: center center;
             transform: scale(1.02);
             transition: transform 0.2s ease-out;
             will-change: transform;
@@ -372,10 +345,11 @@
         }
 
         .hero-title {
+            font-family: var(--font-serif);
             font-size: clamp(2.8rem, 5.2vw, 4.2rem);
             line-height: 1.05;
-            font-weight: 800;
-            letter-spacing: -0.03em;
+            font-weight: 700;
+            letter-spacing: -0.04em;
             color: #ffffff;
             margin-bottom: 1.2rem;
         }
@@ -646,21 +620,35 @@
         .floating-marker {
             position: absolute;
             z-index: 15;
-            background: rgba(10, 18, 34, 0.82);
-            backdrop-filter: blur(14px);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            border-radius: var(--radius-pill);
-            padding: 0.45rem 0.95rem;
+            min-width: 168px;
+            background: linear-gradient(135deg, rgba(9, 36, 44, 0.94), rgba(7, 25, 31, 0.91));
+            backdrop-filter: blur(18px) saturate(130%);
+            border: 1px solid rgba(80, 214, 227, 0.42);
+            border-radius: 18px;
+            padding: 0.62rem 1.05rem 0.62rem 0.62rem;
             display: flex;
             align-items: center;
-            gap: 0.55rem;
-            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
-            font-size: 0.78rem;
+            gap: 0.72rem;
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            font-size: 0.9rem;
             font-weight: 600;
             color: #ffffff;
             pointer-events: auto;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        .floating-marker::after {
+            content: '';
+            position: absolute;
+            bottom: -11px;
+            left: 44%;
+            width: 22px;
+            height: 15px;
+            background: rgba(7, 25, 31, 0.93);
+            border-right: 1px solid rgba(80, 214, 227, 0.42);
+            border-bottom: 1px solid rgba(80, 214, 227, 0.42);
+            clip-path: polygon(0 0, 100% 0, 50% 100%);
         }
 
         .floating-marker:hover {
@@ -674,26 +662,53 @@
         }
 
         .marker-icon {
-            width: 26px;
-            height: 26px;
-            border-radius: 8px;
+            width: 52px;
+            height: 52px;
+            flex: 0 0 52px;
+            border-radius: 14px;
             display: grid;
             place-items: center;
             color: #fff;
+            box-shadow: 0 7px 16px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255,255,255,0.25);
         }
 
-        .marker-icon svg { width: 14px; height: 14px; }
+        .marker-icon svg { width: 25px; height: 25px; }
         .marker-blue .marker-icon { background: #0284c7; }
         .marker-purple .marker-icon { background: #8b5cf6; }
         .marker-green .marker-icon { background: #10b981; }
+        .marker-scenic .marker-icon {
+            background: url('images/hero_roadtrip_reference_v2.png') 73% 46% / 220% auto;
+        }
+        .marker-scenic .marker-icon svg { display: none; }
+        .marker-fuel .marker-icon { background: linear-gradient(135deg, #b05cff, #7c3aed); }
+        .marker-coorg .marker-icon { background: linear-gradient(135deg, #26d6a4, #059669); }
 
         .marker-text {
             display: flex;
             flex-direction: column;
         }
 
-        .marker-title { font-weight: 700; }
-        .marker-dist { font-size: 0.68rem; color: #94a3b8; }
+        .marker-title { font-size: 1rem; font-weight: 800; letter-spacing: -0.02em; }
+        .marker-dist { font-size: 0.86rem; font-weight: 700; color: #dbeafe; margin-top: 0.16rem; }
+
+        /* The route cards deliberately change with the active theme, while
+           retaining enough contrast above the cinematic hero. */
+        [data-theme="light"] .floating-marker {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(235, 249, 252, 0.9));
+            border-color: rgba(14, 116, 144, 0.38);
+            box-shadow: 0 14px 32px rgba(15, 55, 75, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.85);
+            color: #102a43;
+        }
+
+        [data-theme="light"] .floating-marker::after {
+            background: rgba(239, 250, 252, 0.94);
+            border-color: rgba(14, 116, 144, 0.38);
+        }
+
+        [data-theme="light"] .marker-title { color: #102a43; }
+        [data-theme="light"] .marker-dist { color: #31566b; }
+        [data-theme="light"] .hero-script-flourish { color: #102a43; text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8); }
+        [data-theme="light"] .hero .hero-script-flourish svg { color: #0284c7; }
 
         /* Marker Positions matching reference */
         .marker-scenic { top: 22%; right: 28%; animation-delay: 0s; }
@@ -770,6 +785,19 @@
         }
 
         .play-circle svg { width: 12px; height: 12px; fill: currentColor; }
+
+        [data-theme="light"] .route-hud-card {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(14, 116, 144, 0.28);
+            box-shadow: 0 16px 40px rgba(15, 55, 75, 0.2);
+        }
+        [data-theme="light"] .hud-route-name { color: #102a43; }
+        [data-theme="light"] .hud-route-meta { color: #4b6475; }
+        [data-theme="light"] .btn-watch-3d {
+            background: rgba(14, 116, 144, 0.1);
+            border-color: rgba(14, 116, 144, 0.22);
+            color: #102a43;
+        }
 
         /* Floating Script flourish on upper right: "Same Roads New Stories" */
         .hero-script-flourish {
@@ -1016,8 +1044,6 @@
             overflow-x: auto;
             padding-bottom: 0.8rem;
             scrollbar-width: none;
-            overscroll-behavior-x: contain;
-            touch-action: pan-y pinch-zoom;
         }
 
         .dest-cards-grid::-webkit-scrollbar { display: none; }
@@ -1850,94 +1876,130 @@
             margin-top: 0.9rem;
         }
 
-        /* ════════════════════════════════════════════════════════════════════
-           FOOTER & INFORMATION MODALS
-           ════════════════════════════════════════════════════════════════════ */
-        .site-footer {
-            background: #050b16;
-            border-top: 1px solid var(--border-subtle);
-            color: #cbd5e1;
-            padding: 4rem 0 1.5rem;
+        /* Destination, planner, and feature sections carry their own full
+           visual treatment in both themes instead of being forced to light. */
+        [data-theme="dark"] section.destinations,
+        [data-theme="dark"] section.ai-copilot {
+            background:
+                linear-gradient(180deg, rgba(5, 14, 28, 0.9) 0%, rgba(7, 22, 39, 0.86) 100%),
+                url('images/hero_roadtrip_reference_v2.png') center 40% / cover;
         }
 
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 1.5fr repeat(4, 1fr);
-            gap: 2rem;
+        [data-theme="dark"] section.ai-copilot {
+            background:
+                radial-gradient(circle at 72% 36%, rgba(8, 145, 178, 0.25), transparent 27rem),
+                linear-gradient(180deg, #071526 0%, #0a1c30 100%);
         }
 
-        .footer-brand { max-width: 235px; }
-        .footer-brand .footer-brand-logo {
-            display: block;
-            filter: drop-shadow(var(--brand-logo-shadow));
-            height: auto;
-            margin-bottom: 0.25rem;
-            width: 9.5rem;
-        }
-        .footer-brand p { color: #94a3b8; font-size: 0.86rem; line-height: 1.55; margin-top: 0.65rem; }
-        .footer-heading { color: #ffffff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; margin-bottom: 1rem; }
-        .footer-links { display: grid; gap: 0.7rem; list-style: none; }
-        .footer-links a, .footer-links button {
-            background: none;
-            border: 0;
-            color: #94a3b8;
-            cursor: pointer;
-            font: inherit;
-            font-size: 0.86rem;
-            padding: 0;
-            text-align: left;
-        }
-        .footer-links a:hover, .footer-links button:hover { color: #38bdf8; }
-        .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, 0.09);
-            display: flex;
-            gap: 1rem;
-            justify-content: space-between;
-            margin-top: 3rem;
-            padding-top: 1.5rem;
-            color: #64748b;
-            font-size: 0.8rem;
+        [data-theme="light"] section.destinations,
+        [data-theme="light"] section.ai-copilot {
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(235, 247, 255, 0.9) 100%),
+                url('images/hero_roadtrip_reference_v2.png') center 38% / cover;
         }
 
-        .info-modal-backdrop {
+        [data-theme="light"] section.ai-copilot {
+            background:
+                radial-gradient(circle at 78% 28%, rgba(34, 211, 238, 0.18), transparent 26rem),
+                linear-gradient(180deg, #fbfeff 0%, #e8f5ff 100%);
+        }
+
+        [data-theme="dark"] .ai-itinerary-hud {
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --text-muted: #94a3b8;
+        }
+
+        .ai-title,
+        .features .feat-title {
+            font-family: var(--font-serif);
+            font-weight: 700;
+        }
+
+        [data-theme="light"] section.features {
+            background:
+                linear-gradient(180deg, rgba(237, 249, 255, 0.72) 0%, rgba(224, 243, 255, 0.58) 100%),
+                url('images/hero_3d_landscape.jpg') center 62% / cover;
+        }
+
+        [data-theme="dark"] section.features {
+            background:
+                linear-gradient(180deg, rgba(4, 13, 26, 0.78) 0%, rgba(5, 22, 36, 0.84) 100%),
+                url('images/hero_roadtrip_reference_v2.png') center 62% / cover;
+        }
+
+        [data-theme="light"] .features .feat-title { color: #10264a; }
+        [data-theme="dark"] .features .feat-title { color: #f8fbff; }
+
+        .features .feat-card {
+            background: rgba(8, 24, 47, 0.72);
+            border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        .features .feat-card-name { color: #ffffff; }
+        .features .feat-card-desc { color: #d3e2f3; }
+
+        .island-img {
+            border-radius: 0;
+            filter: drop-shadow(0 28px 36px rgba(8, 25, 49, 0.3));
+        }
+
+        /* Reference composition: editorial copy, blue-route island, itinerary HUD. */
+        .ai-grid {
+            grid-template-columns: minmax(310px, 0.78fr) minmax(650px, 1.72fr);
+            gap: 1.25rem;
+        }
+
+        .ai-visual-wrap {
+            min-height: 545px;
             align-items: center;
-            background: rgba(0, 0, 0, 0.72);
-            backdrop-filter: blur(12px);
-            display: flex;
-            inset: 0;
-            justify-content: center;
-            opacity: 0;
-            padding: 1.25rem;
-            pointer-events: none;
-            position: fixed;
-            transition: opacity 0.2s ease;
-            z-index: 1000;
+            justify-content: flex-start;
         }
-        .info-modal-backdrop.active { opacity: 1; pointer-events: auto; }
-        .info-modal-card {
-            background: #0a1324;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 20px;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
-            color: #cbd5e1;
-            max-height: min(720px, calc(100vh - 2.5rem));
-            max-width: 700px;
-            overflow-y: auto;
-            padding: 2rem;
-            position: relative;
-            transform: translateY(12px);
-            transition: transform 0.2s ease;
-            width: 100%;
+
+        .island-container {
+            width: 52%;
+            max-width: 440px;
+            margin-left: 0;
         }
-        .info-modal-backdrop.active .info-modal-card { transform: translateY(0); }
-        .info-modal-card h2 { color: #ffffff; font-size: 1.65rem; margin-bottom: 0.35rem; }
-        .info-modal-card h3 { color: #ffffff; font-size: 1rem; margin: 1.45rem 0 0.45rem; }
-        .info-modal-card p, .info-modal-card li { color: #a9b7c9; font-size: 0.92rem; line-height: 1.65; }
-        .info-modal-card ul { margin: 0.5rem 0 0 1.2rem; }
-        .info-modal-updated { color: #38bdf8 !important; font-size: 0.8rem !important; }
-        .info-modal-close { color: #94a3b8; font-size: 1.5rem; right: 1.25rem; top: 1.15rem; }
-        .contact-card { display: grid; gap: 0.8rem; margin-top: 1.4rem; }
-        .contact-card a { color: #38bdf8; font-weight: 700; }
+
+        .island-img { display: block; }
+
+        .ai-itinerary-hud {
+            top: 18px;
+            right: -8px;
+            width: min(54%, 390px);
+            padding: 1.15rem;
+            border-radius: 22px;
+        }
+
+        .island-pin {
+            min-width: 136px;
+            padding: 0.38rem 0.52rem;
+            gap: 0.45rem;
+            border-radius: 12px;
+            background: rgba(7, 26, 32, 0.9);
+            font-size: 0.68rem;
+            line-height: 1.1;
+        }
+
+        .island-pin strong,
+        .island-pin small { display: block; }
+        .island-pin strong { color: #ffffff; font-size: 0.72rem; }
+        .island-pin small { color: #cbd5e1; font-size: 0.62rem; margin-top: 0.12rem; }
+        .island-pin-thumb {
+            width: 27px;
+            height: 27px;
+            flex: 0 0 27px;
+            border-radius: 7px;
+            background: url('images/hero_3d_landscape.jpg') center / cover;
+            border: 1px solid rgba(255,255,255,.3);
+        }
+
+        .island-pin.dest { top: 9%; left: 57%; border-color: rgba(255,255,255,.26); background: rgba(7, 26, 32, .92); }
+        .island-pin.ram { top: 25%; left: 61%; }
+        .island-pin.fuel { top: 40%; left: 56%; }
+        .island-pin.scenic { top: 54%; left: 59%; }
+        .island-pin.start { top: 70%; left: 55%; }
 
         /* ════════════════════════════════════════════════════════════════════
            RESPONSIVE REFLOW RULES
@@ -1949,56 +2011,17 @@
             }
             .hero-copy { max-width: 100%; }
             .category-rail { display: none; }
-            .hero-script-flourish { display: none; }
-            .floating-marker { display: none; }
             .route-hud-card { display: none; }
             .features-grid-6 { grid-template-columns: repeat(3, 1fr); }
             .dest-cards-grid { grid-template-columns: repeat(3, 240px); }
             .ai-grid { grid-template-columns: 1fr; }
             .ai-itinerary-hud { position: static; margin-top: 1.5rem; width: 100%; }
-        }
-
-        /* Keep the header usable on tablets without compressing labels into two lines. */
-        @media (max-width: 1320px) {
-            .header-inner { gap: 0.5rem; }
-            .header-actions { gap: 0.45rem; }
-            .menu-toggle-btn { display: grid; }
-            .nav-menu {
-                align-items: stretch;
-                background: rgba(6, 12, 24, 0.98);
-                border-bottom: 1px solid var(--border-subtle);
-                display: flex;
-                flex-direction: column;
-                gap: 0;
-                left: 0;
-                max-height: calc(100dvh - var(--nav-height));
-                overflow-y: auto;
-                padding: 0.8rem 1.5rem 1.3rem;
-                pointer-events: none;
-                position: fixed;
-                right: 0;
-                top: var(--nav-height);
-                transform: translateY(-130%);
-                transition: transform 0.25s ease, visibility 0s linear 0.25s;
-                visibility: hidden;
-                z-index: 99;
-            }
-            .nav-menu.open {
-                pointer-events: auto;
-                transform: translateY(0);
-                transition: transform 0.25s ease;
-                visibility: visible;
-            }
-            .nav-link { display: block; padding: 0.72rem 0; }
-            [data-theme="light"] .nav-menu { background: rgba(255, 255, 255, 0.98); }
-            [data-theme="light"] .nav-menu .nav-link { color: #334155; }
+            .ai-visual-wrap { min-height: 0; justify-content: center; }
+            .island-container { width: 100%; max-width: 540px; }
         }
 
         @media (max-width: 768px) {
-            .header-inner { gap: 0.5rem; }
-            .brand-logo { width: 7.75rem; }
-            .header-actions { gap: 0.45rem; }
-            .header-actions .sign-in-btn, .header-actions .get-started-btn { display: none; }
+            .nav-menu { display: none; }
             .planner-grid-route { grid-template-columns: 1fr; }
             .swap-btn { display: none; }
             .planner-grid-params { grid-template-columns: 1fr; }
@@ -2008,9 +2031,6 @@
             .cta-buttons { flex-direction: column; width: 100%; }
             .btn-cta-primary, .btn-cta-secondary { width: 100%; justify-content: center; }
             .cta-callout-sign, .cta-callout-map { display: none; }
-            .footer-grid { grid-template-columns: repeat(2, 1fr); gap: 2rem 1.25rem; }
-            .footer-brand { grid-column: span 2; }
-            .footer-bottom { flex-direction: column; }
         }
     </style>
 </head>
@@ -2022,33 +2042,33 @@
          ════════════════════════════════════════════════════════════════════ -->
     <header class="header" id="mainHeader">
         <div class="container header-inner">
-            <a href="#hero" class="brand-logo" aria-label="VoyPlan home">
-                <img class="brand-logo-image" src="images/brand/voyplan-logo.png" width="1774" height="887" alt="">
+            <a href="#" class="brand-logo">
+                <div class="brand-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+                    </svg>
+                </div>
+                Voyplan
             </a>
 
-            <ul class="nav-menu" id="mainNav">
-                <li><a href="#hero" class="nav-link">Home</a></li>
-                <li><a href="#plan-trip" class="nav-link">Plan Trip</a></li>
-                <li><a href="#destinations" class="nav-link">Destinations</a></li>
-                <li><a href="/app/?inspiration=true" class="nav-link">Trip Inspiration</a></li>
-                <li><a href="/app/?my_trips=true" class="nav-link">My Trips</a></li>
-                <li><a href="/app/?saved_places=true" class="nav-link">Saved Places</a></li>
+            <ul class="nav-menu">
+                <li><a href="#hero" class="nav-link">Plan Trip</a></li>
+                <li><a href="#destinations" class="nav-link">Explore</a></li>
+                <li><a href="/app/" class="nav-link">My Trips</a></li>
                 <li><a href="#features" class="nav-link">Features</a></li>
-                <li><a href="#copilot" class="nav-link">AI Co-Pilot</a></li>
+                <li><a href="#copilot" class="nav-link">Blog</a></li>
+                <li><a href="#cta" class="nav-link">About</a></li>
             </ul>
 
             <div class="header-actions">
                 <button class="search-btn" id="btnSearch" aria-label="Search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </button>
-                <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Theme switcher" title="Theme switcher">
+                <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
                 <button class="sign-in-btn" id="btnSignIn">Sign In</button>
                 <button class="get-started-btn" id="btnGetStarted">Get Started &rarr;</button>
-                <button class="menu-toggle-btn" id="btnMenuToggle" aria-controls="mainNav" aria-expanded="false" aria-label="Open navigation menu">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
-                </button>
             </div>
         </div>
     </header>
@@ -2102,19 +2122,19 @@
             <!-- Vertical Category Rail on Far Right -->
             <div class="category-rail">
                 <div class="cat-item" data-cat="mountains">
-                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=200');"></div>
+                    <div class="cat-thumb" style="background-image: url('images/destination_chikmagalur.png');"></div>
                     <span class="cat-label">Mountains</span>
                 </div>
                 <div class="cat-item" data-cat="beaches">
-                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=200');"></div>
+                    <div class="cat-thumb" style="background-image: url('images/destination_goa.png');"></div>
                     <span class="cat-label">Beaches</span>
                 </div>
                 <div class="cat-item" data-cat="temples">
-                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=200');"></div>
+                    <div class="cat-thumb" style="background-image: url('images/destination_hampi.png');"></div>
                     <span class="cat-label">Temples</span>
                 </div>
                 <div class="cat-item" data-cat="waterfalls">
-                    <div class="cat-thumb" style="background-image: url('https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=200');"></div>
+                    <div class="cat-thumb" style="background-image: url('images/destination_coorg.png');"></div>
                     <span class="cat-label">Waterfalls</span>
                 </div>
             </div>
@@ -2124,15 +2144,15 @@
                 <div class="hero-copy">
                     <span class="hero-eyebrow">YOUR ROAD TRIP CO-PILOT</span>
                     <h1 class="hero-title">
-                        Discover.<br>
-                        <span class="accent">Design. Drive.</span>
+                        Plan less.<br>
+                        <span class="accent">Explore more.</span>
                     </h1>
                     <p class="hero-lead">
                         AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.
                     </p>
 
                     <!-- Floating Trip Planner Card -->
-                    <div class="planner-card" id="plan-trip">
+                    <div class="planner-card">
                         <!-- Mode Tabs -->
                         <div class="planner-tabs">
                             <button class="planner-tab active" data-mode="one_way">
@@ -2283,9 +2303,9 @@
 
                 <div class="dest-cards-grid" id="destCardsGrid">
                     <!-- 1. Coorg -->
-                    <div class="dest-card" data-dest="Coorg" data-days="3" data-dist="265 km" role="link" tabindex="0" aria-label="Plan a 3 day trip to Coorg">
+                    <div class="dest-card" data-dest="Coorg" data-dist="265 km">
                         <div class="dest-badge">Most Popular</div>
-                        <div class="dest-card-img" style="background-image: url('https://assets.simplotel.com/simplotel/image/upload/x_0,y_247,w_4288,h_1786,r_0,c_crop/q_95,w_1920,dpr_1,f_auto,fl_progressive,c_limit/evolve-back-coorg/coffee_spice_more_option_2_1_of_1_glhpnm');"></div>
+                        <div class="dest-card-img" style="background-image: url('images/destination_coorg.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2298,8 +2318,8 @@
                     </div>
 
                     <!-- 2. Ooty -->
-                    <div class="dest-card" data-dest="Ooty" data-days="4" data-dist="320 km" role="link" tabindex="0" aria-label="Plan a 4 day trip to Ooty">
-                        <div class="dest-card-img" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/9/93/Tea_Monarch_Aramby_Ooty_Nilgiris_Mar21_A7C_00293.jpg');"></div>
+                    <div class="dest-card" data-dest="Ooty" data-dist="320 km">
+                        <div class="dest-card-img" style="background-image: url('images/destination_ooty.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2312,8 +2332,8 @@
                     </div>
 
                     <!-- 3. Mysuru -->
-                    <div class="dest-card" data-dest="Mysuru" data-days="2" data-dist="145 km" role="link" tabindex="0" aria-label="Plan a 2 day trip to Mysuru">
-                        <div class="dest-card-img" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/0/00/Mysore_palace_illuminated.jpg');"></div>
+                    <div class="dest-card" data-dest="Mysuru" data-dist="145 km">
+                        <div class="dest-card-img" style="background-image: url('images/destination_mysuru.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2326,8 +2346,8 @@
                     </div>
 
                     <!-- 4. Chikmagalur -->
-                    <div class="dest-card" data-dest="Chikmagalur" data-days="3" data-dist="245 km" role="link" tabindex="0" aria-label="Plan a 3 day trip to Chikmagalur">
-                        <div class="dest-card-img" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/View_from_the_top_of_mullayanagiri_peak.jpg/1920px-View_from_the_top_of_mullayanagiri_peak.jpg');"></div>
+                    <div class="dest-card" data-dest="Chikmagalur" data-dist="245 km">
+                        <div class="dest-card-img" style="background-image: url('images/destination_chikmagalur.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2340,8 +2360,8 @@
                     </div>
 
                     <!-- 5. Hampi -->
-                    <div class="dest-card" data-dest="Hampi" data-days="3" data-dist="345 km" role="link" tabindex="0" aria-label="Plan a 3 day trip to Hampi">
-                        <div class="dest-card-img" style="background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Stone_Chariot_View%2C_Hampi.jpg/1920px-Stone_Chariot_View%2C_Hampi.jpg');"></div>
+                    <div class="dest-card" data-dest="Hampi" data-dist="345 km">
+                        <div class="dest-card-img" style="background-image: url('images/destination_hampi.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2354,8 +2374,8 @@
                     </div>
 
                     <!-- 6. Goa -->
-                    <div class="dest-card" data-dest="Goa" data-days="4" data-dist="560 km" role="link" tabindex="0" aria-label="Plan a 4 day trip to Goa">
-                        <div class="dest-card-img" style="background-image: url('https://commons.wikimedia.org/wiki/Special:FilePath/Vagator%2C%20Goa%2C%20India%2C%20Coconut%20palm%20trees.jpg?width=1200');"></div>
+                    <div class="dest-card" data-dest="Goa" data-dist="560 km">
+                        <div class="dest-card-img" style="background-image: url('images/destination_goa.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -2429,14 +2449,14 @@
                 <!-- Right: 3D Floating Route Island & Floating AI Itinerary Panel -->
                 <div class="ai-visual-wrap">
                     <div class="island-container">
-                        <img src="images/ai_route_island.jpg" alt="3D Terrain Route Island" class="island-img">
+                        <img src="images/ai_route_island_v2.png" alt="3D terrain island with a blue route and waterfall" class="island-img">
 
-                        <!-- Interactive Island Pins -->
-                        <div class="island-pin start"><span>&bull;</span> Bengaluru</div>
-                        <div class="island-pin ram">Ramanagara &bull; 1h 30m</div>
-                        <div class="island-pin fuel">Fuel Stop &bull; 2h 10m</div>
-                        <div class="island-pin scenic">Scenic View &bull; 3h 20m</div>
-                        <div class="island-pin dest"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8c0 5.4 7 11.5 7.4 11.8a1 1 0 0 0 1.2 0c.4-.3 7.4-6.4 7.4-11.8a8 8 0 0 0-8-8z"/></svg> Coorg &bull; 3 Days</div>
+                        <!-- Route labels match the reference itinerary. -->
+                        <div class="island-pin dest"><span class="island-pin-thumb"></span><span><strong>Coorg</strong><small>3 Days</small></span></div>
+                        <div class="island-pin ram"><span class="island-pin-thumb"></span><span><strong>Ramanagara</strong><small>1h 30m</small></span></div>
+                        <div class="island-pin fuel"><span class="island-pin-thumb"></span><span><strong>Fuel Stop</strong><small>2h 10m</small></span></div>
+                        <div class="island-pin scenic"><span class="island-pin-thumb"></span><span><strong>Scenic View</strong><small>3h 20m</small></span></div>
+                        <div class="island-pin start"><span class="island-pin-thumb"></span><span><strong>Madikeri</strong><small>5h 40m</small></span></div>
                     </div>
 
                     <!-- Floating AI Itinerary Glass Card -->
@@ -2455,15 +2475,15 @@
                         </div>
 
                         <div class="hud-preview-block">
-                            <div class="hud-preview-img" style="background-image: url('https://images.unsplash.com/photo-1596422846543-75c6fc197f07?q=80&w=200');"></div>
+                            <div class="hud-preview-img" style="background-image: url('images/destination_coorg.png');"></div>
                             <div class="hud-preview-info">
                                 <div class="hud-prev-title">Bengaluru &rarr; Coorg</div>
                                 <div class="hud-prev-meta">3 Days &bull; 265 km</div>
                                 <div class="hud-thumbs">
-                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=100');"></div>
-                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=100');"></div>
-                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=100');"></div>
-                                    <div class="hud-thumb-dot" style="background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=100');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('images/destination_coorg.png');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('images/destination_chikmagalur.png');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('images/destination_ooty.png');"></div>
+                                    <div class="hud-thumb-dot" style="background-image: url('images/destination_goa.png');"></div>
                                 </div>
                             </div>
                         </div>
@@ -2585,56 +2605,6 @@
                 </div>
             </div>
         </section>
-
-        <footer class="site-footer" aria-label="VoyPlan footer">
-            <div class="container">
-                <div class="footer-grid">
-                    <div class="footer-brand">
-                        <img class="footer-brand-logo" src="images/brand/voyplan-logo.png" width="1774" height="887" alt="VoyPlan — Discover. Design. Drive.">
-                        <p>DISCOVER. DESIGN. DRIVE.</p>
-                    </div>
-                    <div>
-                        <h2 class="footer-heading">QUICK LINKS</h2>
-                        <ul class="footer-links">
-                            <li><a href="#hero">Home</a></li>
-                            <li><a href="#plan-trip">Plan Trip</a></li>
-                            <li><a href="#destinations">Destinations</a></li>
-                            <li><a href="/app/?inspiration=true">Trip Inspiration</a></li>
-                            <li><a href="/app/?my_trips=true">My Trips</a></li>
-                            <li><a href="/app/?saved_places=true">Saved Places</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h2 class="footer-heading">COMPANY</h2>
-                        <ul class="footer-links">
-                            <li><a href="#cta">About Us</a></li>
-                            <li><button type="button" class="modal-trigger" data-modal="contactModal">Contact Us</button></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h2 class="footer-heading">LEGAL</h2>
-                        <ul class="footer-links">
-                            <li><a href="/terms" class="modal-trigger" data-modal="termsModal">Terms &amp; Conditions</a></li>
-                            <li><a href="/privacy" class="modal-trigger" data-modal="privacyModal">Privacy Policy</a></li>
-                            <li><button type="button" class="modal-trigger" data-modal="privacyModal">Data &amp; Privacy</button></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h2 class="footer-heading">SUPPORT</h2>
-                        <ul class="footer-links">
-                            <li><button type="button" class="modal-trigger" data-modal="contactModal">Contact Us</button></li>
-                            <li><a href="mailto:support@voyplan.in">Help / FAQ</a></li>
-                            <li><a href="mailto:support@voyplan.in">support@voyplan.in</a></li>
-                            <li><a href="https://voyplan.in/" rel="noopener">voyplan.in</a></li>
-                        </ul>
-                    </div>
-                </div>
-                <div class="footer-bottom">
-                    <span>© 2026 VoyPlan. All rights reserved.</span>
-                    <span>Made for better journeys across India.</span>
-                </div>
-            </div>
-        </footer>
     </main>
 
     <!-- Floating Chat Support Widget -->
@@ -2689,59 +2659,6 @@
         </div>
     </div>
 
-    <div class="info-modal-backdrop" id="termsModal" role="dialog" aria-modal="true" aria-labelledby="termsTitle" aria-hidden="true">
-        <article class="info-modal-card" tabindex="-1">
-            <button class="auth-close-btn info-modal-close" type="button" data-close-modal aria-label="Close terms and conditions">&times;</button>
-            <h2 id="termsTitle">Terms &amp; Conditions</h2>
-            <p class="info-modal-updated">Last updated: September 19, 2026</p>
-            <h3>Using VoyPlan</h3>
-            <p>VoyPlan helps you plan road trips using the details you provide and information from mapping, weather, pricing and travel-data providers. Route, time, toll, fuel and place suggestions are estimates; please use your judgment and follow local laws, road signs and safety guidance.</p>
-            <h3>Your account</h3>
-            <p>Keep your sign-in details secure and provide accurate information. You are responsible for activity performed through your account. We may suspend access when necessary to protect the service, its users or applicable law.</p>
-            <h3>Acceptable use</h3>
-            <ul>
-                <li>Use VoyPlan only for lawful, personal or authorised business travel planning.</li>
-                <li>Do not misuse, disrupt, reverse-engineer or attempt unauthorised access to the service.</li>
-                <li>Do not rely on VoyPlan while driving; use a passenger or stop safely before interacting with your device.</li>
-            </ul>
-            <h3>Contact</h3>
-            <p>Questions about these terms can be sent to <a href="mailto:support@voyplan.in">support@voyplan.in</a>.</p>
-        </article>
-    </div>
-
-    <div class="info-modal-backdrop" id="privacyModal" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" aria-hidden="true">
-        <article class="info-modal-card" tabindex="-1">
-            <button class="auth-close-btn info-modal-close" type="button" data-close-modal aria-label="Close privacy policy">&times;</button>
-            <h2 id="privacyTitle">Privacy Policy &amp; Data</h2>
-            <p class="info-modal-updated">Last updated: September 19, 2026</p>
-            <h3>Information we use</h3>
-            <p>We process account details you submit, such as your name and email address, along with trip inputs like origins, destinations, dates, selected vehicles and saved trips. Location is used only when you choose a current-location feature or grant the relevant device permission.</p>
-            <h3>Why we use it</h3>
-            <p>Trip information powers route planning, travel estimates, saved journeys and support. Limited technical data may be used to operate, secure and improve the service. We do not sell personal information.</p>
-            <h3>Your choices</h3>
-            <ul>
-                <li>You can decline device-location permission and enter places manually.</li>
-                <li>You can sign out and request help with account or data questions at any time.</li>
-                <li>Third-party map, authentication and payment providers may process data under their own policies when their services are used.</li>
-            </ul>
-            <h3>Contact</h3>
-            <p>For privacy requests, contact <a href="mailto:support@voyplan.in">support@voyplan.in</a> with the email connected to your account.</p>
-        </article>
-    </div>
-
-    <div class="info-modal-backdrop" id="contactModal" role="dialog" aria-modal="true" aria-labelledby="contactTitle" aria-hidden="true">
-        <article class="info-modal-card" tabindex="-1">
-            <button class="auth-close-btn info-modal-close" type="button" data-close-modal aria-label="Close contact information">&times;</button>
-            <h2 id="contactTitle">Contact VoyPlan</h2>
-            <p>We’re happy to help with an account, a planned trip or feedback on the experience.</p>
-            <div class="contact-card">
-                <p><strong>Email</strong><br><a href="mailto:support@voyplan.in">support@voyplan.in</a></p>
-                <p><strong>Website</strong><br><a href="https://voyplan.in/" rel="noopener">https://voyplan.in/</a></p>
-                <p>For a faster response, include the email on your account and a brief description of the issue.</p>
-            </div>
-        </article>
-    </div>
-
     <!-- ════════════════════════════════════════════════════════════════════
          JAVASCRIPT FUNCTIONALITY & INTERACTION
          ════════════════════════════════════════════════════════════════════ -->
@@ -2759,55 +2676,28 @@
 
             // --- 2. Light / Dark Theme Toggle ---
             const themeBtn = document.getElementById('btnThemeToggle');
-            const savedTheme = localStorage.getItem('voyplan_theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', savedTheme);
-            themeBtn.setAttribute('aria-pressed', String(savedTheme === 'light'));
+            const colorScheme = window.matchMedia('(prefers-color-scheme: light)');
+            const systemTheme = colorScheme.matches ? 'light' : 'dark';
+            const savedTheme = localStorage.getItem('voyplan_theme');
+            const applyTheme = (theme, persist = false) => {
+                document.documentElement.setAttribute('data-theme', theme);
+                themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
+                themeBtn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+                if (persist) localStorage.setItem('voyplan_theme', theme);
+            };
+            applyTheme(savedTheme || systemTheme);
 
             themeBtn.addEventListener('click', () => {
                 const current = document.documentElement.getAttribute('data-theme');
                 const next = current === 'light' ? 'dark' : 'light';
-                document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('voyplan_theme', next);
-                themeBtn.setAttribute('aria-pressed', String(next === 'light'));
+                applyTheme(next, true);
             });
 
-            // --- 2b. Responsive navigation and destination search ---
-            const menuToggle = document.getElementById('btnMenuToggle');
-            const mainNav = document.getElementById('mainNav');
-            const closeMobileNav = () => {
-                if (!mainNav || !menuToggle) return;
-                mainNav.classList.remove('open');
-                menuToggle.setAttribute('aria-expanded', 'false');
-            };
-            if (menuToggle && mainNav) {
-                menuToggle.addEventListener('click', () => {
-                    const isOpen = mainNav.classList.toggle('open');
-                    menuToggle.setAttribute('aria-expanded', String(isOpen));
-                });
-                mainNav.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMobileNav));
-            }
-            const navLinks = [...mainNav.querySelectorAll('.nav-link')];
-            const updateActiveNavigation = () => {
-                const hash = window.location.hash || '#hero';
-                navLinks.forEach(link => {
-                    const href = link.getAttribute('href');
-                    link.classList.toggle('active', href === hash);
-                });
-            };
-            updateActiveNavigation();
-            window.addEventListener('hashchange', updateActiveNavigation);
-            navLinks.forEach(link => link.addEventListener('click', () => {
-                window.setTimeout(updateActiveNavigation, 0);
-            }));
-            const searchBtn = document.getElementById('btnSearch');
-            if (searchBtn) {
-                searchBtn.addEventListener('click', () => {
-                    history.replaceState(null, '', '#hero');
-                    updateActiveNavigation();
-                    hero?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    window.setTimeout(() => document.getElementById('inputDestination')?.focus(), 350);
-                });
-            }
+            colorScheme.addEventListener('change', (event) => {
+                if (!localStorage.getItem('voyplan_theme')) {
+                    applyTheme(event.matches ? 'light' : 'dark');
+                }
+            });
 
             // --- 3. Hero Parallax on mouse move ---
             const hero = document.getElementById('hero');
@@ -2868,21 +2758,24 @@
             }
 
             // --- 7. Primary Plan Trip Action -> Launches /app/ ---
-            function buildPlannerParams(destName, mode = activeTripMode) {
+            function launchAppWithTrip(destName) {
                 const origin = encodeURIComponent(originInput.value.trim() || 'Bengaluru');
                 const dest = encodeURIComponent(destName || destInput.value.trim() || 'Coorg');
                 const date = encodeURIComponent(document.getElementById('inputDate').value);
                 const vehicle = encodeURIComponent(document.getElementById('selectVehicle').value);
                 const travelers = encodeURIComponent(document.getElementById('selectTravelers').value);
-                return `mode=${mode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
-            }
 
-            function launchAppWithTrip(destName) {
-                window.location.href = `${window.location.origin}/app/?${buildPlannerParams(destName)}`;
+                let appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
+                
+                const refreshToken = localStorage.getItem('sb_refresh_token');
+                if (refreshToken) {
+                    appUrl += '#sb_refresh=' + encodeURIComponent(refreshToken);
+                }
+                window.location.href = appUrl;
             }
 
             document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
-            document.getElementById('btnGetStarted').addEventListener('click', () => openSignUp());
+            document.getElementById('btnGetStarted').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaExplore').addEventListener('click', () => {
                 window.location.href = `${window.location.origin}/app/?explore=true`;
@@ -2896,18 +2789,10 @@
 
             // --- 8. Destination Card Clicks ---
             document.querySelectorAll('.dest-card').forEach(card => {
-                const openDestination = () => {
+                card.addEventListener('click', () => {
                     const d = card.getAttribute('data-dest');
-                    const days = card.getAttribute('data-days') || '3';
-                    const url = `${window.location.origin}/app/?mode=vacation&from=Bengaluru&to=${encodeURIComponent(d)}&days=${encodeURIComponent(days)}`;
-                    window.location.href = url;
-                };
-                card.addEventListener('click', openDestination);
-                card.addEventListener('keydown', (event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        openDestination();
-                    }
+                    destInput.value = d;
+                    launchAppWithTrip(d);
                 });
             });
 
@@ -2947,157 +2832,48 @@
             const btnAuthGoogle = document.getElementById('btnAuthGoogle');
             const authNotice = document.getElementById('authNotice');
             let isSignUp = false;
-            let activeSession = null;
-            const authCallbackParams = new URLSearchParams(window.location.search);
-            const isOAuthCallback = authCallbackParams.has('code') ||
-                authCallbackParams.get('oauth_callback') === '1';
-            let oauthHandoffStarted = false;
 
-            function syncBodyScroll() {
-                document.body.style.overflow = document.querySelector('.auth-modal-backdrop.active, .info-modal-backdrop.active') ? 'hidden' : '';
+            function syncSessionToStorage(session) {
+                if (!session) return;
+                try {
+                    if (session.refresh_token) {
+                        localStorage.setItem('sb_refresh_token', session.refresh_token);
+                    }
+                    const sessStr = JSON.stringify(session);
+                    localStorage.setItem('flutter.sb-dtemayjpttktntooxraa-auth-token', sessStr);
+                    localStorage.setItem('flutter.supabase.auth.token', sessStr);
+                } catch (_) {}
             }
 
-            function showAuthNotice(message) {
-                authNotice.style.display = 'block';
-                authNotice.textContent = message;
-            }
-
-            function handoffUrl() {
-                const query = buildPlannerParams();
-                return `${window.location.origin}/app/${query ? `?${query}` : ''}`;
-            }
-
-            function openAuth() {
+            btnSignIn.addEventListener('click', () => {
                 authModal.classList.add('active');
-                syncBodyScroll();
-                window.setTimeout(() => document.getElementById('authModalEmail')?.focus(), 100);
-            }
+            });
 
-            function setAuthMode(signUp) {
-                isSignUp = signUp;
+            btnAuthClose.addEventListener('click', () => {
+                authModal.classList.remove('active');
+            });
+
+            authModal.addEventListener('click', (e) => {
+                if (e.target === authModal) authModal.classList.remove('active');
+            });
+
+            btnToggleAuthMode.addEventListener('click', () => {
+                isSignUp = !isSignUp;
                 authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
                 authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
                 authNameRow.style.display = isSignUp ? 'block' : 'none';
                 btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
                 btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
-            }
-
-            function openSignUp() {
-                setAuthMode(true);
-                openAuth();
-            }
-
-            function closeAuth() {
-                authModal.classList.remove('active');
-                syncBodyScroll();
-            }
-
-            function openInfoModal(id, updateAddress = false) {
-                const modal = document.getElementById(id);
-                if (!modal) return;
-                modal.classList.add('active');
-                modal.setAttribute('aria-hidden', 'false');
-                syncBodyScroll();
-                modal.querySelector('.info-modal-card')?.focus();
-                if (updateAddress) {
-                    const path = id === 'termsModal' ? '/terms' : id === 'privacyModal' ? '/privacy' : window.location.pathname;
-                    history.pushState({ modal: id }, '', path);
-                }
-            }
-
-            function closeInfoModal(modal, resetAddress = false) {
-                if (!modal) return;
-                modal.classList.remove('active');
-                modal.setAttribute('aria-hidden', 'true');
-                syncBodyScroll();
-                if (resetAddress && ['/terms', '/privacy'].includes(window.location.pathname.replace(/\/$/, ''))) {
-                    history.replaceState({}, '', '/');
-                }
-            }
-
-            function syncSessionToStorage(session) {
-                if (!session) return;
-                try {
-                    const sessStr = JSON.stringify(session);
-                    // Supabase JS and Supabase Flutter intentionally share this
-                    // canonical same-origin web-storage key. Keeping one session
-                    // record avoids stale refresh-token races during the app handoff.
-                    localStorage.setItem('sb-dtemayjpttktntooxraa-auth-token', sessStr);
-                    ['flutter.sb-dtemayjpttktntooxraa-auth-token', 'flutter.supabase.auth.token', 'sb_refresh_token', 'sb_access_token']
-                        .forEach((key) => localStorage.removeItem(key));
-                } catch (_) {}
-            }
-
-            function setActiveSession(session) {
-                if (!session?.user) return;
-                syncSessionToStorage(session);
-                activeSession = session;
-                const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Account';
-                btnSignIn.textContent = name;
-            }
-
-            function finishOAuthHandoff(session) {
-                if (!isOAuthCallback || oauthHandoffStarted || !session) return;
-                oauthHandoffStarted = true;
-                // Give Supabase JS a turn to persist the PKCE result before the
-                // Flutter bundle loads and reads the same canonical session.
-                window.setTimeout(() => window.location.replace(handoffUrl()), 0);
-            }
-
-            btnSignIn.addEventListener('click', () => {
-                if (activeSession) {
-                    window.location.href = handoffUrl();
-                    return;
-                }
-                openAuth();
-            });
-
-            btnAuthClose.addEventListener('click', () => {
-                closeAuth();
-            });
-
-            authModal.addEventListener('click', (e) => {
-                if (e.target === authModal) closeAuth();
-            });
-
-            document.querySelectorAll('.modal-trigger').forEach(trigger => {
-                trigger.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    openInfoModal(trigger.getAttribute('data-modal'), true);
-                });
-            });
-            document.querySelectorAll('[data-close-modal]').forEach(button => {
-                button.addEventListener('click', () => closeInfoModal(button.closest('.info-modal-backdrop'), true));
-            });
-            document.querySelectorAll('.info-modal-backdrop').forEach(modal => {
-                modal.addEventListener('click', event => {
-                    if (event.target === modal) closeInfoModal(modal, true);
-                });
-            });
-            document.addEventListener('keydown', event => {
-                if (event.key !== 'Escape') return;
-                if (authModal.classList.contains('active')) closeAuth();
-                document.querySelectorAll('.info-modal-backdrop.active').forEach(modal => closeInfoModal(modal, true));
-            });
-            const directPath = window.location.pathname.replace(/\/$/, '') || '/';
-            if (directPath === '/terms') openInfoModal('termsModal');
-            if (directPath === '/privacy') openInfoModal('privacyModal');
-            if (directPath === '/login' || new URLSearchParams(window.location.search).get('login') === 'true') openAuth();
-
-            btnToggleAuthMode.addEventListener('click', () => {
-                setAuthMode(!isSignUp);
             });
 
             btnAuthSubmit.addEventListener('click', async () => {
-                if (!sb) {
-                    showAuthNotice('Sign-in is unavailable because the authentication service did not load. Please refresh and try again.');
-                    return;
-                }
+                if (!sb) return;
                 const email = document.getElementById('authModalEmail').value.trim();
                 const password = document.getElementById('authModalPassword').value;
                 const fullName = document.getElementById('authModalName').value.trim();
                 if (!email || !password) {
-                    showAuthNotice('Please enter your email and password.');
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = 'Please enter your email and password.';
                     return;
                 }
                 btnAuthSubmit.disabled = true;
@@ -3111,19 +2887,20 @@
                         if (error) throw error;
                         if (data.session) {
                             syncSessionToStorage(data.session);
-                            window.location.href = handoffUrl();
+                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
                         } else {
-                            showAuthNotice('Check your email to verify your account, then sign in.');
+                            authNotice.style.display = 'block';
+                            authNotice.textContent = 'Check your email to verify your account!';
                         }
                     } else {
                         const { data, error } = await sb.auth.signInWithPassword({ email, password });
                         if (error) throw error;
-                        if (!data.session) throw new Error('No session was returned. Please try signing in again.');
                         syncSessionToStorage(data.session);
-                        window.location.href = handoffUrl();
+                        window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
                     }
                 } catch (err) {
-                    showAuthNotice(err?.message || 'Authentication failed.');
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = err.message || 'Authentication failed.';
                 } finally {
                     btnAuthSubmit.disabled = false;
                     btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
@@ -3131,40 +2908,28 @@
             });
 
             btnAuthGoogle.addEventListener('click', async () => {
-                if (!sb) {
-                    showAuthNotice('Sign-in is unavailable because the authentication service did not load. Please refresh and try again.');
-                    return;
-                }
+                if (!sb) return;
                 try {
-                    const { error } = await sb.auth.signInWithOAuth({
+                    await sb.auth.signInWithOAuth({
                         provider: 'google',
-                        // Supabase JS owns this PKCE transaction, so its callback
-                        // must return here before the shared session is handed to
-                        // the Flutter app.
-                        options: { redirectTo: `${window.location.origin}/?oauth_callback=1` }
+                        options: { redirectTo: `${window.location.origin}/app/` }
                     });
-                    if (error) throw error;
                 } catch (err) {
-                    showAuthNotice(err?.message || 'Google sign-in could not start.');
+                    authNotice.style.display = 'block';
+                    authNotice.textContent = err.message;
                 }
             });
 
             // Check if user is already signed in
             if (sb) {
-                sb.auth.onAuthStateChange((_event, session) => {
-                    if (!session) return;
-                    setActiveSession(session);
-                    finishOAuthHandoff(session);
-                });
-                sb.auth.getSession().then(({ data, error }) => {
-                    if (data?.session) {
-                        setActiveSession(data.session);
-                        finishOAuthHandoff(data.session);
-                        return;
-                    }
-                    if (isOAuthCallback) {
-                        openAuth();
-                        showAuthNotice(error?.message || authCallbackParams.get('error_description') || 'Google sign-in could not be completed. Please try again.');
+                sb.auth.getSession().then(({ data }) => {
+                    if (data && data.session && data.session.user) {
+                        syncSessionToStorage(data.session);
+                        const name = data.session.user.user_metadata?.full_name || data.session.user.email.split('@')[0];
+                        btnSignIn.textContent = name;
+                        btnSignIn.onclick = () => {
+                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
+                        };
                     }
                 });
             }
