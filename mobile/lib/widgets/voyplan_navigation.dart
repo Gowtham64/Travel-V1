@@ -48,3 +48,36 @@ const voyPlanPrimaryNavigation = <VoyPlanNavigationItem>[
   VoyPlanNavigationItem.features,
   VoyPlanNavigationItem.aiCopilot,
 ];
+
+/// A transparent version of the VoyPlan route mark for use on any surface.
+///
+/// The source artwork includes the safe-area padding required for adaptive app
+/// icons. Scaling it within a clipped box removes that padding for headers
+/// without adding a light or dark backing plate behind the mark.
+class VoyPlanBrandMark extends StatelessWidget {
+  const VoyPlanBrandMark({
+    super.key,
+    required this.size,
+    this.semanticLabel = 'VoyPlan',
+  });
+
+  final double size;
+  final String? semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: size,
+      child: ClipRect(
+        child: Transform.scale(
+          scale: 1.55,
+          child: Image.asset(
+            'assets/icon/voyplan_foreground.png',
+            fit: BoxFit.contain,
+            semanticLabel: semanticLabel,
+          ),
+        ),
+      ),
+    );
+  }
+}

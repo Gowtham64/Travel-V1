@@ -1027,38 +1027,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBrandLockup({bool compact = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
+    final taglineColor =
+        isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(11),
-          child: Image.asset(
-            'assets/icon/voyplan_dark.png',
-            width: 38,
-            height: 38,
-            fit: BoxFit.contain,
-            semanticLabel: 'VoyPlan',
-          ),
-        ),
+        const VoyPlanBrandMark(size: 38),
         const SizedBox(width: 10),
         Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'VoyPlan',
               style: TextStyle(
-                color: Colors.white,
+                color: titleColor,
                 fontSize: 19,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.4,
               ),
             ),
             if (!compact)
-              const Text(
+              Text(
                 'DISCOVER. DESIGN. DRIVE.',
                 style: TextStyle(
-                  color: Color(0xFF38BDF8),
+                  color: taglineColor,
                   fontSize: 7.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.9,
@@ -4002,14 +3998,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               SizedBox(
                 width: 28,
                 height: 28,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Image.asset(
-                    'assets/icon/voyplan_dark.png',
-                    fit: BoxFit.contain,
-                    semanticLabel: 'VoyPlan',
-                  ),
-                ),
+                child: const VoyPlanBrandMark(size: 28),
               ),
               const SizedBox(width: 8),
               const Text('VoyPlan',

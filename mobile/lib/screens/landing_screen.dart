@@ -391,28 +391,23 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Widget _buildBrandLockup() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final titleColor = isDark ? Voy.ink : const Color(0xFF0F172A);
+    final taglineColor = isDark ? Voy.gold : const Color(0xFF0284C7);
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.asset(
-            'assets/icon/voyplan_dark.png',
-            width: 38,
-            height: 38,
-            fit: BoxFit.contain,
-            semanticLabel: 'VoyPlan',
-          ),
-        ),
+        const VoyPlanBrandMark(size: 38),
         const SizedBox(width: 10),
-        const Column(
+        Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'VoyPlan',
               style: TextStyle(
-                color: Voy.ink,
+                color: titleColor,
                 fontSize: 20,
                 fontWeight: FontWeight.w900,
                 letterSpacing: -0.4,
@@ -421,7 +416,7 @@ class _LandingScreenState extends State<LandingScreen> {
             Text(
               'DISCOVER. DESIGN. DRIVE.',
               style: TextStyle(
-                color: Voy.gold,
+                color: taglineColor,
                 fontSize: 7.5,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.9,
