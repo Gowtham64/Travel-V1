@@ -1,12 +1,12 @@
 {
-    "name": "VoyPlan — Plan less. Explore more.",
+    "name": "VoyPlan — Discover. Design. Drive.",
     "short_name": "VoyPlan",
     "start_url": ".",
     "scope": ".",
     "display": "standalone",
     "background_color": "#f8fafc",
     "theme_color": "#071a2b",
-    "description": "VoyPlan — plan less, explore more. Routes, stops, tolls, fuel, weather and live navigation.",
+    "description": "VoyPlan — Discover. Design. Drive. Routes, stops, tolls, fuel, weather and live navigation.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

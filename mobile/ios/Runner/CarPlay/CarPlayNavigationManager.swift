@@ -187,7 +187,7 @@ final class CarPlayNavigationManager: NSObject {
         originMapItem.name = "Start"
 
         let routeChoice = CPRouteChoice(
-            summaryVariants: [self.destinationName, "Via Voyplan Route"],
+            summaryVariants: [self.destinationName, "Via VoyPlan Route"],
             additionalInformationVariants: [
                 self.fuelStops.isEmpty ? "Direct Route" : "\(self.fuelStops.count) Fuel Stop(s) Planned"
             ],

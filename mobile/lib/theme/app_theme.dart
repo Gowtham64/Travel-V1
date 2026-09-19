@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Voyplan's shared visual identity. One cohesive dark theme so every default
+/// VoyPlan's shared visual identity. One cohesive dark theme so every default
 /// widget (buttons, inputs, dialogs, date/time pickers, snackbars, menus)
 /// looks consistent instead of falling back to Material's light defaults.
 class Voy {

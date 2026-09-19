@@ -7,33 +7,38 @@ import '../widgets/app_design.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final bool startInSignUp;
+
+  const LoginScreen({super.key, this.startInSignUp = false});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _identifierController = TextEditingController(); // For login: Email or Phone
+  final _identifierController =
+      TextEditingController(); // For login: Email or Phone
   final _passwordController = TextEditingController();
-  
+
   // Custom SignUp controllers
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _locationController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _isSignUp = false;
   bool _waitingForOAuth = false;
   bool _hasNavigatedHome = false;
   StreamSubscription<AuthState>? _authSubscription;
 
-  final String _bgUrl = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
+  final String _bgUrl =
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
 
   @override
   void initState() {
     super.initState();
+    _isSignUp = widget.startInSignUp;
     // Password auth is handled immediately below; this listener specifically
     // completes the return journey from an external OAuth/Google browser.
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
@@ -95,7 +100,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final phone = _phoneController.text.trim();
       final location = _locationController.text.trim();
 
-      if (name.isEmpty || email.isEmpty || phone.isEmpty || password.isEmpty || location.isEmpty) {
+      if (name.isEmpty ||
+          email.isEmpty ||
+          phone.isEmpty ||
+          password.isEmpty ||
+          location.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Please fill in all signup fields')),
         );
@@ -155,9 +164,13 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       } on AuthException catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        if (mounted)
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
       } catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to register details: $e')));
+        if (mounted)
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to register details: $e')));
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -173,28 +186,36 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = true);
 
       try {
-        final isPhone = RegExp(r'^\+?[0-9]{7,15}$').hasMatch(identifier.replaceAll(RegExp(r'[^0-9+]'), ''));
+        final isPhone = RegExp(r'^\+?[0-9]{7,15}$')
+            .hasMatch(identifier.replaceAll(RegExp(r'[^0-9+]'), ''));
         if (isPhone) {
-          await Supabase.instance.client.auth.signInWithPassword(
-            phone: identifier,
-            password: password,
-          ).timeout(const Duration(seconds: 10));
+          await Supabase.instance.client.auth
+              .signInWithPassword(
+                phone: identifier,
+                password: password,
+              )
+              .timeout(const Duration(seconds: 10));
         } else {
-          await Supabase.instance.client.auth.signInWithPassword(
-            email: identifier,
-            password: password,
-          ).timeout(const Duration(seconds: 10));
+          await Supabase.instance.client.auth
+              .signInWithPassword(
+                email: identifier,
+                password: password,
+              )
+              .timeout(const Duration(seconds: 10));
         }
         if (Supabase.instance.client.auth.currentSession != null) {
           _navigateToHome();
         }
       } on AuthException catch (e) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+        if (mounted)
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(e.message)));
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Login failed: ${e.toString().contains('TimeoutException') ? 'Connection timed out. Please try again or continue as Guest.' : e}'),
+              content: Text(
+                  'Login failed: ${e.toString().contains('TimeoutException') ? 'Connection timed out. Please try again or continue as Guest.' : e}'),
               action: SnackBarAction(
                 label: 'Guest Mode',
                 onPressed: _continueAsGuest,
@@ -212,22 +233,26 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
     _waitingForOAuth = true;
     try {
-      await Supabase.instance.client.auth.signInWithOAuth(
-        OAuthProvider.google,
-        // Native: returns to the app via the registered deep link; web: the page URL.
-        redirectTo: _authRedirectUrl(),
-        // On iOS the default in-app browser view can fail to launch the OAuth
-        // URL ("Error while launching …"); force the external browser (Safari)
-        // on native so the Google flow opens reliably. Ignored on web.
-        authScreenLaunchMode:
-            kIsWeb ? LaunchMode.platformDefault : LaunchMode.externalApplication,
-      ).timeout(const Duration(seconds: 30));
+      await Supabase.instance.client.auth
+          .signInWithOAuth(
+            OAuthProvider.google,
+            // Native: returns to the app via the registered deep link; web: the page URL.
+            redirectTo: _authRedirectUrl(),
+            // On iOS the default in-app browser view can fail to launch the OAuth
+            // URL ("Error while launching …"); force the external browser (Safari)
+            // on native so the Google flow opens reliably. Ignored on web.
+            authScreenLaunchMode: kIsWeb
+                ? LaunchMode.platformDefault
+                : LaunchMode.externalApplication,
+          )
+          .timeout(const Duration(seconds: 30));
     } catch (e) {
       _waitingForOAuth = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to sign in with Google: ${e.toString().contains('TimeoutException') ? 'Connection timed out.' : e}'),
+            content: Text(
+                'Failed to sign in with Google: ${e.toString().contains('TimeoutException') ? 'Connection timed out.' : e}'),
             action: SnackBarAction(
               label: 'Guest Mode',
               onPressed: _continueAsGuest,
@@ -282,152 +307,173 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: RevealIn.stagger([
-                        Text(
-                          _isSignUp ? 'Create Account' : 'Welcome Back',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        _isSignUp ? 'Create Account' : 'Welcome Back',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _isSignUp ? 'Sign up to start planning your trips' : 'Log in to continue exploring',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 16,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _isSignUp
+                            ? 'Sign up to start planning your trips'
+                            : 'Log in to continue exploring',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 16,
                         ),
-                        const SizedBox(height: 32),
-                        
-                        if (_isSignUp) ...[
-                          _buildTextField(
-                            controller: _nameController,
-                            label: 'Full Name',
-                            hint: 'John Doe',
-                            icon: Icons.person_outline,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _emailController,
-                            label: 'Email ID',
-                            hint: 'johndoe@example.com',
-                            icon: Icons.mail_outline,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _phoneController,
-                            label: 'Phone Number',
-                            hint: '+919876543210',
-                            icon: Icons.phone_outlined,
-                          ),
-                          const SizedBox(height: 16),
-                          _buildTextField(
-                            controller: _locationController,
-                            label: 'Location',
-                            hint: 'Coimbatore, India',
-                            icon: Icons.location_on_outlined,
-                          ),
-                        ] else ...[
-                          _buildTextField(
-                            controller: _identifierController,
-                            label: 'Email or Phone Number',
-                            hint: 'user@example.com or +1234567890',
-                            icon: Icons.person_outline,
-                          ),
-                        ],
+                      ),
+                      const SizedBox(height: 32),
+                      if (_isSignUp) ...[
+                        _buildTextField(
+                          controller: _nameController,
+                          label: 'Full Name',
+                          hint: 'John Doe',
+                          icon: Icons.person_outline,
+                        ),
                         const SizedBox(height: 16),
                         _buildTextField(
-                          controller: _passwordController,
-                          label: 'Password',
-                          hint: '••••••••',
-                          icon: Icons.lock_outline,
-                          isPassword: true,
-                          onSubmitted: (_) => _authenticate(),
-                        ),
-                        const SizedBox(height: 24),
-                        
-                        ElevatedButton(
-                          onPressed: _isLoading ? null : _authenticate,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2E75B6),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: _isLoading
-                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                              : Text(
-                                  _isSignUp ? 'Sign Up' : 'Log In',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1),
-                                ),
+                          controller: _emailController,
+                          label: 'Email ID',
+                          hint: 'johndoe@example.com',
+                          icon: Icons.mail_outline,
                         ),
                         const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                          child: Text(
-                            _isSignUp ? 'Already have an account? Log In' : 'Need an account? Sign Up',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(child: Divider(color: Colors.white.withOpacity(0.3))),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: Text('OR', style: TextStyle(color: Colors.white.withOpacity(0.7))),
-                            ),
-                            Expanded(child: Divider(color: Colors.white.withOpacity(0.3))),
-                          ],
+                        _buildTextField(
+                          controller: _phoneController,
+                          label: 'Phone Number',
+                          hint: '+919876543210',
+                          icon: Icons.phone_outlined,
                         ),
                         const SizedBox(height: 16),
-                        
-                        OutlinedButton.icon(
-                          onPressed: _isLoading ? null : _signInWithGoogle,
-                          icon: Image.network(
-                            'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
-                            height: 20,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.g_mobiledata, color: Colors.white),
-                          ),
-                          label: const Text(
-                            'Sign in with Google',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            side: BorderSide(color: Colors.white.withOpacity(0.3)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            backgroundColor: Colors.white.withOpacity(0.05),
+                        _buildTextField(
+                          controller: _locationController,
+                          label: 'Location',
+                          hint: 'Coimbatore, India',
+                          icon: Icons.location_on_outlined,
+                        ),
+                      ] else ...[
+                        _buildTextField(
+                          controller: _identifierController,
+                          label: 'Email or Phone Number',
+                          hint: 'user@example.com or +1234567890',
+                          icon: Icons.person_outline,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        controller: _passwordController,
+                        label: 'Password',
+                        hint: '••••••••',
+                        icon: Icons.lock_outline,
+                        isPassword: true,
+                        onSubmitted: (_) => _authenticate(),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _isLoading ? null : _authenticate,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E75B6),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: _continueAsGuest,
-                          icon: const Icon(Icons.directions_car, color: Colors.white),
-                          label: const Text(
-                            'Continue as Guest (Skip Login)',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            backgroundColor: const Color(0xFF6366F1),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white))
+                            : Text(
+                                _isSignUp ? 'Sign Up' : 'Log In',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1),
+                              ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => setState(() => _isSignUp = !_isSignUp),
+                        child: Text(
+                          _isSignUp
+                              ? 'Already have an account? Log In'
+                              : 'Need an account? Sign Up',
+                          style: const TextStyle(color: Colors.white),
                         ),
-                      ]),
-                    ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                              child: Divider(
+                                  color: Colors.white.withOpacity(0.3))),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('OR',
+                                style: TextStyle(
+                                    color: Colors.white.withOpacity(0.7))),
+                          ),
+                          Expanded(
+                              child: Divider(
+                                  color: Colors.white.withOpacity(0.3))),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _isLoading ? null : _signInWithGoogle,
+                        icon: Image.network(
+                          'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
+                          height: 20,
+                          errorBuilder: (_, __, ___) => const Icon(
+                              Icons.g_mobiledata,
+                              color: Colors.white),
+                        ),
+                        label: const Text(
+                          'Sign in with Google',
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side:
+                              BorderSide(color: Colors.white.withOpacity(0.3)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          backgroundColor: Colors.white.withOpacity(0.05),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: _continueAsGuest,
+                        icon: const Icon(Icons.directions_car,
+                            color: Colors.white),
+                        label: const Text(
+                          'Continue as Guest (Skip Login)',
+                          style: TextStyle(
+                              color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          backgroundColor: const Color(0xFF6366F1),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ]),
                   ),
                 ),
               ),
             ),
           ),
         ),
+      ),
     );
   }
 

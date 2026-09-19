@@ -65,7 +65,7 @@ class TravelApp extends StatelessWidget {
 
     return MaterialApp(
       navigatorKey: appNavigatorKey,
-      title: 'Voyplan',
+      title: 'VoyPlan',
       debugShowCheckedModeBanner: false,
       theme: Voy.dark(textTheme),
       darkTheme: Voy.dark(textTheme),

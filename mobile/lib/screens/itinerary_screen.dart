@@ -277,7 +277,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
                 _assistant(),
                 const SizedBox(height: 30),
                 Center(
-                  child: Text('Voyplan · AI-powered itinerary',
+                  child: Text('VoyPlan · AI-powered itinerary',
                       style: TextStyle(color: _sub.withOpacity(0.6), fontSize: 11)),
                 ),
               ]),
@@ -1682,7 +1682,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
       ..writeln('${_fmtDateRange()} · ${widget.plan.estimatedDays} days · ${widget.plan.formattedDistance}')
       ..writeln('${widget.travellers} traveller${widget.travellers == 1 ? '' : 's'}');
     if (b != null) sb.writeln('Est. budget: ${_curFull(b.total)} (${_curFull(b.perDay)}/day)');
-    sb.writeln('\nPlanned with Voyplan');
+    sb.writeln('\nPlanned with VoyPlan');
     Share.share(sb.toString(), subject: 'My trip: $_origin → $_dest');
   }
 
@@ -1723,7 +1723,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   Future<void> _addToCalendar() async {
     await addTripToCalendar(
       title: 'Trip: $_origin → $_dest',
-      description: '${widget.plan.formattedDistance} · ${widget.plan.estimatedDays} days · planned with Voyplan',
+      description: '${widget.plan.formattedDistance} · ${widget.plan.estimatedDays} days · planned with VoyPlan',
       location: _dest,
       start: _tripStart,
       end: _endDate.add(const Duration(hours: 20)),

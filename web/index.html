@@ -4,9 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
-    <title>VoyPlan — Plan less. Explore more.</title>
+    <title>VoyPlan — Discover. Design. Drive.</title>
     <meta name="description"
-        content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
+        content="VoyPlan — Discover. Design. Drive. AI-powered road trips with real routes, fuel costs, scenic stops and live navigation.">
     <meta name="theme-color" content="#071a2b">
     <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png">
     <link rel="apple-touch-icon" href="images/brand/voyplan-pin.png">
@@ -111,6 +111,7 @@
         }
 
         main > section[id] { scroll-margin-top: 85px; }
+        #plan-trip { scroll-margin-top: 92px; }
 
         a {
             color: inherit;
@@ -160,68 +161,47 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: clamp(0.75rem, 1.25vw, 1.25rem);
             width: 100%;
         }
 
         .brand-logo {
-            display: flex;
-            align-items: center;
-            gap: 0.55rem;
-            color: #ffffff;
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.55);
+            border-radius: 0.8rem;
+            box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2);
+            display: block;
+            flex: 0 0 auto;
+            line-height: 0;
+            padding: 0.12rem 0.32rem;
+            width: 9rem;
         }
 
-        .brand-pin {
-            width: 42px;
-            height: 42px;
-            object-fit: contain;
-            filter: drop-shadow(0 4px 10px rgba(6, 182, 212, 0.28));
-        }
-
-        .brand-lockup {
-            display: flex;
-            flex-direction: column;
-            gap: 0.05rem;
-            line-height: 1;
-        }
-
-        .brand-name {
-            font-size: 1.4rem;
-            font-weight: 800;
-            letter-spacing: -0.05em;
-            color: #ffffff;
-            transition: color 0.25s ease;
-        }
-
-        .brand-tagline {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 0.48rem;
-            font-weight: 700;
-            letter-spacing: 0.17em;
-            white-space: nowrap;
-            transition: color 0.25s ease;
-        }
-
-        [data-theme="light"] .brand-name {
-            color: #08213a;
-        }
-
-        [data-theme="light"] .brand-tagline {
-            color: #475569;
+        .brand-logo-image {
+            display: block;
+            height: auto;
+            width: 100%;
         }
 
         .nav-menu {
             display: flex;
             align-items: center;
-            gap: 1.8rem;
+            flex: 1 1 auto;
+            justify-content: center;
+            gap: clamp(0.7rem, 1vw, 1rem);
             list-style: none;
+            margin: 0;
+            min-width: 0;
+            padding: 0;
         }
 
         .nav-link {
-            font-size: 0.95rem;
+            font-size: clamp(0.82rem, 0.88vw, 0.93rem);
             font-weight: 500;
             color: rgba(255, 255, 255, 0.82);
             transition: color 0.2s ease;
             position: relative;
+            white-space: nowrap;
         }
 
         [data-theme="light"] .header.scrolled .nav-link {
@@ -232,10 +212,16 @@
             color: #38bdf8;
         }
 
+        .nav-link.active {
+            color: #38bdf8;
+            font-weight: 700;
+        }
+
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 0.9rem;
+            flex: 0 0 auto;
+            gap: 0.55rem;
         }
 
         .menu-toggle-btn {
@@ -254,8 +240,8 @@
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.14);
             color: #ffffff;
-            width: 40px;
-            height: 40px;
+            width: 38px;
+            height: 38px;
             border-radius: var(--radius-pill);
             display: grid;
             place-items: center;
@@ -270,7 +256,11 @@
         }
 
         .sign-in-btn {
-            padding: 0.55rem 1.25rem;
+            max-width: 10.5rem;
+            overflow: hidden;
+            padding: 0.55rem 0.9rem;
+            text-overflow: ellipsis;
+            white-space: nowrap;
             background: rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.18);
@@ -291,7 +281,7 @@
             display: inline-flex;
             align-items: center;
             gap: 0.45rem;
-            padding: 0.58rem 1.4rem;
+            padding: 0.58rem 1.05rem;
             background: var(--grad-cta);
             border: none;
             border-radius: var(--radius-pill);
@@ -301,6 +291,7 @@
             cursor: pointer;
             box-shadow: 0 4px 18px rgba(6, 182, 212, 0.4);
             transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+            white-space: nowrap;
         }
 
         .get-started-btn:hover {
@@ -1873,8 +1864,16 @@
         }
 
         .footer-brand { max-width: 235px; }
-        .footer-brand img { width: 52px; height: 52px; object-fit: contain; margin-bottom: 0.75rem; }
-        .footer-brand-name { color: #ffffff; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.04em; }
+        .footer-brand .footer-brand-logo {
+            background: rgba(255, 255, 255, 0.94);
+            border: 1px solid rgba(255, 255, 255, 0.42);
+            border-radius: 0.8rem;
+            display: block;
+            height: auto;
+            margin-bottom: 0.25rem;
+            padding: 0.12rem 0.32rem;
+            width: 9rem;
+        }
         .footer-brand p { color: #94a3b8; font-size: 0.86rem; line-height: 1.55; margin-top: 0.65rem; }
         .footer-heading { color: #ffffff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.12em; margin-bottom: 1rem; }
         .footer-links { display: grid; gap: 0.7rem; list-style: none; }
@@ -1959,13 +1958,10 @@
             .ai-itinerary-hud { position: static; margin-top: 1.5rem; width: 100%; }
         }
 
-        @media (max-width: 768px) {
+        /* Keep the header usable on tablets without compressing labels into two lines. */
+        @media (max-width: 1320px) {
             .header-inner { gap: 0.5rem; }
-            .brand-pin { height: 36px; width: 36px; }
-            .brand-name { font-size: 1.2rem; }
-            .brand-tagline { font-size: 0.4rem; }
             .header-actions { gap: 0.45rem; }
-            .header-actions .sign-in-btn, .header-actions .get-started-btn { display: none; }
             .menu-toggle-btn { display: grid; }
             .nav-menu {
                 align-items: stretch;
@@ -1975,18 +1971,34 @@
                 flex-direction: column;
                 gap: 0;
                 left: 0;
+                max-height: calc(100dvh - var(--nav-height));
+                overflow-y: auto;
                 padding: 0.8rem 1.5rem 1.3rem;
+                pointer-events: none;
                 position: fixed;
                 right: 0;
                 top: var(--nav-height);
                 transform: translateY(-130%);
-                transition: transform 0.25s ease;
+                transition: transform 0.25s ease, visibility 0s linear 0.25s;
+                visibility: hidden;
                 z-index: 99;
             }
-            .nav-menu.open { transform: translateY(0); }
+            .nav-menu.open {
+                pointer-events: auto;
+                transform: translateY(0);
+                transition: transform 0.25s ease;
+                visibility: visible;
+            }
             .nav-link { display: block; padding: 0.72rem 0; }
             [data-theme="light"] .nav-menu { background: rgba(255, 255, 255, 0.98); }
             [data-theme="light"] .nav-menu .nav-link { color: #334155; }
+        }
+
+        @media (max-width: 768px) {
+            .header-inner { gap: 0.5rem; }
+            .brand-logo { width: 7.75rem; }
+            .header-actions { gap: 0.45rem; }
+            .header-actions .sign-in-btn, .header-actions .get-started-btn { display: none; }
             .planner-grid-route { grid-template-columns: 1fr; }
             .swap-btn { display: none; }
             .planner-grid-params { grid-template-columns: 1fr; }
@@ -2011,29 +2023,25 @@
     <header class="header" id="mainHeader">
         <div class="container header-inner">
             <a href="#hero" class="brand-logo" aria-label="VoyPlan home">
-                <img class="brand-pin" src="images/brand/voyplan-pin.png" alt="">
-                <span class="brand-lockup">
-                    <span class="brand-name">Voyplan</span>
-                    <span class="brand-tagline">PLAN LESS. EXPLORE MORE.</span>
-                </span>
+                <img class="brand-logo-image" src="images/brand/voyplan-logo.png" width="1774" height="887" alt="">
             </a>
 
             <ul class="nav-menu" id="mainNav">
                 <li><a href="#hero" class="nav-link">Home</a></li>
-                <li><a href="#hero" class="nav-link">Plan Trip</a></li>
+                <li><a href="#plan-trip" class="nav-link">Plan Trip</a></li>
                 <li><a href="#destinations" class="nav-link">Destinations</a></li>
-                <li><a href="/app/?explore=true" class="nav-link">Trip Inspiration</a></li>
-                <li><a href="/app/" class="nav-link">My Trips</a></li>
+                <li><a href="/app/?inspiration=true" class="nav-link">Trip Inspiration</a></li>
+                <li><a href="/app/?my_trips=true" class="nav-link">My Trips</a></li>
                 <li><a href="/app/?saved_places=true" class="nav-link">Saved Places</a></li>
                 <li><a href="#features" class="nav-link">Features</a></li>
-                <li><a href="#copilot" class="nav-link">AI Co-pilot</a></li>
+                <li><a href="#copilot" class="nav-link">AI Co-Pilot</a></li>
             </ul>
 
             <div class="header-actions">
                 <button class="search-btn" id="btnSearch" aria-label="Search">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </button>
-                <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
+                <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Theme switcher" title="Theme switcher">
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
                 <button class="sign-in-btn" id="btnSignIn">Sign In</button>
@@ -2116,15 +2124,15 @@
                 <div class="hero-copy">
                     <span class="hero-eyebrow">YOUR ROAD TRIP CO-PILOT</span>
                     <h1 class="hero-title">
-                        Plan less.<br>
-                        <span class="accent">Explore more.</span>
+                        Discover.<br>
+                        <span class="accent">Design. Drive.</span>
                     </h1>
                     <p class="hero-lead">
                         AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.
                     </p>
 
                     <!-- Floating Trip Planner Card -->
-                    <div class="planner-card">
+                    <div class="planner-card" id="plan-trip">
                         <!-- Mode Tabs -->
                         <div class="planner-tabs">
                             <button class="planner-tab active" data-mode="one_way">
@@ -2582,18 +2590,17 @@
             <div class="container">
                 <div class="footer-grid">
                     <div class="footer-brand">
-                        <img src="images/brand/voyplan-pin.png" alt="VoyPlan location-pin road mark">
-                        <div class="footer-brand-name">Voyplan</div>
-                        <p>Plan less. Explore more. Confident road trips, from the first idea to the final turn.</p>
+                        <img class="footer-brand-logo" src="images/brand/voyplan-logo.png" width="1774" height="887" alt="VoyPlan — Discover. Design. Drive.">
+                        <p>DISCOVER. DESIGN. DRIVE.</p>
                     </div>
                     <div>
                         <h2 class="footer-heading">QUICK LINKS</h2>
                         <ul class="footer-links">
                             <li><a href="#hero">Home</a></li>
-                            <li><a href="#hero">Plan Trip</a></li>
+                            <li><a href="#plan-trip">Plan Trip</a></li>
                             <li><a href="#destinations">Destinations</a></li>
-                            <li><a href="/app/?explore=true">Trip Inspiration</a></li>
-                            <li><a href="/app/">My Trips</a></li>
+                            <li><a href="/app/?inspiration=true">Trip Inspiration</a></li>
+                            <li><a href="/app/?my_trips=true">My Trips</a></li>
                             <li><a href="/app/?saved_places=true">Saved Places</a></li>
                         </ul>
                     </div>
@@ -2754,6 +2761,7 @@
             const themeBtn = document.getElementById('btnThemeToggle');
             const savedTheme = localStorage.getItem('voyplan_theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            themeBtn.setAttribute('aria-pressed', String(savedTheme === 'light'));
 
             themeBtn.addEventListener('click', () => {
                 const current = document.documentElement.getAttribute('data-theme');
@@ -2778,9 +2786,24 @@
                 });
                 mainNav.querySelectorAll('a').forEach(link => link.addEventListener('click', closeMobileNav));
             }
+            const navLinks = [...mainNav.querySelectorAll('.nav-link')];
+            const updateActiveNavigation = () => {
+                const hash = window.location.hash || '#hero';
+                navLinks.forEach(link => {
+                    const href = link.getAttribute('href');
+                    link.classList.toggle('active', href === hash);
+                });
+            };
+            updateActiveNavigation();
+            window.addEventListener('hashchange', updateActiveNavigation);
+            navLinks.forEach(link => link.addEventListener('click', () => {
+                window.setTimeout(updateActiveNavigation, 0);
+            }));
             const searchBtn = document.getElementById('btnSearch');
             if (searchBtn) {
                 searchBtn.addEventListener('click', () => {
+                    history.replaceState(null, '', '#hero');
+                    updateActiveNavigation();
                     hero?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     window.setTimeout(() => document.getElementById('inputDestination')?.focus(), 350);
                 });
@@ -2859,7 +2882,7 @@
             }
 
             document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
-            document.getElementById('btnGetStarted').addEventListener('click', () => launchAppWithTrip());
+            document.getElementById('btnGetStarted').addEventListener('click', () => openSignUp());
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaExplore').addEventListener('click', () => {
                 window.location.href = `${window.location.origin}/app/?explore=true`;
@@ -2948,6 +2971,20 @@
                 authModal.classList.add('active');
                 syncBodyScroll();
                 window.setTimeout(() => document.getElementById('authModalEmail')?.focus(), 100);
+            }
+
+            function setAuthMode(signUp) {
+                isSignUp = signUp;
+                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
+                authNameRow.style.display = isSignUp ? 'block' : 'none';
+                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
+                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
+            }
+
+            function openSignUp() {
+                setAuthMode(true);
+                openAuth();
             }
 
             function closeAuth() {
@@ -3048,12 +3085,7 @@
             if (directPath === '/login' || new URLSearchParams(window.location.search).get('login') === 'true') openAuth();
 
             btnToggleAuthMode.addEventListener('click', () => {
-                isSignUp = !isSignUp;
-                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
-                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
-                authNameRow.style.display = isSignUp ? 'block' : 'none';
-                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
-                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
+                setAuthMode(!isSignUp);
             });
 
             btnAuthSubmit.addEventListener('click', async () => {

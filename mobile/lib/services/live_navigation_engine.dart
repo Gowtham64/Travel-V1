@@ -162,7 +162,7 @@ class LiveNavigationEngine extends ChangeNotifier {
                 distanceFilter: 2,
                 intervalDuration: const Duration(milliseconds: 1000),
                 foregroundNotificationConfig: const ForegroundNotificationConfig(
-                  notificationTitle: 'Voyplan Live Navigation',
+                  notificationTitle: 'VoyPlan Live Navigation',
                   notificationText: 'Turn-by-turn guidance is active',
                   enableWakeLock: true,
                 ),

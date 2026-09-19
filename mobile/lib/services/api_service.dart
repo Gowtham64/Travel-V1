@@ -1071,7 +1071,7 @@ class ApiService {
         'https://nominatim.openstreetmap.org/search?q=${Uri.encodeComponent(q)}&format=json&limit=6',
       );
       final res = await http.get(osmUri, headers: {
-        'User-Agent': 'Voyplan/1.0 (https://voyplan.in/; contact: travel-app)',
+        'User-Agent': 'VoyPlan/1.0 (https://voyplan.in/; contact: travel-app)',
       }).timeout(const Duration(seconds: 3));
       if (res.statusCode == 200) {
         final list = jsonDecode(res.body) as List<dynamic>;
@@ -1129,7 +1129,7 @@ class ApiService {
       final osmUri = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lng&format=json&zoom=16'
       );
-      final res = await http.get(osmUri, headers: {'User-Agent': 'VoyplanTravelApp/1.0'}).timeout(const Duration(seconds: 5));
+      final res = await http.get(osmUri, headers: {'User-Agent': 'VoyPlanTravelApp/1.0'}).timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;
         final displayName = data['display_name'] as String?;

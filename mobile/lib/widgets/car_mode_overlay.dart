@@ -56,10 +56,13 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
   static const _amber = Color(0xFFF59E0B);
   static const _teal = Color(0xFF14B8A6);
 
-  Color get _panel => _isDarkMode ? const Color(0xEE111827) : const Color(0xEEF9FAFB);
+  Color get _panel =>
+      _isDarkMode ? const Color(0xEE111827) : const Color(0xEEF9FAFB);
   Color get _text => _isDarkMode ? Colors.white : const Color(0xFF111827);
   Color get _sub => _isDarkMode ? Colors.white70 : const Color(0xFF4B5563);
-  Color get _hairline => _isDarkMode ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.08);
+  Color get _hairline => _isDarkMode
+      ? Colors.white.withValues(alpha: 0.12)
+      : Colors.black.withValues(alpha: 0.08);
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +91,8 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                 ),
 
                 // 2. Next Stop Floating Card (with [Visit] and [Skip])
-                if (widget.nextStopName != null && widget.nextStopName!.isNotEmpty)
+                if (widget.nextStopName != null &&
+                    widget.nextStopName!.isNotEmpty)
                   Positioned(
                     top: wide ? 62 : 185,
                     left: wide ? null : 14,
@@ -135,9 +139,14 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               child: Row(
                 children: [
-                  const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white70, size: 15),
+                  const Icon(Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white70, size: 15),
                   const SizedBox(width: 4),
-                  Text('Exit', style: TextStyle(color: _sub, fontSize: 13, fontWeight: FontWeight.w700)),
+                  Text('Exit',
+                      style: TextStyle(
+                          color: _sub,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700)),
                 ],
               ),
             ),
@@ -145,11 +154,15 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              (widget.routeTitle ?? 'VOYPLAN NAVIGATION').toUpperCase(),
+              widget.routeTitle ?? 'VoyPlan Navigation',
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: _text, fontSize: 13.5, fontWeight: FontWeight.w900, letterSpacing: 0.6),
+              style: TextStyle(
+                  color: _text,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.6),
             ),
           ),
           const SizedBox(width: 10),
@@ -159,7 +172,9 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
             child: Padding(
               padding: const EdgeInsets.all(6),
               child: Icon(
-                widget.speechMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                widget.speechMuted
+                    ? Icons.volume_off_rounded
+                    : Icons.volume_up_rounded,
                 color: widget.speechMuted ? Colors.grey : _green,
                 size: 20,
               ),
@@ -190,11 +205,19 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                   color: _purple.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('NEXT STOP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: _purple)),
+                child: const Text('NEXT STOP',
+                    style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: _purple)),
               ),
               const Spacer(),
               if (distText.isNotEmpty)
-                Text('$distText$durText', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: _sub)),
+                Text('$distText$durText',
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: _sub)),
             ],
           ),
           const SizedBox(height: 5),
@@ -202,7 +225,8 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
             widget.nextStopName ?? '',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: _text),
+            style: TextStyle(
+                fontSize: 15, fontWeight: FontWeight.w800, color: _text),
           ),
           const SizedBox(height: 8),
           Row(
@@ -213,11 +237,15 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                     backgroundColor: _green,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                     elevation: 0,
                   ),
-                  icon: const Icon(Icons.check_circle_outline_rounded, size: 15),
-                  label: const Text('Visit', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                  icon:
+                      const Icon(Icons.check_circle_outline_rounded, size: 15),
+                  label: const Text('Visit',
+                      style: TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w800)),
                   onPressed: widget.onVisitStop,
                 ),
               ),
@@ -228,10 +256,13 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                     foregroundColor: _sub,
                     side: BorderSide(color: _hairline),
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   icon: const Icon(Icons.skip_next_rounded, size: 15),
-                  label: const Text('Skip', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  label: const Text('Skip',
+                      style: TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700)),
                   onPressed: widget.onSkipStop,
                 ),
               ),
@@ -279,7 +310,8 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                     ),
                   ],
                 ),
-                child: Icon(widget.maneuver.icon, size: 40, color: Colors.white),
+                child:
+                    Icon(widget.maneuver.icon, size: 40, color: Colors.white),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -313,7 +345,10 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                       const SizedBox(height: 2),
                       Text(
                         'on $road',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: _sub),
+                        style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: _sub),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -337,8 +372,12 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (int i = 0; i < widget.maneuver.laneGuidance!.lanes.length; i++) ...[
-                    _lanePill(widget.maneuver.laneGuidance!.lanes[i], isRecommended: i == widget.maneuver.laneGuidance!.recommendedIndex),
+                  for (int i = 0;
+                      i < widget.maneuver.laneGuidance!.lanes.length;
+                      i++) ...[
+                    _lanePill(widget.maneuver.laneGuidance!.lanes[i],
+                        isRecommended: i ==
+                            widget.maneuver.laneGuidance!.recommendedIndex),
                     if (i < widget.maneuver.laneGuidance!.lanes.length - 1)
                       const SizedBox(width: 6),
                   ],
@@ -347,7 +386,10 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
                     Expanded(
                       child: Text(
                         widget.maneuver.laneGuidance!.instruction!,
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: _sub),
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _sub),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -364,8 +406,10 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
 
   Widget _lanePill(LaneInfo lane, {bool isRecommended = false}) {
     final active = lane.active || isRecommended;
-    final color = active ? _green : (lane.valid ? Colors.white70 : Colors.white24);
-    final bgColor = active ? _green.withValues(alpha: 0.22) : Colors.transparent;
+    final color =
+        active ? _green : (lane.valid ? Colors.white70 : Colors.white24);
+    final bgColor =
+        active ? _green.withValues(alpha: 0.22) : Colors.transparent;
     final borderColor = active ? _green : _hairline;
 
     return Container(
@@ -396,12 +440,17 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
         children: [
           Text(
             '${widget.telemetry.speedKmh.round()}',
-            style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: _text, height: 1.0),
+            style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                color: _text,
+                height: 1.0),
           ),
           const SizedBox(height: 2),
           Text(
             widget.telemetry.speedUnit,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: _sub),
+            style: TextStyle(
+                fontSize: 10, fontWeight: FontWeight.w800, color: _sub),
           ),
         ],
       ),
@@ -415,32 +464,41 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
 
     // Rerouting banner
     if (widget.telemetry.isRerouting) {
-      chips.add(_chip(Icons.alt_route_rounded, '⚡ Rerouting…', _blue, textColor: Colors.white));
+      chips.add(_chip(Icons.alt_route_rounded, '⚡ Rerouting…', _blue,
+          textColor: Colors.white));
     }
 
     // GPS Status alerts
     if (widget.telemetry.gpsStatus == GpsHealthStatus.searching ||
         widget.telemetry.gpsStatus == GpsHealthStatus.lost) {
-      chips.add(_chip(Icons.gps_not_fixed_rounded, 'Searching for GPS…', _amber, textColor: Colors.black87));
+      chips.add(_chip(Icons.gps_not_fixed_rounded, 'Searching for GPS…', _amber,
+          textColor: Colors.black87));
     } else if (widget.telemetry.gpsStatus == GpsHealthStatus.weak) {
-      chips.add(_chip(Icons.gps_fixed_rounded, 'Weak GPS signal', _amber, textColor: Colors.black87));
+      chips.add(_chip(Icons.gps_fixed_rounded, 'Weak GPS signal', _amber,
+          textColor: Colors.black87));
     }
 
     // Next stop chip
-    if (widget.telemetry.nextStopName != null && widget.telemetry.nextStopName!.isNotEmpty) {
-      chips.add(_chip(Icons.flag_rounded, 'Next: ${widget.telemetry.nextStopName}', _purple, textColor: Colors.white));
+    if (widget.telemetry.nextStopName != null &&
+        widget.telemetry.nextStopName!.isNotEmpty) {
+      chips.add(_chip(
+          Icons.flag_rounded, 'Next: ${widget.telemetry.nextStopName}', _purple,
+          textColor: Colors.white));
     }
 
     if (widget.telemetry.hasTollAhead) {
-      final tollLabel = widget.telemetry.upcomingTollName != null && widget.telemetry.upcomingTollName!.isNotEmpty
-          ? (widget.telemetry.upcomingTollAmount != null && widget.telemetry.upcomingTollAmount! > 0
+      final tollLabel = widget.telemetry.upcomingTollName != null &&
+              widget.telemetry.upcomingTollName!.isNotEmpty
+          ? (widget.telemetry.upcomingTollAmount != null &&
+                  widget.telemetry.upcomingTollAmount! > 0
               ? 'Toll: ${widget.telemetry.upcomingTollName} (₹${widget.telemetry.upcomingTollAmount!.toStringAsFixed(0)})'
               : 'Toll: ${widget.telemetry.upcomingTollName}')
           : 'Toll plaza ahead';
       chips.add(_chip(Icons.toll_rounded, tollLabel, _amber));
     }
     if (widget.telemetry.needsRefuel) {
-      chips.add(_chip(Icons.local_gas_station, 'Refuel needed', const Color(0xFFFF9F0A)));
+      chips.add(_chip(
+          Icons.local_gas_station, 'Refuel needed', const Color(0xFFFF9F0A)));
     }
 
     return chips
@@ -448,7 +506,8 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
         .toList();
   }
 
-  Widget _chip(IconData icon, String label, Color color, {Color textColor = Colors.black87}) {
+  Widget _chip(IconData icon, String label, Color color,
+      {Color textColor = Colors.black87}) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -461,7 +520,11 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
         children: [
           Icon(icon, size: 14, color: textColor),
           const SizedBox(width: 5),
-          Text(label, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: textColor)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  color: textColor)),
         ],
       ),
     );
@@ -510,19 +573,31 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
       children: [
         Row(
           children: [
-            Icon(arriving ? Icons.pin_drop_rounded : Icons.navigation_rounded, color: _green, size: 24),
+            Icon(arriving ? Icons.pin_drop_rounded : Icons.navigation_rounded,
+                color: _green, size: 24),
             const SizedBox(width: 8),
             if (arriving)
               const Text('Arriving at destination',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: _green, height: 1.0))
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _green,
+                      height: 1.0))
             else ...[
               Text(
                 widget.telemetry.formattedEta,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: _text, height: 1.0),
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: _text,
+                    height: 1.0),
               ),
               const SizedBox(width: 8),
               Text('· ETA $clockEta',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: _green)),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _green)),
             ],
           ],
         ),
@@ -542,12 +617,14 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
           children: [
             Text(
               '${widget.telemetry.remainingDistanceKm.toStringAsFixed(1)} km remaining',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _sub),
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: _sub),
             ),
             const Spacer(),
             Text(
               '${(progress * 100).round()}% completed',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _sub),
+              style: TextStyle(
+                  fontSize: 12, fontWeight: FontWeight.w600, color: _sub),
             ),
           ],
         ),
@@ -558,7 +635,9 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
   }
 
   Widget _fuelTollRow() {
-    final fuelStr = widget.fuelPercent != null ? 'Fuel ${(widget.fuelPercent! * 100).round()}%' : 'Fuel OK';
+    final fuelStr = widget.fuelPercent != null
+        ? 'Fuel ${(widget.fuelPercent! * 100).round()}%'
+        : 'Fuel OK';
     final tollStr = widget.nextTollAmount != null && widget.nextTollAmount! > 0
         ? 'Next Toll ₹${widget.nextTollAmount!.toStringAsFixed(0)}'
         : (widget.telemetry.hasTollAhead ? 'Toll Ahead' : 'No tolls ahead');
@@ -566,13 +645,17 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
       children: [
         Icon(Icons.local_gas_station_rounded, size: 14, color: _amber),
         const SizedBox(width: 4),
-        Text(fuelStr, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
+        Text(fuelStr,
+            style: TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
         const SizedBox(width: 10),
         Text('•', style: TextStyle(color: _sub, fontSize: 11)),
         const SizedBox(width: 10),
         Icon(Icons.toll_rounded, size: 14, color: _teal),
         const SizedBox(width: 4),
-        Text(tollStr, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
+        Text(tollStr,
+            style: TextStyle(
+                fontSize: 11.5, fontWeight: FontWeight.w700, color: _sub)),
       ],
     );
   }
@@ -582,13 +665,17 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _circleBtn(
-          icon: widget.isPlayingAnimation ? Icons.pause_rounded : Icons.play_arrow_rounded,
+          icon: widget.isPlayingAnimation
+              ? Icons.pause_rounded
+              : Icons.play_arrow_rounded,
           color: _blue,
           onTap: widget.onTogglePlayPause,
           tooltip: widget.isPlayingAnimation ? 'Pause' : 'Drive',
         ),
         _circleBtn(
-          icon: widget.speechMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+          icon: widget.speechMuted
+              ? Icons.volume_off_rounded
+              : Icons.volume_up_rounded,
           color: widget.speechMuted ? Colors.grey : _green,
           onTap: widget.onToggleMute,
           tooltip: widget.speechMuted ? 'Voice off' : 'Voice on',
@@ -645,7 +732,10 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
     );
   }
 
-  Widget _card({required Widget child, required EdgeInsets padding, bool accentBorder = false}) {
+  Widget _card(
+      {required Widget child,
+      required EdgeInsets padding,
+      bool accentBorder = false}) {
     return Container(
       padding: padding,
       decoration: BoxDecoration(
@@ -662,7 +752,10 @@ class _CarModeOverlayState extends State<CarModeOverlay> {
   }
 
   List<BoxShadow> get _shadow => [
-        BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: 18, offset: const Offset(0, 6)),
+        BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 18,
+            offset: const Offset(0, 6)),
       ];
 }
 

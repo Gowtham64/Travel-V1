@@ -65,7 +65,7 @@ struct VoyplanTripActivityLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     VStack(alignment: .trailing, spacing: 2) {
-                        Text("voyplan")
+                        Text("VoyPlan")
                             .font(.system(size: 13, weight: .black, design: .rounded))
                             .foregroundColor(.white)
                         Text("\(String(format: "%.1f", context.state.distanceLeftKm)) km left")
@@ -193,7 +193,7 @@ private struct LockScreenView: View {
                 
                 Spacer()
                 
-                Text("voyplan")
+                Text("VoyPlan")
                     .font(.system(size: 15, weight: .heavy, design: .rounded))
                     .foregroundColor(.white)
                     .tracking(-0.3)
@@ -386,5 +386,4 @@ private struct TrackerLineView: View {
         }
     }
 }
-
 

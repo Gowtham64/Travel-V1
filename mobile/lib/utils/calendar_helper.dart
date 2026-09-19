@@ -28,7 +28,7 @@ String buildIcs({
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Voyplan//Trip//EN',
+    'PRODID:-//VoyPlan//Trip//EN',
     'CALSCALE:GREGORIAN',
     'BEGIN:VEVENT',
     'UID:${start.millisecondsSinceEpoch}@voyplan',

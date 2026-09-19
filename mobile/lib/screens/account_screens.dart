@@ -11,7 +11,8 @@ class CrudField {
   final String key, label;
   final FieldKind kind;
   final bool required;
-  const CrudField(this.key, this.label, {this.kind = FieldKind.text, this.required = false});
+  const CrudField(this.key, this.label,
+      {this.kind = FieldKind.text, this.required = false});
 }
 
 class CrudConfig {
@@ -47,57 +48,128 @@ CrudConfig? configForMenu(String id) {
   switch (id) {
     case 'wishlist':
       return CrudConfig(
-        path: 'favorites', type: 'wishlist', title: 'Wishlist', icon: Icons.favorite_border_rounded, accent: Voy.coral,
+        path: 'favorites',
+        type: 'wishlist',
+        title: 'Wishlist',
+        icon: Icons.favorite_border_rounded,
+        accent: Voy.coral,
         emptyHint: 'Save places you dream of visiting.',
-        fields: const [CrudField('name', 'Place', required: true), CrudField('note', 'Note', kind: FieldKind.multiline)],
-        titleOf: (m) => _s(m, 'name'), subtitleOf: (m) => _s(m, 'note'),
+        fields: const [
+          CrudField('name', 'Place', required: true),
+          CrudField('note', 'Note', kind: FieldKind.multiline)
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => _s(m, 'note'),
       );
     case 'saved_hotels':
       return CrudConfig(
-        path: 'favorites', type: 'hotel', title: 'Saved Hotels', icon: Icons.hotel_outlined, accent: Voy.coral,
+        path: 'favorites',
+        type: 'hotel',
+        title: 'Saved Hotels',
+        icon: Icons.hotel_outlined,
+        accent: Voy.coral,
         emptyHint: 'Bookmark hotels you like.',
-        fields: const [CrudField('name', 'Hotel', required: true), CrudField('note', 'Note', kind: FieldKind.multiline)],
-        titleOf: (m) => _s(m, 'name'), subtitleOf: (m) => _s(m, 'note'),
+        fields: const [
+          CrudField('name', 'Hotel', required: true),
+          CrudField('note', 'Note', kind: FieldKind.multiline)
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => _s(m, 'note'),
       );
     case 'saved_dest':
       return CrudConfig(
-        path: 'favorites', type: 'destination', title: 'Saved Destinations', icon: Icons.place_outlined, accent: Voy.coral,
+        path: 'favorites',
+        type: 'destination',
+        title: 'Saved Destinations',
+        icon: Icons.place_outlined,
+        accent: Voy.coral,
         emptyHint: 'Keep a list of destinations.',
-        fields: const [CrudField('name', 'Destination', required: true), CrudField('note', 'Note', kind: FieldKind.multiline)],
-        titleOf: (m) => _s(m, 'name'), subtitleOf: (m) => _s(m, 'note'),
+        fields: const [
+          CrudField('name', 'Destination', required: true),
+          CrudField('note', 'Note', kind: FieldKind.multiline)
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => _s(m, 'note'),
       );
     case 'flights':
       return CrudConfig(
-        path: 'bookings', type: 'flight', title: 'Flights', icon: Icons.flight_rounded,
+        path: 'bookings',
+        type: 'flight',
+        title: 'Flights',
+        icon: Icons.flight_rounded,
         emptyHint: 'Add your flight bookings.',
-        fields: const [CrudField('title', 'Flight', required: true), CrudField('provider', 'Airline'), CrudField('reference', 'PNR / Ref'), CrudField('from_loc', 'From'), CrudField('to_loc', 'To')],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')].where((e) => e.isNotEmpty).join(' · '),
+        fields: const [
+          CrudField('title', 'Flight', required: true),
+          CrudField('provider', 'Airline'),
+          CrudField('reference', 'PNR / Ref'),
+          CrudField('from_loc', 'From'),
+          CrudField('to_loc', 'To')
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')]
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       );
     case 'hotels':
       return CrudConfig(
-        path: 'bookings', type: 'hotel', title: 'Hotel Bookings', icon: Icons.hotel_rounded,
+        path: 'bookings',
+        type: 'hotel',
+        title: 'Hotel Bookings',
+        icon: Icons.hotel_rounded,
         emptyHint: 'Add your hotel bookings.',
-        fields: const [CrudField('title', 'Hotel', required: true), CrudField('provider', 'Provider'), CrudField('reference', 'Booking ID')],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')].where((e) => e.isNotEmpty).join(' · '),
+        fields: const [
+          CrudField('title', 'Hotel', required: true),
+          CrudField('provider', 'Provider'),
+          CrudField('reference', 'Booking ID')
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')]
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       );
     case 'train_bus':
       return CrudConfig(
-        path: 'bookings', type: 'train', title: 'Train & Bus', icon: Icons.directions_transit_rounded,
+        path: 'bookings',
+        type: 'train',
+        title: 'Train & Bus',
+        icon: Icons.directions_transit_rounded,
         emptyHint: 'Add train or bus bookings.',
-        fields: const [CrudField('title', 'Service', required: true), CrudField('provider', 'Operator'), CrudField('reference', 'PNR / Ref'), CrudField('seat', 'Seat / Coach')],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')].where((e) => e.isNotEmpty).join(' · '),
+        fields: const [
+          CrudField('title', 'Service', required: true),
+          CrudField('provider', 'Operator'),
+          CrudField('reference', 'PNR / Ref'),
+          CrudField('seat', 'Seat / Coach')
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')]
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       );
     case 'car':
       return CrudConfig(
-        path: 'bookings', type: 'car', title: 'Car Rentals', icon: Icons.directions_car_filled_outlined,
+        path: 'bookings',
+        type: 'car',
+        title: 'Car Rentals',
+        icon: Icons.directions_car_filled_outlined,
         emptyHint: 'Add your car rentals.',
-        fields: const [CrudField('title', 'Car', required: true), CrudField('provider', 'Rental company'), CrudField('reference', 'Booking ID')],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')].where((e) => e.isNotEmpty).join(' · '),
+        fields: const [
+          CrudField('title', 'Car', required: true),
+          CrudField('provider', 'Rental company'),
+          CrudField('reference', 'Booking ID')
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => [_s(m, 'provider'), _s(m, 'reference')]
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       );
     case 'my_vehicles':
       return CrudConfig(
-        path: 'vehicles', title: 'My Vehicles', icon: Icons.directions_car_rounded, accent: Voy.brand,
-        emptyHint: 'Save your car or bike so you can pick it while planning trips.',
+        path: 'vehicles',
+        title: 'My Vehicles',
+        icon: Icons.directions_car_rounded,
+        accent: Voy.brand,
+        emptyHint:
+            'Save your car or bike so you can pick it while planning trips.',
         fields: const [
           CrudField('name', 'Vehicle name (e.g. My Swift)', required: true),
           CrudField('type', 'Type — car or bike', required: true),
@@ -113,52 +185,112 @@ CrudConfig? configForMenu(String id) {
       );
     case 'activities':
       return CrudConfig(
-        path: 'bookings', type: 'activity', title: 'Activities', icon: Icons.local_activity_outlined,
+        path: 'bookings',
+        type: 'activity',
+        title: 'Activities',
+        icon: Icons.local_activity_outlined,
         emptyHint: 'Add booked activities.',
-        fields: const [CrudField('title', 'Activity', required: true), CrudField('provider', 'Provider'), CrudField('price', 'Price', kind: FieldKind.number)],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => _s(m, 'provider'),
+        fields: const [
+          CrudField('title', 'Activity', required: true),
+          CrudField('provider', 'Provider'),
+          CrudField('price', 'Price', kind: FieldKind.number)
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => _s(m, 'provider'),
       );
     case 'expenses':
       return CrudConfig(
-        path: 'expenses', title: 'Expense Tracker', icon: Icons.receipt_long_outlined, accent: Voy.amber,
+        path: 'expenses',
+        title: 'Expense Tracker',
+        icon: Icons.receipt_long_outlined,
+        accent: Voy.amber,
         emptyHint: 'Log what you spend on the trip.',
-        fields: const [CrudField('category', 'Category', required: true), CrudField('amount', 'Amount', kind: FieldKind.number, required: true), CrudField('note', 'Note')],
-        titleOf: (m) => _s(m, 'category'), subtitleOf: (m) => '${_s(m, 'currency').isEmpty ? 'INR' : _s(m, 'currency')} ${_s(m, 'amount')}${_s(m, 'note').isEmpty ? '' : ' · ${_s(m, 'note')}'}',
+        fields: const [
+          CrudField('category', 'Category', required: true),
+          CrudField('amount', 'Amount', kind: FieldKind.number, required: true),
+          CrudField('note', 'Note')
+        ],
+        titleOf: (m) => _s(m, 'category'),
+        subtitleOf: (m) =>
+            '${_s(m, 'currency').isEmpty ? 'INR' : _s(m, 'currency')} ${_s(m, 'amount')}${_s(m, 'note').isEmpty ? '' : ' · ${_s(m, 'note')}'}',
       );
     case 'budget_planner':
       return CrudConfig(
-        path: 'budgets', title: 'Budget Planner', icon: Icons.pie_chart_outline_rounded, accent: Voy.amber,
+        path: 'budgets',
+        title: 'Budget Planner',
+        icon: Icons.pie_chart_outline_rounded,
+        accent: Voy.amber,
         emptyHint: 'Set budgets for your trips.',
-        fields: const [CrudField('total', 'Total budget', kind: FieldKind.number, required: true), CrudField('currency', 'Currency')],
-        titleOf: (m) => '${_s(m, 'currency').isEmpty ? 'INR' : _s(m, 'currency')} ${_s(m, 'total')}', subtitleOf: (m) => 'Total budget',
+        fields: const [
+          CrudField('total', 'Total budget',
+              kind: FieldKind.number, required: true),
+          CrudField('currency', 'Currency')
+        ],
+        titleOf: (m) =>
+            '${_s(m, 'currency').isEmpty ? 'INR' : _s(m, 'currency')} ${_s(m, 'total')}',
+        subtitleOf: (m) => 'Total budget',
       );
     case 'documents':
       return CrudConfig(
-        path: 'documents', title: 'Documents', icon: Icons.description_outlined, accent: Voy.info,
+        path: 'documents',
+        title: 'Documents',
+        icon: Icons.description_outlined,
+        accent: Voy.info,
         emptyHint: 'Keep travel documents handy.',
-        fields: const [CrudField('title', 'Title', required: true), CrudField('type', 'Type (passport, visa…)'), CrudField('note', 'Note')],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => _s(m, 'type'),
+        fields: const [
+          CrudField('title', 'Title', required: true),
+          CrudField('type', 'Type (passport, visa…)'),
+          CrudField('note', 'Note')
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => _s(m, 'type'),
       );
     case 'emergency':
       return CrudConfig(
-        path: 'emergency', title: 'Emergency Contacts', icon: Icons.emergency_outlined, accent: Voy.coral,
+        path: 'emergency',
+        title: 'Emergency Contacts',
+        icon: Icons.emergency_outlined,
+        accent: Voy.coral,
         emptyHint: 'Add contacts for emergencies.',
-        fields: const [CrudField('name', 'Name', required: true), CrudField('phone', 'Phone'), CrudField('relation', 'Relation')],
-        titleOf: (m) => _s(m, 'name'), subtitleOf: (m) => [_s(m, 'relation'), _s(m, 'phone')].where((e) => e.isNotEmpty).join(' · '),
+        fields: const [
+          CrudField('name', 'Name', required: true),
+          CrudField('phone', 'Phone'),
+          CrudField('relation', 'Relation')
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => [_s(m, 'relation'), _s(m, 'phone')]
+            .where((e) => e.isNotEmpty)
+            .join(' · '),
       );
     case 'packing':
       return CrudConfig(
-        path: 'packing', title: 'Packing Checklist', icon: Icons.checklist_rtl_rounded,
+        path: 'packing',
+        title: 'Packing Checklist',
+        icon: Icons.checklist_rtl_rounded,
         emptyHint: 'Build your packing list.',
-        fields: const [CrudField('name', 'Item', required: true), CrudField('category', 'Category'), CrudField('qty', 'Qty', kind: FieldKind.number)],
-        titleOf: (m) => _s(m, 'name'), subtitleOf: (m) => _s(m, 'category'), toggleKey: 'packed',
+        fields: const [
+          CrudField('name', 'Item', required: true),
+          CrudField('category', 'Category'),
+          CrudField('qty', 'Qty', kind: FieldKind.number)
+        ],
+        titleOf: (m) => _s(m, 'name'),
+        subtitleOf: (m) => _s(m, 'category'),
+        toggleKey: 'packed',
       );
     case 'notifications':
       return CrudConfig(
-        path: 'notifications', title: 'Notifications', icon: Icons.notifications_none_rounded, accent: Voy.violet,
+        path: 'notifications',
+        title: 'Notifications',
+        icon: Icons.notifications_none_rounded,
+        accent: Voy.violet,
         emptyHint: 'No notifications yet.',
-        fields: const [CrudField('title', 'Title', required: true), CrudField('body', 'Message', kind: FieldKind.multiline)],
-        titleOf: (m) => _s(m, 'title'), subtitleOf: (m) => _s(m, 'body'), toggleKey: 'read',
+        fields: const [
+          CrudField('title', 'Title', required: true),
+          CrudField('body', 'Message', kind: FieldKind.multiline)
+        ],
+        titleOf: (m) => _s(m, 'title'),
+        subtitleOf: (m) => _s(m, 'body'),
+        toggleKey: 'read',
       );
   }
   return null;
@@ -247,7 +379,8 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
   }
 
   void _snack(String m) {
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
   }
 
   @override
@@ -256,7 +389,9 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
       backgroundColor: Voy.bg,
       appBar: AppBar(
         backgroundColor: Voy.bg,
-        title: Text(c.title, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
+        title: Text(c.title,
+            style:
+                const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _add,
@@ -295,20 +430,27 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
         margin: const EdgeInsets.only(bottom: 10),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(color: Voy.coral.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(16)),
+        decoration: BoxDecoration(
+            color: Voy.coral.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.delete_outline_rounded, color: Voy.coral),
       ),
       onDismissed: (_) => _delete(item),
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(16), border: Border.all(color: Voy.hairline)),
+        decoration: BoxDecoration(
+            color: Voy.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Voy.hairline)),
         child: Row(
           children: [
             Container(
               width: 42,
               height: 42,
-              decoration: BoxDecoration(color: c.accent.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                  color: c.accent.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(12)),
               child: Icon(c.icon, color: c.accent, size: 21),
             ),
             const SizedBox(width: 12),
@@ -316,20 +458,39 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(c.titleOf(item), maxLines: 1, overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: on ? Voy.sub : Voy.ink, fontSize: 15, fontWeight: FontWeight.w700, decoration: on ? TextDecoration.lineThrough : null)),
+                  Text(c.titleOf(item),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          color: on ? Voy.sub : Voy.ink,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          decoration: on ? TextDecoration.lineThrough : null)),
                   if (sub.isNotEmpty)
-                    Padding(padding: const EdgeInsets.only(top: 3), child: Text(sub, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Voy.sub, fontSize: 12.5))),
+                    Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(sub,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                color: Voy.sub, fontSize: 12.5))),
                 ],
               ),
             ),
             if (c.toggleKey != null)
               IconButton(
                 onPressed: () => _toggle(item),
-                icon: Icon(on ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded, color: on ? Voy.success : Voy.sub),
+                icon: Icon(
+                    on
+                        ? Icons.check_circle_rounded
+                        : Icons.radio_button_unchecked_rounded,
+                    color: on ? Voy.success : Voy.sub),
               )
             else
-              IconButton(onPressed: () => _delete(item), icon: const Icon(Icons.delete_outline_rounded, color: Voy.sub)),
+              IconButton(
+                  onPressed: () => _delete(item),
+                  icon:
+                      const Icon(Icons.delete_outline_rounded, color: Voy.sub)),
           ],
         ),
       ),
@@ -341,10 +502,15 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
           const SizedBox(height: 120),
           Icon(c.icon, size: 54, color: Voy.sub.withValues(alpha: 0.6)),
           const SizedBox(height: 14),
-          Center(child: Text(c.emptyHint, style: const TextStyle(color: Voy.sub, fontSize: 14))),
+          Center(
+              child: Text(c.emptyHint,
+                  style: const TextStyle(color: Voy.sub, fontSize: 14))),
           const SizedBox(height: 14),
           Center(
-            child: OutlinedButton.icon(onPressed: _add, icon: const Icon(Icons.add_rounded, size: 18), label: const Text('Add first item')),
+            child: OutlinedButton.icon(
+                onPressed: _add,
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add first item')),
           ),
         ],
       );
@@ -354,9 +520,15 @@ class _AccountCrudScreenState extends State<AccountCrudScreen> {
           const SizedBox(height: 120),
           const Icon(Icons.cloud_off_rounded, size: 48, color: Voy.coral),
           const SizedBox(height: 14),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 30), child: Text(_error ?? 'Something went wrong', textAlign: TextAlign.center, style: const TextStyle(color: Voy.sub))),
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30),
+              child: Text(_error ?? 'Something went wrong',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Voy.sub))),
           const SizedBox(height: 14),
-          Center(child: OutlinedButton(onPressed: _load, child: const Text('Retry'))),
+          Center(
+              child:
+                  OutlinedButton(onPressed: _load, child: const Text('Retry'))),
         ],
       );
 }
@@ -406,7 +578,9 @@ class _CrudFormSheetState extends State<_CrudFormSheet> {
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
-        decoration: const BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        decoration: const BoxDecoration(
+            color: Voy.surface,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
         child: Form(
           key: _formKey,
@@ -414,20 +588,38 @@ class _CrudFormSheetState extends State<_CrudFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Voy.hairline, borderRadius: BorderRadius.circular(99)))),
+              Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Voy.hairline,
+                          borderRadius: BorderRadius.circular(99)))),
               const SizedBox(height: 14),
-              Text('Add to ${widget.config.title}', style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+              Text('Add to ${widget.config.title}',
+                  style: const TextStyle(
+                      color: Voy.ink,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800)),
               const SizedBox(height: 14),
               for (final f in widget.config.fields)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: TextFormField(
                     controller: _ctrls[f.key],
-                    keyboardType: f.kind == FieldKind.number ? const TextInputType.numberWithOptions(decimal: true) : (f.kind == FieldKind.multiline ? TextInputType.multiline : TextInputType.text),
+                    keyboardType: f.kind == FieldKind.number
+                        ? const TextInputType.numberWithOptions(decimal: true)
+                        : (f.kind == FieldKind.multiline
+                            ? TextInputType.multiline
+                            : TextInputType.text),
                     maxLines: f.kind == FieldKind.multiline ? 3 : 1,
                     style: const TextStyle(color: Voy.ink),
-                    decoration: InputDecoration(labelText: f.label + (f.required ? ' *' : '')),
-                    validator: (v) => (f.required && (v == null || v.trim().isEmpty)) ? 'Required' : null,
+                    decoration: InputDecoration(
+                        labelText: f.label + (f.required ? ' *' : '')),
+                    validator: (v) =>
+                        (f.required && (v == null || v.trim().isEmpty))
+                            ? 'Required'
+                            : null,
                   ),
                 ),
               const SizedBox(height: 4),
@@ -446,13 +638,25 @@ class _CrudFormSheetState extends State<_CrudFormSheet> {
 class CurrencyConverterScreen extends StatefulWidget {
   const CurrencyConverterScreen({super.key});
   @override
-  State<CurrencyConverterScreen> createState() => _CurrencyConverterScreenState();
+  State<CurrencyConverterScreen> createState() =>
+      _CurrencyConverterScreenState();
 }
 
 class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   final _api = ApiService();
   final _amount = TextEditingController(text: '100');
-  static const _currencies = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'JPY', 'AUD', 'CAD', 'THB'];
+  static const _currencies = [
+    'INR',
+    'USD',
+    'EUR',
+    'GBP',
+    'AED',
+    'SGD',
+    'JPY',
+    'AUD',
+    'CAD',
+    'THB'
+  ];
   String _from = 'USD', _to = 'INR';
   String? _result, _rate, _error;
   bool _loading = false;
@@ -480,7 +684,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       setState(() {
         _result = null;
         _rate = null;
-        _error = e is ApiException ? e.message : "Couldn't fetch the exchange rate. Please try again.";
+        _error = e is ApiException
+            ? e.message
+            : "Couldn't fetch the exchange rate. Please try again.";
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -503,36 +709,51 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Voy.bg,
-      appBar: AppBar(backgroundColor: Voy.bg, title: const Text('Currency Converter', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+          backgroundColor: Voy.bg,
+          title: const Text('Currency Converter',
+              style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800))),
       body: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Voy.hairline)),
+              decoration: BoxDecoration(
+                  color: Voy.surface,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Voy.hairline)),
               child: Column(
                 children: [
                   TextField(
                     controller: _amount,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    style: const TextStyle(color: Voy.ink, fontSize: 20, fontWeight: FontWeight.w800),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                        color: Voy.ink,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800),
                     decoration: const InputDecoration(labelText: 'Amount'),
                     onSubmitted: (_) => _convert(),
                   ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      Expanded(child: _dropdown(_from, (v) => setState(() => _from = v))),
+                      Expanded(
+                          child: _dropdown(
+                              _from, (v) => setState(() => _from = v))),
                       IconButton(
                         onPressed: () => setState(() {
                           final t = _from;
                           _from = _to;
                           _to = t;
                         }),
-                        icon: const Icon(Icons.swap_horiz_rounded, color: Voy.brand),
+                        icon: const Icon(Icons.swap_horiz_rounded,
+                            color: Voy.brand),
                       ),
-                      Expanded(child: _dropdown(_to, (v) => setState(() => _to = v))),
+                      Expanded(
+                          child:
+                              _dropdown(_to, (v) => setState(() => _to = v))),
                     ],
                   ),
                   const SizedBox(height: 14),
@@ -540,7 +761,13 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: _loading ? null : _convert,
-                      icon: _loading ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.currency_exchange_rounded, size: 18),
+                      icon: _loading
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.currency_exchange_rounded,
+                              size: 18),
                       label: const Text('Convert'),
                     ),
                   ),
@@ -549,22 +776,31 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             ),
             const SizedBox(height: 20),
             if (_result != null) ...[
-              Text('$_to $_result', style: const TextStyle(color: Voy.ink, fontSize: 34, fontWeight: FontWeight.w800, letterSpacing: -1)),
+              Text('$_to $_result',
+                  style: const TextStyle(
+                      color: Voy.ink,
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -1)),
               const SizedBox(height: 6),
             ],
-            if (_rate != null) Text(_rate!, style: const TextStyle(color: Voy.sub, fontSize: 13)),
+            if (_rate != null)
+              Text(_rate!,
+                  style: const TextStyle(color: Voy.sub, fontSize: 13)),
             if (_error != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 18),
+                    const Icon(Icons.error_outline_rounded,
+                        color: Colors.redAccent, size: 18),
                     const SizedBox(width: 6),
                     Flexible(
                       child: Text(_error!,
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.redAccent, fontSize: 13)),
+                          style: const TextStyle(
+                              color: Colors.redAccent, fontSize: 13)),
                     ),
                   ],
                 ),
@@ -578,14 +814,21 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   Widget _dropdown(String value, ValueChanged<String> onChanged) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(color: Voy.surface2, borderRadius: BorderRadius.circular(12), border: Border.all(color: Voy.hairline)),
+      decoration: BoxDecoration(
+          color: Voy.surface2,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Voy.hairline)),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
           isExpanded: true,
           dropdownColor: Voy.surface,
-          style: const TextStyle(color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700),
-          items: [for (final ccy in _currencies) DropdownMenuItem(value: ccy, child: Text(ccy))],
+          style: const TextStyle(
+              color: Voy.ink, fontSize: 16, fontWeight: FontWeight.w700),
+          items: [
+            for (final ccy in _currencies)
+              DropdownMenuItem(value: ccy, child: Text(ccy))
+          ],
           onChanged: (v) => v == null ? null : onChanged(v),
         ),
       ),
@@ -654,9 +897,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         'currency': _currency,
         'theme': _theme,
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved ✓')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Saved ✓')));
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Save failed: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Save failed: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -666,27 +913,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Voy.bg,
-      appBar: AppBar(backgroundColor: Voy.bg, title: const Text('Profile & Settings', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800))),
+      appBar: AppBar(
+          backgroundColor: Voy.bg,
+          title: const Text('Profile & Settings',
+              style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Voy.brand))
           : ListView(
               padding: const EdgeInsets.all(18),
               children: [
                 _section('Profile'),
-                TextField(controller: _name, style: const TextStyle(color: Voy.ink), decoration: const InputDecoration(labelText: 'Display name')),
+                TextField(
+                    controller: _name,
+                    style: const TextStyle(color: Voy.ink),
+                    decoration:
+                        const InputDecoration(labelText: 'Display name')),
                 const SizedBox(height: 12),
-                TextField(controller: _city, style: const TextStyle(color: Voy.ink), decoration: const InputDecoration(labelText: 'Home city')),
+                TextField(
+                    controller: _city,
+                    style: const TextStyle(color: Voy.ink),
+                    decoration: const InputDecoration(labelText: 'Home city')),
                 const SizedBox(height: 12),
-                TextField(controller: _phone, keyboardType: TextInputType.phone, style: const TextStyle(color: Voy.ink), decoration: const InputDecoration(labelText: 'Phone')),
+                TextField(
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(color: Voy.ink),
+                    decoration: const InputDecoration(labelText: 'Phone')),
                 const SizedBox(height: 22),
                 _section('Preferences'),
-                _pickerRow('Language', _language, const ['en', 'hi', 'kn', 'ta', 'te'], (v) => setState(() => _language = v)),
-                _pickerRow('Currency', _currency, const ['INR', 'USD', 'EUR', 'GBP', 'AED'], (v) => setState(() => _currency = v)),
-                _pickerRow('Theme', _theme, const ['dark', 'light', 'system'], (v) => setState(() => _theme = v)),
+                _pickerRow(
+                    'Language',
+                    _language,
+                    const ['en', 'hi', 'kn', 'ta', 'te'],
+                    (v) => setState(() => _language = v)),
+                _pickerRow(
+                    'Currency',
+                    _currency,
+                    const ['INR', 'USD', 'EUR', 'GBP', 'AED'],
+                    (v) => setState(() => _currency = v)),
+                _pickerRow('Theme', _theme, const ['dark', 'light', 'system'],
+                    (v) => setState(() => _theme = v)),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _saving ? null : _save,
-                  child: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Save changes'),
+                  child: _saving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Text('Save changes'),
                 ),
               ],
             ),
@@ -695,24 +970,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _section(String t) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Text(t.toUpperCase(), style: const TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.w800, letterSpacing: 0.8)),
+        child: Text(t.toUpperCase(),
+            style: const TextStyle(
+                color: Voy.sub,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8)),
       );
 
-  Widget _pickerRow(String label, String value, List<String> options, ValueChanged<String> onChanged) {
+  Widget _pickerRow(String label, String value, List<String> options,
+      ValueChanged<String> onChanged) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w600))),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Voy.ink,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(color: Voy.surface2, borderRadius: BorderRadius.circular(12), border: Border.all(color: Voy.hairline)),
+            decoration: BoxDecoration(
+                color: Voy.surface2,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Voy.hairline)),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
                 value: value,
                 dropdownColor: Voy.surface,
-                style: const TextStyle(color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w700),
-                items: [for (final o in options) DropdownMenuItem(value: o, child: Text(o))],
+                style: const TextStyle(
+                    color: Voy.ink, fontSize: 14, fontWeight: FontWeight.w700),
+                items: [
+                  for (final o in options)
+                    DropdownMenuItem(value: o, child: Text(o))
+                ],
                 onChanged: (v) => v == null ? null : onChanged(v),
               ),
             ),
@@ -777,7 +1070,8 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
       backgroundColor: Voy.bg,
       appBar: AppBar(
         backgroundColor: Voy.bg,
-        title: const Text('Travel Wallet', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
+        title: const Text('Travel Wallet',
+            style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Voy.brand))
@@ -792,7 +1086,11 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                     padding: const EdgeInsets.all(22),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF06B6D4)],
+                        colors: [
+                          Color(0xFF1E3A8A),
+                          Color(0xFF3B82F6),
+                          Color(0xFF06B6D4)
+                        ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -811,24 +1109,48 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('VOYPLAN TRAVEL PASS', style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
+                            const Text('VoyPlan Travel Pass',
+                                style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.2)),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-                              child: const Text('ACTIVE', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: const Text('ACTIVE',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold)),
                             ),
                           ],
                         ),
                         const SizedBox(height: 18),
-                        const Text('Available Budget', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                        const Text('Available Budget',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 13)),
                         const SizedBox(height: 4),
-                        Text('₹${remaining.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 36, fontWeight: FontWeight.w800)),
+                        Text('₹${remaining.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800)),
                         const SizedBox(height: 18),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Spent: ₹${spent.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                            Text('Total: ₹${_budget.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                            Text('Spent: ₹${spent.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600)),
+                            Text('Total: ₹${_budget.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    color: Colors.white70, fontSize: 12)),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -836,8 +1158,12 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: progress,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
-                            valueColor: AlwaysStoppedAnimation<Color>(progress > 0.85 ? Colors.orangeAccent : Colors.white),
+                            backgroundColor:
+                                Colors.white.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                                progress > 0.85
+                                    ? Colors.orangeAccent
+                                    : Colors.white),
                             minHeight: 6,
                           ),
                         ),
@@ -858,17 +1184,29 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(color: Voy.brand.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(14)),
-                          child: const Icon(Icons.toll_rounded, color: Voy.brand, size: 24),
+                          decoration: BoxDecoration(
+                              color: Voy.brand.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(14)),
+                          child: const Icon(Icons.toll_rounded,
+                              color: Voy.brand, size: 24),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('FASTag Toll Balance', style: TextStyle(color: Voy.ink, fontSize: 15, fontWeight: FontWeight.bold)),
+                              const Text('FASTag Toll Balance',
+                                  style: TextStyle(
+                                      color: Voy.ink,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold)),
                               const SizedBox(height: 2),
-                              Text('₹${_fastagBalance.toStringAsFixed(0)} available', style: const TextStyle(color: Voy.success, fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text(
+                                  '₹${_fastagBalance.toStringAsFixed(0)} available',
+                                  style: const TextStyle(
+                                      color: Voy.success,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600)),
                             ],
                           ),
                         ),
@@ -876,16 +1214,23 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Voy.brand,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('FASTag Recharge simulator: +₹500 added!'), behavior: SnackBarBehavior.floating),
+                              const SnackBar(
+                                  content: Text(
+                                      'FASTag Recharge simulator: +₹500 added!'),
+                                  behavior: SnackBarBehavior.floating),
                             );
                             setState(() => _fastagBalance += 500);
                           },
-                          child: const Text('Recharge', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: const Text('Recharge',
+                              style: TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -896,14 +1241,23 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('RECENT EXPENSES', style: TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+                      const Text('RECENT EXPENSES',
+                          style: TextStyle(
+                              color: Voy.sub,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.8)),
                       TextButton.icon(
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('Add Expense'),
                         onPressed: () async {
                           final cfg = configForMenu('expenses');
                           if (cfg != null) {
-                            await Navigator.push(context, MaterialPageRoute(builder: (_) => AccountCrudScreen(config: cfg)));
+                            await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) =>
+                                        AccountCrudScreen(config: cfg)));
                             _load();
                           }
                         },
@@ -915,33 +1269,56 @@ class _TravelWalletScreenState extends State<TravelWalletScreen> {
                     Container(
                       padding: const EdgeInsets.all(28),
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(18), border: Border.all(color: Voy.hairline)),
-                      child: const Text('No expenses recorded yet. Tap "+ Add Expense" to track your trip spending.', textAlign: TextAlign.center, style: TextStyle(color: Voy.sub, fontSize: 13)),
+                      decoration: BoxDecoration(
+                          color: Voy.surface,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: Voy.hairline)),
+                      child: const Text(
+                          'No expenses recorded yet. Tap "+ Add Expense" to track your trip spending.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Voy.sub, fontSize: 13)),
                     )
                   else
                     ..._expenses.take(5).map((e) => Container(
                           margin: const EdgeInsets.only(bottom: 10),
                           padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Voy.hairline)),
+                          decoration: BoxDecoration(
+                              color: Voy.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Voy.hairline)),
                           child: Row(
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(color: Voy.amber.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                                child: const Icon(Icons.receipt_long_rounded, color: Voy.amber, size: 20),
+                                decoration: BoxDecoration(
+                                    color: Voy.amber.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10)),
+                                child: const Icon(Icons.receipt_long_rounded,
+                                    color: Voy.amber, size: 20),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('${e['category'] ?? 'Expense'}', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 14)),
-                                    if (e['note'] != null && e['note'].toString().isNotEmpty)
-                                      Text('${e['note']}', style: const TextStyle(color: Voy.sub, fontSize: 12)),
+                                    Text('${e['category'] ?? 'Expense'}',
+                                        style: const TextStyle(
+                                            color: Voy.ink,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
+                                    if (e['note'] != null &&
+                                        e['note'].toString().isNotEmpty)
+                                      Text('${e['note']}',
+                                          style: const TextStyle(
+                                              color: Voy.sub, fontSize: 12)),
                                   ],
                                 ),
                               ),
-                              Text('₹${e['amount'] ?? '0'}', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15)),
+                              Text('₹${e['amount'] ?? '0'}',
+                                  style: const TextStyle(
+                                      color: Voy.ink,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15)),
                             ],
                           ),
                         )),
@@ -964,7 +1341,8 @@ class HelpSupportScreen extends StatelessWidget {
       backgroundColor: Voy.bg,
       appBar: AppBar(
         backgroundColor: Voy.bg,
-        title: const Text('Help & Support', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
+        title: const Text('Help & Support',
+            style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(18),
@@ -985,9 +1363,14 @@ class HelpSupportScreen extends StatelessWidget {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.emergency_rounded, color: Colors.white, size: 22),
+                    Icon(Icons.emergency_rounded,
+                        color: Colors.white, size: 22),
                     SizedBox(width: 8),
-                    Text('24x7 Roadside & Emergency Helplines', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    Text('24x7 Roadside & Emergency Helplines',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -1001,22 +1384,27 @@ class HelpSupportScreen extends StatelessWidget {
           const SizedBox(height: 24),
 
           // FAQs
-          const Text('FREQUENTLY ASKED QUESTIONS', style: TextStyle(color: Voy.sub, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 0.8)),
+          const Text('FREQUENTLY ASKED QUESTIONS',
+              style: TextStyle(
+                  color: Voy.sub,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8)),
           const SizedBox(height: 12),
           _faqTile(
-            'How does Voyplan calculate FASTag toll costs?',
-            'Voyplan queries live NHAI plaza fee schedules along your specific route and vehicle class (Car, SUV, Bus, Truck, Motorcycle).',
+            'How does VoyPlan calculate FASTag toll costs?',
+            'VoyPlan queries live NHAI plaza fee schedules along your specific route and vehicle class (Car, SUV, Bus, Truck, Motorcycle).',
           ),
           _faqTile(
             'How do Live Activities & Dynamic Island work?',
-            'When you start a trip, Voyplan streams real-time vehicle movement, intermediate stops, distance remaining, and turn guidance directly to your iPhone Lock Screen and Dynamic Island.',
+            'When you start a trip, VoyPlan streams real-time vehicle movement, intermediate stops, distance remaining, and turn guidance directly to your iPhone Lock Screen and Dynamic Island.',
           ),
           _faqTile(
             'How do I add stop points along my route?',
             'In the Trip Planner, tap "+ Add Stop" to insert waypoints, fuel stations, dining, or scenic viewpoints. They are tracked live throughout your journey.',
           ),
           _faqTile(
-            'Does Voyplan work offline?',
+            'Does VoyPlan work offline?',
             'Yes! Your planned routes, downloaded itineraries, and trip history are automatically cached locally on your device.',
           ),
           const SizedBox(height: 24),
@@ -1031,18 +1419,27 @@ class HelpSupportScreen extends StatelessWidget {
             ),
             child: Column(
               children: [
-                const Icon(Icons.support_agent_rounded, size: 36, color: Voy.brand),
+                const Icon(Icons.support_agent_rounded,
+                    size: 36, color: Voy.brand),
                 const SizedBox(height: 10),
-                const Text('Need further assistance?', style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('Need further assistance?',
+                    style: TextStyle(
+                        color: Voy.ink,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16)),
                 const SizedBox(height: 4),
-                const Text('Our travel operations team is ready to assist you.', style: TextStyle(color: Voy.sub, fontSize: 13)),
+                const Text('Our travel operations team is ready to assist you.',
+                    style: TextStyle(color: Voy.sub, fontSize: 13)),
                 const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Support request submitted! We will email you shortly.'), behavior: SnackBarBehavior.floating),
+                        const SnackBar(
+                            content: Text(
+                                'Support request submitted! We will email you shortly.'),
+                            behavior: SnackBarBehavior.floating),
                       );
                     },
                     icon: const Icon(Icons.mail_outline_rounded),
@@ -1062,24 +1459,36 @@ class HelpSupportScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(title, style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            Text(number, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            Text(title,
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text(number,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14)),
           ],
         ),
       );
 
   static Widget _faqTile(String question, String answer) => Container(
         margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(color: Voy.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: Voy.hairline)),
+        decoration: BoxDecoration(
+            color: Voy.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Voy.hairline)),
         child: ExpansionTile(
           shape: const Border(),
           iconColor: Voy.brand,
           collapsedIconColor: Voy.sub,
-          title: Text(question, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600, fontSize: 14)),
+          title: Text(question,
+              style: const TextStyle(
+                  color: Voy.ink, fontWeight: FontWeight.w600, fontSize: 14)),
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Text(answer, style: const TextStyle(color: Voy.sub, fontSize: 13, height: 1.4)),
+              child: Text(answer,
+                  style: const TextStyle(
+                      color: Voy.sub, fontSize: 13, height: 1.4)),
             ),
           ],
         ),

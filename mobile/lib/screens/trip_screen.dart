@@ -52,11 +52,14 @@ class TripScreen extends StatefulWidget {
   final Vehicle vehicle;
   final Map<String, List<PlaceOfInterest>>? initialPois;
   final bool isEmbedded;
+
   /// Optional finer-grained key for choosing the 3D model (e.g. 'scooter' vs the
   /// generic 'motorcycle'). Falls back to [vehicle].type when null.
   final String? modelSubtype;
+
   /// Number of travellers, used to split the trip cost. Defaults to 1.
   final int travellers;
+
   /// For reopened saved trips: the stored start date/time and AI itinerary,
   /// forwarded to the itinerary screen so it reloads exactly as saved.
   final DateTime? initialTripStart;
@@ -102,7 +105,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   final VoiceGuide _voice = VoiceGuide();
   final Distance _distance = const Distance();
   bool _voiceMuted = false;
-  
+
   final MapController _mapController = MapController();
   bool _isPlayingAnimation = false;
   bool _isPreviewMode = false;
@@ -142,7 +145,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   final Map<String, String> _resolvedAddresses = {};
   final Set<String> _requestedAddresses = {};
   final _api = ApiService();
-  
+
   late TripPlan _currentPlan;
   late List<GeoPoint> _currentWaypoints;
   late Vehicle _currentVehicle;
@@ -169,9 +172,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _splitCount = widget.travellers < 1 ? 1 : widget.travellers;
 
     // Initialize unified trip expense & tracking service
-    final tripId = 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}';
-    final bool isRound = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
-        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+    final tripId =
+        'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}';
+    final bool isRound = widget.startAddress.toLowerCase().trim() ==
+            widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng),
+                LatLng(widget.end.lat, widget.end.lng)) <
+            0.005);
     TripExpenseService.instance.initTrip(
       tripId: tripId,
       plan: _currentPlan,
@@ -184,15 +191,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Log calculated fuel stops for live navigation verification
     if (_currentPlan.fuel.refuelStops.isNotEmpty) {
-      debugPrint('[FUEL] Stop calculated: ${_currentPlan.fuel.refuelStops.length} stop(s)');
+      debugPrint(
+          '[FUEL] Stop calculated: ${_currentPlan.fuel.refuelStops.length} stop(s)');
       for (final fs in _currentPlan.fuel.refuelStops) {
-        debugPrint('[FUEL] Marker coordinates: lat=${fs.lat}, lng=${fs.lng}, name=${fs.name}');
+        debugPrint(
+            '[FUEL] Marker coordinates: lat=${fs.lat}, lng=${fs.lng}, name=${fs.name}');
       }
     }
-    bool hasAllCategories = widget.initialPois != null && widget.initialPois!.isNotEmpty;
+    bool hasAllCategories =
+        widget.initialPois != null && widget.initialPois!.isNotEmpty;
     if (hasAllCategories) {
       for (final cat in widget.poiCategories) {
-        if (!widget.initialPois!.containsKey(cat) || widget.initialPois![cat] == null) {
+        if (!widget.initialPois!.containsKey(cat) ||
+            widget.initialPois![cat] == null) {
           hasAllCategories = false;
           break;
         }
@@ -234,7 +245,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _positionStream?.cancel();
     _voice.dispose();
     _mapController.dispose();
-    TripNotificationService.instance.end(); // never leave a stale trip notification
+    TripNotificationService.instance
+        .end(); // never leave a stale trip notification
     // Restore normal orientation/chrome if we left while in Car Mode.
     if (_isCarMode && !kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -251,7 +263,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _currentWaypoints = List.from(widget.waypoints);
     }
     // If new initialPois are provided, use them without re-fetching
-    if (widget.initialPois != null && widget.initialPois != oldWidget.initialPois) {
+    if (widget.initialPois != null &&
+        widget.initialPois != oldWidget.initialPois) {
       setState(() {
         _pois = widget.initialPois!;
         _loadingPOIs = false;
@@ -297,7 +310,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Login Required'),
-          content: const Text('You must be logged in to save trips. Please sign in from the main menu.'),
+          content: const Text(
+              'You must be logged in to save trips. Please sign in from the main menu.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -375,7 +389,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   void _shareTrip() async {
     final hours = _currentPlan.durationMin ~/ 60;
     final minutes = _currentPlan.durationMin % 60;
-    
+
     final StringBuffer sb = StringBuffer();
     sb.writeln('🚗 Road Trip Plan!');
     sb.writeln('From: ${widget.startAddress}');
@@ -399,16 +413,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     sb.writeln('\nCreated with Travel Planner App 🌍');
 
     try {
-      await Share.share(sb.toString(), subject: 'My Trip to ${widget.endAddress}');
+      await Share.share(sb.toString(),
+          subject: 'My Trip to ${widget.endAddress}');
     } catch (e) {
       if (mounted) {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Share Unavailable'),
-            content: Text('Sharing is not supported on this browser or device. Error: $e'),
+            content: Text(
+                'Sharing is not supported on this browser or device. Error: $e'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
             ],
           ),
         );
@@ -421,9 +438,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Add Stop?'),
-        content: Text('Do you want to add ${place.name} as a stop on your route?'),
+        content:
+            Text('Do you want to add ${place.name} as a stop on your route?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
@@ -442,20 +461,23 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     });
 
     try {
-      final newWaypoint = GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
-      
+      final newWaypoint =
+          GeoPoint(lat: place.lat, lng: place.lng, name: place.name);
+
       final routeNodes = [widget.start, ..._currentWaypoints, widget.end];
       int bestIndex = 0;
       double minDetour = double.infinity;
-      
+
       double _dist(GeoPoint p1, GeoPoint p2) {
-        return const Distance().as(LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
+        return const Distance().as(
+            LengthUnit.Meter, LatLng(p1.lat, p1.lng), LatLng(p2.lat, p2.lng));
       }
 
       for (int i = 0; i < routeNodes.length - 1; i++) {
         final p1 = routeNodes[i];
         final p2 = routeNodes[i + 1];
-        final detour = _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
+        final detour =
+            _dist(p1, newWaypoint) + _dist(newWaypoint, p2) - _dist(p1, p2);
         if (detour < minDetour) {
           minDetour = detour;
           bestIndex = i;
@@ -495,15 +517,31 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// Human-friendly "Today · 9:30 AM" / "Thu, 24 Jul · 9:30 AM".
   String _formatTripStart(DateTime d) {
     const wd = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const mo = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const mo = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
     final ampm = d.hour < 12 ? 'AM' : 'PM';
     var h = d.hour % 12;
     if (h == 0) h = 12;
     final mm = d.minute.toString().padLeft(2, '0');
     final now = DateTime.now();
-    final isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+    final isToday =
+        d.year == now.year && d.month == now.month && d.day == now.day;
     final tomorrow = now.add(const Duration(days: 1));
-    final isTomorrow = d.year == tomorrow.year && d.month == tomorrow.month && d.day == tomorrow.day;
+    final isTomorrow = d.year == tomorrow.year &&
+        d.month == tomorrow.month &&
+        d.day == tomorrow.day;
     final datePart = isToday
         ? 'Today'
         : isTomorrow
@@ -529,7 +567,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       initialTime: TimeOfDay.fromDateTime(_tripStart),
     );
     if (time == null || !mounted) return;
-    final picked = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final picked =
+        DateTime(date.year, date.month, date.day, time.hour, time.minute);
     setState(() => _tripStart = picked);
     await _refreshForDeparture();
   }
@@ -586,19 +625,32 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Trip start',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55), fontWeight: FontWeight.w600)),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.55),
+                            fontWeight: FontWeight.w600)),
                     const SizedBox(height: 2),
                     Text(_formatTripStart(_tripStart),
-                        style: const TextStyle(fontSize: 14, color: Colors.white, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600)),
                   ],
                 ),
               ),
               if (_recalculating)
-                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2))
               else
                 Row(
                   children: const [
-                    Text('Edit', style: TextStyle(fontSize: 12, color: Color(0xFF9AD0EC), fontWeight: FontWeight.w600)),
+                    Text('Edit',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Color(0xFF9AD0EC),
+                            fontWeight: FontWeight.w600)),
                     SizedBox(width: 4),
                     Icon(Icons.edit, size: 14, color: Color(0xFF9AD0EC)),
                   ],
@@ -612,8 +664,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final fullRoutePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
-    
+    final fullRoutePoints =
+        _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+
     // Mathematically calculate initial center and zoom to bypass layout race conditions
     LatLng mapCenter = const LatLng(20.5937, 78.9629);
     double mapZoom = 4.5;
@@ -623,11 +676,21 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       final midLat = lats.reduce((a, b) => a + b) / lats.length;
       final midLng = lngs.reduce((a, b) => a + b) / lngs.length;
       mapCenter = LatLng(midLat, midLng);
-      
-      final latSpan = lats.reduce((a, b) => a > b ? a : b) - lats.reduce((a, b) => a < b ? a : b);
-      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) - lngs.reduce((a, b) => a < b ? a : b);
+
+      final latSpan = lats.reduce((a, b) => a > b ? a : b) -
+          lats.reduce((a, b) => a < b ? a : b);
+      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) -
+          lngs.reduce((a, b) => a < b ? a : b);
       final span = latSpan > lngSpan ? latSpan : lngSpan;
-      mapZoom = span < 0.5 ? 12.0 : span < 2 ? 9.0 : span < 5 ? 7.0 : span < 10 ? 5.5 : 4.5;
+      mapZoom = span < 0.5
+          ? 12.0
+          : span < 2
+              ? 9.0
+              : span < 5
+                  ? 7.0
+                  : span < 10
+                      ? 5.5
+                      : 4.5;
     }
 
     // During the simulated preview we draw a growing trail; during live GPS
@@ -651,7 +714,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             useSatellite: true,
             vehicleType: widget.modelSubtype ?? widget.vehicle.type,
             animatedVehiclePosition: _animatedVehiclePosition != null
-                ? GeoPoint(lat: _animatedVehiclePosition!.latitude, lng: _animatedVehiclePosition!.longitude)
+                ? GeoPoint(
+                    lat: _animatedVehiclePosition!.latitude,
+                    lng: _animatedVehiclePosition!.longitude)
                 : null,
             vehicleRotation: _vehicleRotation,
             speed: _currentSpeedModifier,
@@ -694,7 +759,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               ),
               PolylineLayer(
                 polylines: [
-                  if (_isLiveNavigating && _animatedVehiclePosition != null && fullRoutePoints.isNotEmpty) ...[
+                  if (_isLiveNavigating &&
+                      _animatedVehiclePosition != null &&
+                      fullRoutePoints.isNotEmpty) ...[
                     // Traveled route (behind vehicle)
                     if (_animationIndex > 0)
                       Polyline(
@@ -721,7 +788,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       points: routePoints.length > 200
                           ? PolylineSimplifier.simplify(
                               routePoints,
-                              PolylineSimplifier.epsilonForZoom(_mapController.camera.zoom),
+                              PolylineSimplifier.epsilonForZoom(
+                                  _mapController.camera.zoom),
                             )
                           : routePoints,
                       strokeWidth: 6.0,
@@ -756,13 +824,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     if (widget.isEmbedded) {
-      return _buildMapStackWithOverlays(mapWidget, topPadding: 24.0, rightPadding: 24.0);
+      return _buildMapStackWithOverlays(mapWidget,
+          topPadding: 24.0, rightPadding: 24.0);
     }
 
     final appBarWidget = AppBar(
       title: Text(
         '${widget.start.name ?? widget.startAddress} → ${widget.end.name ?? widget.endAddress}',
-        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 17),
+        style: const TextStyle(
+            fontWeight: FontWeight.bold, color: Colors.white, fontSize: 17),
         overflow: TextOverflow.ellipsis,
       ),
       backgroundColor: const Color(0xFF0B0F1A),
@@ -773,34 +843,46 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           const Center(
             child: Padding(
               padding: EdgeInsets.all(16.0),
-              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2)),
             ),
           )
         else ...[
           IconButton(
-            icon: const Icon(Icons.history_rounded, color: Colors.white, size: 22),
+            icon: const Icon(Icons.history_rounded,
+                color: Colors.white, size: 22),
             tooltip: 'Trip History',
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const TripHistoryScreen()),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.ios_share_rounded, color: Colors.white, size: 22),
+            icon: const Icon(Icons.ios_share_rounded,
+                color: Colors.white, size: 22),
             tooltip: 'Share Trip',
             onPressed: _shareTrip,
           ),
           IconButton(
-            icon: Icon(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_border_rounded, color: Colors.white, size: 22),
+            icon: Icon(
+                _saving
+                    ? Icons.hourglass_top_rounded
+                    : Icons.bookmark_border_rounded,
+                color: Colors.white,
+                size: 22),
             tooltip: 'Save Trip',
             onPressed: _saveTrip,
           ),
           IconButton(
-            icon: const Icon(Icons.event_note_rounded, color: Colors.white, size: 22),
+            icon: const Icon(Icons.event_note_rounded,
+                color: Colors.white, size: 22),
             tooltip: 'Itinerary',
             onPressed: _openItinerary,
           ),
           IconButton(
-            icon: const Icon(Icons.dashboard_customize_rounded, color: Colors.white, size: 22),
+            icon: const Icon(Icons.dashboard_customize_rounded,
+                color: Colors.white, size: 22),
             tooltip: 'Workspace',
             onPressed: _openWorkspace,
           ),
@@ -819,14 +901,20 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               width: 420,
               decoration: BoxDecoration(
                 color: const Color(0xFF1A1F2E),
-                border: Border(right: BorderSide(color: Colors.white.withOpacity(0.08))),
+                border: Border(
+                    right: BorderSide(color: Colors.white.withOpacity(0.08))),
               ),
               child: Column(
                 children: [
                   const SizedBox(height: 20),
                   _buildOverviewSpeedAndProgress(),
                   const SizedBox(height: 12),
-                  _SummaryCard(plan: _currentPlan, vehicle: widget.vehicle, locationName: widget.start.name ?? widget.startAddress, destination: widget.end.name ?? widget.endAddress, tripStart: _tripStart),
+                  _SummaryCard(
+                      plan: _currentPlan,
+                      vehicle: widget.vehicle,
+                      locationName: widget.start.name ?? widget.startAddress,
+                      destination: widget.end.name ?? widget.endAddress,
+                      tripStart: _tripStart),
                   const SizedBox(height: 12),
                   _buildStartButton(),
                   const SizedBox(height: 12),
@@ -838,7 +926,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   const SizedBox(height: 12),
                   _buildTripToolkit(),
                   const SizedBox(height: 8),
-                  const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
+                  const Divider(
+                      color: Colors.white24,
+                      thickness: 1,
+                      indent: 24,
+                      endIndent: 24),
                   const SizedBox(height: 8),
                   Expanded(
                     child: _loadingPOIs
@@ -850,7 +942,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
             // Right side: Map
             Expanded(
-              child: _buildMapStackWithOverlays(mapWidget, topPadding: 24.0, rightPadding: 24.0),
+              child: _buildMapStackWithOverlays(mapWidget,
+                  topPadding: 24.0, rightPadding: 24.0),
             ),
           ],
         ),
@@ -862,7 +955,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (_isPlayingAnimation) {
       return Scaffold(
         backgroundColor: const Color(0xFF0B0F1A),
-        body: _buildMapStackWithOverlays(mapWidget, topPadding: MediaQuery.of(context).padding.top + 8.0, rightPadding: 16.0),
+        body: _buildMapStackWithOverlays(mapWidget,
+            topPadding: MediaQuery.of(context).padding.top + 8.0,
+            rightPadding: 16.0),
       );
     }
 
@@ -901,7 +996,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               const SizedBox(height: 12),
               _buildTripToolkit(),
               const SizedBox(height: 12),
-              const Divider(color: Colors.white24, thickness: 1, indent: 24, endIndent: 24),
+              const Divider(
+                  color: Colors.white24,
+                  thickness: 1,
+                  indent: 24,
+                  endIndent: 24),
               const SizedBox(height: 8),
               if (_loadingPOIs)
                 const Padding(
@@ -939,7 +1038,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: const Color(0xFF10B981).withOpacity(0.18),
               borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+              border:
+                  Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
             ),
             child: Row(
               children: [
@@ -968,7 +1068,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     color: const Color(0xFFEF4444),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(Icons.stop_rounded, color: Colors.white, size: 14),
+                  child: const Icon(Icons.stop_rounded,
+                      color: Colors.white, size: 14),
                 ),
               ],
             ),
@@ -980,11 +1081,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: const Color(0xFFF59E0B).withOpacity(0.2),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.6)),
+                border:
+                    Border.all(color: const Color(0xFFF59E0B).withOpacity(0.6)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 16),
+                  const Icon(Icons.local_gas_station_rounded,
+                      color: Color(0xFFF59E0B), size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1011,7 +1114,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   Widget _buildOverviewSpeedAndProgress() {
     final hours = _currentPlan.durationMin ~/ 60;
     final mins = _currentPlan.durationMin % 60;
-    final durationText = hours > 0 ? '${hours}h ${mins}m left' : '${mins} min left';
+    final durationText =
+        hours > 0 ? '${hours}h ${mins}m left' : '${mins} min left';
     final etaText = _formatEta(_currentPlan.durationMin);
 
     return Padding(
@@ -1038,11 +1142,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1A1F2E),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withOpacity(0.12)),
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.12)),
                       ),
                       child: Text(
                         '$_displaySpeedKmh km/h',
@@ -1068,9 +1174,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 ClipRRect(
                   borderRadius: BorderRadius.circular(3),
                   child: LinearProgressIndicator(
-                    value: _tripProgressPercent > 0 ? _tripProgressPercent : 0.05,
+                    value:
+                        _tripProgressPercent > 0 ? _tripProgressPercent : 0.05,
                     backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
                     minHeight: 4,
                   ),
                 ),
@@ -1091,13 +1199,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         icon: const Icon(Icons.play_arrow_rounded, size: 26),
         label: const Text(
           'Start',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF2563EB),
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 54),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 4,
           shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
         ),
@@ -1115,7 +1225,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            Widget buildStyleCard(MapStyle style, String title, IconData icon, String description) {
+            Widget buildStyleCard(MapStyle style, String title, IconData icon,
+                String description) {
               final isSelected = _mapStyle == style;
               return Expanded(
                 child: GestureDetector(
@@ -1128,12 +1239,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   },
                   child: Container(
                     margin: const EdgeInsets.symmetric(horizontal: 6),
-                    padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFF2E75B6).withOpacity(0.15) : Colors.white.withOpacity(0.04),
+                      color: isSelected
+                          ? const Color(0xFF2E75B6).withOpacity(0.15)
+                          : Colors.white.withOpacity(0.04),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: isSelected ? const Color(0xFF2E75B6) : Colors.white.withOpacity(0.1),
+                        color: isSelected
+                            ? const Color(0xFF2E75B6)
+                            : Colors.white.withOpacity(0.1),
                         width: isSelected ? 2.0 : 1.0,
                       ),
                     ),
@@ -1142,7 +1258,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       children: [
                         Icon(
                           icon,
-                          color: isSelected ? const Color(0xFF2E75B6) : Colors.white70,
+                          color: isSelected
+                              ? const Color(0xFF2E75B6)
+                              : Colors.white70,
                           size: 32,
                         ),
                         const SizedBox(height: 10),
@@ -1150,7 +1268,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                           title,
                           style: TextStyle(
                             color: Colors.white,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                             fontSize: 13,
                           ),
                           textAlign: TextAlign.center,
@@ -1280,7 +1400,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             color: const Color(0xFFF59E0B),
             shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.3), width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: const Color(0xFFF59E0B).withOpacity(0.4),
@@ -1315,7 +1436,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               ),
               child: Text(
                 '$count',
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ),
@@ -1345,7 +1469,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               ),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E1E1E),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
                 border: Border.all(color: Colors.white.withOpacity(0.1)),
               ),
               child: Column(
@@ -1368,11 +1493,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.alt_route_rounded, color: Color(0xFFF59E0B), size: 22),
+                          Icon(Icons.alt_route_rounded,
+                              color: Color(0xFFF59E0B), size: 22),
                           SizedBox(width: 8),
                           Text(
                             'Trip Stops & Places',
-                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -1395,16 +1524,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       controller: searchCtrl,
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
-                        hintText: 'Search city, fuel pump, or restaurant to add...',
-                        hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
-                        prefixIcon: const Icon(Icons.search, color: Color(0xFFF59E0B)),
+                        hintText:
+                            'Search city, fuel pump, or restaurant to add...',
+                        hintStyle: const TextStyle(
+                            color: Colors.white38, fontSize: 13),
+                        prefixIcon:
+                            const Icon(Icons.search, color: Color(0xFFF59E0B)),
                         suffixIcon: searching
                             ? const Padding(
                                 padding: EdgeInsets.all(12),
-                                child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFF59E0B))),
+                                child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFFF59E0B))),
                               )
                             : IconButton(
-                                icon: const Icon(Icons.arrow_forward, color: Color(0xFFF59E0B)),
+                                icon: const Icon(Icons.arrow_forward,
+                                    color: Color(0xFFF59E0B)),
                                 onPressed: () async {
                                   final q = searchCtrl.text.trim();
                                   if (q.isEmpty) return;
@@ -1429,7 +1567,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                 },
                               ),
                         border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                       ),
                       onSubmitted: (val) async {
                         final q = val.trim();
@@ -1462,15 +1601,45 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        _categoryChip('⛽ Fuel', 'fuel', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        _categoryChip(
+                            '⛽ Fuel',
+                            'fuel',
+                            setSheetState,
+                            () => searching,
+                            (v) => setSheetState(() => searching = v),
+                            (p) => setSheetState(() => searchResults = p)),
                         const SizedBox(width: 8),
-                        _categoryChip('🍽️ Food', 'restaurant', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        _categoryChip(
+                            '🍽️ Food',
+                            'restaurant',
+                            setSheetState,
+                            () => searching,
+                            (v) => setSheetState(() => searching = v),
+                            (p) => setSheetState(() => searchResults = p)),
                         const SizedBox(width: 8),
-                        _categoryChip('📸 Sights', 'attraction', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        _categoryChip(
+                            '📸 Sights',
+                            'attraction',
+                            setSheetState,
+                            () => searching,
+                            (v) => setSheetState(() => searching = v),
+                            (p) => setSheetState(() => searchResults = p)),
                         const SizedBox(width: 8),
-                        _categoryChip('🏨 Hotels', 'hotel', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        _categoryChip(
+                            '🏨 Hotels',
+                            'hotel',
+                            setSheetState,
+                            () => searching,
+                            (v) => setSheetState(() => searching = v),
+                            (p) => setSheetState(() => searchResults = p)),
                         const SizedBox(width: 8),
-                        _categoryChip('🛕 Temples', 'temple', setSheetState, () => searching, (v) => setSheetState(() => searching = v), (p) => setSheetState(() => searchResults = p)),
+                        _categoryChip(
+                            '🛕 Temples',
+                            'temple',
+                            setSheetState,
+                            () => searching,
+                            (v) => setSheetState(() => searching = v),
+                            (p) => setSheetState(() => searchResults = p)),
                       ],
                     ),
                   ),
@@ -1483,24 +1652,46 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                             itemCount: searchResults.length,
                             itemBuilder: (context, idx) {
                               final poi = searchResults[idx];
-                              final temple = TempleDatabase.findTemple(poi.name);
-                              final isTemple = temple != null || poi.name.toLowerCase().contains('temple') || poi.name.toLowerCase().contains('swamy') || poi.name.toLowerCase().contains('kovil') || poi.name.toLowerCase().contains('gudi') || poi.name.toLowerCase().contains('mandir');
+                              final temple =
+                                  TempleDatabase.findTemple(poi.name);
+                              final isTemple = temple != null ||
+                                  poi.name.toLowerCase().contains('temple') ||
+                                  poi.name.toLowerCase().contains('swamy') ||
+                                  poi.name.toLowerCase().contains('kovil') ||
+                                  poi.name.toLowerCase().contains('gudi') ||
+                                  poi.name.toLowerCase().contains('mandir');
 
-                              final cleanName = temple?.canonicalName ?? poi.name;
-                              final rating = temple?.rating ?? poi.rating ?? (isTemple ? 4.7 : 4.5);
+                              final cleanName =
+                                  temple?.canonicalName ?? poi.name;
+                              final rating = temple?.rating ??
+                                  poi.rating ??
+                                  (isTemple ? 4.7 : 4.5);
                               final deity = temple?.deity ?? poi.deity;
-                              final timing = temple?.timing ?? poi.timing ?? (isTemple ? 'Opens 5:00 AM · Closes 9:00 PM' : null);
-                              final highlights = temple?.highlights ?? poi.highlights;
-                              final categoryLabel = temple?.categoryType ?? poi.categoryType ?? (isTemple ? '🛕 Hindu temple' : '📍 Landmark');
+                              final timing = temple?.timing ??
+                                  poi.timing ??
+                                  (isTemple
+                                      ? 'Opens 5:00 AM · Closes 9:00 PM'
+                                      : null);
+                              final highlights =
+                                  temple?.highlights ?? poi.highlights;
+                              final categoryLabel = temple?.categoryType ??
+                                  poi.categoryType ??
+                                  (isTemple
+                                      ? '🛕 Hindu temple'
+                                      : '📍 Landmark');
 
                               return Container(
                                 margin: const EdgeInsets.only(bottom: 10),
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B).withOpacity(0.8),
+                                  color:
+                                      const Color(0xFF1E293B).withOpacity(0.8),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.35) : Colors.white10,
+                                    color: isTemple
+                                        ? const Color(0xFFF59E0B)
+                                            .withOpacity(0.35)
+                                        : Colors.white10,
                                   ),
                                 ),
                                 child: Column(
@@ -1511,45 +1702,85 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                         Container(
                                           padding: const EdgeInsets.all(8),
                                           decoration: BoxDecoration(
-                                            color: isTemple ? const Color(0xFFF59E0B).withOpacity(0.15) : const Color(0xFF2E75B6).withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(10),
+                                            color: isTemple
+                                                ? const Color(0xFFF59E0B)
+                                                    .withOpacity(0.15)
+                                                : const Color(0xFF2E75B6)
+                                                    .withOpacity(0.15),
+                                            borderRadius:
+                                                BorderRadius.circular(10),
                                           ),
-                                          child: Text(isTemple ? '🛕' : '📍', style: const TextStyle(fontSize: 18)),
+                                          child: Text(isTemple ? '🛕' : '📍',
+                                              style: const TextStyle(
+                                                  fontSize: 18)),
                                         ),
                                         const SizedBox(width: 10),
                                         Expanded(
                                           child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text(
                                                 cleanName,
-                                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14),
                                               ),
                                               const SizedBox(height: 3),
                                               Row(
                                                 children: [
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                                    padding: const EdgeInsets
+                                                        .symmetric(
+                                                        horizontal: 5,
+                                                        vertical: 1.5),
                                                     decoration: BoxDecoration(
-                                                      color: const Color(0xFFF59E0B).withOpacity(0.2),
-                                                      borderRadius: BorderRadius.circular(5),
+                                                      color: const Color(
+                                                              0xFFF59E0B)
+                                                          .withOpacity(0.2),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              5),
                                                     ),
                                                     child: Row(
-                                                      mainAxisSize: MainAxisSize.min,
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
                                                       children: [
-                                                        const Icon(Icons.star, color: Color(0xFFF59E0B), size: 11),
-                                                        const SizedBox(width: 2),
+                                                        const Icon(Icons.star,
+                                                            color: Color(
+                                                                0xFFF59E0B),
+                                                            size: 11),
+                                                        const SizedBox(
+                                                            width: 2),
                                                         Text(
                                                           '$rating',
-                                                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 10.5, fontWeight: FontWeight.bold),
+                                                          style: const TextStyle(
+                                                              color: Color(
+                                                                  0xFFF59E0B),
+                                                              fontSize: 10.5,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold),
                                                         ),
                                                       ],
                                                     ),
                                                   ),
                                                   const SizedBox(width: 6),
-                                                  Text(categoryLabel, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 10.5)),
+                                                  Text(categoryLabel,
+                                                      style: TextStyle(
+                                                          color: Colors.white
+                                                              .withOpacity(0.7),
+                                                          fontSize: 10.5)),
                                                   const SizedBox(width: 6),
-                                                  Text('Open', style: TextStyle(color: Colors.greenAccent.shade400, fontSize: 10.5, fontWeight: FontWeight.w600)),
+                                                  Text('Open',
+                                                      style: TextStyle(
+                                                          color: Colors
+                                                              .greenAccent
+                                                              .shade400,
+                                                          fontSize: 10.5,
+                                                          fontWeight:
+                                                              FontWeight.w600)),
                                                 ],
                                               ),
                                             ],
@@ -1557,13 +1788,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                         ),
                                         ElevatedButton.icon(
                                           style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xFFF59E0B),
+                                            backgroundColor:
+                                                const Color(0xFFF59E0B),
                                             foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 10, vertical: 7),
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(8)),
                                           ),
-                                          icon: const Icon(Icons.add_location_alt, size: 15),
-                                          label: const Text('Add Stop', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                          icon: const Icon(
+                                              Icons.add_location_alt,
+                                              size: 15),
+                                          label: const Text('Add Stop',
+                                              style: TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.bold)),
                                           onPressed: () {
                                             Navigator.pop(ctx);
                                             _addStopAndRecalculate(poi);
@@ -1575,35 +1815,55 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                       const SizedBox(height: 5),
                                       Text(
                                         'Deity: $deity',
-                                        style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11.5, fontWeight: FontWeight.w500),
+                                        style: const TextStyle(
+                                            color: Color(0xFFFBBF24),
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w500),
                                       ),
                                     ],
-                                    if (timing != null && timing.isNotEmpty) ...[
+                                    if (timing != null &&
+                                        timing.isNotEmpty) ...[
                                       const SizedBox(height: 3),
                                       Row(
                                         children: [
-                                          Icon(Icons.access_time, size: 11, color: Colors.white.withOpacity(0.6)),
+                                          Icon(Icons.access_time,
+                                              size: 11,
+                                              color: Colors.white
+                                                  .withOpacity(0.6)),
                                           const SizedBox(width: 4),
-                                          Text(timing, style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 10.5)),
+                                          Text(timing,
+                                              style: TextStyle(
+                                                  color: Colors.white
+                                                      .withOpacity(0.65),
+                                                  fontSize: 10.5)),
                                         ],
                                       ),
                                     ],
-                                    if (highlights != null && highlights.isNotEmpty) ...[
+                                    if (highlights != null &&
+                                        highlights.isNotEmpty) ...[
                                       const SizedBox(height: 3),
                                       Text(
                                         'Highlights: $highlights',
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.white.withOpacity(0.75), fontSize: 10.5, fontStyle: FontStyle.italic),
+                                        style: TextStyle(
+                                            color:
+                                                Colors.white.withOpacity(0.75),
+                                            fontSize: 10.5,
+                                            fontStyle: FontStyle.italic),
                                       ),
                                     ],
-                                    if (poi.address != null && poi.address!.isNotEmpty) ...[
+                                    if (poi.address != null &&
+                                        poi.address!.isNotEmpty) ...[
                                       const SizedBox(height: 3),
                                       Text(
                                         poi.address!,
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.white.withOpacity(0.45), fontSize: 10),
+                                        style: TextStyle(
+                                            color:
+                                                Colors.white.withOpacity(0.45),
+                                            fontSize: 10),
                                       ),
                                     ],
                                   ],
@@ -1614,23 +1874,29 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                         : ListView(
                             children: [
                               // Start Node
-                              _stopRowItem('Start', widget.startAddress, isStart: true),
+                              _stopRowItem('Start', widget.startAddress,
+                                  isStart: true),
                               const SizedBox(height: 8),
 
                               // Waypoints
                               if (_currentWaypoints.isEmpty)
                                 Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 24, horizontal: 16),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withOpacity(0.04),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: Colors.white.withOpacity(0.08)),
+                                    border: Border.all(
+                                        color: Colors.white.withOpacity(0.08)),
                                   ),
                                   child: const Center(
                                     child: Text(
                                       'No intermediate stops added yet.\nSearch above or pick a category to add stops!',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(color: Colors.white60, fontSize: 13, height: 1.4),
+                                      style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 13,
+                                          height: 1.4),
                                     ),
                                   ),
                                 )
@@ -1644,7 +1910,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                     decoration: BoxDecoration(
                                       color: const Color(0xFF2A2A2A),
                                       borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                                      border: Border.all(
+                                          color: const Color(0xFFF59E0B)
+                                              .withOpacity(0.3)),
                                     ),
                                     child: Row(
                                       children: [
@@ -1658,7 +1926,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                           child: Center(
                                             child: Text(
                                               '${i + 1}',
-                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                              style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12),
                                             ),
                                           ),
                                         ),
@@ -1666,11 +1937,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                         Expanded(
                                           child: Text(
                                             name,
-                                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 14),
                                           ),
                                         ),
                                         IconButton(
-                                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent, size: 20),
+                                          icon: const Icon(Icons.delete_outline,
+                                              color: Colors.redAccent,
+                                              size: 20),
                                           onPressed: () async {
                                             Navigator.pop(ctx);
                                             _removeWaypointAt(i);
@@ -1683,7 +1959,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
                               const SizedBox(height: 8),
                               // Destination Node
-                              _stopRowItem('End', widget.endAddress, isEnd: true),
+                              _stopRowItem('End', widget.endAddress,
+                                  isEnd: true),
                             ],
                           ),
                   ),
@@ -1707,7 +1984,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     return ActionChip(
       backgroundColor: const Color(0xFF2A2A2A),
       side: BorderSide(color: Colors.white.withOpacity(0.15)),
-      label: Text(label, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+      label: Text(label,
+          style: const TextStyle(
+              color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
       onPressed: () async {
         if (isSearching()) return;
         setSearching(true);
@@ -1727,7 +2006,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _stopRowItem(String tag, String address, {bool isStart = false, bool isEnd = false}) {
+  Widget _stopRowItem(String tag, String address,
+      {bool isStart = false, bool isEnd = false}) {
     final color = isStart ? const Color(0xFF10B981) : const Color(0xFFEF4444);
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1746,7 +2026,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
             child: Text(
               tag,
-              style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: color, fontSize: 11, fontWeight: FontWeight.bold),
             ),
           ),
           const SizedBox(width: 12),
@@ -1784,7 +2065,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           _recalculating = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Stop removed & route updated!'), duration: Duration(seconds: 2)),
+          const SnackBar(
+              content: Text('Stop removed & route updated!'),
+              duration: Duration(seconds: 2)),
         );
       }
     } catch (e) {
@@ -1793,8 +2076,6 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       }
     }
   }
-
-
 
   Widget _buildPOIList(ScrollController? sc, {bool shrinkWrap = false}) {
     final allPois = <MapEntry<String, PlaceOfInterest>>[];
@@ -1807,7 +2088,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (allPois.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: Text("No places of interest found nearby.", style: TextStyle(color: Colors.white70))),
+        child: Center(
+            child: Text("No places of interest found nearby.",
+                style: TextStyle(color: Colors.white70))),
       );
     }
 
@@ -1837,20 +2120,35 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             border: Border.all(color: Colors.white.withOpacity(0.1)),
           ),
           child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             leading: CircleAvatar(
               backgroundColor: _getCategoryColor(category).withOpacity(0.2),
               radius: 24,
-              child: Icon(_getCategoryIcon(category), color: _getCategoryColor(category), size: 22),
+              child: Icon(_getCategoryIcon(category),
+                  color: _getCategoryColor(category), size: 22),
             ),
-            title: Text(place.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
+            title: Text(place.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.white)),
             subtitle: Builder(
               builder: (context) {
                 final poiKey = '${place.lat},${place.lng}';
-                final displayAddress = _resolvedAddresses[poiKey] ?? place.address ?? category.toUpperCase();
-                
-                final isCoordinateFallback = place.address == null || place.address!.contains('°') || place.address!.contains('N,') || place.address!.contains('S,');
-                if (isCoordinateFallback && !_resolvedAddresses.containsKey(poiKey) && !_requestedAddresses.contains(poiKey)) {
+                final displayAddress = _resolvedAddresses[poiKey] ??
+                    place.address ??
+                    category.toUpperCase();
+
+                final isCoordinateFallback = place.address == null ||
+                    place.address!.contains('°') ||
+                    place.address!.contains('N,') ||
+                    place.address!.contains('S,');
+                if (isCoordinateFallback &&
+                    !_resolvedAddresses.containsKey(poiKey) &&
+                    !_requestedAddresses.contains(poiKey)) {
                   _requestedAddresses.add(poiKey);
                   _api.reverseGeocode(place.lat, place.lng).then((addr) {
                     if (addr != null && mounted) {
@@ -1865,7 +2163,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   displayAddress,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white.withOpacity(0.6)),
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withOpacity(0.6)),
                 );
               },
             ),
@@ -1875,7 +2176,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: IconButton(
-                icon: const Icon(Icons.add_location_alt, size: 22, color: Color(0xFF2E75B6)),
+                icon: const Icon(Icons.add_location_alt,
+                    size: 22, color: Color(0xFF2E75B6)),
                 onPressed: () => _confirmAddPOI(place),
               ),
             ),
@@ -1901,7 +2203,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     ));
 
     // End point pin (pop up when reached)
-    if (!_isPlayingAnimation || _animationIndex >= _currentPlan.coordinates.length - 2) {
+    if (!_isPlayingAnimation ||
+        _animationIndex >= _currentPlan.coordinates.length - 2) {
       markers.add(_pin(
         _currentPlan.coordinates.last.toLatLng(),
         Icons.flag,
@@ -1916,7 +2219,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       final isVisited = _isPointVisited(wp);
       final wpKey = '${wp.lat},${wp.lng}';
       final name = wp.name ?? _resolvedAddresses[wpKey] ?? 'Stop ${i + 1}';
-      
+
       markers.add(Marker(
         point: wp.toLatLng(),
         width: 140,
@@ -1927,15 +2230,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
               decoration: BoxDecoration(
-                color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                color: isVisited
+                    ? const Color(0xFF10B981)
+                    : const Color(0xFFF59E0B),
                 borderRadius: BorderRadius.circular(8),
-                boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+                boxShadow: const [
+                  BoxShadow(color: Colors.black45, blurRadius: 4)
+                ],
               ),
               child: Text(
                 '📍 Stop ${i + 1}: $name',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold),
               ),
             ),
             const SizedBox(height: 2),
@@ -1946,14 +2256,28 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: (isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.5), blurRadius: 6),
+                  BoxShadow(
+                      color: (isVisited
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B))
+                          .withOpacity(0.5),
+                      blurRadius: 6),
                 ],
-                border: Border.all(color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B), width: 2.5),
+                border: Border.all(
+                    color: isVisited
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B),
+                    width: 2.5),
               ),
               child: Center(
                 child: isVisited
-                    ? const Icon(Icons.check, color: Color(0xFF10B981), size: 18)
-                    : Text('${i + 1}', style: const TextStyle(color: Color(0xFFF59E0B), fontWeight: FontWeight.bold, fontSize: 13)),
+                    ? const Icon(Icons.check,
+                        color: Color(0xFF10B981), size: 18)
+                    : Text('${i + 1}',
+                        style: const TextStyle(
+                            color: Color(0xFFF59E0B),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
               ),
             ),
           ],
@@ -1965,7 +2289,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final seenFuelCoords = <String>{};
     for (int fi = 0; fi < _currentPlan.fuel.refuelStops.length; fi++) {
       final fs = _currentPlan.fuel.refuelStops[fi];
-      final coordKey = '${fs.lat.toStringAsFixed(5)},${fs.lng.toStringAsFixed(5)}';
+      final coordKey =
+          '${fs.lat.toStringAsFixed(5)},${fs.lng.toStringAsFixed(5)}';
       if (seenFuelCoords.contains(coordKey)) continue;
       seenFuelCoords.add(coordKey);
 
@@ -1983,17 +2308,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
-                  color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                  color: isVisited
+                      ? const Color(0xFF10B981)
+                      : const Color(0xFFF59E0B),
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 4)],
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black45, blurRadius: 4)
+                  ],
                 ),
                 child: Text(
                   '⛽ ${fs.name}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
               const SizedBox(height: 2),
@@ -2005,20 +2338,27 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: (isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B)).withOpacity(0.6),
+                      color: (isVisited
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFFF59E0B))
+                          .withOpacity(0.6),
                       blurRadius: 8,
                       spreadRadius: 2,
                     ),
                   ],
                   border: Border.all(
-                    color: isVisited ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                    color: isVisited
+                        ? const Color(0xFF10B981)
+                        : const Color(0xFFF59E0B),
                     width: 2.5,
                   ),
                 ),
                 child: Center(
                   child: isVisited
-                      ? const Icon(Icons.check, color: Color(0xFF10B981), size: 18)
-                      : const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 18),
+                      ? const Icon(Icons.check,
+                          color: Color(0xFF10B981), size: 18)
+                      : const Icon(Icons.local_gas_station_rounded,
+                          color: Color(0xFFF59E0B), size: 18),
                 ),
               ),
             ],
@@ -2045,7 +2385,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: Colors.white,
-                  border: Border.all(color: const Color(0xFF0EA5E9), width: 2.5),
+                  border:
+                      Border.all(color: const Color(0xFF0EA5E9), width: 2.5),
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF0EA5E9).withOpacity(0.4),
@@ -2085,10 +2426,18 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ),
       builder: (ctx) {
         final symbol = fs.currencySymbol.isNotEmpty ? fs.currencySymbol : '₹';
-        final price = (fs.pricePerUnit != null && fs.pricePerUnit! > 0) ? '$symbol${fs.pricePerUnit!.toStringAsFixed(2)}/L' : 'Market Price';
-        final cost = (fs.estimatedCost != null && fs.estimatedCost! > 0) ? '$symbol${fs.estimatedCost!.toStringAsFixed(0)}' : 'N/A';
-        final liters = (fs.refillLiters != null && fs.refillLiters! > 0) ? '${fs.refillLiters!.toStringAsFixed(1)} L' : 'Full Tank';
-        final offRoute = fs.distanceFromRoute > 0 ? '${fs.distanceFromRoute.toStringAsFixed(1)} km off-route' : 'On Route';
+        final price = (fs.pricePerUnit != null && fs.pricePerUnit! > 0)
+            ? '$symbol${fs.pricePerUnit!.toStringAsFixed(2)}/L'
+            : 'Market Price';
+        final cost = (fs.estimatedCost != null && fs.estimatedCost! > 0)
+            ? '$symbol${fs.estimatedCost!.toStringAsFixed(0)}'
+            : 'N/A';
+        final liters = (fs.refillLiters != null && fs.refillLiters! > 0)
+            ? '${fs.refillLiters!.toStringAsFixed(1)} L'
+            : 'Full Tank';
+        final offRoute = fs.distanceFromRoute > 0
+            ? '${fs.distanceFromRoute.toStringAsFixed(1)} km off-route'
+            : 'On Route';
 
         return Padding(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
@@ -2115,9 +2464,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       color: const Color(0xFFF59E0B).withOpacity(0.2),
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFFF59E0B), width: 2),
+                      border:
+                          Border.all(color: const Color(0xFFF59E0B), width: 2),
                     ),
-                    child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 24),
+                    child: const Icon(Icons.local_gas_station_rounded,
+                        color: Color(0xFFF59E0B), size: 24),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -2126,14 +2477,20 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       children: [
                         Text(
                           fs.name,
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '⛽ Designated Navigation Fuel Stop · $offRoute',
-                          style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              color: Color(0xFFF59E0B),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
                         ),
                       ],
                     ),
@@ -2151,10 +2508,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _fuelInfoItem('Fuel Type', fs.fuelType.toUpperCase(), Icons.ev_station),
+                    _fuelInfoItem('Fuel Type', fs.fuelType.toUpperCase(),
+                        Icons.ev_station),
                     _fuelInfoItem('Top-up', liters, Icons.water_drop_outlined),
                     _fuelInfoItem('Unit Price', price, Icons.tag),
-                    _fuelInfoItem('Est. Cost', cost, Icons.account_balance_wallet_outlined),
+                    _fuelInfoItem('Est. Cost', cost,
+                        Icons.account_balance_wallet_outlined),
                   ],
                 ),
               ),
@@ -2164,11 +2523,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 child: ElevatedButton.icon(
                   onPressed: () => Navigator.pop(ctx),
                   icon: const Icon(Icons.check_rounded, color: Colors.white),
-                  label: const Text('Continue Navigation', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  label: const Text('Continue Navigation',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF59E0B),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
@@ -2185,14 +2547,20 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       children: [
         Icon(icon, color: Colors.white60, size: 18),
         const SizedBox(height: 4),
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(value,
+            style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 13)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+        Text(label,
+            style: const TextStyle(color: Colors.white38, fontSize: 11)),
       ],
     );
   }
 
-  Marker _pin(LatLng point, IconData icon, Color color, {VoidCallback? onTap, String? label}) {
+  Marker _pin(LatLng point, IconData icon, Color color,
+      {VoidCallback? onTap, String? label}) {
     return Marker(
       point: point,
       width: label != null ? 120 : 40,
@@ -2213,7 +2581,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
               ),
             Container(
@@ -2223,8 +2594,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 color: Colors.white,
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: color.withOpacity(0.4), blurRadius: 8, spreadRadius: 2),
-                  BoxShadow(color: Colors.black26, blurRadius: 4, offset: const Offset(0, 2)),
+                  BoxShadow(
+                      color: color.withOpacity(0.4),
+                      blurRadius: 8,
+                      spreadRadius: 2),
+                  BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2)),
                 ],
                 border: Border.all(color: color, width: 2.5),
               ),
@@ -2238,36 +2615,57 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   IconData _getCategoryIcon(String category) {
     switch (category) {
-      case 'fuel': return Icons.local_gas_station;
-      case 'charging': return Icons.ev_station;
-      case 'hotel': return Icons.hotel;
-      case 'restaurant': return Icons.restaurant;
-      case 'attraction': return Icons.photo_camera;
-      case 'hills': return Icons.landscape;
-      case 'temple': return Icons.account_balance; // Place of worship
-      case 'lake': return Icons.water;
-      case 'river': return Icons.waves;
-      case 'viewpoint': return Icons.visibility;
-      default: return Icons.place;
+      case 'fuel':
+        return Icons.local_gas_station;
+      case 'charging':
+        return Icons.ev_station;
+      case 'hotel':
+        return Icons.hotel;
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'attraction':
+        return Icons.photo_camera;
+      case 'hills':
+        return Icons.landscape;
+      case 'temple':
+        return Icons.account_balance; // Place of worship
+      case 'lake':
+        return Icons.water;
+      case 'river':
+        return Icons.waves;
+      case 'viewpoint':
+        return Icons.visibility;
+      default:
+        return Icons.place;
     }
   }
 
   Color _getCategoryColor(String category) {
     switch (category) {
-      case 'fuel': return Colors.orange;
-      case 'charging': return Colors.greenAccent;
-      case 'hotel': return Colors.purple;
-      case 'restaurant': return Colors.brown;
-      case 'attraction': return Colors.teal;
-      case 'hills': return Colors.green[800]!;
-      case 'temple': return Colors.deepOrange;
-      case 'lake': return Colors.blue;
-      case 'river': return Colors.lightBlue;
-      case 'viewpoint': return Colors.indigo;
-      default: return Colors.grey;
+      case 'fuel':
+        return Colors.orange;
+      case 'charging':
+        return Colors.greenAccent;
+      case 'hotel':
+        return Colors.purple;
+      case 'restaurant':
+        return Colors.brown;
+      case 'attraction':
+        return Colors.teal;
+      case 'hills':
+        return Colors.green[800]!;
+      case 'temple':
+        return Colors.deepOrange;
+      case 'lake':
+        return Colors.blue;
+      case 'river':
+        return Colors.lightBlue;
+      case 'viewpoint':
+        return Colors.indigo;
+      default:
+        return Colors.grey;
     }
   }
-
 
   /// Ensures location services are on and permission is granted before
   /// starting live navigation. Throws a human-readable message on failure.
@@ -2297,7 +2695,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (_currentPlan.coordinates.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No route coordinates available to navigate.')),
+          const SnackBar(
+              content: Text('No route coordinates available to navigate.')),
         );
       }
       return;
@@ -2338,7 +2737,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         // do not overwrite the trip with an unwanted reroute to home!
         if (startDist > 500.0) {
           fallbackToSimulation = true;
-          fallbackReason = '${(startDist / 1000).toStringAsFixed(1)} km from start point';
+          fallbackReason =
+              '${(startDist / 1000).toStringAsFixed(1)} km from start point';
         } else {
           _onLivePosition(first);
         }
@@ -2381,7 +2781,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     // Log fuel stops passed to live navigation session
     if (_currentPlan.fuel.refuelStops.isNotEmpty) {
       for (final fs in _currentPlan.fuel.refuelStops) {
-        debugPrint('[FUEL] Stop passed to navigation: name=${fs.name}, lat=${fs.lat}, lng=${fs.lng}, refill=${fs.refillLiters}L, cost=${fs.estimatedCost}');
+        debugPrint(
+            '[FUEL] Stop passed to navigation: name=${fs.name}, lat=${fs.lat}, lng=${fs.lng}, refill=${fs.refillLiters}L, cost=${fs.estimatedCost}');
       }
     }
 
@@ -2393,7 +2794,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         forceLocationManager: false,
         intervalDuration: const Duration(seconds: 1),
         foregroundNotificationConfig: const ForegroundNotificationConfig(
-          notificationText: "VoyPlan is providing turn-by-turn live navigation.",
+          notificationText:
+              "VoyPlan is providing turn-by-turn live navigation.",
           notificationTitle: "VoyPlan Live Navigation",
           enableWakeLock: true,
           setOngoing: true,
@@ -2424,7 +2826,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             _gpsHealth = GpsHealthStatus.lost;
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('GPS error: $e'), backgroundColor: Colors.redAccent),
+            SnackBar(
+                content: Text('GPS error: $e'),
+                backgroundColor: Colors.redAccent),
           );
         }
       },
@@ -2447,7 +2851,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               SizedBox(
                 width: 16,
                 height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white),
               ),
               SizedBox(width: 12),
               Text('Rerouting from current location...'),
@@ -2473,7 +2878,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return !_visitedStops.contains(wp.name) && dist > 0.003;
       }).toList();
 
-      debugPrint('[FUEL] Reroute requested with vehicle fuel: ${_currentVehicle.currentFuelLiters}L');
+      debugPrint(
+          '[FUEL] Reroute requested with vehicle fuel: ${_currentVehicle.currentFuelLiters}L');
       final newPlan = await _api.planTrip(
         start: currentStart,
         end: widget.end,
@@ -2492,7 +2898,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _consecutiveOffRouteFixes = 0;
         _isRerouting = false;
       });
-      debugPrint('[FUEL] Reroute completed. New fuel stops: ${_currentPlan.fuel.refuelStops.length}');
+      debugPrint(
+          '[FUEL] Reroute completed. New fuel stops: ${_currentPlan.fuel.refuelStops.length}');
 
       if (_lastRawPos != null) {
         _onLivePosition(_lastRawPos!);
@@ -2527,10 +2934,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     // 2. Road Matching / Route Snapping
     final proj = _carGuidance.projectOnRoute(here, _currentPlan.coordinates);
     // When within 45m of route, snap vehicle marker directly onto the road centerline
-    final LatLng displayPos = proj.distanceFromRouteMeters <= 45.0 ? proj.snappedPoint : here;
+    final LatLng displayPos =
+        proj.distanceFromRouteMeters <= 45.0 ? proj.snappedPoint : here;
 
     // 3. Off-Route Detection with 2-fix confirmation
-    if (proj.distanceFromRouteMeters > 50.0 && (pos.accuracy <= 40.0 || pos.accuracy == 0)) {
+    if (proj.distanceFromRouteMeters > 50.0 &&
+        (pos.accuracy <= 40.0 || pos.accuracy == 0)) {
       _consecutiveOffRouteFixes++;
       if (_consecutiveOffRouteFixes >= 2 && !_isRerouting) {
         _triggerLiveReroute(here);
@@ -2540,12 +2949,14 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     // 4. Progress & Remaining Distance along active route (meters -> km)
-    final double remainingKm = (proj.remainingDistanceMeters / 1000.0).clamp(0.0, _currentPlan.distanceKm);
+    final double remainingKm = (proj.remainingDistanceMeters / 1000.0)
+        .clamp(0.0, _currentPlan.distanceKm);
     final double progress = proj.progressPercent.clamp(0.0, 1.0);
 
     // Live speed (m/s -> km/h)
     final double rawSpeed = pos.speed;
-    final double speedKmh = (rawSpeed.isFinite && rawSpeed >= 0) ? rawSpeed * 3.6 : -1.0;
+    final double speedKmh =
+        (rawSpeed.isFinite && rawSpeed >= 0) ? rawSpeed * 3.6 : -1.0;
 
     // Heading stabilization:
     // When moving (> 2.5 km/h): use live device heading if valid, else segment bearing.
@@ -2560,13 +2971,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     // ETA calculation: dynamically calculate based on current pace & route duration
-    final double plannedPaceKmh = (_currentPlan.distanceKm > 0 && _currentPlan.durationMin > 0)
-        ? _currentPlan.distanceKm / (_currentPlan.durationMin / 60.0)
-        : 45.0;
+    final double plannedPaceKmh =
+        (_currentPlan.distanceKm > 0 && _currentPlan.durationMin > 0)
+            ? _currentPlan.distanceKm / (_currentPlan.durationMin / 60.0)
+            : 45.0;
     final double effectivePaceKmh = (speedKmh > 15.0)
         ? (0.6 * speedKmh + 0.4 * plannedPaceKmh).clamp(25.0, 120.0)
         : plannedPaceKmh.clamp(20.0, 120.0);
-    final int remainingMin = ((remainingKm / effectivePaceKmh) * 60.0).round().clamp(0, 9999);
+    final int remainingMin =
+        ((remainingKm / effectivePaceKmh) * 60.0).round().clamp(0, 9999);
 
     // 5. Maneuver & Lane Guidance
     final maneuver = _carGuidance.calculateManeuver(
@@ -2594,7 +3007,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Adaptive Navigation Zoom: intelligent scaling based on speed and upcoming turn proximity
     double adaptiveZoom = 16.5;
-    if (maneuver.distanceMeters < 250 && maneuver.type != ManeuverType.straight) {
+    if (maneuver.distanceMeters < 250 &&
+        maneuver.type != ManeuverType.straight) {
       adaptiveZoom = 17.4; // Approaching turn: zoom in
     } else if (speedKmh > 70) {
       adaptiveZoom = 15.2; // Highway: broad overview
@@ -2605,9 +3019,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
 
     // Follow camera on 2D maps only when in FOLLOW mode
-    if (_mapStyle != MapStyle.satellite3D && _cameraMode == NavCameraMode.follow) {
+    if (_mapStyle != MapStyle.satellite3D &&
+        _cameraMode == NavCameraMode.follow) {
       try {
-        _mapController.moveAndRotate(displayPos, adaptiveZoom, pos.heading.isFinite ? -pos.heading : 0.0);
+        _mapController.moveAndRotate(displayPos, adaptiveZoom,
+            pos.heading.isFinite ? -pos.heading : 0.0);
       } catch (_) {
         try {
           _mapController.move(displayPos, adaptiveZoom);
@@ -2655,7 +3071,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       // Approaching notice within 3.5 km
       if (distMeters <= 3500) {
         final distKmStr = (distMeters / 1000.0).toStringAsFixed(1);
-        final refillStr = fs.refillLiters != null ? ' (Refuel: ${fs.refillLiters!.toStringAsFixed(0)}L)' : '';
+        final refillStr = fs.refillLiters != null
+            ? ' (Refuel: ${fs.refillLiters!.toStringAsFixed(0)}L)'
+            : '';
         currentFuelNotice = '⛽ ${fs.name} in $distKmStr km$refillStr';
 
         // Voice alert at ~2km
@@ -2669,7 +3087,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       if (distMeters <= 75.0) {
         _visitedStops.add(stopKey);
         _announcedFuelStops.add(stopKey);
-        _voice.speak('Arriving at fuel station: ${fs.name}. Refuel recommended.', force: true);
+        _voice.speak(
+            'Arriving at fuel station: ${fs.name}. Refuel recommended.',
+            force: true);
 
         // Record refuel into TripExpenseService
         final defaultPrice = _currentPlan.fuelEstimate?.pricePerUnit ?? 102.50;
@@ -2686,9 +3106,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _currentVehicle = _currentVehicle.copyWith(
           currentFuelLiters: _currentVehicle.tankCapacityLiters,
         );
-        debugPrint('[FUEL] Vehicle tank refueled at ${fs.name} to ${_currentVehicle.tankCapacityLiters}L');
+        debugPrint(
+            '[FUEL] Vehicle tank refueled at ${fs.name} to ${_currentVehicle.tankCapacityLiters}L');
 
-        final refuelLabel = fs.refillLiters != null ? '⛽ Refueled (${fs.refillLiters!.toStringAsFixed(1)} L)' : '⛽ Refueled';
+        final refuelLabel = fs.refillLiters != null
+            ? '⛽ Refueled (${fs.refillLiters!.toStringAsFixed(1)} L)'
+            : '⛽ Refueled';
         setState(() {
           _activeStopHighlight = PlaceOfInterest(
             id: 888,
@@ -2704,10 +3127,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.local_gas_station_rounded, color: Colors.white),
+                  const Icon(Icons.local_gas_station_rounded,
+                      color: Colors.white),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('⛽ Arrived at ${fs.name}! Tank refueled to ${_currentVehicle.tankCapacityLiters.toStringAsFixed(0)}L.'),
+                    child: Text(
+                        '⛽ Arrived at ${fs.name}! Tank refueled to ${_currentVehicle.tankCapacityLiters.toStringAsFixed(0)}L.'),
                   ),
                 ],
               ),
@@ -2737,10 +3162,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     for (final plaza in tolls) {
       final plazaKey = 'toll_${plaza.id}';
       if (_visitedStops.contains(plazaKey)) continue;
-      final plazaDistMeters = (plaza.distanceAlongRouteKm - (_tripProgressPercent * _currentPlan.distanceKm)).abs() * 1000.0;
-      if (plazaDistMeters <= 1500 && !_announcedFuelStops.contains('ann_$plazaKey')) {
+      final plazaDistMeters = (plaza.distanceAlongRouteKm -
+                  (_tripProgressPercent * _currentPlan.distanceKm))
+              .abs() *
+          1000.0;
+      if (plazaDistMeters <= 1500 &&
+          !_announcedFuelStops.contains('ann_$plazaKey')) {
         _announcedFuelStops.add('ann_$plazaKey');
-        _voice.speak('Toll plaza ahead: ${plaza.name}. Fast tag amount: ${plaza.amount.toStringAsFixed(0)} rupees.');
+        _voice.speak(
+            'Toll plaza ahead: ${plaza.name}. Fast tag amount: ${plaza.amount.toStringAsFixed(0)} rupees.');
       }
       if (plazaDistMeters <= 120) {
         _visitedStops.add(plazaKey);
@@ -2778,7 +3208,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('🎉 You have arrived at your destination! Trip saved to history.'),
+            content: const Text(
+                '🎉 You have arrived at your destination! Trip saved to history.'),
             action: SnackBarAction(
               label: 'View Report',
               textColor: Colors.amberAccent,
@@ -2798,20 +3229,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// whole route — no stopover / toll / arrival pauses — so the user can quickly
   /// see the journey before committing to the full simulated drive.
   void _startAnimation({bool preview = false}) {
-    final routePoints = _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+    final routePoints =
+        _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
     if (routePoints.isEmpty) return;
 
     _stopAnimation(); // Clean up if any
-    
+
     // Calculate cumulative distances
     final List<double> cumulativeDistances = [0.0];
     for (int i = 1; i < routePoints.length; i++) {
-      cumulativeDistances.add(
-        cumulativeDistances[i - 1] + 
-        _getDistance(routePoints[i - 1], routePoints[i])
-      );
+      cumulativeDistances.add(cumulativeDistances[i - 1] +
+          _getDistance(routePoints[i - 1], routePoints[i]));
     }
-    
+
     final totalDistance = cumulativeDistances.last;
     if (totalDistance == 0.0) return;
 
@@ -2841,7 +3271,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     int leftTurnTicks = 0;
     int rightTurnTicks = 0;
     int slowDownTicks = 0;
-    
+
     LatLng cameraPosition = routePoints.first;
 
     // Flutter native Ticker for smooth 60fps/120fps physics updates
@@ -2856,20 +3286,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return;
       }
 
-      final double dt = (elapsed.inMicroseconds - lastElapsed!.inMicroseconds) / 1000000.0;
+      final double dt =
+          (elapsed.inMicroseconds - lastElapsed!.inMicroseconds) / 1000000.0;
       lastElapsed = elapsed;
 
       // Event processing during active stops or tolls
       if (_pauseTicksRemaining > 0) {
         _pauseTicksRemaining--;
-        
+
         // Dynamic camera zoom calculations (Dive & Flyout Transitions)
         double currentZoom = 15.5;
         bool showOverlay = false;
 
         if (_pauseTicksRemaining > 105) {
           // 1. Dive zoom (first 15 ticks: 120 -> 105)
-          double progress = ((120 - _pauseTicksRemaining) / 15.0).clamp(0.0, 1.0);
+          double progress =
+              ((120 - _pauseTicksRemaining) / 15.0).clamp(0.0, 1.0);
           currentZoom = 15.5 + (18.8 - 15.5) * progress;
         } else if (_pauseTicksRemaining <= 105 && _pauseTicksRemaining > 20) {
           // 2. Cinematic overlay (middle 85 ticks: 105 -> 20)
@@ -2877,7 +3309,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           showOverlay = true;
         } else {
           // 3. Flyout zoom (last 20 ticks: 20 -> 0)
-          double progress = ((20 - _pauseTicksRemaining) / 20.0).clamp(0.0, 1.0);
+          double progress =
+              ((20 - _pauseTicksRemaining) / 20.0).clamp(0.0, 1.0);
           currentZoom = 18.8 - (18.8 - 15.5) * progress;
         }
 
@@ -2890,7 +3323,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         if (_mapStyle != MapStyle.satellite3D) {
           final double rotationDeg = -_vehicleRotation * (180 / pi);
           try {
-            _mapController.moveAndRotate(cameraPosition, currentZoom, rotationDeg);
+            _mapController.moveAndRotate(
+                cameraPosition, currentZoom, rotationDeg);
           } catch (e) {
             try {
               _mapController.move(cameraPosition, currentZoom);
@@ -2938,7 +3372,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       // Find segment index where currentDistance lies
       int segmentIdx = 0;
       for (int i = 0; i < cumulativeDistances.length - 1; i++) {
-        if (currentDistance >= cumulativeDistances[i] && 
+        if (currentDistance >= cumulativeDistances[i] &&
             currentDistance <= cumulativeDistances[i + 1]) {
           segmentIdx = i;
           break;
@@ -2947,10 +3381,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       final p1 = routePoints[segmentIdx];
       final p2 = routePoints[segmentIdx + 1];
-      
-      final segLength = cumulativeDistances[segmentIdx + 1] - cumulativeDistances[segmentIdx];
+
+      final segLength =
+          cumulativeDistances[segmentIdx + 1] - cumulativeDistances[segmentIdx];
       final segProgress = currentDistance - cumulativeDistances[segmentIdx];
-      final double t = segLength > 0 ? (segProgress / segLength).clamp(0.0, 1.0) : 0.0;
+      final double t =
+          segLength > 0 ? (segProgress / segLength).clamp(0.0, 1.0) : 0.0;
 
       // Coordinate interpolation
       final lat = p1.latitude + (p2.latitude - p1.latitude) * t;
@@ -2993,7 +3429,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         if (bearingChange.abs() > 0.17) {
           slowingDown = true;
           speedModifier = 0.45;
-          
+
           if (bearingChange > 0) {
             turningRight = true;
           } else {
@@ -3030,7 +3466,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         }
       }
 
-      final double progressPercent = (currentDistance / totalDistance).clamp(0.0, 1.0);
+      final double progressPercent =
+          (currentDistance / totalDistance).clamp(0.0, 1.0);
 
       // Automatic fuel-station stop for calculated refuel stops along route
       if (_currentPlan.fuel.refuelStops.isNotEmpty) {
@@ -3049,7 +3486,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 name: fs.name,
                 lat: fs.lat,
                 lng: fs.lng,
-                address: fs.refillLiters != null ? "Designated Fuel Stop (${fs.refillLiters!.toStringAsFixed(1)} L)" : "Designated Fuel Stop",
+                address: fs.refillLiters != null
+                    ? "Designated Fuel Stop (${fs.refillLiters!.toStringAsFixed(1)} L)"
+                    : "Designated Fuel Stop",
               );
               _pauseTicksRemaining = stopPause;
               _currentSpeedModifier = 0.0;
@@ -3058,7 +3497,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             return;
           }
         }
-      } else if (progressPercent >= 0.49 && progressPercent <= 0.52 &&
+      } else if (progressPercent >= 0.49 &&
+          progressPercent <= 0.52 &&
           !_visitedStops.contains("fuel_stop")) {
         _visitedStops.add("fuel_stop");
         setState(() {
@@ -3104,8 +3544,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       // Camera trails the vehicle with a snappy follow (0.12 lerp) — tight enough
       // to feel like live navigation, loose enough to stay smooth.
       cameraPosition = LatLng(
-        cameraPosition.latitude + (currentLatLng.latitude - cameraPosition.latitude) * 0.12,
-        cameraPosition.longitude + (currentLatLng.longitude - cameraPosition.longitude) * 0.12,
+        cameraPosition.latitude +
+            (currentLatLng.latitude - cameraPosition.latitude) * 0.12,
+        cameraPosition.longitude +
+            (currentLatLng.longitude - cameraPosition.longitude) * 0.12,
       );
 
       if (turningLeft) {
@@ -3139,8 +3581,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       // Mirror the simulated drive to Android Auto / CarPlay (throttled) so the
       // car map follows along even when test-driving without a real GPS fix.
-      final double remKm = ((1 - progressPercent) * _currentPlan.distanceKm).clamp(0.0, _currentPlan.distanceKm);
-      final int remMin = ((1 - progressPercent) * _currentPlan.durationMin).round();
+      final double remKm = ((1 - progressPercent) * _currentPlan.distanceKm)
+          .clamp(0.0, _currentPlan.distanceKm);
+      final int remMin =
+          ((1 - progressPercent) * _currentPlan.durationMin).round();
       double bearingDeg = currentHeading * 180.0 / pi;
       bearingDeg = ((bearingDeg % 360) + 360) % 360;
       final camManeuver = _carGuidance.calculateManeuver(
@@ -3166,7 +3610,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         final double cosLat = cos(lat * pi / 180).clamp(0.2, 1.0);
         final LatLng camTarget = LatLng(
           cameraPosition.latitude + cos(currentHeading) * lookAheadDeg,
-          cameraPosition.longitude + sin(currentHeading) * lookAheadDeg / cosLat,
+          cameraPosition.longitude +
+              sin(currentHeading) * lookAheadDeg / cosLat,
         );
 
         try {
@@ -3185,10 +3630,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   double _getDistance(LatLng p1, LatLng p2) {
-    return sqrt(
-      (p1.latitude - p2.latitude) * (p1.latitude - p2.latitude) +
-      (p1.longitude - p2.longitude) * (p1.longitude - p2.longitude)
-    );
+    return sqrt((p1.latitude - p2.latitude) * (p1.latitude - p2.latitude) +
+        (p1.longitude - p2.longitude) * (p1.longitude - p2.longitude));
   }
 
   void _stopAnimation() {
@@ -3220,10 +3663,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _isTollStop = false;
       _tripProgressPercent = 0.0;
     });
-    CarPlatformChannel.setNavigationState(isNavigating: false); // clear the car screen
+    CarPlatformChannel.setNavigationState(
+        isNavigating: false); // clear the car screen
     TripNotificationService.instance.end(); // clear the live trip notification
 
-    final wasCompleted = _visitedStops.contains("destination_arrival") || _visitedStops.contains("live_arrival");
+    final wasCompleted = _visitedStops.contains("destination_arrival") ||
+        _visitedStops.contains("live_arrival");
     if (wasCompleted && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _showFinalExpenseReportDialog();
@@ -3249,7 +3694,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   backgroundColor: Colors.redAccent,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
               ),
             )
@@ -3264,7 +3710,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       foregroundColor: Colors.white,
                       side: BorderSide(color: Colors.white.withOpacity(0.25)),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 ),
@@ -3278,7 +3725,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       backgroundColor: const Color(0xFF2E75B6),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 ),
@@ -3304,7 +3752,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 foregroundColor: Colors.white,
                 side: BorderSide(color: Colors.white.withOpacity(0.25)),
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
@@ -3313,14 +3762,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: ElevatedButton.icon(
               onPressed: _saving ? null : _saveTrip,
               icon: _saving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.bookmark_add, size: 18),
               label: Text(_saving ? 'Saving…' : 'Save Trip'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF2E75B6),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ),
@@ -3333,24 +3787,39 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   // Fuel-stop planner, per-traveller cost split, and itinerary export.
 
   /// Fuel cost is computed from authoritative fuel estimate or location-aware per-litre price
-  ({double fuel, double toll, String symbol, double perLiter, String region}) _tripCosts() {
+  ({double fuel, double toll, String symbol, double perLiter, String region})
+      _tripCosts() {
     final t = _currentPlan.toll;
     final fuelEst = _currentPlan.fuelEstimate;
     final fp = fuelPriceFor(widget.start.name ?? widget.startAddress);
-    final eff = widget.vehicle.efficiencyKmPerLiter > 0 ? widget.vehicle.efficiencyKmPerLiter : 15.0;
+    final eff = widget.vehicle.efficiencyKmPerLiter > 0
+        ? widget.vehicle.efficiencyKmPerLiter
+        : 15.0;
     final litres = _currentPlan.distanceKm / eff;
 
     final double fuel = fuelEst != null
-        ? (fuelEst.estimatedCost > 0 ? fuelEst.estimatedCost : fuelEst.totalCost)
+        ? (fuelEst.estimatedCost > 0
+            ? fuelEst.estimatedCost
+            : fuelEst.totalCost)
         : (litres * fp.perLiter);
-    final double perLiter = fuelEst != null && fuelEst.pricePerUnit > 0 ? fuelEst.pricePerUnit : fp.perLiter;
+    final double perLiter = fuelEst != null && fuelEst.pricePerUnit > 0
+        ? fuelEst.pricePerUnit
+        : fp.perLiter;
     final String symbol = fuelEst?.currencySymbol ?? fp.symbol;
-    final String region = (fuelEst?.applicableLocation.isNotEmpty ?? false) ? fuelEst!.applicableLocation : fp.region;
+    final String region = (fuelEst?.applicableLocation.isNotEmpty ?? false)
+        ? fuelEst!.applicableLocation
+        : fp.region;
 
     final toll = (t == null || !t.hasTolls)
         ? 0.0
         : (t.fastagTollCost ?? t.minTollCost ?? 0.0);
-    return (fuel: fuel, toll: toll, symbol: symbol, perLiter: perLiter, region: region);
+    return (
+      fuel: fuel,
+      toll: toll,
+      symbol: symbol,
+      perLiter: perLiter,
+      region: region
+    );
   }
 
   void _showFinalExpenseReportDialog() {
@@ -3404,7 +3873,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final eff = v.efficiencyKmPerLiter;
     final coords = _currentPlan.coordinates;
     final stops = <({double km, String near})>[];
-    if (eff <= 0 || v.tankCapacityLiters <= 0 || coords.length < 2) return stops;
+    if (eff <= 0 || v.tankCapacityLiters <= 0 || coords.length < 2)
+      return stops;
 
     final total = _currentPlan.distanceKm;
     final firstRange = v.currentFuelLiters * eff;
@@ -3417,7 +3887,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     double cumulative = 0.0;
 
     for (int i = 1; i < coords.length && nextRefuel < total; i++) {
-      cumulative += dist.as(LengthUnit.Kilometer, coords[i - 1].toLatLng(), coords[i].toLatLng());
+      cumulative += dist.as(
+          LengthUnit.Kilometer, coords[i - 1].toLatLng(), coords[i].toLatLng());
       while (cumulative >= nextRefuel && nextRefuel < total) {
         stops.add((km: nextRefuel, near: _nearestFuelName(coords[i])));
         nextRefuel += fullRange * safety;
@@ -3433,10 +3904,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     PlaceOfInterest? best;
     double min = double.infinity;
     for (final p in fuels) {
-      final d = dist.as(LengthUnit.Kilometer, at.toLatLng(), LatLng(p.lat, p.lng));
-      if (d < min) { min = d; best = p; }
+      final d =
+          dist.as(LengthUnit.Kilometer, at.toLatLng(), LatLng(p.lat, p.lng));
+      if (d < min) {
+        min = d;
+        best = p;
+      }
     }
-    final name = (best?.name.toLowerCase().startsWith('unnamed') ?? true) ? 'Fuel station' : best!.name;
+    final name = (best?.name.toLowerCase().startsWith('unnamed') ?? true)
+        ? 'Fuel station'
+        : best!.name;
     return '$name (~${min.toStringAsFixed(0)} km away)';
   }
 
@@ -3445,7 +3922,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final fuelStops = _computeFuelStops();
     final v = widget.vehicle;
     final firstRange = v.currentFuelLiters * v.efficiencyKmPerLiter;
-    final perPerson = (costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount);
+    final perPerson =
+        (costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -3459,14 +3937,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: Colors.lightBlueAccent.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.lightBlueAccent.withOpacity(0.35)),
+                border:
+                    Border.all(color: Colors.lightBlueAccent.withOpacity(0.35)),
               ),
               child: Row(children: [
-                const Icon(Icons.no_transfer, color: Colors.lightBlueAccent, size: 18),
+                const Icon(Icons.no_transfer,
+                    color: Colors.lightBlueAccent, size: 18),
                 const SizedBox(width: 8),
-                Expanded(child: Text(
-                    'Expressways avoided — 2-/3-wheelers aren’t allowed on access-controlled highways.',
-                    style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12.5))),
+                Expanded(
+                    child: Text(
+                        'Expressways avoided — 2-/3-wheelers aren’t allowed on access-controlled highways.',
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 12.5))),
               ]),
             ),
           ],
@@ -3482,38 +3965,59 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   v.efficiencyKmPerLiter <= 0
                       ? 'Enter vehicle mileage to plan fuel stops.'
                       : 'Current fuel gets you ~${firstRange.toStringAsFixed(0)} km · full tank ~${(v.tankCapacityLiters * v.efficiencyKmPerLiter).toStringAsFixed(0)} km.',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12.5),
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.7), fontSize: 12.5),
                 ),
                 const SizedBox(height: 8),
                 if (fuelStops.isEmpty)
                   Row(children: [
-                    const Icon(Icons.check_circle, color: Colors.greenAccent, size: 16),
+                    const Icon(Icons.check_circle,
+                        color: Colors.greenAccent, size: 16),
                     const SizedBox(width: 6),
-                    Expanded(child: Text('No refuel needed — you can reach on current fuel.',
-                        style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13))),
+                    Expanded(
+                        child: Text(
+                            'No refuel needed — you can reach on current fuel.',
+                            style: TextStyle(
+                                color: Colors.white.withOpacity(0.85),
+                                fontSize: 13))),
                   ])
                 else
                   ...fuelStops.asMap().entries.map((e) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(children: [
                           Container(
-                            width: 20, height: 20, alignment: Alignment.center,
-                            decoration: BoxDecoration(color: Colors.orangeAccent.withOpacity(0.2), shape: BoxShape.circle),
-                            child: Text('${e.key + 1}', style: const TextStyle(color: Colors.orangeAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                            width: 20,
+                            height: 20,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                                color: Colors.orangeAccent.withOpacity(0.2),
+                                shape: BoxShape.circle),
+                            child: Text('${e.key + 1}',
+                                style: const TextStyle(
+                                    color: Colors.orangeAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text('Refuel by ~${e.value.km.toStringAsFixed(0)} km — ${e.value.near}',
-                              style: const TextStyle(color: Colors.white, fontSize: 13))),
+                          Expanded(
+                              child: Text(
+                                  'Refuel by ~${e.value.km.toStringAsFixed(0)} km — ${e.value.near}',
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 13))),
                         ]),
                       )),
                 if (_currentPlan.fuel.unreachable) ...[
                   const SizedBox(height: 8),
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 16),
+                    const Icon(Icons.warning_amber_rounded,
+                        color: Colors.amberAccent, size: 16),
                     const SizedBox(width: 6),
-                    Expanded(child: Text(
-                        'Part of this route has no fuel station within range — carry a spare canister or plan a detour.',
-                        style: TextStyle(color: Colors.amberAccent.withOpacity(0.95), fontSize: 12.5))),
+                    Expanded(
+                        child: Text(
+                            'Part of this route has no fuel station within range — carry a spare canister or plan a detour.',
+                            style: TextStyle(
+                                color: Colors.amberAccent.withOpacity(0.95),
+                                fontSize: 12.5))),
                   ]),
                 ],
               ],
@@ -3529,36 +4033,71 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               children: [
                 Row(
                   children: [
-                    Expanded(child: Text('Split $_splitCount way${_splitCount > 1 ? 's' : ''}',
-                        style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600))),
-                    _splitBtn(Icons.remove, _splitCount > 1 ? () => setState(() => _splitCount--) : null),
-                    Container(width: 30, alignment: Alignment.center, child: Text('$_splitCount', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))),
-                    _splitBtn(Icons.add, _splitCount < 12 ? () => setState(() => _splitCount++) : null),
+                    Expanded(
+                        child: Text(
+                            'Split $_splitCount way${_splitCount > 1 ? 's' : ''}',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600))),
+                    _splitBtn(
+                        Icons.remove,
+                        _splitCount > 1
+                            ? () => setState(() => _splitCount--)
+                            : null),
+                    Container(
+                        width: 30,
+                        alignment: Alignment.center,
+                        child: Text('$_splitCount',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold))),
+                    _splitBtn(
+                        Icons.add,
+                        _splitCount < 12
+                            ? () => setState(() => _splitCount++)
+                            : null),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(color: const Color(0xFF60A5FA).withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFF60A5FA).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12)),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Fuel + tolls per person', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 13)),
+                      Text('Fuel + tolls per person',
+                          style: TextStyle(
+                              color: Colors.white.withOpacity(0.8),
+                              fontSize: 13)),
                       Text('${costs.symbol}${perPerson.toStringAsFixed(0)}',
-                          style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 18, fontWeight: FontWeight.bold)),
+                          style: const TextStyle(
+                              color: Color(0xFF60A5FA),
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 6),
-                Text('Total ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}  (fuel ${costs.symbol}${costs.fuel.toStringAsFixed(0)} · tolls ${costs.symbol}${costs.toll.toStringAsFixed(0)})',
-                    style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
+                Text(
+                    'Total ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}  (fuel ${costs.symbol}${costs.fuel.toStringAsFixed(0)} · tolls ${costs.symbol}${costs.toll.toStringAsFixed(0)})',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    Icon(Icons.local_gas_station, size: 12, color: Colors.orangeAccent.withOpacity(0.8)),
+                    Icon(Icons.local_gas_station,
+                        size: 12, color: Colors.orangeAccent.withOpacity(0.8)),
                     const SizedBox(width: 5),
-                    Text('Fuel @ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region} (approx)',
-                        style: TextStyle(color: Colors.white.withOpacity(0.55), fontSize: 11.5)),
+                    Text(
+                        'Fuel @ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region} (approx)',
+                        style: TextStyle(
+                            color: Colors.white.withOpacity(0.55),
+                            fontSize: 11.5)),
                   ],
                 ),
               ],
@@ -3574,7 +4113,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               foregroundColor: Colors.white,
               side: BorderSide(color: Colors.white.withOpacity(0.25)),
               padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
             ),
           ),
         ],
@@ -3582,7 +4122,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _toolkitCard({required IconData icon, required Color color, required String title, required Widget child}) {
+  Widget _toolkitCard(
+      {required IconData icon,
+      required Color color,
+      required String title,
+      required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -3597,7 +4141,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           Row(children: [
             Icon(icon, color: color, size: 18),
             const SizedBox(width: 8),
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(title,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold)),
           ]),
           const SizedBox(height: 10),
           child,
@@ -3608,14 +4156,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _splitBtn(IconData icon, VoidCallback? onTap) {
     return Material(
-      color: onTap == null ? Colors.white.withOpacity(0.05) : Colors.white.withOpacity(0.12),
+      color: onTap == null
+          ? Colors.white.withOpacity(0.05)
+          : Colors.white.withOpacity(0.12),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(5),
-          child: Icon(icon, size: 18, color: onTap == null ? Colors.white24 : Colors.white),
+          child: Icon(icon,
+              size: 18, color: onTap == null ? Colors.white24 : Colors.white),
         ),
       ),
     );
@@ -3628,33 +4179,38 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final hours = p.durationMin ~/ 60;
     final mins = p.durationMin % 60;
     final sb = StringBuffer();
-    sb.writeln('VOYPLAN — TRIP ITINERARY');
+    sb.writeln('VoyPlan — Trip Itinerary');
     sb.writeln('════════════════════════');
     sb.writeln('From:  ${widget.startAddress}');
     sb.writeln('To:    ${widget.endAddress}');
     sb.writeln('');
     sb.writeln('Distance:  ${p.distanceKm.toStringAsFixed(0)} km');
-    sb.writeln('Drive:     ${hours}h ${mins}m  ·  ${p.estimatedDays} day${p.estimatedDays > 1 ? 's' : ''}');
+    sb.writeln(
+        'Drive:     ${hours}h ${mins}m  ·  ${p.estimatedDays} day${p.estimatedDays > 1 ? 's' : ''}');
     sb.writeln('Vehicle:   ${widget.vehicleType.toUpperCase()}');
     sb.writeln('');
     sb.writeln('COSTS');
-    sb.writeln('  Fuel:   ${costs.symbol}${costs.fuel.toStringAsFixed(0)}  (@ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region})');
+    sb.writeln(
+        '  Fuel:   ${costs.symbol}${costs.fuel.toStringAsFixed(0)}  (@ ${costs.symbol}${costs.perLiter.toStringAsFixed(1)}/L · ${costs.region})');
     sb.writeln('  Tolls:  ${costs.symbol}${costs.toll.toStringAsFixed(0)}');
-    sb.writeln('  Total:  ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}'
+    sb.writeln(
+        '  Total:  ${costs.symbol}${(costs.fuel + costs.toll).toStringAsFixed(0)}'
         '  (${costs.symbol}${((costs.fuel + costs.toll) / (_splitCount < 1 ? 1 : _splitCount)).toStringAsFixed(0)} each ÷ $_splitCount)');
     final fuelStops = _computeFuelStops();
     if (fuelStops.isNotEmpty) {
       sb.writeln('');
       sb.writeln('FUEL STOPS');
       for (var i = 0; i < fuelStops.length; i++) {
-        sb.writeln('  ${i + 1}. by ~${fuelStops[i].km.toStringAsFixed(0)} km — ${fuelStops[i].near}');
+        sb.writeln(
+            '  ${i + 1}. by ~${fuelStops[i].km.toStringAsFixed(0)} km — ${fuelStops[i].near}');
       }
     }
     if (_currentWaypoints.isNotEmpty) {
       sb.writeln('');
       sb.writeln('STOPS');
       for (var i = 0; i < _currentWaypoints.length; i++) {
-        sb.writeln('  ${i + 1}. ${_currentWaypoints[i].name ?? 'Stop ${i + 1}'}');
+        sb.writeln(
+            '  ${i + 1}. ${_currentWaypoints[i].name ?? 'Stop ${i + 1}'}');
       }
     }
     final link = _buildShareLink();
@@ -3663,7 +4219,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       sb.writeln('Open this trip: $link');
     }
     sb.writeln('');
-    sb.writeln('Planned with Voyplan 🧭');
+    sb.writeln('Planned with VoyPlan 🧭');
     return sb.toString();
   }
 
@@ -3673,27 +4229,47 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       context: context,
       backgroundColor: const Color(0xFF1A1A1A),
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 16,
+          left: 20,
+          right: 20,
+          top: 16,
           bottom: 16 + MediaQuery.of(ctx).viewInsets.bottom,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(2)))),
+            Center(
+                child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                        color: Colors.white24,
+                        borderRadius: BorderRadius.circular(2)))),
             const SizedBox(height: 16),
-            const Text('Trip itinerary', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text('Trip itinerary',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             Flexible(
               child: SingleChildScrollView(
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(color: Colors.black.withOpacity(0.35), borderRadius: BorderRadius.circular(12)),
-                  child: SelectableText(text, style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.5, fontFamily: 'monospace')),
+                  decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.35),
+                      borderRadius: BorderRadius.circular(12)),
+                  child: SelectableText(text,
+                      style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.5,
+                          height: 1.5,
+                          fontFamily: 'monospace')),
                 ),
               ),
             ),
@@ -3704,12 +4280,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: text));
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Itinerary copied')));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Itinerary copied')));
                       Navigator.pop(ctx);
                     },
                     icon: const Icon(Icons.copy, size: 18),
                     label: const Text('Copy'),
-                    style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: BorderSide(color: Colors.white.withOpacity(0.25)), padding: const EdgeInsets.symmetric(vertical: 12)),
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: BorderSide(color: Colors.white.withOpacity(0.25)),
+                        padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -3718,12 +4298,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     onPressed: () async {
                       Navigator.pop(ctx);
                       try {
-                        await Share.share(text, subject: 'Voyplan itinerary — ${widget.endAddress}');
+                        await Share.share(text,
+                            subject:
+                                'VoyPlan itinerary — ${widget.endAddress}');
                       } catch (_) {}
                     },
                     icon: const Icon(Icons.ios_share, size: 18),
                     label: const Text('Share'),
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2E75B6), foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 12)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2E75B6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12)),
                   ),
                 ),
               ],
@@ -3797,9 +4382,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       destinationName: widget.endAddress,
     );
     CarPlatformChannel.setNavigationState(isNavigating: true);
-    
-    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
-        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+
+    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() ==
+            widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng),
+                LatLng(widget.end.lat, widget.end.lng)) <
+            0.005);
     final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
 
     // Live trip-progress notification (lock screen + shade) + iOS Live Activity.
@@ -3816,29 +4404,37 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Cache active navigation package for offline resilience
     OfflineRouteService.instance.cacheActiveNavigation(
-      tripId: TripExpenseService.instance.currentTripId.isNotEmpty 
-          ? TripExpenseService.instance.currentTripId 
+      tripId: TripExpenseService.instance.currentTripId.isNotEmpty
+          ? TripExpenseService.instance.currentTripId
           : 'trip_${widget.start.lat}_${widget.end.lat}_${DateTime.now().millisecondsSinceEpoch}',
       startAddress: widget.startAddress,
       endAddress: widget.endAddress,
       startCoord: LatLng(widget.start.lat, widget.start.lng),
       endCoord: LatLng(widget.end.lat, widget.end.lng),
-      routeCoordinates: _currentPlan.coordinates.map((c) => LatLng(c.lat, c.lng)).toList(),
-      waypoints: _currentWaypoints.map((w) => {'name': w.name ?? 'Waypoint', 'lat': w.lat, 'lng': w.lng}).toList(),
+      routeCoordinates:
+          _currentPlan.coordinates.map((c) => LatLng(c.lat, c.lng)).toList(),
+      waypoints: _currentWaypoints
+          .map(
+              (w) => {'name': w.name ?? 'Waypoint', 'lat': w.lat, 'lng': w.lng})
+          .toList(),
       maneuvers: const [],
-      fuelStops: _currentPlan.fuel.refuelStops.map((f) => {
-        'name': f.name,
-        'lat': f.lat,
-        'lng': f.lng,
-        'fuelOnArrival': f.fuelOnArrivalLiters,
-        'refillLiters': f.refillLiters,
-        'cost': f.estimatedCost,
-      }).toList(),
-      tollPlazas: (_currentPlan.toll?.tolls ?? []).map((t) => {
-        'name': t.name,
-        'amount': t.amount,
-        'highway': t.highway,
-      }).toList(),
+      fuelStops: _currentPlan.fuel.refuelStops
+          .map((f) => {
+                'name': f.name,
+                'lat': f.lat,
+                'lng': f.lng,
+                'fuelOnArrival': f.fuelOnArrivalLiters,
+                'refillLiters': f.refillLiters,
+                'cost': f.estimatedCost,
+              })
+          .toList(),
+      tollPlazas: (_currentPlan.toll?.tolls ?? [])
+          .map((t) => {
+                'name': t.name,
+                'amount': t.amount,
+                'highway': t.highway,
+              })
+          .toList(),
       vehicle: {
         'name': widget.modelSubtype ?? widget.vehicle.type,
         'type': widget.vehicle.type,
@@ -3853,33 +4449,45 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   void _recordTripToHistory({bool completed = false}) {
     if (_currentPlan.coordinates.isEmpty) return;
-    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() == widget.endAddress.toLowerCase().trim() ||
-        (_getDistance(LatLng(widget.start.lat, widget.start.lng), LatLng(widget.end.lat, widget.end.lng)) < 0.005);
+    final bool isRoundTrip = widget.startAddress.toLowerCase().trim() ==
+            widget.endAddress.toLowerCase().trim() ||
+        (_getDistance(LatLng(widget.start.lat, widget.start.lng),
+                LatLng(widget.end.lat, widget.end.lng)) <
+            0.005);
     final stops = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
     final costs = _tripCosts();
     final report = TripExpenseService.instance.generateFinalReport();
 
-    final double toll = report.actualTollTotal > 0 ? report.actualTollTotal : (costs.toll > 0 ? costs.toll : report.estimatedTollTotal);
-    final double fuel = report.actualFuelCost > 0 ? report.actualFuelCost : (costs.fuel > 0 ? costs.fuel : report.estimatedFuelCost);
-    final double total = (report.totalActual > 0 ? report.totalActual : (toll + fuel));
+    final double toll = report.actualTollTotal > 0
+        ? report.actualTollTotal
+        : (costs.toll > 0 ? costs.toll : report.estimatedTollTotal);
+    final double fuel = report.actualFuelCost > 0
+        ? report.actualFuelCost
+        : (costs.fuel > 0 ? costs.fuel : report.estimatedFuelCost);
+    final double total =
+        (report.totalActual > 0 ? report.totalActual : (toll + fuel));
 
-    final tollPlazasList = (_currentPlan.toll?.tolls ?? []).map((t) => {
-      'id': t.id,
-      'name': t.name,
-      'amount': t.amount,
-      'highway': t.highway,
-    }).toList();
+    final tollPlazasList = (_currentPlan.toll?.tolls ?? [])
+        .map((t) => {
+              'id': t.id,
+              'name': t.name,
+              'amount': t.amount,
+              'highway': t.highway,
+            })
+        .toList();
 
-    final placesList = _currentWaypoints.map((w) => {
-      'name': w.name ?? 'Waypoint',
-      'lat': w.lat,
-      'lng': w.lng,
-    }).toList();
+    final placesList = _currentWaypoints
+        .map((w) => {
+              'name': w.name ?? 'Waypoint',
+              'lat': w.lat,
+              'lng': w.lng,
+            })
+        .toList();
 
     TripHistoryService.instance.saveTrip(
       TripHistoryItem(
-        id: TripExpenseService.instance.currentTripId.isNotEmpty 
-            ? TripExpenseService.instance.currentTripId 
+        id: TripExpenseService.instance.currentTripId.isNotEmpty
+            ? TripExpenseService.instance.currentTripId
             : 'trip_${widget.start.lat.toStringAsFixed(3)}_${widget.end.lat.toStringAsFixed(3)}_${DateTime.now().millisecondsSinceEpoch}',
         title: '${widget.startAddress} → ${widget.endAddress}',
         startAddress: widget.startAddress,
@@ -3918,20 +4526,24 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final tolls = _currentPlan.toll?.tolls ?? [];
     for (final p in tolls) {
       if (!_visitedStops.contains("toll_${p.id}") &&
-          p.distanceAlongRouteKm >= (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
+          p.distanceAlongRouteKm >=
+              (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
         upcomingToll = p;
         break;
       }
     }
-    final double litresNeeded =
-        v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
+    final double litresNeeded = v.efficiencyKmPerLiter > 0
+        ? _currentPlan.distanceKm / v.efficiencyKmPerLiter
+        : 0;
 
     final telemetry = CarTelemetry(
       speedKmh: speedKmh,
       remainingDistanceKm: remainingKm,
       remainingDurationMin: remainingMin,
       progressPercent: _tripProgressPercent,
-      hasTollAhead: upcomingToll != null || ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 && _tripProgressPercent < 0.95),
+      hasTollAhead: upcomingToll != null ||
+          ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 &&
+              _tripProgressPercent < 0.95),
       upcomingTollName: upcomingToll?.name,
       upcomingTollAmount: upcomingToll?.amount,
       needsRefuel: v.currentFuelLiters < litresNeeded,
@@ -3951,7 +4563,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     for (final wp in _currentWaypoints) {
       final wpLatLng = LatLng(wp.lat, wp.lng);
       final d = _getDistance(pos, wpLatLng) * 111.0;
-      final wpId = 'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
+      final wpId =
+          'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
       if (!_visitedStops.contains(wpId) && d > 0.1) {
         remainingStops++;
         if (nextStopName == null) {
@@ -3963,7 +4576,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Refresh the live trip-progress notification / Live Activity.
     final arriving = remainingKm < 0.15;
-    final stopsList = _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
+    final stopsList =
+        _currentWaypoints.map((w) => w.name ?? 'Waypoint').toList();
     TripNotificationService.instance.update(
       destination: widget.endAddress,
       etaText: telemetry.formattedEta,
@@ -3986,8 +4600,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     _carGuidance.primeVoices();
     if (!kIsWeb) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-      SystemChrome.setPreferredOrientations(
-          const [DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+      SystemChrome.setPreferredOrientations(const [
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight
+      ]);
     }
   }
 
@@ -3999,7 +4615,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _buildMapStackWithOverlays(Widget mapWidget, {double topPadding = 24.0, double rightPadding = 24.0}) {
+  Widget _buildMapStackWithOverlays(Widget mapWidget,
+      {double topPadding = 24.0, double rightPadding = 24.0}) {
     if (_isCarMode) {
       final currentPos = _animatedVehiclePosition ?? widget.start.toLatLng();
       final maneuver = _carGuidance.calculateManeuver(
@@ -4016,20 +4633,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       final tolls = _currentPlan.toll?.tolls ?? [];
       for (final p in tolls) {
         if (!_visitedStops.contains("toll_${p.id}") &&
-            p.distanceAlongRouteKm >= (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
+            p.distanceAlongRouteKm >=
+                (_tripProgressPercent * _currentPlan.distanceKm) - 0.5) {
           upcomingToll = p;
           break;
         }
       }
 
-      final double litresNeeded =
-          v.efficiencyKmPerLiter > 0 ? _currentPlan.distanceKm / v.efficiencyKmPerLiter : 0;
+      final double litresNeeded = v.efficiencyKmPerLiter > 0
+          ? _currentPlan.distanceKm / v.efficiencyKmPerLiter
+          : 0;
       final telemetry = CarTelemetry(
         speedKmh: _displaySpeedKmh.toDouble(),
-        remainingDistanceKm: max(0.0, (1 - _tripProgressPercent) * _currentPlan.distanceKm),
-        remainingDurationMin: max(0, ((1 - _tripProgressPercent) * _currentPlan.durationMin).round()),
+        remainingDistanceKm:
+            max(0.0, (1 - _tripProgressPercent) * _currentPlan.distanceKm),
+        remainingDurationMin: max(
+            0, ((1 - _tripProgressPercent) * _currentPlan.durationMin).round()),
         progressPercent: _tripProgressPercent,
-        hasTollAhead: upcomingToll != null || ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 && _tripProgressPercent < 0.95),
+        hasTollAhead: upcomingToll != null ||
+            ((_currentPlan.toll?.fastagTollCost ?? 0) > 0 &&
+                _tripProgressPercent < 0.95),
         upcomingTollName: upcomingToll?.name,
         upcomingTollAmount: upcomingToll?.amount,
         needsRefuel: v.currentFuelLiters < litresNeeded,
@@ -4037,14 +4660,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         isRerouting: _isRerouting,
       );
 
-      CarPlatformChannel.updateNavigation(maneuver: maneuver, telemetry: telemetry);
+      CarPlatformChannel.updateNavigation(
+          maneuver: maneuver, telemetry: telemetry);
 
       GeoPoint? upcomingStop;
       double? upcomingDistKm;
       int? upcomingDurMin;
       for (final wp in _currentWaypoints) {
-        final wpId = 'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
-        if (!_visitedStops.contains(wpId) && !_visitedStops.contains(wp.name ?? '')) {
+        final wpId =
+            'wp_${wp.lat.toStringAsFixed(4)}_${wp.lng.toStringAsFixed(4)}';
+        if (!_visitedStops.contains(wpId) &&
+            !_visitedStops.contains(wp.name ?? '')) {
           final wpLatLng = LatLng(wp.lat, wp.lng);
           final d = _getDistance(currentPos, wpLatLng) * 111.0;
           upcomingStop = wp;
@@ -4054,7 +4680,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         }
       }
 
-      final routeTitle = '${widget.startAddress.split(',')[0]} → ${widget.endAddress.split(',')[0]}';
+      final routeTitle =
+          '${widget.startAddress.split(',')[0]} → ${widget.endAddress.split(',')[0]}';
       final double fuelPct = v.tankCapacityLiters > 0
           ? (v.currentFuelLiters / v.tankCapacityLiters).clamp(0.0, 1.0)
           : 0.65;
@@ -4077,10 +4704,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               nextTollAmount: upcomingToll?.amount,
               onVisitStop: () {
                 if (upcomingStop != null) {
-                  final wpId = 'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
+                  final wpId =
+                      'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
                   setState(() {
                     _visitedStops.add(wpId);
-                    if (upcomingStop!.name != null) _visitedStops.add(upcomingStop!.name!);
+                    if (upcomingStop!.name != null)
+                      _visitedStops.add(upcomingStop!.name!);
                   });
                   final name = upcomingStop!.name ?? 'Stop';
                   _carGuidance.announceManeuver(
@@ -4096,16 +4725,19 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               },
               onSkipStop: () {
                 if (upcomingStop != null) {
-                  final wpId = 'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
+                  final wpId =
+                      'wp_${upcomingStop!.lat.toStringAsFixed(4)}_${upcomingStop!.lng.toStringAsFixed(4)}';
                   setState(() {
                     _visitedStops.add(wpId);
-                    if (upcomingStop!.name != null) _visitedStops.add(upcomingStop!.name!);
+                    if (upcomingStop!.name != null)
+                      _visitedStops.add(upcomingStop!.name!);
                   });
                   final name = upcomingStop!.name ?? 'Stop';
                   _carGuidance.announceManeuver(
                     ManeuverInstruction(
                       type: ManeuverType.waypoint,
-                      instruction: '$name skipped. Resuming route to next stop.',
+                      instruction:
+                          '$name skipped. Resuming route to next stop.',
                       distanceMeters: 0,
                       roadName: name,
                     ),
@@ -4170,7 +4802,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         // Dedicated floating Re-center / Follow Navigation button
         Positioned(
           right: rightPadding,
-          bottom: isDesktop ? 120 : (MediaQuery.of(context).padding.bottom + 115),
+          bottom:
+              isDesktop ? 120 : (MediaQuery.of(context).padding.bottom + 115),
           child: _buildRecenterButton(),
         ),
 
@@ -4184,9 +4817,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             left: 16,
             bottom: 24,
             child: ScaleTransition(
-              scale: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOutBack),
+              scale: CurvedAnimation(
+                  parent: _overlayCtrl, curve: Curves.easeOutBack),
               child: FadeTransition(
-                opacity: CurvedAnimation(parent: _overlayCtrl, curve: Curves.easeOut),
+                opacity: CurvedAnimation(
+                    parent: _overlayCtrl, curve: Curves.easeOut),
                 child: _buildSpeedometer(compact: false),
               ),
             ),
@@ -4209,7 +4844,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       color: isExploring ? const Color(0xFF0EA5E9) : const Color(0xDD111827),
       borderRadius: BorderRadius.circular(28),
       elevation: isExploring ? 8 : 4,
-      shadowColor: isExploring ? const Color(0xFF0EA5E9).withOpacity(0.5) : Colors.black45,
+      shadowColor: isExploring
+          ? const Color(0xFF0EA5E9).withOpacity(0.5)
+          : Colors.black45,
       child: InkWell(
         borderRadius: BorderRadius.circular(28),
         onTap: _recenterMap,
@@ -4221,7 +4858,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: isExploring ? Colors.white : Colors.white.withOpacity(0.18),
+              color:
+                  isExploring ? Colors.white : Colors.white.withOpacity(0.18),
               width: isExploring ? 1.5 : 1.0,
             ),
           ),
@@ -4257,20 +4895,29 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       final double begin = (i * 0.07).clamp(0.0, 0.6);
       final anim = CurvedAnimation(
         parent: _overlayCtrl,
-        curve: Interval(begin, (begin + 0.4).clamp(0.0, 1.0), curve: Curves.easeOut),
+        curve: Interval(begin, (begin + 0.4).clamp(0.0, 1.0),
+            curve: Curves.easeOut),
       );
       return SlideTransition(
-        position: Tween<Offset>(begin: const Offset(0.7, 0), end: Offset.zero).animate(anim),
+        position: Tween<Offset>(begin: const Offset(0.7, 0), end: Offset.zero)
+            .animate(anim),
         child: FadeTransition(opacity: anim, child: child),
       );
     }
 
     final items = <Widget>[
       _buildLayersButton(),
-      _navCircle(Icons.receipt_long_rounded, _showExpenseDashboardSheet, bg: const Color(0xFFF59E0B)),
-      _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
-      _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-          () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
+      _navCircle(Icons.receipt_long_rounded, _showExpenseDashboardSheet,
+          bg: const Color(0xFFF59E0B)),
+      _navCircle(Icons.directions_car_rounded,
+          () => _isCarMode ? _exitCarMode() : _enterCarMode(),
+          bg: const Color(0xFF10B981)),
+      _navCircle(
+          _navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+          () => setState(() {
+                _navSoundOn = !_navSoundOn;
+                _voice.muted = !_navSoundOn;
+              })),
       _navCircle(Icons.more_vert_rounded, _showMoreNavOptions),
     ];
 
@@ -4309,54 +4956,84 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   ),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.account_balance_wallet_rounded, color: Color(0xFFF59E0B)),
-                  title: const Text('Trip Expenses & Budget', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Track fuel, tolls, meals & generate report', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: const Icon(Icons.account_balance_wallet_rounded,
+                      color: Color(0xFFF59E0B)),
+                  title: const Text('Trip Expenses & Budget',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text(
+                      'Track fuel, tolls, meals & generate report',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showExpenseDashboardSheet();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.pin_drop_rounded, color: Color(0xFF0EA5E9)),
-                  title: const Text('Add Stops / Places', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Search POIs, fuel, food on route', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: const Icon(Icons.pin_drop_rounded,
+                      color: Color(0xFF0EA5E9)),
+                  title: const Text('Add Stops / Places',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Search POIs, fuel, food on route',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showStopsManagerSheet();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.ios_share_rounded, color: Color(0xFF10B981)),
-                  title: const Text('Share Itinerary', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Export live route or send to friends', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: const Icon(Icons.ios_share_rounded,
+                      color: Color(0xFF10B981)),
+                  title: const Text('Share Itinerary',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Export live route or send to friends',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _shareTrip();
                   },
                 ),
                 ListTile(
-                  leading: Icon(_saving ? Icons.hourglass_top_rounded : Icons.bookmark_add_rounded, color: const Color(0xFFF59E0B)),
-                  title: const Text('Save to My Trips', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Sync itinerary to cloud profile', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: Icon(
+                      _saving
+                          ? Icons.hourglass_top_rounded
+                          : Icons.bookmark_add_rounded,
+                      color: const Color(0xFFF59E0B)),
+                  title: const Text('Save to My Trips',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('Sync itinerary to cloud profile',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     if (!_saving) _saveTrip();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.layers_rounded, color: Color(0xFF8B5CF6)),
-                  title: const Text('Map Styles & 3D View', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Switch between 3D Satellite, 2D Traffic, Street', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: const Icon(Icons.layers_rounded,
+                      color: Color(0xFF8B5CF6)),
+                  title: const Text('Map Styles & 3D View',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text(
+                      'Switch between 3D Satellite, 2D Traffic, Street',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showMapStyleSheet();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.bug_report_rounded, color: Color(0xFF38BDF8)),
-                  title: const Text('Navigation Engine Debug HUD', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  subtitle: const Text('Live GPS, map-match distance, speed & bearing telemetry', style: TextStyle(color: Colors.white60, fontSize: 12)),
+                  leading: const Icon(Icons.bug_report_rounded,
+                      color: Color(0xFF38BDF8)),
+                  title: const Text('Navigation Engine Debug HUD',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text(
+                      'Live GPS, map-match distance, speed & bearing telemetry',
+                      style: TextStyle(color: Colors.white60, fontSize: 12)),
                   trailing: Switch(
                     value: _showDebugNavOverlay,
                     onChanged: (val) {
@@ -4367,7 +5044,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   ),
                   onTap: () {
                     Navigator.pop(ctx);
-                    setState(() => _showDebugNavOverlay = !_showDebugNavOverlay);
+                    setState(
+                        () => _showDebugNavOverlay = !_showDebugNavOverlay);
                   },
                 ),
               ],
@@ -4387,7 +5065,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         color: bg ?? const Color(0xFF1A1F2E).withOpacity(0.92),
         shape: BoxShape.circle,
         border: Border.all(
-          color: bg != null ? Colors.white.withOpacity(0.3) : Colors.white.withOpacity(0.18),
+          color: bg != null
+              ? Colors.white.withOpacity(0.3)
+              : Colors.white.withOpacity(0.18),
           width: 1.2,
         ),
         boxShadow: [
@@ -4413,7 +5093,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Current display speed in km/h from the active model (real values only).
   int get _displaySpeedKmh {
-    if (_isLiveNavigating) return _liveSpeedKmh >= 0 ? _liveSpeedKmh.round() : 0;
+    if (_isLiveNavigating)
+      return _liveSpeedKmh >= 0 ? _liveSpeedKmh.round() : 0;
     if (_isTollStop || _activeStopHighlight != null) return 0;
     return (_currentSpeedModifier * 80).round();
   }
@@ -4421,7 +5102,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   /// Driver-cluster style speedometer gauge (reference: instrument cluster).
   Widget _buildSpeedometer({bool compact = false}) {
     final speed = _displaySpeedKmh;
-    final String speedText = (_isLiveNavigating && _liveSpeedKmh < 0) ? '--' : '$speed';
+    final String speedText =
+        (_isLiveNavigating && _liveSpeedKmh < 0) ? '--' : '$speed';
     final double size = compact ? 116 : 150;
     final double numSize = compact ? 34 : 44;
     return Container(
@@ -4434,7 +5116,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         ),
         border: Border.all(color: Colors.white.withOpacity(0.12)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 22, offset: const Offset(0, 10)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.5),
+              blurRadius: 22,
+              offset: const Offset(0, 10)),
         ],
       ),
       child: CustomPaint(
@@ -4453,16 +5138,24 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   height: 1.0,
                 ),
               ),
-              Text('km/h', style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: compact ? 10 : 12)),
+              Text('km/h',
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: compact ? 10 : 12)),
               SizedBox(height: compact ? 4 : 6),
               Container(
-                padding: EdgeInsets.symmetric(horizontal: compact ? 8 : 10, vertical: 2),
+                padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 8 : 10, vertical: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1a73e8).withOpacity(0.25),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text('D',
-                    style: TextStyle(color: const Color(0xFF60A5FA), fontWeight: FontWeight.bold, fontSize: compact ? 11 : 13, letterSpacing: 2)),
+                    style: TextStyle(
+                        color: const Color(0xFF60A5FA),
+                        fontWeight: FontWeight.bold,
+                        fontSize: compact ? 11 : 13,
+                        letterSpacing: 2)),
               ),
             ],
           ),
@@ -4476,10 +5169,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _navCircle(Icons.directions_car_rounded, () => _isCarMode ? _exitCarMode() : _enterCarMode(), bg: const Color(0xFF10B981)),
+        _navCircle(Icons.directions_car_rounded,
+            () => _isCarMode ? _exitCarMode() : _enterCarMode(),
+            bg: const Color(0xFF10B981)),
         const SizedBox(height: 10),
-        _navCircle(_navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-            () => setState(() { _navSoundOn = !_navSoundOn; _voice.muted = !_navSoundOn; })),
+        _navCircle(
+            _navSoundOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            () => setState(() {
+                  _navSoundOn = !_navSoundOn;
+                  _voice.muted = !_navSoundOn;
+                })),
         const SizedBox(height: 10),
         _navCircle(Icons.more_vert_rounded, _showMoreNavOptions),
       ],
@@ -4500,7 +5199,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       );
     } else {
       try {
-        _mapController.moveAndRotate(target, 16.8, -_vehicleRotation * (180 / pi));
+        _mapController.moveAndRotate(
+            target, 16.8, -_vehicleRotation * (180 / pi));
       } catch (_) {
         try {
           _mapController.move(target, 16.8);
@@ -4531,9 +5231,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildFuelAnimation() {
-    final double progress = ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
+    final double progress =
+        ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
     final bool isFilling = progress > 0.35 && progress < 0.85;
-    final int tankPercent = isFilling 
+    final int tankPercent = isFilling
         ? (35 + (progress - 0.35) * 120).round().clamp(35, 100)
         : (progress >= 0.85 ? 100 : 35);
     return Stack(
@@ -4559,11 +5260,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             ),
             child: Row(
               children: [
-                const Icon(Icons.local_gas_station, color: Colors.orange, size: 14),
+                const Icon(Icons.local_gas_station,
+                    color: Colors.orange, size: 14),
                 const SizedBox(width: 6),
                 Text(
                   "Refueling: $tankPercent%",
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -4586,11 +5291,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildEVAnimation() {
-    final double progress = ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
+    final double progress =
+        ((105.0 - _pauseTicksRemaining) / 85.0).clamp(0.0, 1.0);
     final bool isPlugged = progress > 0.2;
-    final int batteryPercent = isPlugged 
-        ? (30 + (progress - 0.2) * 62.5).round().clamp(30, 80)
-        : 30;
+    final int batteryPercent =
+        isPlugged ? (30 + (progress - 0.2) * 62.5).round().clamp(30, 80) : 30;
     return Stack(
       children: [
         Positioned.fill(
@@ -4618,7 +5323,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 const SizedBox(width: 6),
                 Text(
                   "Charging: $batteryPercent%",
-                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -4712,9 +5420,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
 
     IconData turnIcon = Icons.straight_rounded;
-    if (maneuver.type == ManeuverType.turnRight || maneuver.type == ManeuverType.slightRight || _isTurningRight) {
+    if (maneuver.type == ManeuverType.turnRight ||
+        maneuver.type == ManeuverType.slightRight ||
+        _isTurningRight) {
       turnIcon = Icons.turn_right_rounded;
-    } else if (maneuver.type == ManeuverType.turnLeft || maneuver.type == ManeuverType.slightLeft || _isTurningLeft) {
+    } else if (maneuver.type == ManeuverType.turnLeft ||
+        maneuver.type == ManeuverType.slightLeft ||
+        _isTurningLeft) {
       turnIcon = Icons.turn_left_rounded;
     } else if (maneuver.type == ManeuverType.destination) {
       turnIcon = Icons.flag_rounded;
@@ -4846,7 +5558,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               color: const Color(0xFFF59E0B).withOpacity(0.2),
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
+              border:
+                  Border.all(color: const Color(0xFFF59E0B).withOpacity(0.5)),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.35),
@@ -4875,7 +5588,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildNavDebugOverlay(double topPadding) {
-    if (!_showDebugNavOverlay || !_isLiveNavigating) return const SizedBox.shrink();
+    if (!_showDebugNavOverlay || !_isLiveNavigating)
+      return const SizedBox.shrink();
     return Positioned(
       top: topPadding + 85,
       left: 14,
@@ -4887,7 +5601,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: const Color(0xFF0EA5E9), width: 1.5),
           boxShadow: const [
-            BoxShadow(color: Colors.black87, blurRadius: 16, offset: Offset(0, 4)),
+            BoxShadow(
+                color: Colors.black87, blurRadius: 16, offset: Offset(0, 4)),
           ],
         ),
         child: Column(
@@ -4899,26 +5614,68 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               children: [
                 const Row(
                   children: [
-                    Icon(Icons.sensors_rounded, color: Color(0xFF0EA5E9), size: 14),
+                    Icon(Icons.sensors_rounded,
+                        color: Color(0xFF0EA5E9), size: 14),
                     SizedBox(width: 6),
-                    Text('NAV ENGINE DEBUG', style: TextStyle(color: Color(0xFF0EA5E9), fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.5)),
+                    Text('NAV ENGINE DEBUG',
+                        style: TextStyle(
+                            color: Color(0xFF0EA5E9),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: 0.5)),
                   ],
                 ),
                 GestureDetector(
                   onTap: () => setState(() => _showDebugNavOverlay = false),
-                  child: const Icon(Icons.close, color: Colors.white70, size: 16),
+                  child:
+                      const Icon(Icons.close, color: Colors.white70, size: 16),
                 ),
               ],
             ),
             const Divider(color: Colors.white24, height: 12),
-            Text('GPS: ${_lastRawPos?.latitude.toStringAsFixed(5)}, ${_lastRawPos?.longitude.toStringAsFixed(5)} (±${_lastRawPos?.accuracy.toStringAsFixed(1)}m)', style: const TextStyle(color: Colors.white, fontSize: 11, fontFamily: 'monospace')),
-            Text('Speed: ${_liveSpeedKmh < 0 ? "--" : _liveSpeedKmh.toStringAsFixed(1)} km/h | Status: ${_gpsHealth.name.toUpperCase()}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace')),
-            Text('Heading: ${(_vehicleRotation * 180 / pi).round()}° | Cam: ${_cameraMode.name}', style: const TextStyle(color: Colors.white70, fontSize: 11, fontFamily: 'monospace')),
+            Text(
+                'GPS: ${_lastRawPos?.latitude.toStringAsFixed(5)}, ${_lastRawPos?.longitude.toStringAsFixed(5)} (±${_lastRawPos?.accuracy.toStringAsFixed(1)}m)',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+            Text(
+                'Speed: ${_liveSpeedKmh < 0 ? "--" : _liveSpeedKmh.toStringAsFixed(1)} km/h | Status: ${_gpsHealth.name.toUpperCase()}',
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+            Text(
+                'Heading: ${(_vehicleRotation * 180 / pi).round()}° | Cam: ${_cameraMode.name}',
+                style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
             const SizedBox(height: 4),
-            Text('Snapped: ${_lastProjResult?.snappedPoint.latitude.toStringAsFixed(5)}, ${_lastProjResult?.snappedPoint.longitude.toStringAsFixed(5)}', style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontFamily: 'monospace')),
-            Text('Off-Route Dist: ${_lastProjResult?.distanceFromRouteMeters.toStringAsFixed(1)}m (streak: $_consecutiveOffRouteFixes)', style: const TextStyle(color: Color(0xFF34D399), fontSize: 11, fontFamily: 'monospace')),
-            Text('Remaining: ${_liveRemainingKm.toStringAsFixed(1)} km · ${_liveRemainingMin} min (${(_tripProgressPercent * 100).toStringAsFixed(1)}%)', style: const TextStyle(color: Color(0xFFFBBF24), fontSize: 11, fontFamily: 'monospace')),
-            Text('Maneuver: ${_lastManeuver?.instruction} (${_lastManeuver?.distanceMeters.round()}m)', style: const TextStyle(color: Color(0xFF60A5FA), fontSize: 11, fontFamily: 'monospace')),
+            Text(
+                'Snapped: ${_lastProjResult?.snappedPoint.latitude.toStringAsFixed(5)}, ${_lastProjResult?.snappedPoint.longitude.toStringAsFixed(5)}',
+                style: const TextStyle(
+                    color: Color(0xFF34D399),
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+            Text(
+                'Off-Route Dist: ${_lastProjResult?.distanceFromRouteMeters.toStringAsFixed(1)}m (streak: $_consecutiveOffRouteFixes)',
+                style: const TextStyle(
+                    color: Color(0xFF34D399),
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+            Text(
+                'Remaining: ${_liveRemainingKm.toStringAsFixed(1)} km · ${_liveRemainingMin} min (${(_tripProgressPercent * 100).toStringAsFixed(1)}%)',
+                style: const TextStyle(
+                    color: Color(0xFFFBBF24),
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
+            Text(
+                'Maneuver: ${_lastManeuver?.instruction} (${_lastManeuver?.distanceMeters.round()}m)',
+                style: const TextStyle(
+                    color: Color(0xFF60A5FA),
+                    fontSize: 11,
+                    fontFamily: 'monospace')),
           ],
         ),
       ),
@@ -4979,7 +5736,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      _activeStopHighlight?.name == (widget.end.name ?? "Destination")
+                      _activeStopHighlight?.name ==
+                              (widget.end.name ?? "Destination")
                           ? "Arrived!"
                           : (remainingMinutes >= 60
                               ? '${remainingMinutes ~/ 60}h ${remainingMinutes % 60}m left'
@@ -5005,7 +5763,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                       child: LinearProgressIndicator(
                         value: _tripProgressPercent,
                         backgroundColor: Colors.white12,
-                        valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF3B82F6)),
+                        valueColor: const AlwaysStoppedAnimation<Color>(
+                            Color(0xFF3B82F6)),
                         minHeight: 4,
                       ),
                     ),
@@ -5023,7 +5782,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   onTap: _stopAnimation,
                   child: const Padding(
                     padding: EdgeInsets.all(12),
-                    child: Icon(Icons.close_rounded, color: Colors.white, size: 22),
+                    child: Icon(Icons.close_rounded,
+                        color: Colors.white, size: 22),
                   ),
                 ),
               ),
@@ -5036,21 +5796,28 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   Widget _buildStopHighlightCard(double topPadding) {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
-    if (_activeStopHighlight == null && !_isTollStop) return const SizedBox.shrink();
+    if (_activeStopHighlight == null && !_isTollStop)
+      return const SizedBox.shrink();
 
     final bool isMobile = MediaQuery.of(context).size.width < 1000;
 
     // 1. Toll plaza gate receipt card
     if (_isTollStop) {
-      final double gateProgress = ((60.0 - _pauseTicksRemaining) / 60.0).clamp(0.0, 1.0);
-      final String gateStatus = gateProgress < 0.4 ? "Paying Toll... 🪙" : (gateProgress < 0.8 ? "Gate Opening... 🔓" : "Gate Open! Go 🟢");
+      final double gateProgress =
+          ((60.0 - _pauseTicksRemaining) / 60.0).clamp(0.0, 1.0);
+      final String gateStatus = gateProgress < 0.4
+          ? "Paying Toll... 🪙"
+          : (gateProgress < 0.8 ? "Gate Opening... 🔓" : "Gate Open! Go 🟢");
       final String plazaName = _activeTollPlaza?.name ?? "FASTag Toll Plaza";
       final String highway = _activeTollPlaza?.highway ?? "National Highway";
-      final double plazaCost = _activeTollPlaza?.amount ?? (_currentPlan.toll?.fastagTollCost ?? 0.0);
-      
+      final double plazaCost = _activeTollPlaza?.amount ??
+          (_currentPlan.toll?.fastagTollCost ?? 0.0);
+
       return Container(
         width: 300,
-        padding: isMobile ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8) : const EdgeInsets.all(18),
+        padding: isMobile
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 8)
+            : const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: const Color(0xFF1E1E1E),
           borderRadius: BorderRadius.circular(20),
@@ -5066,78 +5833,96 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 5 : 10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(Icons.payment, color: Colors.amber, size: isMobile ? 24 : 36),
+            Container(
+              padding: EdgeInsets.all(isMobile ? 5 : 10),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.15),
+                shape: BoxShape.circle,
               ),
-              SizedBox(height: isMobile ? 3 : 10),
-              Text(
-                plazaName,
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 15 : 17),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Icon(Icons.payment,
+                  color: Colors.amber, size: isMobile ? 24 : 36),
+            ),
+            SizedBox(height: isMobile ? 3 : 10),
+            Text(
+              plazaName,
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: isMobile ? 15 : 17),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              highway,
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: isMobile ? 10 : 12),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: isMobile ? 5 : 12),
+            Container(
+              padding: EdgeInsets.symmetric(
+                  horizontal: isMobile ? 10 : 14, vertical: isMobile ? 3 : 8),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.withOpacity(0.2)),
               ),
-              const SizedBox(height: 2),
-              Text(
-                highway,
-                style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 10 : 12),
-                textAlign: TextAlign.center,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("FASTag Toll Paid:",
+                      style: TextStyle(
+                          color: Colors.white70, fontSize: isMobile ? 11 : 13)),
+                  Text("₹${plazaCost.toStringAsFixed(0)}",
+                      style: TextStyle(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isMobile ? 13 : 15)),
+                ],
               ),
-              SizedBox(height: isMobile ? 5 : 12),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: isMobile ? 10 : 14, vertical: isMobile ? 3 : 8),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.amber.withOpacity(0.2)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("FASTag Toll Paid:", style: TextStyle(color: Colors.white70, fontSize: isMobile ? 11 : 13)),
-                    Text("₹${plazaCost.toStringAsFixed(0)}", style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: isMobile ? 13 : 15)),
-                  ],
-                ),
-              ),
-              if (!isMobile) ...[
-                const SizedBox(height: 12),
-                const Divider(color: Colors.white12, thickness: 1),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 105,
-                  child: _buildTollAnimation(),
-                ),
-              ],
-              SizedBox(height: isMobile ? 5 : 6),
-              Text(
-                gateStatus,
-                style: TextStyle(color: Colors.white70, fontSize: isMobile ? 11 : 13, fontWeight: FontWeight.w500),
-                textAlign: TextAlign.center,
+            ),
+            if (!isMobile) ...[
+              const SizedBox(height: 12),
+              const Divider(color: Colors.white12, thickness: 1),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 105,
+                child: _buildTollAnimation(),
               ),
             ],
-          ),
-        );
+            SizedBox(height: isMobile ? 5 : 6),
+            Text(
+              gateStatus,
+              style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: isMobile ? 11 : 13,
+                  fontWeight: FontWeight.w500),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
     }
 
     // 2. Normal waypoint / Arrival cards
-    final isDest = _activeStopHighlight!.name == (widget.end.name ?? "Destination");
-    final category = isDest ? 'arrival' : _determineStopCategory(_activeStopHighlight!.name);
+    final isDest =
+        _activeStopHighlight!.name == (widget.end.name ?? "Destination");
+    final category =
+        isDest ? 'arrival' : _determineStopCategory(_activeStopHighlight!.name);
 
     if (category == 'arrival') {
       final double totalDistance = _currentPlan.distanceKm;
       final int totalDuration = _currentPlan.durationMin;
-      final String durationText = totalDuration > 60 
-          ? "${(totalDuration ~/ 60)}h ${(totalDuration % 60)}m" 
+      final String durationText = totalDuration > 60
+          ? "${(totalDuration ~/ 60)}h ${(totalDuration % 60)}m"
           : "$totalDuration mins";
       final double tollCost = _currentPlan.toll?.fastagTollCost ?? 0.0;
       final double fuelCost = _tripCosts().fuel;
       final stopsCount = _currentWaypoints.length;
- 
+
       return Container(
         width: 310,
         padding: EdgeInsets.all(isMobile ? 14 : 20),
@@ -5156,76 +5941,91 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-              Container(
-                padding: EdgeInsets.all(isMobile ? 8 : 12),
-                decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.15),
-                  shape: BoxShape.circle,
+            Container(
+              padding: EdgeInsets.all(isMobile ? 8 : 12),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.celebration,
+                  color: Colors.green, size: isMobile ? 30 : 40),
+            ),
+            SizedBox(height: isMobile ? 8 : 12),
+            Text(
+              "Trip Completed!",
+              style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: isMobile ? 17 : 19),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Welcome to ${_activeStopHighlight!.name}",
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.6),
+                  fontSize: isMobile ? 12 : 13),
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: isMobile ? 10 : 16),
+            const Divider(color: Colors.white24, thickness: 1),
+            SizedBox(height: isMobile ? 8 : 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildStatItem("Distance",
+                    "${totalDistance.toStringAsFixed(1)} km", Icons.space_bar),
+                _buildStatItem("Duration", durationText, Icons.timer),
+              ],
+            ),
+            SizedBox(height: isMobile ? 10 : 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildStatItem("Tolls Cost", "₹${tollCost.toStringAsFixed(0)}",
+                    Icons.payment),
+                _buildStatItem("Fuel Cost", "₹${fuelCost.toStringAsFixed(0)}",
+                    Icons.local_gas_station),
+              ],
+            ),
+            SizedBox(height: isMobile ? 10 : 16),
+            const Divider(color: Colors.white24, thickness: 1),
+            SizedBox(height: isMobile ? 8 : 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.place, color: Colors.grey, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  "Stops Visited: $stopsCount stops",
+                  style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: isMobile ? 12 : 13,
+                      fontWeight: FontWeight.bold),
                 ),
-                child: Icon(Icons.celebration, color: Colors.green, size: isMobile ? 30 : 40),
-              ),
-              SizedBox(height: isMobile ? 8 : 12),
-              Text(
-                "Trip Completed!",
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 17 : 19),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                "Welcome to ${_activeStopHighlight!.name}",
-                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: isMobile ? 12 : 13),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: isMobile ? 10 : 16),
-              const Divider(color: Colors.white24, thickness: 1),
-              SizedBox(height: isMobile ? 8 : 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildStatItem("Distance", "${totalDistance.toStringAsFixed(1)} km", Icons.space_bar),
-                  _buildStatItem("Duration", durationText, Icons.timer),
-                ],
-              ),
-              SizedBox(height: isMobile ? 10 : 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildStatItem("Tolls Cost", "₹${tollCost.toStringAsFixed(0)}", Icons.payment),
-                  _buildStatItem("Fuel Cost", "₹${fuelCost.toStringAsFixed(0)}", Icons.local_gas_station),
-                ],
-              ),
-              SizedBox(height: isMobile ? 10 : 16),
-              const Divider(color: Colors.white24, thickness: 1),
-              SizedBox(height: isMobile ? 8 : 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.place, color: Colors.grey, size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    "Stops Visited: $stopsCount stops",
-                    style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: isMobile ? 12 : 13, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-              SizedBox(height: isMobile ? 10 : 14),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
-                  icon: const Icon(Icons.receipt_long_rounded, size: 16),
-                  label: const Text('View Final Expense Report', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                  onPressed: _showFinalExpenseReportDialog,
+              ],
+            ),
+            SizedBox(height: isMobile ? 10 : 14),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                 ),
+                icon: const Icon(Icons.receipt_long_rounded, size: 16),
+                label: const Text('View Final Expense Report',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                onPressed: _showFinalExpenseReportDialog,
               ),
-            ],
-          ),
-        );
+            ),
+          ],
+        ),
+      );
     }
 
     IconData stopIcon = Icons.place;
@@ -5254,7 +6054,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           progressText = "Parking beside fuel pump... ⛽";
           progressPercent = 0.15;
         } else if (elapsed < 80) {
-          final int fillPercent = (40 + (elapsed - 30) * 1.1).round().clamp(40, 95);
+          final int fillPercent =
+              (40 + (elapsed - 30) * 1.1).round().clamp(40, 95);
           progressText = "Refueling tank: $fillPercent%... ⛽";
           progressPercent = 0.3 + (elapsed - 30) / 100;
         } else {
@@ -5272,7 +6073,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           progressText = "Plugging in charging cable... 🔌";
           progressPercent = 0.1;
         } else if (elapsed < 80) {
-          final int chargePercent = (35 + (elapsed - 25) * 0.8).round().clamp(35, 80);
+          final int chargePercent =
+              (35 + (elapsed - 25) * 0.8).round().clamp(35, 80);
           progressText = "Charging: $chargePercent%... ⚡";
           progressPercent = 0.2 + (elapsed - 25) / 100;
         } else {
@@ -5383,7 +6185,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     return Container(
       width: 290,
-      padding: isMobile ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6) : const EdgeInsets.all(18),
+      padding: isMobile
+          ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+          : const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(20),
@@ -5399,69 +6203,108 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-            Container(
-              padding: EdgeInsets.all(isMobile ? 4 : 10),
-              decoration: BoxDecoration(
-                color: themeColor.withOpacity(0.15),
-                shape: BoxShape.circle,
+          Container(
+            padding: EdgeInsets.all(isMobile ? 4 : 10),
+            decoration: BoxDecoration(
+              color: themeColor.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(stopIcon, color: themeColor, size: isMobile ? 22 : 36),
+          ),
+          SizedBox(height: isMobile ? 2 : 12),
+          Text(
+            headingText,
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: isMobile ? 14 : 17),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            detailsText,
+            style: TextStyle(
+                color: Colors.white.withOpacity(0.5),
+                fontSize: isMobile ? 9 : 12),
+            textAlign: TextAlign.center,
+          ),
+          if (!isMobile) ...[
+            const SizedBox(height: 12),
+            const Divider(color: Colors.white12, thickness: 1),
+            if (cardAnimation != null) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 100,
+                child: cardAnimation,
               ),
-              child: Icon(stopIcon, color: themeColor, size: isMobile ? 22 : 36),
-            ),
-            SizedBox(height: isMobile ? 2 : 12),
-            Text(
-              headingText,
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: isMobile ? 14 : 17),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              detailsText,
-              style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: isMobile ? 9 : 12),
-              textAlign: TextAlign.center,
-            ),
-            if (!isMobile) ...[
-              const SizedBox(height: 12),
-              const Divider(color: Colors.white12, thickness: 1),
-              if (cardAnimation != null) ...[
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 100,
-                  child: cardAnimation,
-                ),
-              ],
-            ] else ...[
-              SizedBox(height: isMobile ? 6 : 12),
             ],
-            SizedBox(height: isMobile ? 2 : 8),
-            Text(
-              progressText,
-              style: TextStyle(color: Colors.white70, fontSize: isMobile ? 10 : 13, fontWeight: FontWeight.w500),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: isMobile ? 4 : 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: LinearProgressIndicator(
-                value: progressPercent,
-                backgroundColor: Colors.white12,
-                valueColor: AlwaysStoppedAnimation<Color>(themeColor),
-                minHeight: isMobile ? 2.5 : 4,
-              ),
-            ),
+          ] else ...[
+            SizedBox(height: isMobile ? 6 : 12),
           ],
-        ),
-      );
+          SizedBox(height: isMobile ? 2 : 8),
+          Text(
+            progressText,
+            style: TextStyle(
+                color: Colors.white70,
+                fontSize: isMobile ? 10 : 13,
+                fontWeight: FontWeight.w500),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: isMobile ? 4 : 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progressPercent,
+              backgroundColor: Colors.white12,
+              valueColor: AlwaysStoppedAnimation<Color>(themeColor),
+              minHeight: isMobile ? 2.5 : 4,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _determineStopCategory(String name) {
     final n = name.toLowerCase();
-    if (n.contains('fuel') || n.contains('petrol') || n.contains('gas') || n.contains('shell')) return 'fuel';
-    if (n.contains('ev ') || n.contains('charging') || n.contains('charge') || n.contains('station')) return 'ev';
-    if (n.contains('restaurant') || n.contains('dhaba') || n.contains('meals') || n.contains('food') || n.contains('dining') || n.contains('veg')) return 'restaurant';
-    if (n.contains('tea') || n.contains('coffee') || n.contains('chai') || n.contains('refreshment') || n.contains('break')) return 'tea';
-    if (n.contains('hotel') || n.contains('resort') || n.contains('lodge') || n.contains('stay') || n.contains('inn') || n.contains('villa')) return 'hotel';
-    if (n.contains('view') || n.contains('valley') || n.contains('peak') || n.contains('hills') || n.contains('viewpoint')) return 'viewpoint';
-    if (n.contains('temple') || n.contains('palace') || n.contains('fort') || n.contains('falls') || n.contains('lake') || n.contains('museum') || n.contains('zoo') || n.contains('sightseeing')) return 'attraction';
+    if (n.contains('fuel') ||
+        n.contains('petrol') ||
+        n.contains('gas') ||
+        n.contains('shell')) return 'fuel';
+    if (n.contains('ev ') ||
+        n.contains('charging') ||
+        n.contains('charge') ||
+        n.contains('station')) return 'ev';
+    if (n.contains('restaurant') ||
+        n.contains('dhaba') ||
+        n.contains('meals') ||
+        n.contains('food') ||
+        n.contains('dining') ||
+        n.contains('veg')) return 'restaurant';
+    if (n.contains('tea') ||
+        n.contains('coffee') ||
+        n.contains('chai') ||
+        n.contains('refreshment') ||
+        n.contains('break')) return 'tea';
+    if (n.contains('hotel') ||
+        n.contains('resort') ||
+        n.contains('lodge') ||
+        n.contains('stay') ||
+        n.contains('inn') ||
+        n.contains('villa')) return 'hotel';
+    if (n.contains('view') ||
+        n.contains('valley') ||
+        n.contains('peak') ||
+        n.contains('hills') ||
+        n.contains('viewpoint')) return 'viewpoint';
+    if (n.contains('temple') ||
+        n.contains('palace') ||
+        n.contains('fort') ||
+        n.contains('falls') ||
+        n.contains('lake') ||
+        n.contains('museum') ||
+        n.contains('zoo') ||
+        n.contains('sightseeing')) return 'attraction';
     return 'other';
   }
 
@@ -5476,8 +6319,15 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: const TextStyle(color: Colors.white38, fontSize: 11)),
-                Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13), overflow: TextOverflow.ellipsis),
+                Text(label,
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(value,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13),
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
@@ -5519,25 +6369,37 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     }
     // Mobile: stacked circular buttons.
     if (_isPlayingAnimation) {
-      return _mapCircleButton(icon: Icons.stop, bg: Colors.redAccent, onTap: _stopAnimation);
+      return _mapCircleButton(
+          icon: Icons.stop, bg: Colors.redAccent, onTap: _stopAnimation);
     }
     return Column(
       children: [
-        _mapCircleButton(icon: Icons.visibility, bg: darkBg, onTap: () => _startAnimation(preview: true)),
+        _mapCircleButton(
+            icon: Icons.visibility,
+            bg: darkBg,
+            onTap: () => _startAnimation(preview: true)),
         const SizedBox(height: 10),
-        _mapCircleButton(icon: Icons.navigation, bg: darkBg, onTap: _startLiveNavigation),
+        _mapCircleButton(
+            icon: Icons.navigation, bg: darkBg, onTap: _startLiveNavigation),
       ],
     );
   }
 
-  Widget _mapPillButton({required IconData icon, required String label, required Color bg, required VoidCallback onTap}) {
+  Widget _mapPillButton(
+      {required IconData icon,
+      required String label,
+      required Color bg,
+      required VoidCallback onTap}) {
     return Container(
       decoration: BoxDecoration(
         color: bg.withOpacity(0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: Colors.white.withOpacity(0.15)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Material(
@@ -5552,7 +6414,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               children: [
                 Icon(icon, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
-                Text(label, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                Text(label,
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -5561,7 +6427,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _mapCircleButton({required IconData icon, required Color bg, required VoidCallback onTap}) {
+  Widget _mapCircleButton(
+      {required IconData icon,
+      required Color bg,
+      required VoidCallback onTap}) {
     return Container(
       width: 42,
       height: 42,
@@ -5570,7 +6439,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         shape: BoxShape.circle,
         border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 3)),
+          BoxShadow(
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 3)),
         ],
       ),
       child: Material(
@@ -5586,14 +6458,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   String _getVehicleEmoji(String type) {
     switch (type.toLowerCase()) {
-      case 'car': return '🚗';
-      case 'suv': return '🚙';
-      case 'motorcycle': return '🏍️';
-      case 'bus': return '🚌';
-      case 'rv': return '🚐';
-      case 'truck2axle': return '🚚';
-      case 'truck3axle': return '🚛';
-      default: return '🚗';
+      case 'car':
+        return '🚗';
+      case 'suv':
+        return '🚙';
+      case 'motorcycle':
+        return '🏍️';
+      case 'bus':
+        return '🚌';
+      case 'rv':
+        return '🚐';
+      case 'truck2axle':
+        return '🚚';
+      case 'truck3axle':
+        return '🚛';
+      default:
+        return '🚗';
     }
   }
 
@@ -5603,7 +6483,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     double minDistance = double.infinity;
     for (int i = 0; i < _currentPlan.coordinates.length; i++) {
       final p = _currentPlan.coordinates[i];
-      final dist = (p.lat - point.lat) * (p.lat - point.lat) + (p.lng - point.lng) * (p.lng - point.lng);
+      final dist = (p.lat - point.lat) * (p.lat - point.lat) +
+          (p.lng - point.lng) * (p.lng - point.lng);
       if (dist < minDistance) {
         minDistance = dist;
         closestIdx = i;
@@ -5614,8 +6495,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 }
 
 /// Real-time location-aware fuel price lookup powered by FuelPriceService.
-({double perLiter, String symbol, String region, FuelPrice fuelPrice}) fuelPriceFor(String? name, {String fuelType = 'petrol'}) {
-  final fp = FuelPriceService.instance.getFuelPrice(locationName: name, fuelType: fuelType);
+({double perLiter, String symbol, String region, FuelPrice fuelPrice})
+    fuelPriceFor(String? name, {String fuelType = 'petrol'}) {
+  final fp = FuelPriceService.instance
+      .getFuelPrice(locationName: name, fuelType: fuelType);
   final regionName = fp.city != null && fp.state != null
       ? '${fp.city}, ${fp.state}'
       : (fp.state ?? fp.country);
@@ -5630,19 +6513,27 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 class _SummaryCard extends StatelessWidget {
   final TripPlan plan;
   final Vehicle vehicle;
+
   /// Trip start location, used to pick a region-based fuel price.
   final String? locationName;
 
   /// Trip destination, used to label the departure calendar reminder.
   final String? destination;
+
   /// Planned trip start, used to anchor the departure reminder time.
   final DateTime? tripStart;
 
-  const _SummaryCard({required this.plan, required this.vehicle, this.locationName, this.destination, this.tripStart});
+  const _SummaryCard(
+      {required this.plan,
+      required this.vehicle,
+      this.locationName,
+      this.destination,
+      this.tripStart});
 
   FuelEstimate _getFuelEstimate() {
     if (plan.fuelEstimate != null) return plan.fuelEstimate!;
-    final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+    final eff =
+        vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
     return FuelPriceService.instance.calculateRouteFuel(
       distanceKm: plan.distanceKm,
       mileage: eff,
@@ -5660,7 +6551,9 @@ class _SummaryCard extends StatelessWidget {
     if (toll == null) return 'Checking...';
     if (!toll.hasTolls) return 'No Tolls';
     final curr = toll.currency.isNotEmpty ? toll.currency : 'INR';
-    if (toll.minTollCost != null && toll.maxTollCost != null && toll.maxTollCost! > toll.minTollCost!) {
+    if (toll.minTollCost != null &&
+        toll.maxTollCost != null &&
+        toll.maxTollCost! > toll.minTollCost!) {
       return '$curr ${toll.minTollCost!.toStringAsFixed(0)}–${toll.maxTollCost!.toStringAsFixed(0)}';
     }
     if (toll.minTollCost != null) {
@@ -5675,7 +6568,9 @@ class _SummaryCard extends StatelessWidget {
     final minutes = plan.durationMin % 60;
 
     final toll = plan.toll;
-    final curr = (toll?.currency == 'INR' || toll?.currency == null) ? '₹' : toll!.currency;
+    final curr = (toll?.currency == 'INR' || toll?.currency == null)
+        ? '₹'
+        : toll!.currency;
     final fuelEstimate = _getFuelEstimate();
 
     final tollVal = (toll?.fastagTollCost ?? toll?.minTollCost ?? 0.0);
@@ -5691,7 +6586,8 @@ class _SummaryCard extends StatelessWidget {
             children: [
               // ── 3-Column Stats Strip with Dividers ──
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1F2E),
                   borderRadius: BorderRadius.circular(16),
@@ -5699,18 +6595,33 @@ class _SummaryCard extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: _stat(plan.formattedDistance, 'Distance', CrossAxisAlignment.center)),
-                    Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),
-                    Expanded(child: _stat('${hours}h ${minutes}m', 'Driving time', CrossAxisAlignment.center)),
-                    Container(width: 1, height: 32, color: Colors.white.withOpacity(0.1)),
-                    Expanded(child: _stat('${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}', 'Trip length', CrossAxisAlignment.center)),
+                    Expanded(
+                        child: _stat(plan.formattedDistance, 'Distance',
+                            CrossAxisAlignment.center)),
+                    Container(
+                        width: 1,
+                        height: 32,
+                        color: Colors.white.withOpacity(0.1)),
+                    Expanded(
+                        child: _stat('${hours}h ${minutes}m', 'Driving time',
+                            CrossAxisAlignment.center)),
+                    Container(
+                        width: 1,
+                        height: 32,
+                        color: Colors.white.withOpacity(0.1)),
+                    Expanded(
+                        child: _stat(
+                            '${plan.estimatedDays} day${plan.estimatedDays > 1 ? 's' : ''}',
+                            'Trip length',
+                            CrossAxisAlignment.center)),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
               // ── Cost Breakdown Card ──
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFF1A1F2E),
                   borderRadius: BorderRadius.circular(16),
@@ -5725,7 +6636,8 @@ class _SummaryCard extends StatelessWidget {
                       badge: 'FASTAG',
                       badgeColor: const Color(0xFF10B981),
                       showInfoIcon: true,
-                      onTap: () => _showTollBreakdownSheet(context, toll, vehicleType: vehicle.type),
+                      onTap: () => _showTollBreakdownSheet(context, toll,
+                          vehicleType: vehicle.type),
                       value: toll == null
                           ? 'Checking...'
                           : (!toll.hasTolls
@@ -5745,16 +6657,17 @@ class _SummaryCard extends StatelessWidget {
                       badgeColor: const Color(0xFFEF4444),
                       subtitle: '2× FASTag rate (NHAI)',
                       showInfoIcon: true,
-                      onTap: () => _showTollBreakdownSheet(context, toll, vehicleType: vehicle.type),
+                      onTap: () => _showTollBreakdownSheet(context, toll,
+                          vehicleType: vehicle.type),
                       value: toll == null
                           ? 'Checking...'
                           : (!toll.hasTolls
                               ? 'No Tolls'
                               : (toll.cashTollCost != null
                                   ? '$curr ${toll.cashTollCost!.toStringAsFixed(0)}'
-                              : (toll.minTollCost != null
-                                  ? '$curr ${(toll.minTollCost! * 2).toStringAsFixed(0)}'
-                                  : 'Has Tolls'))),
+                                  : (toll.minTollCost != null
+                                      ? '$curr ${(toll.minTollCost! * 2).toStringAsFixed(0)}'
+                                      : 'Has Tolls'))),
                     ),
                     Divider(color: Colors.white.withOpacity(0.08), height: 16),
                     _feeRow(
@@ -5763,15 +6676,19 @@ class _SummaryCard extends StatelessWidget {
                       label: 'Fuel Cost',
                       badge: 'EST.',
                       badgeColor: const Color(0xFFF59E0B),
-                      value: '${fuelEstimate.currency} ${fuelEstimate.totalFuelCost.toStringAsFixed(0)}',
-                      subtitle: '${fuelEstimate.fuelRequiredLiters.toStringAsFixed(1)} L @ ${fuelEstimate.currency}${fuelEstimate.appliedPricePerLiter.toStringAsFixed(2)}/L',
+                      value:
+                          '${fuelEstimate.currency} ${fuelEstimate.totalFuelCost.toStringAsFixed(0)}',
+                      subtitle:
+                          '${fuelEstimate.fuelRequiredLiters.toStringAsFixed(1)} L @ ${fuelEstimate.currency}${fuelEstimate.appliedPricePerLiter.toStringAsFixed(2)}/L',
                       showInfoIcon: true,
-                      onTap: () => _showFuelBreakdownSheet(context, fuelEstimate, vehicle, locationName),
+                      onTap: () => _showFuelBreakdownSheet(
+                          context, fuelEstimate, vehicle, locationName),
                     ),
                     Divider(color: Colors.white.withOpacity(0.12), height: 20),
                     // Total est. cost
                     Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 4, horizontal: 2),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -5817,31 +6734,41 @@ class _SummaryCard extends StatelessWidget {
                             color: const Color(0xFFF59E0B).withOpacity(0.15),
                             borderRadius: BorderRadius.circular(9),
                           ),
-                          child: const Icon(Icons.thermostat_rounded, color: Color(0xFFF59E0B), size: 18),
+                          child: const Icon(Icons.thermostat_rounded,
+                              color: Color(0xFFF59E0B), size: 18),
                         ),
                         const SizedBox(width: 10),
                         const Text(
                           'Weather on route',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white),
                         ),
                       ],
                     ),
                     const SizedBox(height: 10),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF59E0B).withOpacity(0.12),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                        border: Border.all(
+                            color: const Color(0xFFF59E0B).withOpacity(0.3)),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 18),
+                          Icon(Icons.warning_amber_rounded,
+                              color: Color(0xFFF59E0B), size: 18),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Rain or storms expected on part of your route',
-                              style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12, fontWeight: FontWeight.w500),
+                              style: TextStyle(
+                                  color: Color(0xFFF59E0B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500),
                             ),
                           ),
                         ],
@@ -5854,35 +6781,39 @@ class _SummaryCard extends StatelessWidget {
                 const SizedBox(height: 12),
                 _WeatherStrip(weather: plan.weather!),
               ],
-          if (plan.departureAdvice != null && plan.departureAdvice!.recommendation.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _DepartureBanner(
-              advice: plan.departureAdvice!,
-              destination: (destination != null && destination!.isNotEmpty) ? destination! : 'your destination',
-              tripStart: tripStart,
-            ),
-          ],
-          if (plan.restStops.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _RestStopsCard(stops: plan.restStops),
-          ],
-          if (plan.itinerary.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _ItineraryCard(days: plan.itinerary),
-          ],
-          if (plan.budget != null) ...[
-            const SizedBox(height: 12),
-            _BudgetCard(budget: plan.budget!),
-          ],
-          const SizedBox(height: 8),
-        ],
+              if (plan.departureAdvice != null &&
+                  plan.departureAdvice!.recommendation.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _DepartureBanner(
+                  advice: plan.departureAdvice!,
+                  destination: (destination != null && destination!.isNotEmpty)
+                      ? destination!
+                      : 'your destination',
+                  tripStart: tripStart,
+                ),
+              ],
+              if (plan.restStops.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _RestStopsCard(stops: plan.restStops),
+              ],
+              if (plan.itinerary.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _ItineraryCard(days: plan.itinerary),
+              ],
+              if (plan.budget != null) ...[
+                const SizedBox(height: 12),
+                _BudgetCard(budget: plan.budget!),
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
-    ),
-  ),
-  );
-}
+    );
+  }
 
-  void _showTollBreakdownSheet(BuildContext context, TollEstimate? toll, {String? vehicleType}) {
+  void _showTollBreakdownSheet(BuildContext context, TollEstimate? toll,
+      {String? vehicleType}) {
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF161A26),
@@ -5893,9 +6824,14 @@ class _SummaryCard extends StatelessWidget {
       builder: (ctx) {
         final tolls = toll?.tolls ?? [];
         final hasTolls = toll?.hasTolls == true && tolls.isNotEmpty;
-        final vehicle = (vehicleType ?? toll?.vehicleClass ?? 'Car').toUpperCase();
-        final fastagTotal = toll?.fastagTollCost ?? (hasTolls ? tolls.fold<double>(0.0, (s, t) => s + t.amount) : 0.0);
-        final cashTotal = toll?.cashTollCost ?? (hasTolls ? tolls.fold<double>(0.0, (s, t) => s + t.cashAmount) : 0.0);
+        final vehicle =
+            (vehicleType ?? toll?.vehicleClass ?? 'Car').toUpperCase();
+        final fastagTotal = toll?.fastagTollCost ??
+            (hasTolls ? tolls.fold<double>(0.0, (s, t) => s + t.amount) : 0.0);
+        final cashTotal = toll?.cashTollCost ??
+            (hasTolls
+                ? tolls.fold<double>(0.0, (s, t) => s + t.cashAmount)
+                : 0.0);
 
         return SafeArea(
           child: Padding(
@@ -5928,7 +6864,8 @@ class _SummaryCard extends StatelessWidget {
                             color: const Color(0xFF10B981).withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.toll_rounded, color: Color(0xFF10B981), size: 22),
+                          child: const Icon(Icons.toll_rounded,
+                              color: Color(0xFF10B981), size: 22),
                         ),
                         const SizedBox(width: 12),
                         Column(
@@ -5936,26 +6873,38 @@ class _SummaryCard extends StatelessWidget {
                           children: [
                             const Text(
                               'NHAI Toll Breakdown',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                             ),
                             Text(
-                              hasTolls ? '${tolls.length} Toll Plaza${tolls.length > 1 ? 's' : ''} on route' : 'No tolls on this route',
-                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+                              hasTolls
+                                  ? '${tolls.length} Toll Plaza${tolls.length > 1 ? 's' : ''} on route'
+                                  : 'No tolls on this route',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.6)),
                             ),
                           ],
                         ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF3B82F6).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF3B82F6).withOpacity(0.3)),
+                        border: Border.all(
+                            color: const Color(0xFF3B82F6).withOpacity(0.3)),
                       ),
                       child: Text(
                         vehicle,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF60A5FA)),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF60A5FA)),
                       ),
                     ),
                   ],
@@ -5971,14 +6920,24 @@ class _SummaryCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0xFF10B981).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                            border: Border.all(
+                                color:
+                                    const Color(0xFF10B981).withOpacity(0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('FASTag Total', style: TextStyle(fontSize: 12, color: Color(0xFF10B981), fontWeight: FontWeight.w600)),
+                              const Text('FASTag Total',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF10B981),
+                                      fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
-                              Text('₹${fastagTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text('₹${fastagTotal.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white)),
                             ],
                           ),
                         ),
@@ -5990,14 +6949,24 @@ class _SummaryCard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: const Color(0xFFEF4444).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFEF4444).withOpacity(0.3)),
+                            border: Border.all(
+                                color:
+                                    const Color(0xFFEF4444).withOpacity(0.3)),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('Cash Rate (2×)', style: TextStyle(fontSize: 12, color: Color(0xFFEF4444), fontWeight: FontWeight.w600)),
+                              const Text('Cash Rate (2×)',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFEF4444),
+                                      fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
-                              Text('₹${cashTotal.toStringAsFixed(0)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                              Text('₹${cashTotal.toStringAsFixed(0)}',
+                                  style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white)),
                             ],
                           ),
                         ),
@@ -6007,11 +6976,16 @@ class _SummaryCard extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Text(
                     'PLAZAS ON SELECTED ROUTE',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.white38, letterSpacing: 0.8),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white38,
+                        letterSpacing: 0.8),
                   ),
                   const SizedBox(height: 8),
                   ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: MediaQuery.of(ctx).size.height * 0.4),
+                    constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(ctx).size.height * 0.4),
                     child: ListView.separated(
                       shrinkWrap: true,
                       itemCount: tolls.length,
@@ -6019,11 +6993,13 @@ class _SummaryCard extends StatelessWidget {
                       itemBuilder: (c, idx) {
                         final p = tolls[idx];
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 12),
                           decoration: BoxDecoration(
                             color: const Color(0xFF1F2433),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.white.withOpacity(0.06)),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.06)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -6038,7 +7014,10 @@ class _SummaryCard extends StatelessWidget {
                                 ),
                                 child: Text(
                                   '${idx + 1}',
-                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white70),
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white70),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -6048,12 +7027,17 @@ class _SummaryCard extends StatelessWidget {
                                   children: [
                                     Text(
                                       p.name,
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
+                                      style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       '${p.highway} · ~${p.distanceAlongRouteKm.toStringAsFixed(1)} km from start',
-                                      style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5)),
+                                      style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white.withOpacity(0.5)),
                                     ),
                                   ],
                                 ),
@@ -6064,11 +7048,16 @@ class _SummaryCard extends StatelessWidget {
                                 children: [
                                   Text(
                                     '₹${p.amount.toStringAsFixed(0)}',
-                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF10B981)),
+                                    style: const TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF10B981)),
                                   ),
                                   Text(
                                     'Cash ₹${p.cashAmount.toStringAsFixed(0)}',
-                                    style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.4)),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.white.withOpacity(0.4)),
                                   ),
                                 ],
                               ),
@@ -6087,12 +7076,14 @@ class _SummaryCard extends StatelessWidget {
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.check_circle_outline_rounded, color: Color(0xFF10B981), size: 24),
+                        Icon(Icons.check_circle_outline_rounded,
+                            color: Color(0xFF10B981), size: 24),
                         SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             'No NHAI or Expressway tolls detected on this route. Enjoy your toll-free journey!',
-                            style: TextStyle(fontSize: 13, color: Colors.white70),
+                            style:
+                                TextStyle(fontSize: 13, color: Colors.white70),
                           ),
                         ),
                       ],
@@ -6102,12 +7093,15 @@ class _SummaryCard extends StatelessWidget {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Icon(Icons.verified_rounded, size: 14, color: Colors.white.withOpacity(0.35)),
+                    Icon(Icons.verified_rounded,
+                        size: 14, color: Colors.white.withOpacity(0.35)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         'Tolls dynamically computed from NHAI Toll Information System (TIS) & State Expressway registries.',
-                        style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.35)),
+                        style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.white.withOpacity(0.35)),
                       ),
                     ),
                   ],
@@ -6135,8 +7129,11 @@ class _SummaryCard extends StatelessWidget {
       isScrollControlled: true,
       builder: (ctx) {
         final fuelTypeStr = vehicle.fuelType.toUpperCase();
-        final allPrices = FuelPriceService.instance.getAllFuelPrices(locationName: locationName);
-        final eff = vehicle.efficiencyKmPerLiter > 0 ? vehicle.efficiencyKmPerLiter : 15.0;
+        final allPrices = FuelPriceService.instance
+            .getAllFuelPrices(locationName: locationName);
+        final eff = vehicle.efficiencyKmPerLiter > 0
+            ? vehicle.efficiencyKmPerLiter
+            : 15.0;
 
         return SafeArea(
           child: Padding(
@@ -6169,7 +7166,8 @@ class _SummaryCard extends StatelessWidget {
                             color: const Color(0xFFF59E0B).withOpacity(0.15),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.local_gas_station_rounded, color: Color(0xFFF59E0B), size: 22),
+                          child: const Icon(Icons.local_gas_station_rounded,
+                              color: Color(0xFFF59E0B), size: 22),
                         ),
                         const SizedBox(width: 12),
                         Column(
@@ -6177,26 +7175,38 @@ class _SummaryCard extends StatelessWidget {
                           children: [
                             const Text(
                               'Real-Time Fuel Cost',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                             ),
                             Text(
-                              fuelEst.regionName.isNotEmpty ? fuelEst.regionName : (locationName ?? 'India'),
-                              style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6)),
+                              fuelEst.regionName.isNotEmpty
+                                  ? fuelEst.regionName
+                                  : (locationName ?? 'India'),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white.withOpacity(0.6)),
                             ),
                           ],
                         ),
                       ],
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFF59E0B).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                        border: Border.all(
+                            color: const Color(0xFFF59E0B).withOpacity(0.3)),
                       ),
                       child: Text(
                         '$fuelTypeStr · ${eff.toStringAsFixed(1)} km/L',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFFBBF24)),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFFBBF24)),
                       ),
                     ),
                   ],
@@ -6207,19 +7217,27 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1F2433),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.3)),
+                          border: Border.all(
+                              color: const Color(0xFFF59E0B).withOpacity(0.3)),
                         ),
                         child: Column(
                           children: [
-                            Text('Est. Fuel Cost', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            Text('Est. Fuel Cost',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withOpacity(0.55))),
                             const SizedBox(height: 4),
                             Text(
                               '${fuelEst.currency}${fuelEst.totalFuelCost.toStringAsFixed(0)}',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFF59E0B)),
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFFF59E0B)),
                             ),
                           ],
                         ),
@@ -6228,19 +7246,27 @@ class _SummaryCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1F2433),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.08)),
                         ),
                         child: Column(
                           children: [
-                            Text('Fuel Required', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            Text('Fuel Required',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withOpacity(0.55))),
                             const SizedBox(height: 4),
                             Text(
                               '${fuelEst.fuelRequiredLiters.toStringAsFixed(1)} L',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white),
                             ),
                           ],
                         ),
@@ -6249,19 +7275,27 @@ class _SummaryCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 12, horizontal: 10),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1F2433),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withOpacity(0.08)),
+                          border:
+                              Border.all(color: Colors.white.withOpacity(0.08)),
                         ),
                         child: Column(
                           children: [
-                            Text('Retail Rate', style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.55))),
+                            Text('Retail Rate',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withOpacity(0.55))),
                             const SizedBox(height: 4),
                             Text(
                               '${fuelEst.currency}${fuelEst.appliedPricePerLiter.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF60A5FA)),
+                              style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF60A5FA)),
                             ),
                           ],
                         ),
@@ -6283,33 +7317,47 @@ class _SummaryCard extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.calculate_outlined, color: Colors.white70, size: 16),
+                          const Icon(Icons.calculate_outlined,
+                              color: Colors.white70, size: 16),
                           const SizedBox(width: 6),
                           const Text(
                             'Calculation Formula',
-                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                            style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white),
                           ),
                           const Spacer(),
                           if (fuelEst.isMultiRegionEstimate)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.blueAccent.withOpacity(0.15),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: const Text('MULTI-REGION ROUTE', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.blueAccent)),
+                              child: const Text('MULTI-REGION ROUTE',
+                                  style: TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.blueAccent)),
                             ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Text(
                         '1. Fuel Required: Distance (${plan.distanceKm.toStringAsFixed(1)} km) ÷ Mileage (${eff.toStringAsFixed(1)} km/L) = ${fuelEst.fuelRequiredLiters.toStringAsFixed(2)} Liters',
-                        style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.75)),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.white.withOpacity(0.75)),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '2. Trip Fuel Cost: ${fuelEst.fuelRequiredLiters.toStringAsFixed(2)} L × ${fuelEst.currency}${fuelEst.appliedPricePerLiter.toStringAsFixed(2)}/L = ${fuelEst.currency}${fuelEst.totalFuelCost.toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white.withOpacity(0.9)),
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.9)),
                       ),
                     ],
                   ),
@@ -6318,32 +7366,46 @@ class _SummaryCard extends StatelessWidget {
                 // Today's Retail Fuel Price Matrix
                 const Text(
                   'Today’s Regional Fuel Rates',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white70),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    _fuelTypePill('Petrol', allPrices['petrol']?.price ?? 102.86, vehicle.fuelType == 'petrol'),
+                    _fuelTypePill(
+                        'Petrol',
+                        allPrices['petrol']?.price ?? 102.86,
+                        vehicle.fuelType == 'petrol'),
                     const SizedBox(width: 8),
-                    _fuelTypePill('Diesel', allPrices['diesel']?.price ?? 88.94, vehicle.fuelType == 'diesel'),
+                    _fuelTypePill('Diesel', allPrices['diesel']?.price ?? 88.94,
+                        vehicle.fuelType == 'diesel'),
                     const SizedBox(width: 8),
-                    _fuelTypePill('CNG', allPrices['cng']?.price ?? 82.50, vehicle.fuelType == 'cng'),
+                    _fuelTypePill('CNG', allPrices['cng']?.price ?? 82.50,
+                        vehicle.fuelType == 'cng'),
                     const SizedBox(width: 8),
-                    _fuelTypePill('EV / kWh', allPrices['ev']?.price ?? 14.50, vehicle.fuelType == 'ev'),
+                    _fuelTypePill('EV / kWh', allPrices['ev']?.price ?? 14.50,
+                        vehicle.fuelType == 'ev'),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    Icon(Icons.verified_rounded, size: 14, color: Colors.white.withOpacity(0.4)),
+                    Icon(Icons.verified_rounded,
+                        size: 14, color: Colors.white.withOpacity(0.4)),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Builder(
                         builder: (_) {
-                          final updatedDate = DateTime.tryParse(fuelEst.lastUpdated) ?? DateTime.now();
+                          final updatedDate =
+                              DateTime.tryParse(fuelEst.lastUpdated) ??
+                                  DateTime.now();
                           return Text(
                             'Daily retail prices sourced from PPAC & OMC Daily Revision. Last updated: ${updatedDate.day}/${updatedDate.month}/${updatedDate.year}',
-                            style: TextStyle(fontSize: 10.5, color: Colors.white.withOpacity(0.4)),
+                            style: TextStyle(
+                                fontSize: 10.5,
+                                color: Colors.white.withOpacity(0.4)),
                           );
                         },
                       ),
@@ -6363,17 +7425,30 @@ class _SummaryCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: isActive ? const Color(0xFFF59E0B).withOpacity(0.18) : const Color(0xFF1F2433),
+          color: isActive
+              ? const Color(0xFFF59E0B).withOpacity(0.18)
+              : const Color(0xFF1F2433),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isActive ? const Color(0xFFF59E0B) : Colors.white.withOpacity(0.06),
+            color: isActive
+                ? const Color(0xFFF59E0B)
+                : Colors.white.withOpacity(0.06),
           ),
         ),
         child: Column(
           children: [
-            Text(name, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isActive ? const Color(0xFFFBBF24) : Colors.white60)),
+            Text(name,
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isActive ? const Color(0xFFFBBF24) : Colors.white60)),
             const SizedBox(height: 2),
-            Text('₹${price.toStringAsFixed(2)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isActive ? Colors.white : Colors.white70)),
+            Text('₹${price.toStringAsFixed(2)}',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isActive ? Colors.white : Colors.white70)),
           ],
         ),
       ),
@@ -6422,7 +7497,8 @@ class _SummaryCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
                     decoration: BoxDecoration(
                       color: badgeColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(4),
@@ -6436,7 +7512,8 @@ class _SummaryCard extends StatelessWidget {
                   ),
                   if (showInfoIcon) ...[
                     const SizedBox(width: 4),
-                    Icon(Icons.info_outline_rounded, size: 13, color: Colors.white.withOpacity(0.4)),
+                    Icon(Icons.info_outline_rounded,
+                        size: 13, color: Colors.white.withOpacity(0.4)),
                   ],
                 ],
               ),
@@ -6444,8 +7521,7 @@ class _SummaryCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(subtitle,
                     style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white.withOpacity(0.4))),
+                        fontSize: 10, color: Colors.white.withOpacity(0.4))),
               ],
             ],
           ),
@@ -6482,18 +7558,26 @@ class _SummaryCard extends StatelessWidget {
     );
   }
 
-  Widget _stat(String value, String label, [CrossAxisAlignment alignment = CrossAxisAlignment.center]) {
+  Widget _stat(String value, String label,
+      [CrossAxisAlignment alignment = CrossAxisAlignment.center]) {
     return Column(
       crossAxisAlignment: alignment,
       children: [
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20, color: Colors.white)),
+        Text(value,
+            style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 20,
+                color: Colors.white)),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
       ],
     );
   }
 
-  Widget _statItem(BuildContext context, IconData icon, Color iconColor, String label, String value) {
+  Widget _statItem(BuildContext context, IconData icon, Color iconColor,
+      String label, String value) {
     return Row(
       children: [
         Container(
@@ -6509,11 +7593,18 @@ class _SummaryCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5), fontWeight: FontWeight.w500)),
+              Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withOpacity(0.5),
+                      fontWeight: FontWeight.w500)),
               const SizedBox(height: 2),
               Text(
                 value,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white),
                 overflow: TextOverflow.ellipsis,
               ),
             ],
@@ -6529,7 +7620,8 @@ class _ItineraryCard extends StatelessWidget {
   final List<DayPlan> days;
   const _ItineraryCard({required this.days});
 
-  String _h(double h) => h % 1 == 0 ? '${h.toInt()}h' : '${h.toStringAsFixed(1)}h';
+  String _h(double h) =>
+      h % 1 == 0 ? '${h.toInt()}h' : '${h.toStringAsFixed(1)}h';
 
   @override
   Widget build(BuildContext context) {
@@ -6545,10 +7637,14 @@ class _ItineraryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.calendar_month, color: Color(0xFFB39DDB), size: 16),
+              const Icon(Icons.calendar_month,
+                  color: Color(0xFFB39DDB), size: 16),
               const SizedBox(width: 6),
               Text('${days.length}-day itinerary',
-                  style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75), fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.75),
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 10),
@@ -6567,7 +7663,10 @@ class _ItineraryCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text('D${d.day}',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFB39DDB))),
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFB39DDB))),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -6578,10 +7677,16 @@ class _ItineraryCard extends StatelessWidget {
                           d.isFinal
                               ? 'Drive ${d.distanceKm.toStringAsFixed(0)} km → arrive at destination'
                               : 'Drive ${d.distanceKm.toStringAsFixed(0)} km, then overnight stop',
-                          style: const TextStyle(fontSize: 12.5, color: Colors.white, fontWeight: FontWeight.w500),
+                          style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w500),
                         ),
-                        Text('${_h(d.driveHours)} driving · ${d.fromKm.toStringAsFixed(0)}–${d.toKm.toStringAsFixed(0)} km',
-                            style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+                        Text(
+                            '${_h(d.driveHours)} driving · ${d.fromKm.toStringAsFixed(0)}–${d.toKm.toStringAsFixed(0)} km',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.white.withOpacity(0.5))),
                       ],
                     ),
                   ),
@@ -6599,7 +7704,10 @@ class _DepartureBanner extends StatelessWidget {
   final DepartureAdvice advice;
   final String destination;
   final DateTime? tripStart;
-  const _DepartureBanner({required this.advice, this.destination = 'your destination', this.tripStart});
+  const _DepartureBanner(
+      {required this.advice,
+      this.destination = 'your destination',
+      this.tripStart});
 
   /// Drops the recommended departure into the traveller's calendar via a
   /// standard .ics file, so it opens in whatever calendar app they use (not
@@ -6609,7 +7717,7 @@ class _DepartureBanner extends StatelessWidget {
     final base = tripStart ?? DateTime.now();
     final depart = base.add(Duration(hours: advice.bestOffsetHours));
     await addTripToCalendar(
-      title: 'Leave for $destination — Voyplan',
+      title: 'Leave for $destination — VoyPlan',
       description: advice.recommendation,
       location: destination,
       start: depart,
@@ -6618,7 +7726,8 @@ class _DepartureBanner extends StatelessWidget {
     );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Reminder ready — open the calendar file to add it')),
+        const SnackBar(
+            content: Text('Reminder ready — open the calendar file to add it')),
       );
     }
   }
@@ -6636,30 +7745,40 @@ class _DepartureBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(waiting ? Icons.schedule : Icons.check_circle, color: color, size: 20),
+          Icon(waiting ? Icons.schedule : Icons.check_circle,
+              color: color, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Best time to leave',
-                    style: TextStyle(fontSize: 12, color: Colors.white.withOpacity(0.6), fontWeight: FontWeight.w600)),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.6),
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(advice.recommendation,
-                    style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500)),
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.w500)),
               ],
             ),
           ),
           const SizedBox(width: 8),
           TextButton.icon(
             onPressed: () => _addToCalendar(context),
-            icon: Icon(Icons.notifications_active_outlined, size: 16, color: color),
+            icon: Icon(Icons.notifications_active_outlined,
+                size: 16, color: color),
             label: Text('Remind me',
-                style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+                style: TextStyle(
+                    fontSize: 12, color: color, fontWeight: FontWeight.w600)),
             style: TextButton.styleFrom(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               backgroundColor: color.withOpacity(0.12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
@@ -6692,7 +7811,10 @@ class _RestStopsCard extends StatelessWidget {
               const Icon(Icons.local_cafe, color: Color(0xFF9AD0EC), size: 16),
               const SizedBox(width: 6),
               Text('Suggested rest breaks',
-                  style: TextStyle(fontSize: 13, color: Colors.white.withOpacity(0.75), fontWeight: FontWeight.w600)),
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withOpacity(0.75),
+                      fontWeight: FontWeight.w600)),
             ],
           ),
           const SizedBox(height: 10),
@@ -6709,16 +7831,26 @@ class _RestStopsCard extends StatelessWidget {
                       color: const Color(0xFF9AD0EC).withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: Text('${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
-                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: Color(0xFF9AD0EC))),
+                    child: Text(
+                        '${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
+                        style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF9AD0EC))),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text('Break after driving ${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
-                        style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.75))),
+                    child: Text(
+                        'Break after driving ${s.afterHours % 1 == 0 ? s.afterHours.toInt() : s.afterHours}h',
+                        style: TextStyle(
+                            fontSize: 12.5,
+                            color: Colors.white.withOpacity(0.75))),
                   ),
                   Text('${s.distanceFromStartKm.toStringAsFixed(0)} km',
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: Colors.white)),
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                 ],
               ),
             ),
@@ -6791,11 +7923,14 @@ class _WeatherStrip extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFF4FC3F7), size: 14),
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFF4FC3F7), size: 14),
                   const SizedBox(width: 6),
                   Flexible(
                     child: Text('Rain or storms expected on part of your route',
-                        style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.85))),
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.85))),
                   ),
                 ],
               ),
@@ -6805,7 +7940,8 @@ class _WeatherStrip extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              for (int i = 0; i < points.length; i++) _tile(points[i], i, points.length),
+              for (int i = 0; i < points.length; i++)
+                _tile(points[i], i, points.length),
             ],
           ),
         ],
@@ -6826,14 +7962,21 @@ class _WeatherStrip extends StatelessWidget {
           Icon(_icons[p.icon] ?? Icons.cloud, color: color, size: 22),
           const SizedBox(height: 4),
           Text(p.tempC != null ? '${p.tempC!.toStringAsFixed(0)}°' : '--',
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Colors.white)),
+              style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
           const SizedBox(height: 2),
           Text(label,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.5))),
+              style: TextStyle(
+                  fontSize: 10, color: Colors.white.withOpacity(0.5))),
           if ((p.rainChancePct ?? 0) >= 40)
             Text('${p.rainChancePct}%',
-                style: const TextStyle(fontSize: 9, color: Color(0xFF4FC3F7), fontWeight: FontWeight.w600)),
+                style: const TextStyle(
+                    fontSize: 9,
+                    color: Color(0xFF4FC3F7),
+                    fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -6863,10 +8006,21 @@ class _BudgetCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = <List<dynamic>>[
       ['Fuel', budget.fuel, Icons.local_gas_station, Colors.orangeAccent],
-      if (budget.tolls > 0) ['Tolls', budget.tolls, Icons.toll, const Color(0xFFFF6B6B)],
-      ['Food (${budget.days}d)', budget.food, Icons.restaurant, const Color(0xFFFFB74D)],
+      if (budget.tolls > 0)
+        ['Tolls', budget.tolls, Icons.toll, const Color(0xFFFF6B6B)],
+      [
+        'Food (${budget.days}d)',
+        budget.food,
+        Icons.restaurant,
+        const Color(0xFFFFB74D)
+      ],
       if (budget.stay > 0)
-        ['Stay (${budget.nights} night${budget.nights == 1 ? '' : 's'})', budget.stay, Icons.hotel, const Color(0xFF64B5F6)],
+        [
+          'Stay (${budget.nights} night${budget.nights == 1 ? '' : 's'})',
+          budget.stay,
+          Icons.hotel,
+          const Color(0xFF64B5F6)
+        ],
       ['Buffer', budget.buffer, Icons.more_horiz, Colors.white54],
     ];
 
@@ -6874,7 +8028,10 @@ class _BudgetCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF00E5A0).withOpacity(0.10), Colors.white.withOpacity(0.03)],
+          colors: [
+            const Color(0xFF00E5A0).withOpacity(0.10),
+            Colors.white.withOpacity(0.03)
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -6885,7 +8042,8 @@ class _BudgetCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.account_balance_wallet, color: Color(0xFF00E5A0), size: 16),
+              const Icon(Icons.account_balance_wallet,
+                  color: Color(0xFF00E5A0), size: 16),
               const SizedBox(width: 6),
               Text('Estimated trip budget',
                   style: TextStyle(
@@ -6895,14 +8053,18 @@ class _BudgetCard extends StatelessWidget {
               const Spacer(),
               Text('₹${_fmt(budget.total)}',
                   style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.w900, color: Color(0xFF00E5A0))),
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF00E5A0))),
             ],
           ),
           const SizedBox(height: 4),
           Align(
             alignment: Alignment.centerRight,
-            child: Text('≈ ₹${_fmt(budget.perDay)}/day · ${budget.travellers} traveller${budget.travellers == 1 ? '' : 's'}',
-                style: TextStyle(fontSize: 11, color: Colors.white.withOpacity(0.5))),
+            child: Text(
+                '≈ ₹${_fmt(budget.perDay)}/day · ${budget.travellers} traveller${budget.travellers == 1 ? '' : 's'}',
+                style: TextStyle(
+                    fontSize: 11, color: Colors.white.withOpacity(0.5))),
           ),
           const Divider(color: Colors.white12, height: 20),
           for (final r in rows)
@@ -6913,21 +8075,27 @@ class _BudgetCard extends StatelessWidget {
                   Icon(r[2] as IconData, color: r[3] as Color, size: 15),
                   const SizedBox(width: 8),
                   Text(r[0] as String,
-                      style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.7))),
+                      style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.white.withOpacity(0.7))),
                   const Spacer(),
                   Text('₹${_fmt(r[1] as int)}',
                       style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white)),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white)),
                 ],
               ),
             ),
-          if (budget.outOfPocketFuel > 0 && budget.outOfPocketFuel < budget.fuel) ...[
+          if (budget.outOfPocketFuel > 0 &&
+              budget.outOfPocketFuel < budget.fuel) ...[
             const SizedBox(height: 4),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Top-up needed now (tank has fuel)',
-                    style: TextStyle(fontSize: 11, color: Colors.orange.shade300)),
+                    style:
+                        TextStyle(fontSize: 11, color: Colors.orange.shade300)),
                 Text('₹${_fmt(budget.outOfPocketFuel)}',
                     style: TextStyle(
                         fontSize: 11,
@@ -6949,7 +8117,8 @@ class _PulsingRing extends StatefulWidget {
   State<_PulsingRing> createState() => _PulsingRingState();
 }
 
-class _PulsingRingState extends State<_PulsingRing> with SingleTickerProviderStateMixin {
+class _PulsingRingState extends State<_PulsingRing>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -6979,7 +8148,8 @@ class _PulsingRingState extends State<_PulsingRing> with SingleTickerProviderSta
             shape: BoxShape.circle,
             color: const Color(0xFF2E75B6).withOpacity(1.0 - _controller.value),
             border: Border.all(
-              color: const Color(0xFF2E75B6).withOpacity(1.0 - _controller.value),
+              color:
+                  const Color(0xFF2E75B6).withOpacity(1.0 - _controller.value),
               width: 2.5,
             ),
           ),
@@ -6997,7 +8167,8 @@ class _DrivingWobble extends StatefulWidget {
   State<_DrivingWobble> createState() => _DrivingWobbleState();
 }
 
-class _DrivingWobbleState extends State<_DrivingWobble> with SingleTickerProviderStateMixin {
+class _DrivingWobbleState extends State<_DrivingWobble>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   final List<_SmokeParticle> _particles = [];
   final Random _random = Random();
@@ -7053,7 +8224,7 @@ class _DrivingWobbleState extends State<_DrivingWobble> with SingleTickerProvide
   Widget build(BuildContext context) {
     final double wobble = sin(_controller.value * 2 * pi) * 0.08;
     final double bounce = sin(_controller.value * 2 * pi * 2).abs() * -4.0;
-    
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -7109,7 +8280,8 @@ class _BlinkingIndicator extends StatefulWidget {
   State<_BlinkingIndicator> createState() => _BlinkingIndicatorState();
 }
 
-class _BlinkingIndicatorState extends State<_BlinkingIndicator> with SingleTickerProviderStateMixin {
+class _BlinkingIndicatorState extends State<_BlinkingIndicator>
+    with SingleTickerProviderStateMixin {
   late AnimationController _blinkController;
 
   @override
@@ -7167,7 +8339,7 @@ class _SpeedGaugePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 10;
     const startAngle = 2.356; // 135° (bottom-left)
-    const sweep = 4.712;      // 270° total travel
+    const sweep = 4.712; // 270° total travel
     final rect = Rect.fromCircle(center: center, radius: radius);
 
     final track = Paint()

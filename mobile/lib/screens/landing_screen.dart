@@ -5,7 +5,10 @@ import '../screens/login_screen.dart';
 import '../screens/trek_discovery_screen.dart';
 import '../screens/saved_trips_screen.dart';
 import '../screens/saved_places_screen.dart';
+import '../screens/smart_itinerary_screen.dart';
 import '../services/stop_catalog_service.dart';
+import '../widgets/trip_inspiration_modal.dart';
+import '../widgets/voyplan_navigation.dart';
 
 class LandingScreen extends StatefulWidget {
   final VoidCallback? onLogin;
@@ -26,6 +29,7 @@ class _LandingScreenState extends State<LandingScreen> {
   final GlobalKey _howItWorksKey = GlobalKey();
   final GlobalKey _featuresKey = GlobalKey();
   final GlobalKey _exploreKey = GlobalKey();
+  VoyPlanNavigationItem _activeNavigation = VoyPlanNavigationItem.home;
 
   // Interactive Card Controller State
   final TextEditingController _fromController =
@@ -86,6 +90,75 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
+  void _setActiveNavigation(VoyPlanNavigationItem item) {
+    if (mounted) setState(() => _activeNavigation = item);
+  }
+
+  void _resetNavigationAfterRoute() {
+    if (mounted) _setActiveNavigation(VoyPlanNavigationItem.home);
+  }
+
+  void _handleNavigation(VoyPlanNavigationItem item) {
+    _setActiveNavigation(item);
+    switch (item) {
+      case VoyPlanNavigationItem.home:
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOut,
+        );
+        break;
+      case VoyPlanNavigationItem.planTrip:
+        _handlePlanTrip();
+        break;
+      case VoyPlanNavigationItem.destinations:
+        Navigator.of(context)
+            .push(
+                MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.tripInspiration:
+        showTripInspirationModal(context)
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.myTrips:
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SavedTripsScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.savedPlaces:
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SavedPlacesScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.features:
+        _scrollToSection(_featuresKey);
+        break;
+      case VoyPlanNavigationItem.aiCopilot:
+        Navigator.of(context)
+            .push(
+                MaterialPageRoute(builder: (_) => const SmartItineraryScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+    }
+  }
+
+  void _openSignIn() {
+    _handleLogin();
+  }
+
+  void _openGetStarted() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen(startInSignUp: true)),
+    );
+  }
+
+  void _showThemeStatus() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('VoyPlan is using the dark travel theme.')),
+    );
+  }
+
   void _handleDestinationClick(String destination) {
     _handlePlanTrip(
       tripType: 'vacation',
@@ -99,10 +172,11 @@ class _LandingScreenState extends State<LandingScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1024;
     final isTablet = screenWidth >= 700 && screenWidth < 1024;
+    final hasExpandedNavigation = screenWidth >= 1440;
 
     return Scaffold(
       backgroundColor: Voy.bg,
-      endDrawer: !isDesktop ? _buildMobileDrawer() : null,
+      endDrawer: !hasExpandedNavigation ? _buildMobileDrawer() : null,
       body: Stack(
         children: [
           // Subtle Royal Background Glow
@@ -154,7 +228,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 1. Navigation Header
-                  _buildHeader(isDesktop: isDesktop),
+                  _buildHeader(isDesktop: hasExpandedNavigation),
 
                   // 2. Hero Section
                   _buildHero(isDesktop: isDesktop, isTablet: isTablet),
@@ -220,7 +294,8 @@ class _LandingScreenState extends State<LandingScreen> {
       ),
       decoration: BoxDecoration(
         color: Voy.bg.withValues(alpha: 0.85),
-        border: Border(bottom: BorderSide(color: Voy.hairline.withValues(alpha: 0.6))),
+        border: Border(
+            bottom: BorderSide(color: Voy.hairline.withValues(alpha: 0.6))),
       ),
       child: SafeArea(
         bottom: false,
@@ -228,91 +303,44 @@ class _LandingScreenState extends State<LandingScreen> {
           children: [
             // VoyPlan Logo & Wordmark
             InkWell(
-              onTap: () {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOut,
-                );
-              },
-              child: Row(
-                children: [
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Voy.gold, Voy.goldMuted],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Voy.gold.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.explore_rounded,
-                      color: Color(0xFF070D18),
-                      size: 22,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'VOYPLAN',
-                        style: Voy.royalSerif(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 2.0,
-                          color: Voy.ink,
-                        ),
-                      ),
-                      Text(
-                        'ROYAL TRAVEL OPERATING SYSTEM',
-                        style: TextStyle(
-                          color: Voy.gold.withValues(alpha: 0.85),
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              onTap: () => _handleNavigation(VoyPlanNavigationItem.home),
+              borderRadius: BorderRadius.circular(12),
+              child: _buildBrandLockup(),
             ),
             const Spacer(),
 
             // Desktop Navigation Links
             if (isDesktop) ...[
-              _navLink('Home', () {
-                _scrollController.animateTo(
-                  0,
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOut,
-                );
-              }),
-              _navLink('Explore', () => _scrollToSection(_exploreKey)),
-              _navLink('How It Works', () => _scrollToSection(_howItWorksKey)),
-              _navLink('Features', () => _scrollToSection(_featuresKey)),
-              const SizedBox(width: 24),
-              // Log In Action
+              ...voyPlanPrimaryNavigation.map(
+                (item) => _navLink(
+                  item.label,
+                  () => _handleNavigation(item),
+                  isActive: _activeNavigation == item,
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: 'Search',
+                onPressed: _handleExplore,
+                icon: const Icon(Icons.search_rounded, color: Voy.ink),
+              ),
+              IconButton(
+                tooltip: 'Theme switcher',
+                onPressed: _showThemeStatus,
+                icon: const Icon(Icons.dark_mode_outlined, color: Voy.ink),
+              ),
+              const SizedBox(width: 8),
               OutlinedButton(
-                onPressed: _handleLogin,
+                onPressed: _openSignIn,
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(color: Voy.gold.withValues(alpha: 0.5)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Text(
-                  'Log In',
+                  'Sign In',
                   style: TextStyle(
                     color: Voy.gold,
                     fontWeight: FontWeight.w700,
@@ -321,23 +349,22 @@ class _LandingScreenState extends State<LandingScreen> {
                 ),
               ),
               const SizedBox(width: 14),
-              // Plan Your Trip CTA
               ElevatedButton(
-                onPressed: () => _handlePlanTrip(),
+                onPressed: _openGetStarted,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Voy.gold,
                   foregroundColor: const Color(0xFF070D18),
-                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
                   elevation: 4,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome_rounded, size: 16),
-                    SizedBox(width: 8),
                     Text(
-                      'Plan Your Trip',
+                      'Get Started',
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
@@ -351,7 +378,8 @@ class _LandingScreenState extends State<LandingScreen> {
               // Mobile Hamburger
               Builder(
                 builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu_rounded, color: Voy.ink, size: 28),
+                  icon:
+                      const Icon(Icons.menu_rounded, color: Voy.ink, size: 28),
                   onPressed: () => Scaffold.of(context).openEndDrawer(),
                 ),
               ),
@@ -362,20 +390,63 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  Widget _navLink(String label, VoidCallback onTap) {
+  Widget _buildBrandLockup() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.asset(
+            'assets/icon/voyplan_dark.png',
+            width: 38,
+            height: 38,
+            fit: BoxFit.contain,
+            semanticLabel: 'VoyPlan',
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'VoyPlan',
+              style: TextStyle(
+                color: Voy.ink,
+                fontSize: 20,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.4,
+              ),
+            ),
+            Text(
+              'DISCOVER. DESIGN. DRIVE.',
+              style: TextStyle(
+                color: Voy.gold,
+                fontSize: 7.5,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.9,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _navLink(String label, VoidCallback onTap, {bool isActive = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 3),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
           child: Text(
             label,
-            style: const TextStyle(
-              color: Voy.ink,
+            style: TextStyle(
+              color: isActive ? Voy.gold : Voy.ink,
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
             ),
           ),
         ),
@@ -390,21 +461,12 @@ class _LandingScreenState extends State<LandingScreen> {
       child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: ListView(
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'VOYPLAN',
-                    style: Voy.royalSerif(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1.5,
-                      color: Voy.gold,
-                    ),
-                  ),
+                  _buildBrandLockup(),
                   IconButton(
                     icon: const Icon(Icons.close_rounded, color: Voy.sub),
                     onPressed: () => Navigator.of(context).pop(),
@@ -412,35 +474,45 @@ class _LandingScreenState extends State<LandingScreen> {
                 ],
               ),
               const Divider(color: Voy.hairline, height: 32),
-              _drawerItem(Icons.home_rounded, 'Home', () {
-                Navigator.of(context).pop();
-                _scrollController.animateTo(0, duration: const Duration(milliseconds: 400), curve: Curves.easeOut);
-              }),
-              _drawerItem(Icons.explore_rounded, 'Explore Destinations', () {
-                Navigator.of(context).pop();
-                _handleExplore();
-              }),
-              _drawerItem(Icons.alt_route_rounded, 'How It Works', () {
-                Navigator.of(context).pop();
-                _scrollToSection(_howItWorksKey);
-              }),
-              _drawerItem(Icons.featured_play_list_rounded, 'Features', () {
-                Navigator.of(context).pop();
-                _scrollToSection(_featuresKey);
-              }),
-              const Spacer(),
+              ...voyPlanPrimaryNavigation.map(
+                (item) => _drawerItem(item.icon, item.label, () {
+                  Navigator.of(context).pop();
+                  _handleNavigation(item);
+                }, isActive: _activeNavigation == item),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  IconButton(
+                    tooltip: 'Search',
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _handleExplore();
+                    },
+                    icon: const Icon(Icons.search_rounded, color: Voy.ink),
+                  ),
+                  IconButton(
+                    tooltip: 'Theme switcher',
+                    onPressed: _showThemeStatus,
+                    icon: const Icon(Icons.dark_mode_outlined, color: Voy.ink),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _handleLogin();
+                    _openSignIn();
                   },
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: Voy.gold.withValues(alpha: 0.5)),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Log In', style: TextStyle(color: Voy.gold, fontWeight: FontWeight.bold)),
+                  child: const Text('Sign In',
+                      style: TextStyle(
+                          color: Voy.gold, fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -449,14 +521,15 @@ class _LandingScreenState extends State<LandingScreen> {
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop();
-                    _handlePlanTrip();
+                    _openGetStarted();
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Voy.gold,
                     foregroundColor: const Color(0xFF070D18),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text('Plan Your Trip', style: TextStyle(fontWeight: FontWeight.bold)),
+                  child: const Text('Get Started',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -466,10 +539,15 @@ class _LandingScreenState extends State<LandingScreen> {
     );
   }
 
-  Widget _drawerItem(IconData icon, String label, VoidCallback onTap) {
+  Widget _drawerItem(IconData icon, String label, VoidCallback onTap,
+      {bool isActive = false}) {
     return ListTile(
-      leading: Icon(icon, color: Voy.gold, size: 22),
-      title: Text(label, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w600, fontSize: 16)),
+      leading: Icon(icon, color: isActive ? Voy.gold : Voy.sub, size: 22),
+      title: Text(label,
+          style: TextStyle(
+              color: isActive ? Voy.gold : Voy.ink,
+              fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+              fontSize: 16)),
       contentPadding: EdgeInsets.zero,
       onTap: onTap,
     );
@@ -518,7 +596,8 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Widget _buildHeroLeftContent({required bool isDesktop}) {
     return Column(
-      crossAxisAlignment: isDesktop ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment:
+          isDesktop ? CrossAxisAlignment.start : CrossAxisAlignment.center,
       children: [
         // Royal Badge
         Container(
@@ -531,7 +610,8 @@ class _LandingScreenState extends State<LandingScreen> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.compass_calibration_rounded, color: Voy.gold, size: 16),
+              const Icon(Icons.compass_calibration_rounded,
+                  color: Voy.gold, size: 16),
               const SizedBox(width: 8),
               Text(
                 'THE INTELLIGENT TRAVEL COMPANION',
@@ -585,9 +665,11 @@ class _LandingScreenState extends State<LandingScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: Voy.gold,
                 foregroundColor: const Color(0xFF070D18),
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
                 elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -596,7 +678,10 @@ class _LandingScreenState extends State<LandingScreen> {
                   SizedBox(width: 10),
                   Text(
                     'Plan Your Trip',
-                    style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5),
+                    style: TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 15,
+                        letterSpacing: 0.5),
                   ),
                 ],
               ),
@@ -607,8 +692,10 @@ class _LandingScreenState extends State<LandingScreen> {
                 side: BorderSide(color: Voy.hairline, width: 1.5),
                 backgroundColor: Voy.surface.withValues(alpha: 0.6),
                 foregroundColor: Voy.ink,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
@@ -671,7 +758,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     ],
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: Voy.surface2,
                       borderRadius: BorderRadius.circular(8),
@@ -679,7 +767,10 @@ class _LandingScreenState extends State<LandingScreen> {
                     ),
                     child: const Text(
                       'NH-275 • 268 km',
-                      style: TextStyle(color: Voy.sub, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: Voy.sub,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                 ],
@@ -751,7 +842,8 @@ class _LandingScreenState extends State<LandingScreen> {
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
-                border: Border.all(color: iconColor.withValues(alpha: 0.8), width: 1.5),
+                border: Border.all(
+                    color: iconColor.withValues(alpha: 0.8), width: 1.5),
               ),
               child: Icon(icon, color: iconColor, size: 14),
             ),
@@ -823,7 +915,8 @@ class _LandingScreenState extends State<LandingScreen> {
           Row(
             children: [
               Expanded(
-                child: _cardInput('From', _fromController, Icons.my_location_rounded),
+                child: _cardInput(
+                    'From', _fromController, Icons.my_location_rounded),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -839,7 +932,8 @@ class _LandingScreenState extends State<LandingScreen> {
               // Travel Mode
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   decoration: BoxDecoration(
                     color: Voy.surface,
                     borderRadius: BorderRadius.circular(12),
@@ -850,13 +944,17 @@ class _LandingScreenState extends State<LandingScreen> {
                       value: _selectedTransport,
                       dropdownColor: Voy.surface,
                       isExpanded: true,
-                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Voy.sub),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                          color: Voy.sub),
                       items: ['Car', 'SUV', 'Motorcycle', 'EV']
                           .map((m) => DropdownMenuItem(
                                 value: m,
                                 child: Text(
                                   m,
-                                  style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      color: Voy.ink,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ))
                           .toList(),
@@ -871,7 +969,8 @@ class _LandingScreenState extends State<LandingScreen> {
               // Travelers Counter
               Expanded(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   decoration: BoxDecoration(
                     color: Voy.surface,
                     borderRadius: BorderRadius.circular(12),
@@ -880,10 +979,14 @@ class _LandingScreenState extends State<LandingScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(Icons.people_rounded, color: Voy.gold, size: 16),
+                      const Icon(Icons.people_rounded,
+                          color: Voy.gold, size: 16),
                       Text(
                         '$_travelers Travelers',
-                        style: const TextStyle(color: Voy.ink, fontSize: 12.5, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: Voy.ink,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.bold),
                       ),
                       InkWell(
                         onTap: () {
@@ -891,7 +994,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             _travelers = _travelers >= 6 ? 1 : _travelers + 1;
                           });
                         },
-                        child: const Icon(Icons.add_circle_outline, color: Voy.gold, size: 18),
+                        child: const Icon(Icons.add_circle_outline,
+                            color: Voy.gold, size: 18),
                       ),
                     ],
                   ),
@@ -914,11 +1018,15 @@ class _LandingScreenState extends State<LandingScreen> {
                 backgroundColor: Voy.gold,
                 foregroundColor: const Color(0xFF070D18),
                 padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Text(
                 'Plan My Trip',
-                style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5),
+                style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    letterSpacing: 0.5),
               ),
             ),
           ),
@@ -937,7 +1045,8 @@ class _LandingScreenState extends State<LandingScreen> {
       ),
       child: TextField(
         controller: ctrl,
-        style: const TextStyle(color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+            color: Voy.ink, fontSize: 13, fontWeight: FontWeight.w600),
         decoration: InputDecoration(
           icon: Icon(icon, color: Voy.gold, size: 16),
           labelText: label,
@@ -1043,7 +1152,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'HOW IT WORKS',
                 title: 'From Conception to Destination in Four Steps',
-                subtitle: 'Engineered for seamless precision, comprehensive stops, and predictable costs.',
+                subtitle:
+                    'Engineered for seamless precision, comprehensive stops, and predictable costs.',
               ),
               const SizedBox(height: 48),
               LayoutBuilder(
@@ -1054,7 +1164,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: steps.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isWide ? 4 : (constraints.maxWidth >= 550 ? 2 : 1),
+                      crossAxisCount:
+                          isWide ? 4 : (constraints.maxWidth >= 550 ? 2 : 1),
                       mainAxisSpacing: 20,
                       crossAxisSpacing: 20,
                       childAspectRatio: isWide ? 0.9 : 1.3,
@@ -1143,7 +1254,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'ONE WAY JOURNEYS',
                 title: 'Point-to-Point Precision with Curated Corridor Stops',
-                subtitle: 'Complete route intelligence: real road distance, ETA, refuel recommendations, tolls, and stop points.',
+                subtitle:
+                    'Complete route intelligence: real road distance, ETA, refuel recommendations, tolls, and stop points.',
               ),
               const SizedBox(height: 40),
               Container(
@@ -1191,7 +1303,8 @@ class _LandingScreenState extends State<LandingScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Voy.gold,
                             foregroundColor: const Color(0xFF070D18),
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 12),
                           ),
                         ),
                       ],
@@ -1205,11 +1318,16 @@ class _LandingScreenState extends State<LandingScreen> {
                       spacing: 32,
                       runSpacing: 16,
                       children: [
-                        _metricBadge(Icons.straighten_rounded, 'Distance', '268 km'),
-                        _metricBadge(Icons.timer_rounded, 'Drive Time', '5h 45m'),
-                        _metricBadge(Icons.local_gas_station_rounded, 'Fuel Required', '17.8 L (15 km/L)'),
-                        _metricBadge(Icons.toll_rounded, 'Est. Tolls', '₹440 (FASTag)'),
-                        _metricBadge(Icons.account_balance_wallet_rounded, 'Est. Budget', '₹3,450 total'),
+                        _metricBadge(
+                            Icons.straighten_rounded, 'Distance', '268 km'),
+                        _metricBadge(
+                            Icons.timer_rounded, 'Drive Time', '5h 45m'),
+                        _metricBadge(Icons.local_gas_station_rounded,
+                            'Fuel Required', '17.8 L (15 km/L)'),
+                        _metricBadge(
+                            Icons.toll_rounded, 'Est. Tolls', '₹440 (FASTag)'),
+                        _metricBadge(Icons.account_balance_wallet_rounded,
+                            'Est. Budget', '₹3,450 total'),
                       ],
                     ),
                   ],
@@ -1260,7 +1378,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'MULTI-DAY VACATIONS',
                 title: 'Curated Vacation Itineraries Built for Discoverers',
-                subtitle: 'Multi-day routing, day-by-day itineraries, verified stays, activities, and synchronized return journeys.',
+                subtitle:
+                    'Multi-day routing, day-by-day itineraries, verified stays, activities, and synchronized return journeys.',
               ),
               const SizedBox(height: 40),
               LayoutBuilder(
@@ -1287,10 +1406,13 @@ class _LandingScreenState extends State<LandingScreen> {
                                   Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Voy.gold.withValues(alpha: 0.15),
-                                          borderRadius: BorderRadius.circular(8),
+                                          color:
+                                              Voy.gold.withValues(alpha: 0.15),
+                                          borderRadius:
+                                              BorderRadius.circular(8),
                                         ),
                                         child: Text(
                                           d.$1,
@@ -1306,14 +1428,19 @@ class _LandingScreenState extends State<LandingScreen> {
                                         spacing: 6,
                                         children: d.$4.map((tag) {
                                           return Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(
                                               color: Voy.surface2,
-                                              borderRadius: BorderRadius.circular(6),
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
                                             ),
                                             child: Text(
                                               tag,
-                                              style: const TextStyle(color: Voy.sub, fontSize: 10, fontWeight: FontWeight.w600),
+                                              style: const TextStyle(
+                                                  color: Voy.sub,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.w600),
                                             ),
                                           );
                                         }).toList(),
@@ -1332,7 +1459,10 @@ class _LandingScreenState extends State<LandingScreen> {
                                   const SizedBox(height: 6),
                                   Text(
                                     d.$3,
-                                    style: const TextStyle(color: Voy.sub, fontSize: 13, height: 1.4),
+                                    style: const TextStyle(
+                                        color: Voy.sub,
+                                        fontSize: 13,
+                                        height: 1.4),
                                   ),
                                 ],
                               ),
@@ -1349,7 +1479,8 @@ class _LandingScreenState extends State<LandingScreen> {
                             decoration: BoxDecoration(
                               color: Voy.surface,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: Voy.gold.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                  color: Voy.gold.withValues(alpha: 0.3)),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1364,11 +1495,16 @@ class _LandingScreenState extends State<LandingScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 16),
-                                _highlightRow(Icons.hotel_rounded, 'Stay Included', 'Plantation Eco-Resorts'),
-                                _highlightRow(Icons.restaurant_rounded, 'Dining', 'Curated Kodava Cuisine'),
-                                _highlightRow(Icons.museum_rounded, 'Attractions', '4 Pre-routed Key Sights'),
-                                _highlightRow(Icons.local_gas_station_rounded, 'Refuel Corridor', 'Highway Swagat Hubs'),
-                                _highlightRow(Icons.keyboard_return_rounded, 'Return Leg', 'Synchronized Schedule'),
+                                _highlightRow(Icons.hotel_rounded,
+                                    'Stay Included', 'Plantation Eco-Resorts'),
+                                _highlightRow(Icons.restaurant_rounded,
+                                    'Dining', 'Curated Kodava Cuisine'),
+                                _highlightRow(Icons.museum_rounded,
+                                    'Attractions', '4 Pre-routed Key Sights'),
+                                _highlightRow(Icons.local_gas_station_rounded,
+                                    'Refuel Corridor', 'Highway Swagat Hubs'),
+                                _highlightRow(Icons.keyboard_return_rounded,
+                                    'Return Leg', 'Synchronized Schedule'),
                                 const SizedBox(height: 24),
                                 SizedBox(
                                   width: double.infinity,
@@ -1381,9 +1517,12 @@ class _LandingScreenState extends State<LandingScreen> {
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Voy.gold,
                                       foregroundColor: const Color(0xFF070D18),
-                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 16),
                                     ),
-                                    child: const Text('Plan a Vacation', style: TextStyle(fontWeight: FontWeight.w900)),
+                                    child: const Text('Plan a Vacation',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900)),
                                   ),
                                 ),
                               ],
@@ -1411,7 +1550,9 @@ class _LandingScreenState extends State<LandingScreen> {
           const SizedBox(width: 12),
           Text(label, style: const TextStyle(color: Voy.sub, fontSize: 13)),
           const Spacer(),
-          Text(value, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(value,
+              style: const TextStyle(
+                  color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
         ],
       ),
     );
@@ -1422,12 +1563,42 @@ class _LandingScreenState extends State<LandingScreen> {
   // ==========================================================================
   Widget _buildAIPlannerSection({required bool isDesktop}) {
     final itinerarySlots = [
-      ('08:00 AM', 'Leave Bangalore', 'Start with full fuel tank from origin', Icons.directions_car_rounded),
-      ('10:30 AM', 'Breakfast at Ramanagara', 'Traditional South Indian thali at Kamat Lokaruchi', Icons.restaurant_rounded),
-      ('12:00 PM', 'Mysore Palace Heritage Stop', '1h 30m guided photography walk through palace corridors', Icons.museum_rounded),
-      ('02:00 PM', 'Scenic Lunch Break', 'Fresh garden meal along Hunsur highway', Icons.local_dining_rounded),
-      ('04:00 PM', 'Scenic Valley Overlook', 'Channapatna craft stalls & panoramic tea gardens', Icons.landscape_rounded),
-      ('06:30 PM', 'Hotel Check-in', 'Madikeri plantation resort welcome tea & relaxation', Icons.hotel_rounded),
+      (
+        '08:00 AM',
+        'Leave Bangalore',
+        'Start with full fuel tank from origin',
+        Icons.directions_car_rounded
+      ),
+      (
+        '10:30 AM',
+        'Breakfast at Ramanagara',
+        'Traditional South Indian thali at Kamat Lokaruchi',
+        Icons.restaurant_rounded
+      ),
+      (
+        '12:00 PM',
+        'Mysore Palace Heritage Stop',
+        '1h 30m guided photography walk through palace corridors',
+        Icons.museum_rounded
+      ),
+      (
+        '02:00 PM',
+        'Scenic Lunch Break',
+        'Fresh garden meal along Hunsur highway',
+        Icons.local_dining_rounded
+      ),
+      (
+        '04:00 PM',
+        'Scenic Valley Overlook',
+        'Channapatna craft stalls & panoramic tea gardens',
+        Icons.landscape_rounded
+      ),
+      (
+        '06:30 PM',
+        'Hotel Check-in',
+        'Madikeri plantation resort welcome tea & relaxation',
+        Icons.hotel_rounded
+      ),
     ];
 
     return Container(
@@ -1444,7 +1615,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'AI ITINERARY ENGINE',
                 title: 'Your Journey, Intelligently Planned.',
-                subtitle: 'Powered by real geographic coordinates, real travel times, and zero hallucinatory routing.',
+                subtitle:
+                    'Powered by real geographic coordinates, real travel times, and zero hallucinatory routing.',
               ),
               const SizedBox(height: 40),
               Container(
@@ -1467,7 +1639,8 @@ class _LandingScreenState extends State<LandingScreen> {
                       child: Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             decoration: BoxDecoration(
                               color: Voy.gold.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
@@ -1490,9 +1663,14 @@ class _LandingScreenState extends State<LandingScreen> {
                               children: [
                                 Text(
                                   slot.$2,
-                                  style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 14),
+                                  style: const TextStyle(
+                                      color: Voy.ink,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
                                 ),
-                                Text(slot.$3, style: const TextStyle(color: Voy.sub, fontSize: 12)),
+                                Text(slot.$3,
+                                    style: const TextStyle(
+                                        color: Voy.sub, fontSize: 12)),
                               ],
                             ),
                           ),
@@ -1513,7 +1691,8 @@ class _LandingScreenState extends State<LandingScreen> {
   // 8. SMART STOP POINTS SHOWCASE
   // ==========================================================================
   Widget _buildSmartStopsSection({required bool isDesktop}) {
-    final categories = StopCatalogService.categories.where((c) => c.key != 'all').toList();
+    final categories =
+        StopCatalogService.categories.where((c) => c.key != 'all').toList();
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -1528,7 +1707,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'STOP POINT CATALOG',
                 title: 'The Best Stops Are Part of the Journey.',
-                subtitle: 'Discover verified locations along your route corridor with minimal detour and guaranteed opening hours.',
+                subtitle:
+                    'Discover verified locations along your route corridor with minimal detour and guaranteed opening hours.',
               ),
               const SizedBox(height: 40),
               LayoutBuilder(
@@ -1539,7 +1719,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: categories.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isWide ? 4 : (constraints.maxWidth >= 550 ? 3 : 2),
+                      crossAxisCount:
+                          isWide ? 4 : (constraints.maxWidth >= 550 ? 3 : 2),
                       mainAxisSpacing: 14,
                       crossAxisSpacing: 14,
                       childAspectRatio: 2.2,
@@ -1547,7 +1728,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     itemBuilder: (context, idx) {
                       final c = categories[idx];
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
                         decoration: BoxDecoration(
                           color: Voy.surface,
                           borderRadius: BorderRadius.circular(14),
@@ -1600,7 +1782,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'FINANCIAL & FUEL INTELLIGENCE',
                 title: 'Transparent Budgeting and Predictive Range',
-                subtitle: 'Every trip synchronized: distance yields fuel demand, fuel demand determines stops, stops compute the final cost.',
+                subtitle:
+                    'Every trip synchronized: distance yields fuel demand, fuel demand determines stops, stops compute the final cost.',
               ),
               const SizedBox(height: 40),
               LayoutBuilder(
@@ -1618,11 +1801,15 @@ class _LandingScreenState extends State<LandingScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.local_gas_station_rounded, color: Voy.gold, size: 20),
+                            Icon(Icons.local_gas_station_rounded,
+                                color: Voy.gold, size: 20),
                             SizedBox(width: 10),
                             Text(
                               'FUEL PLANNING',
-                              style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15),
+                              style: TextStyle(
+                                  color: Voy.ink,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15),
                             ),
                           ],
                         ),
@@ -1631,7 +1818,8 @@ class _LandingScreenState extends State<LandingScreen> {
                         _budgetRow('Current Fuel in Tank', '10.0 L'),
                         _budgetRow('Estimated Initial Range', '150 km'),
                         _budgetRow('Required Fuel for Route', '17.8 L'),
-                        _budgetRow('Refuel Requirement', '1 Recommended Stop at KM 120'),
+                        _budgetRow('Refuel Requirement',
+                            '1 Recommended Stop at KM 120'),
                       ],
                     ),
                   );
@@ -1641,7 +1829,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     decoration: BoxDecoration(
                       color: Voy.surface2,
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Voy.gold.withValues(alpha: 0.3)),
+                      border:
+                          Border.all(color: Voy.gold.withValues(alpha: 0.3)),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1653,12 +1842,16 @@ class _LandingScreenState extends State<LandingScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.account_balance_wallet_rounded, color: Voy.gold, size: 20),
+                                  Icon(Icons.account_balance_wallet_rounded,
+                                      color: Voy.gold, size: 20),
                                   SizedBox(width: 10),
                                   Flexible(
                                     child: Text(
                                       'ESTIMATED TRIP BUDGET',
-                                      style: TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15),
+                                      style: TextStyle(
+                                          color: Voy.ink,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 15),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
@@ -1668,7 +1861,10 @@ class _LandingScreenState extends State<LandingScreen> {
                             const SizedBox(width: 12),
                             Text(
                               '₹18,450',
-                              style: Voy.royalSerif(fontSize: 20, color: Voy.gold, fontWeight: FontWeight.w900),
+                              style: Voy.royalSerif(
+                                  fontSize: 20,
+                                  color: Voy.gold,
+                                  fontWeight: FontWeight.w900),
                             ),
                           ],
                         ),
@@ -1691,7 +1887,11 @@ class _LandingScreenState extends State<LandingScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            Text('₹9,225', style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15)),
+                            Text('₹9,225',
+                                style: const TextStyle(
+                                    color: Voy.ink,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15)),
                           ],
                         ),
                       ],
@@ -1739,7 +1939,9 @@ class _LandingScreenState extends State<LandingScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          Text(val, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w700, fontSize: 13)),
+          Text(val,
+              style: const TextStyle(
+                  color: Voy.ink, fontWeight: FontWeight.w700, fontSize: 13)),
         ],
       ),
     );
@@ -1801,7 +2003,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'ICONIC DESTINATIONS',
                 title: 'Curated Road Trip Escapes',
-                subtitle: 'Explore pre-verified routes with turnkey itineraries, verified fuel corridors, and top ratings.',
+                subtitle:
+                    'Explore pre-verified routes with turnkey itineraries, verified fuel corridors, and top ratings.',
               ),
               const SizedBox(height: 40),
               LayoutBuilder(
@@ -1812,7 +2015,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: destinations.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isWide ? 3 : (constraints.maxWidth >= 550 ? 2 : 1),
+                      crossAxisCount:
+                          isWide ? 3 : (constraints.maxWidth >= 550 ? 2 : 1),
                       mainAxisSpacing: 20,
                       crossAxisSpacing: 20,
                       childAspectRatio: 0.82,
@@ -1837,7 +2041,8 @@ class _LandingScreenState extends State<LandingScreen> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => Container(
                                   color: Voy.surface2,
-                                  child: const Icon(Icons.landscape_rounded, color: Voy.sub, size: 48),
+                                  child: const Icon(Icons.landscape_rounded,
+                                      color: Voy.sub, size: 48),
                                 ),
                               ),
                             ),
@@ -1847,24 +2052,34 @@ class _LandingScreenState extends State<LandingScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Expanded(
                                         child: Text(
                                           d.$1,
-                                          style: Voy.royalSerif(fontSize: 18, color: Voy.ink, fontWeight: FontWeight.bold),
+                                          style: Voy.royalSerif(
+                                              fontSize: 18,
+                                              color: Voy.ink,
+                                              fontWeight: FontWeight.bold),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Voy.gold.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(6),
+                                          color:
+                                              Voy.gold.withValues(alpha: 0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           d.$3,
-                                          style: const TextStyle(color: Voy.gold, fontSize: 10, fontWeight: FontWeight.w700),
+                                          style: const TextStyle(
+                                              color: Voy.gold,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700),
                                         ),
                                       ),
                                     ],
@@ -1872,7 +2087,10 @@ class _LandingScreenState extends State<LandingScreen> {
                                   const SizedBox(height: 8),
                                   Text(
                                     d.$2,
-                                    style: const TextStyle(color: Voy.sub, fontSize: 12.5, height: 1.4),
+                                    style: const TextStyle(
+                                        color: Voy.sub,
+                                        fontSize: 12.5,
+                                        height: 1.4),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -1880,11 +2098,17 @@ class _LandingScreenState extends State<LandingScreen> {
                                   SizedBox(
                                     width: double.infinity,
                                     child: OutlinedButton(
-                                      onPressed: () => _handleDestinationClick(d.$1),
+                                      onPressed: () =>
+                                          _handleDestinationClick(d.$1),
                                       style: OutlinedButton.styleFrom(
-                                        side: BorderSide(color: Voy.gold.withValues(alpha: 0.4)),
+                                        side: BorderSide(
+                                            color: Voy.gold
+                                                .withValues(alpha: 0.4)),
                                       ),
-                                      child: const Text('Explore & Plan', style: TextStyle(color: Voy.gold, fontWeight: FontWeight.bold)),
+                                      child: const Text('Explore & Plan',
+                                          style: TextStyle(
+                                              color: Voy.gold,
+                                              fontWeight: FontWeight.bold)),
                                     ),
                                   ),
                                 ],
@@ -1909,14 +2133,46 @@ class _LandingScreenState extends State<LandingScreen> {
   // ==========================================================================
   Widget _buildFeatureGrid({required bool isDesktop}) {
     final features = [
-      (Icons.auto_awesome_rounded, 'AI Trip Planner', 'Build custom itineraries based on trip type, travelers, and travel pacing.'),
-      (Icons.alt_route_rounded, 'Smart Routes', 'Reliable road corridors with accurate distance, ETA, and road condition insights.'),
-      (Icons.storefront_rounded, 'Stop Point Catalog', '13 categories of route-aware food, stay, sightseeing, EV, and fuel stops.'),
-      (Icons.local_gas_station_rounded, 'Fuel Planning', 'Calculate fuel required, current tank range, and guaranteed refuel halts.'),
-      (Icons.account_balance_wallet_rounded, 'Budget Engine', 'Comprehensive expense breakdown across fuel, tolls, stay, meals, and tickets.'),
-      (Icons.navigation_rounded, 'Live Navigation', 'Active GPS guidance, live speed, upcoming waypoint HUD, and turn indicators.'),
-      (Icons.bookmark_rounded, 'Saved Places', 'Bookmark your favorite viewpoints, boutique stays, and roadside diners.'),
-      (Icons.history_rounded, 'My Trips', 'Review, reopen, duplicate, and modify complete past and upcoming expeditions.'),
+      (
+        Icons.auto_awesome_rounded,
+        'AI Trip Planner',
+        'Build custom itineraries based on trip type, travelers, and travel pacing.'
+      ),
+      (
+        Icons.alt_route_rounded,
+        'Smart Routes',
+        'Reliable road corridors with accurate distance, ETA, and road condition insights.'
+      ),
+      (
+        Icons.storefront_rounded,
+        'Stop Point Catalog',
+        '13 categories of route-aware food, stay, sightseeing, EV, and fuel stops.'
+      ),
+      (
+        Icons.local_gas_station_rounded,
+        'Fuel Planning',
+        'Calculate fuel required, current tank range, and guaranteed refuel halts.'
+      ),
+      (
+        Icons.account_balance_wallet_rounded,
+        'Budget Engine',
+        'Comprehensive expense breakdown across fuel, tolls, stay, meals, and tickets.'
+      ),
+      (
+        Icons.navigation_rounded,
+        'Live Navigation',
+        'Active GPS guidance, live speed, upcoming waypoint HUD, and turn indicators.'
+      ),
+      (
+        Icons.bookmark_rounded,
+        'Saved Places',
+        'Bookmark your favorite viewpoints, boutique stays, and roadside diners.'
+      ),
+      (
+        Icons.history_rounded,
+        'My Trips',
+        'Review, reopen, duplicate, and modify complete past and upcoming expeditions.'
+      ),
     ];
 
     return Container(
@@ -1933,7 +2189,8 @@ class _LandingScreenState extends State<LandingScreen> {
               _sectionHeader(
                 tag: 'PLATFORM CAPABILITIES',
                 title: 'Engineered for Every Stage of the Road',
-                subtitle: 'A single unified travel operating system replacing scattered spreadsheets and maps.',
+                subtitle:
+                    'A single unified travel operating system replacing scattered spreadsheets and maps.',
               ),
               const SizedBox(height: 48),
               LayoutBuilder(
@@ -1944,7 +2201,8 @@ class _LandingScreenState extends State<LandingScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     itemCount: features.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: isWide ? 4 : (constraints.maxWidth >= 550 ? 2 : 1),
+                      crossAxisCount:
+                          isWide ? 4 : (constraints.maxWidth >= 550 ? 2 : 1),
                       mainAxisSpacing: 20,
                       crossAxisSpacing: 20,
                       childAspectRatio: isWide ? 1.05 : 1.3,
@@ -1972,12 +2230,16 @@ class _LandingScreenState extends State<LandingScreen> {
                             const Spacer(),
                             Text(
                               f.$2,
-                              style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 15),
+                              style: const TextStyle(
+                                  color: Voy.ink,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15),
                             ),
                             const SizedBox(height: 6),
                             Text(
                               f.$3,
-                              style: const TextStyle(color: Voy.sub, fontSize: 12, height: 1.4),
+                              style: const TextStyle(
+                                  color: Voy.sub, fontSize: 12, height: 1.4),
                             ),
                           ],
                         ),
@@ -2017,7 +2279,8 @@ class _LandingScreenState extends State<LandingScreen> {
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(28),
-              border: Border.all(color: Voy.gold.withValues(alpha: 0.4), width: 1.5),
+              border: Border.all(
+                  color: Voy.gold.withValues(alpha: 0.4), width: 1.5),
               boxShadow: [
                 BoxShadow(
                   color: Voy.gold.withValues(alpha: 0.1),
@@ -2060,19 +2323,29 @@ class _LandingScreenState extends State<LandingScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Voy.gold,
                         foregroundColor: const Color(0xFF070D18),
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 32, vertical: 18),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Plan Your Trip', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15)),
+                      child: const Text('Plan Your Trip',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w900, fontSize: 15)),
                     ),
                     OutlinedButton(
                       onPressed: _handleExplore,
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: Voy.gold),
-                        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 28, vertical: 18),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('Explore VoyPlan', style: TextStyle(color: Voy.gold, fontWeight: FontWeight.bold, fontSize: 15)),
+                      child: const Text('Explore VoyPlan',
+                          style: TextStyle(
+                              color: Voy.gold,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15)),
                     ),
                   ],
                 ),
@@ -2110,18 +2383,23 @@ class _LandingScreenState extends State<LandingScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.explore_rounded, color: Voy.gold, size: 22),
+                            const Icon(Icons.explore_rounded,
+                                color: Voy.gold, size: 22),
                             const SizedBox(width: 10),
                             Text(
-                              'VOYPLAN',
-                              style: Voy.royalSerif(fontSize: 18, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                              'VoyPlan',
+                              style: Voy.royalSerif(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1.5),
                             ),
                           ],
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'The Classic Royal travel operating system for intelligent routes, multi-day vacations, and transparent road trip economics.',
-                          style: TextStyle(color: Voy.sub, fontSize: 13, height: 1.5),
+                          'Discover. Design. Drive. Intelligent routes, multi-day vacations, and transparent road trip economics.',
+                          style: TextStyle(
+                              color: Voy.sub, fontSize: 13, height: 1.5),
                         ),
                       ],
                     ),
@@ -2134,12 +2412,20 @@ class _LandingScreenState extends State<LandingScreen> {
                       ('One Way', () => _handlePlanTrip(tripType: 'one_way')),
                       ('Vacation', () => _handlePlanTrip(tripType: 'vacation')),
                       ('Explore', _handleExplore),
-                      ('My Trips', () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SavedTripsScreen()));
-                      }),
-                      ('Saved Places', () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SavedPlacesScreen()));
-                      }),
+                      (
+                        'My Trips',
+                        () {
+                          Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) => const SavedTripsScreen()));
+                        }
+                      ),
+                      (
+                        'Saved Places',
+                        () {
+                          Navigator.of(context).push(MaterialPageRoute(
+                              builder: (_) => const SavedPlacesScreen()));
+                        }
+                      ),
                     ]),
                     const SizedBox(width: 48),
                     // Company Links
@@ -2172,8 +2458,11 @@ class _LandingScreenState extends State<LandingScreen> {
                     style: const TextStyle(color: Voy.sub, fontSize: 12),
                   ),
                   const Text(
-                    'Classic Royal Edition • voyplan.in',
-                    style: TextStyle(color: Voy.gold, fontSize: 12, fontWeight: FontWeight.w600),
+                    'DISCOVER. DESIGN. DRIVE. • voyplan.in',
+                    style: TextStyle(
+                        color: Voy.gold,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -2190,7 +2479,11 @@ class _LandingScreenState extends State<LandingScreen> {
       children: [
         Text(
           title,
-          style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.0),
+          style: const TextStyle(
+              color: Voy.ink,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+              letterSpacing: 1.0),
         ),
         const SizedBox(height: 14),
         ...links.map((link) {
@@ -2237,7 +2530,8 @@ class _LandingScreenState extends State<LandingScreen> {
         Text(
           title,
           textAlign: TextAlign.center,
-          style: Voy.royalSerif(fontSize: 30, fontWeight: FontWeight.w800, color: Voy.ink),
+          style: Voy.royalSerif(
+              fontSize: 30, fontWeight: FontWeight.w800, color: Voy.ink),
         ),
         const SizedBox(height: 10),
         ConstrainedBox(
@@ -2262,7 +2556,9 @@ class _LandingScreenState extends State<LandingScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label, style: const TextStyle(color: Voy.sub, fontSize: 11)),
-            Text(val, style: const TextStyle(color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
+            Text(val,
+                style: const TextStyle(
+                    color: Voy.ink, fontWeight: FontWeight.bold, fontSize: 13)),
           ],
         ),
       ],

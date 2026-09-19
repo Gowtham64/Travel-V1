@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Voyplan</string>
+	<string>VoyPlan</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Voyplan</string>
+	<string>VoyPlan</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -45,9 +45,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs the camera to capture travel moments for your gallery.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Voyplan needs continuous location access to provide turn-by-turn navigation, lane guidance, live speed, and automatic rerouting even when the screen is locked or in background.</string>
+	<string>VoyPlan needs continuous location access to provide turn-by-turn navigation, lane guidance, live speed, and automatic rerouting even when the screen is locked or in background.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Voyplan needs location access to show your live vehicle position, road matching, turn maneuvers, and real-time navigation.</string>
+	<string>VoyPlan needs location access to show your live vehicle position, road matching, turn maneuvers, and real-time navigation.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your travel gallery.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

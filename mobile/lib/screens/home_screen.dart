@@ -35,6 +35,8 @@ import 'account_screens.dart';
 import 'trip_history_screen.dart';
 import 'map_location_picker_screen.dart';
 import 'login_screen.dart';
+import 'smart_itinerary_screen.dart';
+import '../widgets/voyplan_navigation.dart';
 
 /// VoyPlan Redesigned Dashboard — Modern Travel Super App UI/UX
 ///
@@ -64,6 +66,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   final _api = ApiService();
   final MapController _routePreviewMapController = MapController();
+  final ScrollController _pageScrollController = ScrollController();
+  final GlobalKey _featuresKey = GlobalKey();
   bool _useSatelliteMap = false;
   List<dynamic> _trips = [];
   bool _loadingTrips = true;
@@ -89,6 +93,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   // Mobile Bottom Navigation Tab Index
   int _mobileNavIndex = 0;
+  VoyPlanNavigationItem _activeNavigation = VoyPlanNavigationItem.home;
 
   // Animation Controllers
   late final AnimationController _entrance;
@@ -161,6 +166,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _openSavedPlaces();
         return;
       }
+      if (uri.queryParameters['my_trips'] == 'true') {
+        _openSaved();
+        return;
+      }
+      if (uri.queryParameters['inspiration'] == 'true') {
+        _openTripInspiration();
+        return;
+      }
       if (uri.queryParameters['ai'] == 'true' ||
           uri.queryParameters['chat'] == 'true') {
         _planTrip(tripType: 'vacation', start: start, dest: dest, days: days);
@@ -189,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _entrance.dispose();
     _ambient.dispose();
     _aiPulse.dispose();
+    _pageScrollController.dispose();
     _fromController.dispose();
     _toController.dispose();
     super.dispose();
@@ -308,8 +322,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // Master Trip Modal Entry Point
-  void _planTrip({String? tripType, String? start, String? dest, int? days}) {
-    showVoyPlanTripModal(
+  Future<void> _planTrip(
+      {String? tripType, String? start, String? dest, int? days}) {
+    return showVoyPlanTripModal(
       context,
       initialMode: tripType ?? _tripType,
       initialOrigin: start ??
@@ -362,6 +377,89 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   void _openExplore() => Navigator.push(
       context, MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()));
+
+  void _setActiveNavigation(VoyPlanNavigationItem item) {
+    if (mounted) setState(() => _activeNavigation = item);
+  }
+
+  void _resetNavigationAfterRoute() {
+    if (mounted) _setActiveNavigation(VoyPlanNavigationItem.home);
+  }
+
+  void _goHome() {
+    _setActiveNavigation(VoyPlanNavigationItem.home);
+    _pageScrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _openNavigationItem(VoyPlanNavigationItem item) {
+    _setActiveNavigation(item);
+    switch (item) {
+      case VoyPlanNavigationItem.home:
+        _goHome();
+        break;
+      case VoyPlanNavigationItem.planTrip:
+        _planTrip().whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.destinations:
+        Navigator.of(context)
+            .push(
+                MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.tripInspiration:
+        showTripInspirationModal(context)
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.myTrips:
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SavedTripsScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.savedPlaces:
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const SavedPlacesScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.features:
+        final featureContext = _featuresKey.currentContext;
+        if (featureContext != null) {
+          Scrollable.ensureVisible(
+            featureContext,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOut,
+          );
+        }
+        break;
+      case VoyPlanNavigationItem.aiCopilot:
+        Navigator.of(context)
+            .push(
+                MaterialPageRoute(builder: (_) => const SmartItineraryScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+    }
+  }
+
+  void _openSignIn() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+    );
+  }
+
+  void _openGetStarted() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const LoginScreen(startInSignUp: true)),
+    );
+  }
+
+  void _showThemeStatus() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('VoyPlan is using the dark travel theme.')),
+    );
+  }
 
   void _openGallery() => Navigator.push(
         context,
@@ -583,9 +681,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1024;
     final isTablet = screenWidth >= 700 && screenWidth < 1024;
+    final hasExpandedNavigation = screenWidth >= 1560;
 
     return Scaffold(
       backgroundColor: const Color(0xFF080B11),
+      endDrawer: !hasExpandedNavigation ? _buildMobileNavigationDrawer() : null,
       bottomNavigationBar: !isDesktop ? _buildMobileBottomNav() : null,
       body: Stack(
         children: [
@@ -597,6 +697,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 backgroundColor: const Color(0xFF111726),
                 onRefresh: _loadTrips,
                 child: ListView(
+                  controller: _pageScrollController,
                   physics: const ClampingScrollPhysics(
                       parent: AlwaysScrollableScrollPhysics()),
                   padding: EdgeInsets.fromLTRB(
@@ -609,7 +710,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     // Top Navigation Header
                     _stagger(
                         0,
-                        isDesktop
+                        hasExpandedNavigation
                             ? _buildDesktopHeader()
                             : _buildMobileHeader()),
                     const SizedBox(height: 18),
@@ -634,8 +735,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     // Quick Actions (6 Compact Premium Cards)
                     _stagger(
                         4,
-                        _buildQuickActionsGrid(
-                            isDesktop: isDesktop, isTablet: isTablet)),
+                        Container(
+                          key: _featuresKey,
+                          child: _buildQuickActionsGrid(
+                              isDesktop: isDesktop, isTablet: isTablet),
+                        )),
                     const SizedBox(height: 32),
 
                     // Two-Column Layout on Desktop (~70% Main, ~30% Sidebar)
@@ -784,159 +888,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildDesktopHeader() {
     return _glass(
       radius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // Logo & Branding
+          InkWell(
+            onTap: _goHome,
+            borderRadius: BorderRadius.circular(12),
+            child: _buildBrandLockup(),
+          ),
+          const Spacer(),
+
+          // Primary navigation — labels and ordering come from the shared
+          // VoyPlan navigation configuration.
           Row(
             children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFF06B6D4),
-                      Color(0xFF2563EB),
-                      Color(0xFF7C3AED)
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(11),
-                  boxShadow: [
-                    BoxShadow(
-                        color: const Color(0xFF2563EB).withValues(alpha: 0.45),
-                        blurRadius: 14,
-                        offset: const Offset(0, 4)),
-                  ],
+              ...voyPlanPrimaryNavigation.map(
+                (item) => _desktopNavItem(
+                  item.label,
+                  item.icon,
+                  isActive: _activeNavigation == item,
+                  onTap: () => _openNavigationItem(item),
                 ),
-                child: const Icon(Icons.explore_rounded,
-                    color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      const Text(
-                        'VoyPlan',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: -0.5,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF06B6D4).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                              color: const Color(0xFF06B6D4)
-                                  .withValues(alpha: 0.4)),
-                        ),
-                        child: const Text(
-                          'SUPER APP',
-                          style: TextStyle(
-                              color: Color(0xFF38BDF8),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Text(
-                    'Road Trip Operating System',
-                    style: TextStyle(
-                        color: Color(0xFF94A3B8),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500),
-                  ),
-                ],
               ),
             ],
           ),
           const Spacer(),
 
-          // Navigation Links (Canonical Menu)
-          Row(
-            children: [
-              _desktopNavItem('Home', Icons.home_rounded,
-                  isActive: true, onTap: () {}),
-              _desktopNavItem('Plan Trip', Icons.add_road_rounded,
-                  onTap: () => _planTrip()),
-              _desktopNavItem('Explore', Icons.explore_rounded,
-                  onTap: _openExplore),
-              _desktopNavItem('My Trips', Icons.bookmark_rounded,
-                  onTap: _openSaved),
-              _desktopNavItem('Saved Places', Icons.favorite_rounded,
-                  onTap: _openSavedPlaces),
-            ],
-          ),
-          const Spacer(),
-
-          // Right Tools & Profile
+          // Header tools and authentication actions.
           Row(
             children: [
               IconButton(
-                tooltip: 'Explore Destinations',
+                tooltip: 'Search',
                 icon: const Icon(Icons.search_rounded,
                     color: Color(0xFFCBD5E1), size: 21),
                 onPressed: _openExplore,
               ),
               IconButton(
-                tooltip: 'Roadside Helpline',
-                icon: const Icon(Icons.notifications_none_rounded,
+                tooltip: 'Theme switcher',
+                icon: const Icon(Icons.dark_mode_outlined,
                     color: Color(0xFFCBD5E1), size: 21),
-                onPressed: _showEmergencyDialog,
+                onPressed: _showThemeStatus,
               ),
               const SizedBox(width: 8),
-              _Pressable(
-                onTap: _openProfileMenu,
-                child: Container(
+              OutlinedButton(
+                onPressed: _openSignIn,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFCBD5E1),
+                  side: BorderSide(
+                    color: const Color(0xFF38BDF8).withValues(alpha: 0.45),
+                  ),
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(12),
-                    border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.12)),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 15,
-                        backgroundColor: const Color(0xFF2563EB),
-                        child: Text(
-                          _userName[0].toUpperCase(),
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        _userName,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down_rounded,
-                          color: Color(0xFF94A3B8), size: 18),
-                    ],
-                  ),
+                      const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
                 ),
+                child: const Text('Sign In'),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _openGetStarted,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF2563EB),
+                  foregroundColor: Colors.white,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                ),
+                child: const Text('Get Started'),
               ),
             ],
           ),
@@ -990,63 +1005,158 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildMobileHeader() {
     return Row(
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            gradient: Voy.gradient,
-            borderRadius: BorderRadius.circular(11),
-            boxShadow: [
-              BoxShadow(
-                  color: Voy.brand.withValues(alpha: 0.4),
-                  blurRadius: 14,
-                  offset: const Offset(0, 4)),
-            ],
-          ),
-          child:
-              const Icon(Icons.explore_rounded, color: Colors.white, size: 21),
-        ),
-        const SizedBox(width: 10),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('VoyPlan',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.4)),
-            Text('Road Trip OS',
-                style: TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600)),
-          ],
+        InkWell(
+          onTap: _goHome,
+          borderRadius: BorderRadius.circular(12),
+          child: _buildBrandLockup(compact: true),
         ),
         const Spacer(),
         IconButton(
           onPressed: _openExplore,
           icon: const Icon(Icons.search_rounded, color: Colors.white, size: 22),
         ),
-        _Pressable(
-          onTap: _openProfileMenu,
-          child: _glass(
-            radius: 12,
-            padding: EdgeInsets.zero,
-            child: SizedBox(
-              width: 38,
-              height: 38,
-              child: Center(
-                child: Text(_userName[0].toUpperCase(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15)),
-              ),
-            ),
+        Builder(
+          builder: (context) => IconButton(
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openEndDrawer(),
+            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBrandLockup({bool compact = false}) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(11),
+          child: Image.asset(
+            'assets/icon/voyplan_dark.png',
+            width: 38,
+            height: 38,
+            fit: BoxFit.contain,
+            semanticLabel: 'VoyPlan',
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'VoyPlan',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.4,
+              ),
+            ),
+            if (!compact)
+              const Text(
+                'DISCOVER. DESIGN. DRIVE.',
+                style: TextStyle(
+                  color: Color(0xFF38BDF8),
+                  fontSize: 7.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.9,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileNavigationDrawer() {
+    return Drawer(
+      backgroundColor: const Color(0xFF0F172A),
+      child: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
+          children: [
+            Row(
+              children: [
+                _buildBrandLockup(),
+                const Spacer(),
+                IconButton(
+                  tooltip: 'Close menu',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon:
+                      const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
+                ),
+              ],
+            ),
+            const Divider(color: Color(0xFF1E293B), height: 30),
+            ...voyPlanPrimaryNavigation.map(
+              (item) => _mobileNavigationItem(item),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                IconButton(
+                  tooltip: 'Search',
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                    _openExplore();
+                  },
+                  icon: const Icon(Icons.search_rounded, color: Colors.white),
+                ),
+                IconButton(
+                  tooltip: 'Theme switcher',
+                  onPressed: _showThemeStatus,
+                  icon:
+                      const Icon(Icons.dark_mode_outlined, color: Colors.white),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            OutlinedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _openSignIn();
+              },
+              child: const Text('Sign In'),
+            ),
+            const SizedBox(height: 10),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _openGetStarted();
+              },
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Get Started'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _mobileNavigationItem(VoyPlanNavigationItem item) {
+    final isActive = _activeNavigation == item;
+    return ListTile(
+      onTap: () {
+        Navigator.of(context).pop();
+        _openNavigationItem(item);
+      },
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(
+        item.icon,
+        color: isActive ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8),
+      ),
+      title: Text(
+        item.label,
+        style: TextStyle(
+          color: isActive ? Colors.white : const Color(0xFFCBD5E1),
+          fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+        ),
+      ),
     );
   }
 
@@ -1066,15 +1176,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _bottomNavItem(0, 'Home', Icons.home_rounded,
-                      () => setState(() => _mobileNavIndex = 0)),
-                  _bottomNavItem(1, 'Trips', Icons.bookmark_rounded, () {
+                  _bottomNavItem(0, 'Home', Icons.home_rounded, () {
+                    setState(() => _mobileNavIndex = 0);
+                    _openNavigationItem(VoyPlanNavigationItem.home);
+                  }),
+                  _bottomNavItem(1, 'My Trips', Icons.bookmark_rounded, () {
                     setState(() => _mobileNavIndex = 1);
-                    _openSaved();
+                    _openNavigationItem(VoyPlanNavigationItem.myTrips);
                   }),
                   // Prominent Plan Action Button
                   GestureDetector(
-                    onTap: () => _planTrip(),
+                    onTap: () =>
+                        _openNavigationItem(VoyPlanNavigationItem.planTrip),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 18, vertical: 10),
@@ -1098,7 +1211,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           Icon(Icons.add_rounded,
                               color: Colors.white, size: 20),
                           SizedBox(width: 4),
-                          Text('Plan',
+                          Text('Plan Trip',
                               style: TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
@@ -1107,9 +1220,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                  _bottomNavItem(3, 'Explore', Icons.explore_rounded, () {
+                  _bottomNavItem(3, 'Destinations', Icons.explore_rounded, () {
                     setState(() => _mobileNavIndex = 3);
-                    _openExplore();
+                    _openNavigationItem(VoyPlanNavigationItem.destinations);
                   }),
                   _bottomNavItem(4, 'Profile', Icons.person_rounded, () {
                     setState(() => _mobileNavIndex = 4);
@@ -1127,28 +1240,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _bottomNavItem(
       int index, String label, IconData icon, VoidCallback onTap) {
     final active = _mobileNavIndex == index;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 22,
-                color:
-                    active ? const Color(0xFF38BDF8) : const Color(0xFF64748B)),
-            const SizedBox(height: 3),
-            Text(
-              label,
-              style: TextStyle(
-                color: active ? Colors.white : const Color(0xFF64748B),
-                fontSize: 11,
-                fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 22,
+                  color: active
+                      ? const Color(0xFF38BDF8)
+                      : const Color(0xFF64748B)),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: active ? Colors.white : const Color(0xFF64748B),
+                  fontSize: 10,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -3881,15 +3999,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
+              SizedBox(
                 width: 28,
                 height: 28,
-                decoration: BoxDecoration(
-                  gradient: Voy.gradient,
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/icon/voyplan_dark.png',
+                    fit: BoxFit.contain,
+                    semanticLabel: 'VoyPlan',
+                  ),
                 ),
-                child: const Icon(Icons.explore_rounded,
-                    color: Colors.white, size: 16),
               ),
               const SizedBox(width: 8),
               const Text('VoyPlan',
@@ -3898,7 +4018,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       fontSize: 16,
                       fontWeight: FontWeight.w900)),
               const SizedBox(width: 8),
-              const Text('•  Plan Better. Travel Further.',
+              const Text('•  DISCOVER. DESIGN. DRIVE.',
                   style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
             ],
           ),
@@ -4114,7 +4234,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // page is not part of the production deployment.
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('You are already on the Voyplan web app.')),
+                content: Text('You are already on the VoyPlan web app.')),
           );
         }
         break;

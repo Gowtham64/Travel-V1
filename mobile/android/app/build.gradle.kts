@@ -70,17 +70,17 @@ android {
         create("prod") {
             dimension = "env"
             // Base applicationId (unchanged) — production installs upgrade normally.
-            resValue("string", "app_name", "Voyplan")
+            resValue("string", "app_name", "VoyPlan")
         }
         create("staging") {
             dimension = "env"
             applicationIdSuffix = ".staging"
-            resValue("string", "app_name", "Voyplan Staging")
+            resValue("string", "app_name", "VoyPlan Staging")
         }
         create("dev") {
             dimension = "env"
             applicationIdSuffix = ".dev"
-            resValue("string", "app_name", "Voyplan Dev")
+            resValue("string", "app_name", "VoyPlan Dev")
         }
     }
 }

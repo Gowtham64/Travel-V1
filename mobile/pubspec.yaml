@@ -35,7 +35,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_launcher_icons: ^0.14.1
 
-# Voyplan app icon generation. Run: dart run flutter_launcher_icons
+# VoyPlan app icon generation. Run: dart run flutter_launcher_icons
 flutter_launcher_icons:
   image_path: "assets/icon/voyplan.png"
   android: true

@@ -103,7 +103,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
 
   void _shareTrip(TripHistoryItem trip) {
     final typeStr = trip.isRoundTrip ? 'Round Trip 🔄' : 'One-Way Trip ➔';
-    final text = '🚗 Voyplan Trip Summary:\n'
+    final text = '🚗 VoyPlan Trip Summary:\n'
         '• Route: ${trip.startAddress} → ${trip.endAddress}\n'
         '• Type: $typeStr\n'
         '• Vehicle: ${trip.vehicleType.toUpperCase()}\n'
@@ -113,7 +113,7 @@ class _TripHistoryScreenState extends State<TripHistoryScreen> {
         '• Fuel Cost: ₹${trip.fuelCost.toStringAsFixed(0)}\n'
         '• Total Cost: ₹${trip.totalCost.toStringAsFixed(0)}\n'
         '• Completed: ${_formatDate(trip.completedAt)}\n\n'
-        'Planned & navigated with Voyplan!';
+        'Planned & navigated with VoyPlan!';
     Share.share(text);
   }
 

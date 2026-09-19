@@ -2615,7 +2615,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           ),
           const SizedBox(height: 10),
           Text(
-            'Voyplan will send a reminder notification 30 minutes before your departure to finish packing, verify fuel/tickets, and start getting ready.',
+            'VoyPlan will send a reminder notification 30 minutes before your departure to finish packing, verify fuel/tickets, and start getting ready.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.75),
               fontSize: 12.5,
