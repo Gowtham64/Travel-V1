@@ -457,6 +457,12 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
                   Image.network(
                     widget.inspirationImage!,
                     fit: BoxFit.cover,
+                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded || frame != null) {
+                        return child;
+                      }
+                      return Container(color: const Color(0xFF1E293B));
+                    },
                     errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
                   ),
                   Container(
@@ -867,6 +873,12 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
                         width: 200,
                         height: 140,
                         fit: BoxFit.cover,
+                        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                          if (wasSynchronouslyLoaded || frame != null) {
+                            return child;
+                          }
+                          return Container(color: const Color(0xFF1E293B));
+                        },
                         errorBuilder: (_, __, ___) => Container(color: const Color(0xFF1E293B)),
                       ),
                       Container(

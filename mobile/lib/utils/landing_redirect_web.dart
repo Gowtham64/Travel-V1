@@ -169,4 +169,32 @@ void syncWebAuthTokens() {
   } catch (_) {}
 }
 
+/// Symmetrically bridges theme preference between the landing page ('voyplan_theme')
+/// and Flutter Web SharedPreferences key ('flutter.voyplan.theme_mode').
+void syncWebTheme() {
+  try {
+    final storage = html.window.localStorage;
+    final webTheme = storage['voyplan_theme'];
+    final flutterTheme = storage['flutter.voyplan.theme_mode'];
+
+    if ((webTheme == null || webTheme.isEmpty) &&
+        (flutterTheme == null || flutterTheme.isEmpty)) {
+      return;
+    }
+
+    if (webTheme != null && webTheme.isNotEmpty &&
+        (flutterTheme == null || flutterTheme.isEmpty)) {
+      storage['flutter.voyplan.theme_mode'] = webTheme;
+      return;
+    }
+
+    if (flutterTheme != null && flutterTheme.isNotEmpty &&
+        (webTheme == null || webTheme.isEmpty)) {
+      storage['voyplan_theme'] = flutterTheme;
+      return;
+    }
+  } catch (_) {}
+}
+
+
 

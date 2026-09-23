@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/landing_redirect.dart';
 
 /// Owns the application-wide appearance preference.
 ///
@@ -21,6 +23,9 @@ class ThemeController extends ChangeNotifier {
   Future<void> initialize() => _initializing ??= _initialize();
 
   Future<void> _initialize() async {
+    if (kIsWeb) {
+      syncWebTheme();
+    }
     final preferences = await SharedPreferences.getInstance();
     _mode = preferences.getString(_storageKey) == ThemeMode.light.name
         ? ThemeMode.light
@@ -36,5 +41,8 @@ class ThemeController extends ChangeNotifier {
     notifyListeners();
     final preferences = await SharedPreferences.getInstance();
     await preferences.setString(_storageKey, next.name);
+    if (kIsWeb) {
+      syncWebTheme();
+    }
   }
 }

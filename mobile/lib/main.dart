@@ -28,6 +28,7 @@ void main() async {
 
   if (kIsWeb) {
     syncWebAuthTokens();
+    syncWebTheme();
   }
 
   if (supabaseUrl != 'YOUR_SUPABASE_URL' &&

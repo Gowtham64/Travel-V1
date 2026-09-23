@@ -13,4 +13,8 @@ String? getStoredWebSessionJson() => null;
 /// No-op on non-web platforms.
 void syncWebAuthTokens() {}
 
+/// No-op on non-web platforms.
+void syncWebTheme() {}
+
+
 

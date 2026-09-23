@@ -8,6 +8,20 @@
     <meta name="theme-color" content="#060c18">
     <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png?v=2">
 
+    <!-- Synchronous Render-Blocking Theme Initializer (Prevents Theme Flash) -->
+    <script>
+        (function () {
+            try {
+                var savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
+                var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+                var theme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : (prefersLight ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
+            } catch (_) {}
+        })();
+    </script>
+
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
@@ -3238,13 +3252,16 @@
             const themeColorMeta = document.querySelector('meta[name="theme-color"]');
             const colorScheme = window.matchMedia('(prefers-color-scheme: light)');
             const systemTheme = colorScheme.matches ? 'light' : 'dark';
-            const savedTheme = localStorage.getItem('voyplan_theme');
+            const savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
             const applyTheme = (theme, persist = false) => {
                 document.documentElement.setAttribute('data-theme', theme);
                 themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
                 themeBtn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
                 themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
-                if (persist) localStorage.setItem('voyplan_theme', theme);
+                if (persist) {
+                    localStorage.setItem('voyplan_theme', theme);
+                    localStorage.setItem('flutter.voyplan.theme_mode', theme);
+                }
             };
             applyTheme(savedTheme || systemTheme);
 
@@ -3634,6 +3651,18 @@
                 }
             }
 
+            function getCachedSession() {
+                try {
+                    const raw = localStorage.getItem(SUPABASE_STORAGE_KEY) || localStorage.getItem(FLUTTER_STORAGE_KEY);
+                    if (!raw) return null;
+                    const parsed = JSON.parse(raw);
+                    if (parsed && (parsed.access_token || parsed.user)) {
+                        return parsed;
+                    }
+                } catch (_) {}
+                return null;
+            }
+
             function updateAuthUi(session) {
                 if (!session?.user) {
                     btnGetStarted.innerHTML = 'Get Started &rarr;';
@@ -3643,7 +3672,7 @@
                 btnGetStarted.textContent = 'Open VoyPlan →';
                 btnGetStarted.onclick = () => enterApp();
             }
-            updateAuthUi(null);
+            updateAuthUi(getCachedSession());
 
             // Every application entry point follows the same session gate,
             // including navigation/footer links that use ordinary anchors.

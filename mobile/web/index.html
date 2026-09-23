@@ -80,7 +80,26 @@
 
   <title>VoyPlan — Discover. Design. Drive.</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    (function () {
+      try {
+        var savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
+        var theme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
+        document.documentElement.style.backgroundColor = theme === 'light' ? '#f8fafc' : '#060c18';
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#f8fafc' : '#060c18');
+      } catch (_) {}
+    })();
+  </script>
   <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #060c18;
+      overflow: hidden;
+    }
     @keyframes ripple {
       0% {
         transform: scale(0.6);
