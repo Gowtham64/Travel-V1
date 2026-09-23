@@ -1243,12 +1243,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Trip Type Selector (Strictly One Way and Vacation)
+          // Trip Type Selector (One Way, Around Trip, and Vacation)
           Row(
             children: [
               _tripTypeButton(
                   'One Way', 'one_way', Icons.arrow_forward_rounded),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
+              _tripTypeButton(
+                  'Around Trip', 'around', Icons.sync_alt_rounded),
+              const SizedBox(width: 8),
               _tripTypeButton(
                   'Vacation', 'vacation', Icons.beach_access_rounded),
             ],

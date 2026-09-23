@@ -361,7 +361,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
   @override
   void initState() {
     super.initState();
-    _activeMode = (widget.initialMode == 'vacation' || widget.initialMode == 'round_trip') ? 'vacation' : 'one_way';
+    final initial = widget.initialMode.toLowerCase().trim().replaceAll('-', '_');
+    if (initial == 'vacation') {
+      _activeMode = 'vacation';
+    } else if (initial == 'around' || initial == 'around_trip' || initial == 'round_trip' || initial == 'roundtrip') {
+      _activeMode = 'around';
+    } else {
+      _activeMode = 'one_way';
+    }
 
     if (widget.initialOrigin != null) {
       _oneWayOriginCtrl.text = widget.initialOrigin!;
@@ -1611,34 +1618,50 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     );
   }
 
-  // ── 2. Two-Card Trip Type Selector (One Way & Vacation) ──
+  // ── 2. Three-Card Trip Type Selector (One Way, Around Trip & Vacation) ──
   Widget _buildRedesignedModeSelector() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: _redesignedModeCard(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 650;
+          final cards = [
+            _redesignedModeCard(
               id: 'one_way',
               title: 'One Way',
-              subtitle: 'Direct road corridor & stops',
+              subtitle: 'Direct corridor & stops',
               icon: Icons.arrow_forward_rounded,
               iconColor: const Color(0xFF10B981),
               iconBg: const Color(0xFF10B981).withValues(alpha: 0.2),
             ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: _redesignedModeCard(
+            _redesignedModeCard(
+              id: 'around',
+              title: 'Around Trip',
+              subtitle: 'Same-day return drive',
+              icon: Icons.sync_alt_rounded,
+              iconColor: const Color(0xFF38BDF8),
+              iconBg: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+            ),
+            _redesignedModeCard(
               id: 'vacation',
               title: 'Vacation',
-              subtitle: 'Multi-day journey & itinerary',
+              subtitle: 'Multi-day & stayovers',
               icon: Icons.beach_access_rounded,
               iconColor: Voy.gold,
               iconBg: Voy.gold.withValues(alpha: 0.15),
             ),
-          ),
-        ],
+          ];
+
+          return Row(
+            children: [
+              Expanded(child: cards[0]),
+              SizedBox(width: isNarrow ? 8 : 12),
+              Expanded(child: cards[1]),
+              SizedBox(width: isNarrow ? 8 : 12),
+              Expanded(child: cards[2]),
+            ],
+          );
+        },
       ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../services/destination_catalog_service.dart';
 import '../services/trip_extras_store.dart';
 import '../screens/trip_screen.dart';
 import '../screens/map_location_picker_screen.dart';
@@ -116,14 +117,17 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
     ('walking', 'Walking', Icons.directions_walk_rounded),
   ];
 
-  final List<(String, String, String, String)> _curatedDestinations = [
-    ('Coorg', 'Coffee country, misty ghats & waterfalls', 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop', '3 Days'),
-    ('Goa', 'Coastal highway, pristine beaches & seafood', 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop', '4 Days'),
-    ('Ooty', 'Nilgiri mountain toy train & tea trails', 'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=800&auto=format&fit=crop', '3 Days'),
-    ('Manali', 'Himalayan mountain passes & pine forests', 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=800&auto=format&fit=crop', '5 Days'),
-    ('Wayanad', 'Western Ghats rain forests & Chembra peak', 'https://images.unsplash.com/photo-1546587348-d12660c30c50?q=80&w=800&auto=format&fit=crop', '3 Days'),
-    ('Jaipur', 'Royal Rajasthan palaces, forts & desert bazaars', 'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=800&auto=format&fit=crop', '3 Days'),
-  ];
+  List<(String, String, String, String)> get _curatedDestinations =>
+      DestinationCatalogService.globalDestinations
+          .map((d) => (
+                d.name,
+                d.tagline,
+                d.imageUrl.startsWith('http')
+                    ? d.imageUrl
+                    : 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop',
+                '3 Days',
+              ))
+          .toList();
 
   final List<(String, String)> _interestOptions = [
     ('💦', 'Waterfalls'),
