@@ -2,6 +2,17 @@
 /app/* /app/index.html 200
 /app /app/ 301
 
+# Direct application route aliases into Flutter app
+/home /app/ 302
+/plan-trip /app/?route=plan-trip 302
+/my-trips /app/?route=my-trips 302
+/saved-places /app/?route=saved-places 302
+/vehicles /app/?route=vehicles 302
+/destinations /app/?route=destinations 302
+/trip-inspiration /app/?route=trip-inspiration 302
+/ai-copilot /app/?route=ai-copilot 302
+/features /app/?route=features 302
+
 # SPA route alias for login
 /login /index.html 200
 
@@ -9,3 +20,4 @@
 /terms /index.html 200
 /privacy /index.html 200
 /contact /index.html 200
+

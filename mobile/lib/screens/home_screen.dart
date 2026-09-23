@@ -11,6 +11,8 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
+import '../services/theme_controller.dart';
 import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../services/fuel_price_service.dart';
@@ -34,7 +36,7 @@ import 'trip_screen.dart';
 import 'account_screens.dart';
 import 'trip_history_screen.dart';
 import 'map_location_picker_screen.dart';
-import 'login_screen.dart';
+import 'landing_screen.dart';
 import 'smart_itinerary_screen.dart';
 import '../widgets/voyplan_navigation.dart';
 
@@ -91,8 +93,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   VehicleModel? _selectedVehicle;
   bool _isLocating = false;
 
-  // Mobile Bottom Navigation Tab Index
-  int _mobileNavIndex = 0;
   VoyPlanNavigationItem _activeNavigation = VoyPlanNavigationItem.home;
 
   // Animation Controllers
@@ -156,26 +156,40 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final dest = uri.queryParameters['to'] ?? uri.queryParameters['dest'];
       final days = int.tryParse(uri.queryParameters['days'] ?? '');
       final mode = uri.queryParameters['mode'];
+      final route = (uri.queryParameters['route'] ?? uri.path).toLowerCase();
 
+      if (route.contains('plan-trip')) {
+        _planTrip(tripType: mode, start: start, dest: dest, days: days);
+        return;
+      }
       if (uri.queryParameters['explore'] == 'true' ||
+          route.contains('destinations') ||
           (uri.queryParameters['category']?.isNotEmpty ?? false)) {
         _openExplore();
         return;
       }
-      if (uri.queryParameters['saved_places'] == 'true') {
+      if (uri.queryParameters['saved_places'] == 'true' ||
+          route.contains('saved-places')) {
         _openSavedPlaces();
         return;
       }
-      if (uri.queryParameters['my_trips'] == 'true') {
+      if (uri.queryParameters['my_trips'] == 'true' ||
+          route.contains('my-trips')) {
         _openSaved();
         return;
       }
-      if (uri.queryParameters['inspiration'] == 'true') {
+      if (route.contains('vehicles')) {
+        _openVehicles();
+        return;
+      }
+      if (uri.queryParameters['inspiration'] == 'true' ||
+          route.contains('trip-inspiration')) {
         _openTripInspiration();
         return;
       }
       if (uri.queryParameters['ai'] == 'true' ||
-          uri.queryParameters['chat'] == 'true') {
+          uri.queryParameters['chat'] == 'true' ||
+          route.contains('ai-copilot')) {
         _planTrip(tripType: 'vacation', start: start, dest: dest, days: days);
         return;
       }
@@ -210,7 +224,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Future<void> _loadTrips() async {
     try {
-      final session = Supabase.instance.client.auth.currentSession;
+      final session = AuthSession.instance.session;
       List<dynamic> trips = [];
       if (session != null) {
         trips = await _api.getSavedTrips(session.accessToken);
@@ -303,7 +317,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   String get _userName {
     try {
-      final email = Supabase.instance.client.auth.currentUser?.email;
+      final email = AuthSession.instance.user?.email;
       if (email == null || email.isEmpty) return 'Traveller';
       final name = email.split('@').first.replaceAll(RegExp(r'[._]'), ' ');
       return name.isEmpty
@@ -312,6 +326,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     } catch (_) {
       return 'Traveller';
     }
+  }
+
+  String get _userEmail =>
+      AuthSession.instance.user?.email?.trim().isNotEmpty == true
+          ? AuthSession.instance.user!.email!.trim()
+          : 'traveller@voyplan.app';
+
+  String? get _userAvatarUrl {
+    final metadata = AuthSession.instance.user?.userMetadata;
+    final candidate = metadata?['avatar_url'] ?? metadata?['picture'];
+    if (candidate is! String || candidate.trim().isEmpty) return null;
+    final uri = Uri.tryParse(candidate.trim());
+    if (uri == null || (uri.scheme != 'https' && uri.scheme != 'http')) {
+      return null;
+    }
+    return uri.toString();
   }
 
   String get _greeting {
@@ -404,14 +434,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       case VoyPlanNavigationItem.planTrip:
         _planTrip().whenComplete(_resetNavigationAfterRoute);
         break;
-      case VoyPlanNavigationItem.destinations:
+      case VoyPlanNavigationItem.aiCopilot:
         Navigator.of(context)
             .push(
-                MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()))
-            .whenComplete(_resetNavigationAfterRoute);
-        break;
-      case VoyPlanNavigationItem.tripInspiration:
-        showTripInspirationModal(context)
+                MaterialPageRoute(builder: (_) => const SmartItineraryScreen()))
             .whenComplete(_resetNavigationAfterRoute);
         break;
       case VoyPlanNavigationItem.myTrips:
@@ -424,6 +450,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             .push(MaterialPageRoute(builder: (_) => const SavedPlacesScreen()))
             .whenComplete(_resetNavigationAfterRoute);
         break;
+      case VoyPlanNavigationItem.vehicles:
+        _openVehicles();
+        _resetNavigationAfterRoute();
+        break;
+      case VoyPlanNavigationItem.destinations:
+        Navigator.of(context)
+            .push(
+                MaterialPageRoute(builder: (_) => const TrekDiscoveryScreen()))
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
+      case VoyPlanNavigationItem.tripInspiration:
+        showTripInspirationModal(context)
+            .whenComplete(_resetNavigationAfterRoute);
+        break;
       case VoyPlanNavigationItem.features:
         final featureContext = _featuresKey.currentContext;
         if (featureContext != null) {
@@ -434,32 +474,37 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           );
         }
         break;
-      case VoyPlanNavigationItem.aiCopilot:
-        Navigator.of(context)
-            .push(
-                MaterialPageRoute(builder: (_) => const SmartItineraryScreen()))
-            .whenComplete(_resetNavigationAfterRoute);
-        break;
     }
   }
 
-  void _openSignIn() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-    );
+  void _openNotifications() {
+    final config = configForMenu('notifications');
+    if (config == null) return;
+    Navigator.of(context)
+        .push(MaterialPageRoute(
+            builder: (_) => AccountCrudScreen(config: config)))
+        .whenComplete(_resetNavigationAfterRoute);
   }
 
-  void _openGetStarted() {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const LoginScreen(startInSignUp: true)),
-    );
+  void _closeDrawerThen(VoidCallback action) {
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) action();
+    });
   }
 
-  void _showThemeStatus() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('VoyPlan is using the dark travel theme.')),
-    );
+  void _selectDrawerNavigation(VoyPlanNavigationItem item) {
+    _closeDrawerThen(() => _openNavigationItem(item));
   }
+
+  void _openDrawerSettings() =>
+      _closeDrawerThen(() => _onMenuSelect('appearance', 'Appearance'));
+
+  void _openDrawerHelp() =>
+      _closeDrawerThen(() => _onMenuSelect('help', 'Help & Support'));
+
+  void _openDrawerContact() =>
+      _closeDrawerThen(() => _onMenuSelect('help', 'Contact Us'));
 
   void _openGallery() => Navigator.push(
         context,
@@ -587,15 +632,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
       );
     }
-    try {
-      await Supabase.instance.client.auth.signOut();
-    } catch (_) {}
+    await AuthSession.instance.signOut();
 
-    clearWebSessionData();
+    if (kIsWeb) {
+      redirectToLanding(forLogout: true);
+      return;
+    }
 
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
+        MaterialPageRoute(builder: (_) => const LandingScreen()),
         (route) => false,
       );
     }
@@ -681,127 +727,70 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1024;
     final isTablet = screenWidth >= 700 && screenWidth < 1024;
-    final hasExpandedNavigation = screenWidth >= 1560;
+    // Keep 1024px-class screens in the tablet reflow. Larger screens receive
+    // a content canvas plus intelligence rail; navigation stays hidden until
+    // the user opens it from their profile picture.
+    final usesDesktopDashboard = screenWidth >= 1240;
+    final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
+
+    final drawer = VoyPlanAuthenticatedDrawer(
+      activeItem: _activeNavigation,
+      onItemSelected: _selectDrawerNavigation,
+      onNotifications: () => _closeDrawerThen(_openNotifications),
+      onThemeToggle: ThemeController.instance.toggle,
+      onProfile: () => _closeDrawerThen(_openProfileMenu),
+      onSettings: _openDrawerSettings,
+      onHelp: _openDrawerHelp,
+      onContact: _openDrawerContact,
+      onSignOut: () => _closeDrawerThen(_logout),
+      displayName: _userName,
+      email: _userEmail,
+      avatarUrl: _userAvatarUrl,
+      isDark: isDarkTheme,
+    );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF080B11),
-      endDrawer: !hasExpandedNavigation ? _buildMobileNavigationDrawer() : null,
-      bottomNavigationBar: !isDesktop ? _buildMobileBottomNav() : null,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      endDrawer: drawer,
       body: Stack(
         children: [
           Positioned.fill(child: _aurora()),
           SafeArea(
-            child: Center(
-              child: RefreshIndicator(
-                color: Voy.brand,
-                backgroundColor: const Color(0xFF111726),
-                onRefresh: _loadTrips,
-                child: ListView(
-                  controller: _pageScrollController,
-                  physics: const ClampingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics()),
-                  padding: EdgeInsets.fromLTRB(
-                    isDesktop ? 28 : 16,
-                    12,
-                    isDesktop ? 28 : 16,
-                    isDesktop ? 60 : 100,
+            child: usesDesktopDashboard
+                ? Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1760),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: _buildDashboardFeed(
+                              isDesktop: isDesktop,
+                              isTablet: isTablet,
+                              usesDesktopDashboard: true,
+                              isDarkTheme: isDarkTheme,
+                            ),
+                          ),
+                          Builder(
+                            builder: (railContext) => SizedBox(
+                              width: screenWidth >= 1440 ? 292 : 268,
+                              child: _buildDesktopIntelligenceRail(
+                                isDarkTheme: isDarkTheme,
+                                onOpenNavigation: () =>
+                                    Scaffold.of(railContext).openEndDrawer(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : _buildDashboardFeed(
+                    isDesktop: isDesktop,
+                    isTablet: isTablet,
+                    usesDesktopDashboard: false,
+                    isDarkTheme: isDarkTheme,
                   ),
-                  children: [
-                    // Top Navigation Header
-                    _stagger(
-                        0,
-                        hasExpandedNavigation
-                            ? _buildDesktopHeader()
-                            : _buildMobileHeader()),
-                    const SizedBox(height: 18),
-
-                    // Priority Active Trip HUD (if exists)
-                    if (_activeTrip != null) ...[
-                      _stagger(1, _buildActiveTripHUD()),
-                      const SizedBox(height: 20),
-                    ],
-
-                    // Hero Section with Embedded Trip Planner
-                    _stagger(
-                        2,
-                        _buildHeroSection(
-                            isDesktop: isDesktop, isTablet: isTablet)),
-                    const SizedBox(height: 24),
-
-                    // AI Travel Planner Card
-                    _stagger(3, _buildAIPlannerCard()),
-                    const SizedBox(height: 24),
-
-                    // Quick Actions (6 Compact Premium Cards)
-                    _stagger(
-                        4,
-                        Container(
-                          key: _featuresKey,
-                          child: _buildQuickActionsGrid(
-                              isDesktop: isDesktop, isTablet: isTablet),
-                        )),
-                    const SizedBox(height: 32),
-
-                    // Two-Column Layout on Desktop (~70% Main, ~30% Sidebar)
-                    if (isDesktop)
-                      _stagger(
-                        5,
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Left Main Content (70%)
-                            Expanded(
-                              flex: 68,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildMyTripsSection(),
-                                  const SizedBox(height: 32),
-                                  _buildTripInspirationSection(),
-                                  const SizedBox(height: 32),
-                                  _buildRoadTripUtilitiesSection(),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 28),
-                            // Right Sidebar Content (30%)
-                            Expanded(
-                              flex: 32,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildRoutePreviewCard(),
-                                  const SizedBox(height: 24),
-                                  _buildSmartTravelIntelligenceCard(),
-                                  const SizedBox(height: 24),
-                                  _buildFuelIntelligenceCard(),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                    else ...[
-                      // Mobile / Tablet Stacked Content
-                      _stagger(5, _buildMyTripsSection()),
-                      const SizedBox(height: 26),
-                      _stagger(6, _buildRoutePreviewCard()),
-                      const SizedBox(height: 26),
-                      _stagger(7, _buildSmartTravelIntelligenceCard()),
-                      const SizedBox(height: 26),
-                      _stagger(8, _buildFuelIntelligenceCard()),
-                      const SizedBox(height: 26),
-                      _stagger(9, _buildTripInspirationSection()),
-                      const SizedBox(height: 26),
-                      _stagger(10, _buildRoadTripUtilitiesSection()),
-                    ],
-
-                    const SizedBox(height: 48),
-                    _buildAppFooter(),
-                  ],
-                ),
-              ),
-            ),
           ),
           if (_opening) _openingOverlay(),
         ],
@@ -810,21 +799,230 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
+  /// The same dashboard feed is used on every breakpoint. The only change is
+  /// its arrangement around it: an information rail on wide screens or a
+  /// compact mobile header. Navigation always uses the same on-demand drawer.
+  Widget _buildDashboardFeed({
+    required bool isDesktop,
+    required bool isTablet,
+    required bool usesDesktopDashboard,
+    required bool isDarkTheme,
+  }) {
+    return RefreshIndicator(
+      color: Voy.brand,
+      backgroundColor:
+          isDarkTheme ? const Color(0xFF111726) : const Color(0xFFF8FCFF),
+      onRefresh: _loadTrips,
+      child: ListView(
+        controller: _pageScrollController,
+        physics: const ClampingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: EdgeInsets.fromLTRB(
+          usesDesktopDashboard ? 14 : (isDesktop ? 28 : 16),
+          usesDesktopDashboard ? 8 : 12,
+          usesDesktopDashboard ? 14 : (isDesktop ? 28 : 16),
+          60,
+        ),
+        children: [
+          if (!usesDesktopDashboard)
+            _stagger(
+              0,
+              Builder(
+                builder: (headerContext) => VoyPlanAuthenticatedNavigation(
+                  onHome: _goHome,
+                  onNotifications: _openNotifications,
+                  onThemeToggle: ThemeController.instance.toggle,
+                  onMenu: () => Scaffold.of(headerContext).openEndDrawer(),
+                  displayName: _userName,
+                  avatarUrl: _userAvatarUrl,
+                  isDark: isDarkTheme,
+                ),
+              ),
+            ),
+          SizedBox(height: usesDesktopDashboard ? 6 : 18),
+          if (_activeTrip != null) ...[
+            _stagger(1, _buildActiveTripHUD()),
+            const SizedBox(height: 16),
+          ],
+          _stagger(
+            2,
+            _buildHeroSection(isDesktop: isDesktop, isTablet: isTablet),
+          ),
+          const SizedBox(height: 18),
+          _stagger(
+            3,
+            Container(
+              key: _featuresKey,
+              child: _buildQuickActionsGrid(
+                isDesktop: isDesktop,
+                isTablet: isTablet,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          if (usesDesktopDashboard)
+            _stagger(
+              4,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 58, child: _buildMyTripsSection()),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 42, child: _buildRoutePreviewCard()),
+                ],
+              ),
+            )
+          else ...[
+            _stagger(4, _buildMyTripsSection()),
+            const SizedBox(height: 26),
+            _stagger(5, _buildRoutePreviewCard()),
+          ],
+          const SizedBox(height: 24),
+          if (usesDesktopDashboard)
+            _stagger(
+              6,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 58, child: _buildTripInspirationSection()),
+                  const SizedBox(width: 16),
+                  Expanded(flex: 42, child: _buildRoadTripUtilitiesSection()),
+                ],
+              ),
+            )
+          else ...[
+            _stagger(6, _buildSmartTravelIntelligenceCard()),
+            const SizedBox(height: 26),
+            _stagger(7, _buildFuelIntelligenceCard()),
+            const SizedBox(height: 26),
+            _stagger(8, _buildTripInspirationSection()),
+            const SizedBox(height: 26),
+            _stagger(9, _buildRoadTripUtilitiesSection()),
+          ],
+          const SizedBox(height: 36),
+          _buildAppFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopIntelligenceRail({
+    required bool isDarkTheme,
+    required VoidCallback onOpenNavigation,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDarkTheme
+            ? const Color(0xFF07111E).withValues(alpha: 0.58)
+            : const Color(0xFFF7FBFF).withValues(alpha: 0.82),
+        border: Border(
+          left: BorderSide(
+            color:
+                isDarkTheme ? const Color(0xFF1C3550) : const Color(0xFFD6E5F0),
+          ),
+        ),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(10, 10, 10, 22),
+        child: Column(
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: VoyPlanDashboardTopTools(
+                onNotifications: _openNotifications,
+                onThemeToggle: ThemeController.instance.toggle,
+                onProfile: onOpenNavigation,
+                displayName: _userName,
+                avatarUrl: _userAvatarUrl,
+                isDark: isDarkTheme,
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildFuelIntelligenceCard(),
+            const SizedBox(height: 14),
+            _buildSmartTravelIntelligenceCard(),
+            const SizedBox(height: 14),
+            _buildDashboardQuoteCard(isDarkTheme: isDarkTheme),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDashboardQuoteCard({required bool isDarkTheme}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDarkTheme
+              ? const [Color(0xFF182B4B), Color(0xFF0A1424)]
+              : const [Color(0xFFDBF2FF), Color(0xFFF8FCFF)],
+        ),
+        border: Border.all(
+          color:
+              isDarkTheme ? const Color(0xFF28617B) : const Color(0xFFBFDAE9),
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '“Not all who\nwander are lost.”',
+            style: TextStyle(
+              color: isDarkTheme ? Colors.white : const Color(0xFF12315A),
+              fontSize: 17,
+              height: 1.06,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              const Icon(Icons.explore_rounded,
+                  color: Color(0xFF38BDF8), size: 16),
+              const SizedBox(width: 6),
+              Text(
+                'VoyPlan',
+                style: TextStyle(
+                  color: isDarkTheme ? Colors.white : const Color(0xFF12315A),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   // 1. ANIMATED BACKGROUND (AURORA)
   // ==========================================================================
   Widget _aurora() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedBuilder(
       animation: _ambient,
       builder: (_, __) {
         final t = _ambient.value * 2 * math.pi;
         return Stack(
           children: [
-            _orb(Alignment(-0.9 + 0.15 * math.sin(t), -0.9 + 0.1 * math.cos(t)),
-                const Color(0xFF6366F1), 380),
-            _orb(Alignment(0.95, -0.6 + 0.2 * math.sin(t + 1.5)),
-                const Color(0xFF06B6D4), 340),
-            _orb(Alignment(0.1 + 0.2 * math.cos(t), 0.95),
-                const Color(0xFFEC4899), 400),
+            _orb(
+                Alignment(-0.9 + 0.15 * math.sin(t), -0.9 + 0.1 * math.cos(t)),
+                isDark ? const Color(0xFF6366F1) : const Color(0xFF8EC5FF),
+                380),
+            _orb(
+                Alignment(0.95, -0.6 + 0.2 * math.sin(t + 1.5)),
+                isDark ? const Color(0xFF06B6D4) : const Color(0xFF67D5F1),
+                340),
+            _orb(
+                Alignment(0.1 + 0.2 * math.cos(t), 0.95),
+                isDark ? const Color(0xFFEC4899) : const Color(0xFFF3B7D5),
+                400),
           ],
         );
       },
@@ -857,6 +1055,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     Border? border,
     Color? color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
@@ -864,13 +1063,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: color ?? const Color(0xFF111827).withValues(alpha: 0.65),
+            color: color ??
+                (isDark
+                    ? const Color(0xFF111827).withValues(alpha: 0.65)
+                    : Colors.white.withValues(alpha: 0.82)),
             borderRadius: BorderRadius.circular(radius),
             border: border ??
-                Border.all(color: Colors.white.withValues(alpha: 0.09)),
+                Border.all(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.09)
+                      : const Color(0xFFBCD3E5).withValues(alpha: 0.82),
+                ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: isDark
+                    ? Colors.black.withValues(alpha: 0.35)
+                    : const Color(0xFF335A78).withValues(alpha: 0.12),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -883,395 +1091,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
-  // 2. GLOBAL NAVIGATION BARS (DESKTOP & MOBILE)
-  // ==========================================================================
-  Widget _buildDesktopHeader() {
-    return _glass(
-      radius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          InkWell(
-            onTap: _goHome,
-            borderRadius: BorderRadius.circular(12),
-            child: _buildBrandLockup(),
-          ),
-          const Spacer(),
-
-          // Primary navigation — labels and ordering come from the shared
-          // VoyPlan navigation configuration.
-          Row(
-            children: [
-              ...voyPlanPrimaryNavigation.map(
-                (item) => _desktopNavItem(
-                  item.label,
-                  item.icon,
-                  isActive: _activeNavigation == item,
-                  onTap: () => _openNavigationItem(item),
-                ),
-              ),
-            ],
-          ),
-          const Spacer(),
-
-          // Header tools and authentication actions.
-          Row(
-            children: [
-              IconButton(
-                tooltip: 'Search',
-                icon: const Icon(Icons.search_rounded,
-                    color: Color(0xFFCBD5E1), size: 21),
-                onPressed: _openExplore,
-              ),
-              IconButton(
-                tooltip: 'Theme switcher',
-                icon: const Icon(Icons.dark_mode_outlined,
-                    color: Color(0xFFCBD5E1), size: 21),
-                onPressed: _showThemeStatus,
-              ),
-              const SizedBox(width: 8),
-              OutlinedButton(
-                onPressed: _openSignIn,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFFCBD5E1),
-                  side: BorderSide(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.45),
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
-                ),
-                child: const Text('Sign In'),
-              ),
-              const SizedBox(width: 8),
-              FilledButton(
-                onPressed: _openGetStarted,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF2563EB),
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-                ),
-                child: const Text('Get Started'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _desktopNavItem(String label, IconData icon,
-      {bool isActive = false, required VoidCallback onTap}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
-            color: isActive
-                ? const Color(0xFF2563EB).withValues(alpha: 0.18)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: isActive
-                ? Border.all(
-                    color: const Color(0xFF38BDF8).withValues(alpha: 0.35))
-                : null,
-          ),
-          child: Row(
-            children: [
-              Icon(icon,
-                  size: 16,
-                  color: isActive
-                      ? const Color(0xFF38BDF8)
-                      : const Color(0xFF94A3B8)),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? Colors.white : const Color(0xFFCBD5E1),
-                  fontSize: 13,
-                  fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileHeader() {
-    return Row(
-      children: [
-        InkWell(
-          onTap: _goHome,
-          borderRadius: BorderRadius.circular(12),
-          child: _buildBrandLockup(compact: true),
-        ),
-        const Spacer(),
-        IconButton(
-          onPressed: _openExplore,
-          icon: const Icon(Icons.search_rounded, color: Colors.white, size: 22),
-        ),
-        Builder(
-          builder: (context) => IconButton(
-            tooltip: 'Menu',
-            onPressed: () => Scaffold.of(context).openEndDrawer(),
-            icon: const Icon(Icons.menu_rounded, color: Colors.white, size: 24),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBrandLockup({bool compact = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final titleColor = isDark ? Colors.white : const Color(0xFF0F172A);
-    final taglineColor =
-        isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const VoyPlanBrandMark(size: 38),
-        const SizedBox(width: 10),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'VoyPlan',
-              style: TextStyle(
-                color: titleColor,
-                fontSize: 19,
-                fontWeight: FontWeight.w900,
-                letterSpacing: -0.4,
-              ),
-            ),
-            if (!compact)
-              Text(
-                'DISCOVER. DESIGN. DRIVE.',
-                style: TextStyle(
-                  color: taglineColor,
-                  fontSize: 7.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.9,
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildMobileNavigationDrawer() {
-    return Drawer(
-      backgroundColor: const Color(0xFF0F172A),
-      child: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 28),
-          children: [
-            Row(
-              children: [
-                _buildBrandLockup(),
-                const Spacer(),
-                IconButton(
-                  tooltip: 'Close menu',
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon:
-                      const Icon(Icons.close_rounded, color: Color(0xFF94A3B8)),
-                ),
-              ],
-            ),
-            const Divider(color: Color(0xFF1E293B), height: 30),
-            ...voyPlanPrimaryNavigation.map(
-              (item) => _mobileNavigationItem(item),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                IconButton(
-                  tooltip: 'Search',
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    _openExplore();
-                  },
-                  icon: const Icon(Icons.search_rounded, color: Colors.white),
-                ),
-                IconButton(
-                  tooltip: 'Theme switcher',
-                  onPressed: _showThemeStatus,
-                  icon:
-                      const Icon(Icons.dark_mode_outlined, color: Colors.white),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            OutlinedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _openSignIn();
-              },
-              child: const Text('Sign In'),
-            ),
-            const SizedBox(height: 10),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _openGetStarted();
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF2563EB),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Get Started'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _mobileNavigationItem(VoyPlanNavigationItem item) {
-    final isActive = _activeNavigation == item;
-    return ListTile(
-      onTap: () {
-        Navigator.of(context).pop();
-        _openNavigationItem(item);
-      },
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(
-        item.icon,
-        color: isActive ? const Color(0xFF38BDF8) : const Color(0xFF94A3B8),
-      ),
-      title: Text(
-        item.label,
-        style: TextStyle(
-          color: isActive ? Colors.white : const Color(0xFFCBD5E1),
-          fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMobileBottomNav() {
-    return ClipRRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFF0A0E17).withValues(alpha: 0.92),
-            border: Border(
-                top: BorderSide(color: Colors.white.withValues(alpha: 0.09))),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _bottomNavItem(0, 'Home', Icons.home_rounded, () {
-                    setState(() => _mobileNavIndex = 0);
-                    _openNavigationItem(VoyPlanNavigationItem.home);
-                  }),
-                  _bottomNavItem(1, 'My Trips', Icons.bookmark_rounded, () {
-                    setState(() => _mobileNavIndex = 1);
-                    _openNavigationItem(VoyPlanNavigationItem.myTrips);
-                  }),
-                  // Prominent Plan Action Button
-                  GestureDetector(
-                    onTap: () =>
-                        _openNavigationItem(VoyPlanNavigationItem.planTrip),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 18, vertical: 10),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF06B6D4), Color(0xFF2563EB)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                              color: const Color(0xFF2563EB)
-                                  .withValues(alpha: 0.45),
-                              blurRadius: 16,
-                              offset: const Offset(0, 4)),
-                        ],
-                      ),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.add_rounded,
-                              color: Colors.white, size: 20),
-                          SizedBox(width: 4),
-                          Text('Plan Trip',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ),
-                  _bottomNavItem(3, 'Destinations', Icons.explore_rounded, () {
-                    setState(() => _mobileNavIndex = 3);
-                    _openNavigationItem(VoyPlanNavigationItem.destinations);
-                  }),
-                  _bottomNavItem(4, 'Profile', Icons.person_rounded, () {
-                    setState(() => _mobileNavIndex = 4);
-                    _openProfileMenu();
-                  }),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _bottomNavItem(
-      int index, String label, IconData icon, VoidCallback onTap) {
-    final active = _mobileNavIndex == index;
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon,
-                  size: 22,
-                  color: active
-                      ? const Color(0xFF38BDF8)
-                      : const Color(0xFF64748B)),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: active ? Colors.white : const Color(0xFF64748B),
-                  fontSize: 10,
-                  fontWeight: active ? FontWeight.w800 : FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ==========================================================================
   // 3. HERO SECTION WITH EMBEDDED TRIP PLANNER
   // ==========================================================================
   Widget _buildHeroSection({required bool isDesktop, required bool isTablet}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final heroInk = isDark ? Colors.white : const Color(0xFF0B2A55);
+    final heroSub = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF244A78);
     return ClipRRect(
       borderRadius: BorderRadius.circular(26),
       child: Stack(
@@ -1302,11 +1127,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    const Color(0xFF080B11).withValues(alpha: 0.65),
-                    const Color(0xFF080B11).withValues(alpha: 0.90),
-                    const Color(0xFF080B11).withValues(alpha: 0.98),
-                  ],
+                  colors: isDark
+                      ? [
+                          const Color(0xFF080B11).withValues(alpha: 0.65),
+                          const Color(0xFF080B11).withValues(alpha: 0.90),
+                          const Color(0xFF080B11).withValues(alpha: 0.98),
+                        ]
+                      : [
+                          Colors.white.withValues(alpha: 0.18),
+                          Colors.white.withValues(alpha: 0.55),
+                          Colors.white.withValues(alpha: 0.88),
+                        ],
                   stops: const [0.0, 0.55, 1.0],
                 ),
               ),
@@ -1327,10 +1158,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
+                    color: (isDark ? Colors.white : const Color(0xFFEAF6FF))
+                        .withValues(alpha: isDark ? 0.12 : 0.86),
                     borderRadius: BorderRadius.circular(20),
-                    border:
-                        Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                    border: Border.all(
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.15)
+                            : const Color(0xFF9CCDE8)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -1340,8 +1174,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       const SizedBox(width: 6),
                       Text(
                         '$_greeting, $_userName',
-                        style: const TextStyle(
-                            color: Colors.white,
+                        style: TextStyle(
+                            color: heroInk,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700),
                       ),
@@ -1354,7 +1188,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 Text(
                   'Trips made simpler.\nJourneys made brighter.',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: heroInk,
                     fontSize: isDesktop ? 38 : (isTablet ? 32 : 26),
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1.0,
@@ -1369,7 +1203,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Text(
                     'Plan road trips with real routes, tolls, fuel cost, AI itinerary and everything you need for a smooth journey.',
                     style: TextStyle(
-                      color: const Color(0xFFCBD5E1).withValues(alpha: 0.9),
+                      color: heroSub.withValues(alpha: 0.9),
                       fontSize: isDesktop ? 15 : 13.5,
                       height: 1.45,
                     ),
@@ -1394,10 +1228,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildEmbeddedTripPlanner(
       {required bool isDesktop, required bool isTablet}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _glass(
       radius: 22,
-      color: const Color(0xFF0F172A).withValues(alpha: 0.85),
-      border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.2)),
+      color: isDark
+          ? const Color(0xFF0F172A).withValues(alpha: 0.85)
+          : Colors.white.withValues(alpha: 0.88),
+      border: Border.all(
+        color: isDark
+            ? const Color(0xFF38BDF8).withValues(alpha: 0.2)
+            : const Color(0xFF7FC9EC),
+      ),
       padding: EdgeInsets.all(isDesktop ? 22 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1473,6 +1314,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _tripTypeButton(String title, String mode, IconData icon) {
     final selected = _tripType == mode;
+    final colors = Theme.of(context).colorScheme;
     return InkWell(
       onTap: () {
         HapticFeedback.selectionClick();
@@ -1485,12 +1327,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF2563EB)
-              : Colors.white.withValues(alpha: 0.06),
+              : colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected
                 ? const Color(0xFF60A5FA)
-                : Colors.white.withValues(alpha: 0.1),
+                : colors.outline.withValues(alpha: 0.68),
           ),
           boxShadow: selected
               ? [
@@ -1511,7 +1353,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             Text(
               title,
               style: TextStyle(
-                color: selected ? Colors.white : const Color(0xFFCBD5E1),
+                color: selected ? Colors.white : colors.onSurface,
                 fontSize: 12.5,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               ),
@@ -1523,6 +1365,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildLocationInput({required bool isOrigin}) {
+    final colors = Theme.of(context).colorScheme;
     final controller = isOrigin ? _fromController : _toController;
     final hint =
         isOrigin ? 'Starting location or city...' : 'Where do you want to go?';
@@ -1533,9 +1376,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+        color: colors.onSurface.withValues(alpha: 0.055),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.68)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: Row(
@@ -1545,14 +1388,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Expanded(
             child: TextField(
               controller: controller,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: colors.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w600),
               decoration: InputDecoration(
                 hintText: hint,
-                hintStyle:
-                    const TextStyle(color: Color(0xFF64748B), fontSize: 13.5),
+                hintStyle: TextStyle(
+                  color: colors.onSurface.withValues(alpha: 0.5),
+                  fontSize: 13.5,
+                ),
                 border: InputBorder.none,
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
@@ -1580,8 +1425,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
           IconButton(
             tooltip: 'Choose on Map',
-            icon: const Icon(Icons.map_outlined,
-                color: Color(0xFF94A3B8), size: 19),
+            icon: Icon(Icons.map_outlined,
+                color: colors.onSurface.withValues(alpha: 0.58), size: 19),
             onPressed: () => _pickMapLocation(isOrigin),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -1592,19 +1437,23 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _swapButton() {
+    final colors = Theme.of(context).colorScheme;
     return _Pressable(
       onTap: _swapLocations,
       child: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: colors.surface,
           shape: BoxShape.circle,
           border:
               Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.3)),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: Colors.black.withValues(
+                    alpha: Theme.of(context).brightness == Brightness.dark
+                        ? 0.3
+                        : 0.12),
                 blurRadius: 8,
                 offset: const Offset(0, 3)),
           ],
@@ -1616,15 +1465,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDateSelector() {
+    final colors = Theme.of(context).colorScheme;
     return InkWell(
       onTap: _selectDate,
       borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+          color: colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.68)),
         ),
         child: Row(
           children: [
@@ -1636,14 +1486,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('TRAVEL DATE',
+                  Text('TRAVEL DATE',
                       style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: colors.onSurface.withValues(alpha: 0.56),
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800)),
                   Text(_formatDate(_travelDate),
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 12.5,
                           fontWeight: FontWeight.w700)),
                 ],
@@ -1656,12 +1506,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTravelersSelector() {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
-        color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+        color: colors.onSurface.withValues(alpha: 0.055),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.68)),
       ),
       child: Row(
         children: [
@@ -1673,14 +1524,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('TRAVELERS',
+                Text('TRAVELERS',
                     style: TextStyle(
-                        color: Color(0xFF64748B),
+                        color: colors.onSurface.withValues(alpha: 0.56),
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800)),
                 Text('$_travelers People',
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: colors.onSurface,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700)),
               ],
@@ -1688,18 +1539,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           PopupMenuButton<int>(
             tooltip: 'Select number of travelers',
-            color: const Color(0xFF1E293B),
+            color: colors.surface,
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            icon: const Icon(Icons.arrow_drop_down_rounded,
-                color: Color(0xFF94A3B8), size: 20),
+            icon: Icon(Icons.arrow_drop_down_rounded,
+                color: colors.onSurface.withValues(alpha: 0.58), size: 20),
             padding: EdgeInsets.zero,
             onSelected: (val) => setState(() => _travelers = val),
             itemBuilder: (_) => [1, 2, 3, 4, 5, 6, 8]
                 .map((n) => PopupMenuItem<int>(
                       value: n,
                       child: Text('$n ${n == 1 ? 'Person' : 'People'}',
-                          style: const TextStyle(color: Colors.white)),
+                          style: TextStyle(color: colors.onSurface)),
                     ))
                 .toList(),
           ),
@@ -1709,6 +1560,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildVehicleSelector() {
+    final colors = Theme.of(context).colorScheme;
     final isBike = _selectedVehicle?.type == 'motorcycle';
     final isEv = _selectedVehicle?.fuelType == 'ev';
     final name = _selectedVehicle?.name ??
@@ -1722,9 +1574,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+          color: colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.68)),
         ),
         child: Row(
           children: [
@@ -1747,8 +1599,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     isBike
                         ? 'MOTORCYCLE / BIKE'
                         : (isEv ? 'ELECTRIC VEHICLE' : 'VEHICLE'),
-                    style: const TextStyle(
-                        color: Color(0xFF64748B),
+                    style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.56),
                         fontSize: 9.5,
                         fontWeight: FontWeight.w800),
                   ),
@@ -1758,8 +1610,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         : '$name • ${mileage.toStringAsFixed(1)} km/L',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: colors.onSurface,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700),
                   ),
@@ -1818,13 +1670,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPopularDestinationsBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? Colors.white : const Color(0xFF123A67);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'Popular:',
           style: TextStyle(
-              color: Color(0xFF94A3B8),
+              color: ink.withValues(alpha: 0.7),
               fontSize: 12,
               fontWeight: FontWeight.w700),
         ),
@@ -1847,10 +1701,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: (isDark ? Colors.white : Colors.white)
+                            .withValues(alpha: isDark ? 0.08 : 0.72),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12)),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.12)
+                                : const Color(0xFF9CCDE8)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1860,8 +1717,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 4),
                           Text(
                             dest,
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: ink,
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600),
                           ),
@@ -2143,6 +2000,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ==========================================================================
   Widget _buildQuickActionsGrid(
       {required bool isDesktop, required bool isTablet}) {
+    final ink = Theme.of(context).colorScheme.onSurface;
     final actions = [
       {
         'title': 'Plan Trip',
@@ -2191,17 +2049,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.flash_on_rounded, color: Color(0xFF38BDF8), size: 18),
-            SizedBox(width: 8),
+            const Icon(Icons.flash_on_rounded,
+                color: Color(0xFF38BDF8), size: 18),
+            const SizedBox(width: 8),
             Text(
               'Quick Actions',
               style: TextStyle(
-                  color: Colors.white,
+                  color: ink,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.3),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              onPressed: () => _planTrip(tripType: 'vacation'),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+              label: const Text('Try AI Planner'),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFA855F7),
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                textStyle:
+                    const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+              ),
             ),
           ],
         ),
@@ -2240,11 +2111,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     required Color color,
     required VoidCallback onTap,
   }) {
+    final colors = Theme.of(context).colorScheme;
     return _Pressable(
       onTap: onTap,
       child: _glass(
         radius: 18,
-        color: const Color(0xFF0F1523).withValues(alpha: 0.75),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2262,8 +2133,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   child: Icon(icon, color: color, size: 20),
                 ),
                 const Spacer(),
-                const Icon(Icons.arrow_forward_rounded,
-                    color: Color(0xFF64748B), size: 16),
+                Icon(Icons.arrow_forward_rounded,
+                    color: colors.onSurface.withValues(alpha: 0.45), size: 16),
               ],
             ),
             const SizedBox(height: 14),
@@ -2271,8 +2142,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: colors.onSurface,
                   fontSize: 14,
                   fontWeight: FontWeight.w800),
             ),
@@ -2281,7 +2152,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               desc,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11.5),
+              style: TextStyle(
+                color: colors.onSurface.withValues(alpha: 0.62),
+                fontSize: 11.5,
+              ),
             ),
           ],
         ),
@@ -2439,6 +2313,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMyTripsSection() {
+    final colors = Theme.of(context).colorScheme;
     final upcomingCount =
         _trips.where((t) => _classifyTripStatus(t) == 'UPCOMING').length;
     final activeCount =
@@ -2469,10 +2344,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Row(
           children: [
-            const Text(
+            Text(
               'My Trips',
               style: TextStyle(
-                  color: Colors.white,
+                  color: colors.onSurface,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -0.4),
@@ -2509,14 +2384,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     duration: const Duration(milliseconds: 180),
                     padding: const EdgeInsets.symmetric(vertical: 9),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? const Color(0xFF2563EB)
-                          : const Color(0xFF0F1523),
+                      color:
+                          isSelected ? const Color(0xFF2563EB) : colors.surface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
                             ? const Color(0xFF60A5FA)
-                            : Colors.white.withValues(alpha: 0.08),
+                            : colors.outline.withValues(alpha: 0.66),
                       ),
                       boxShadow: isSelected
                           ? [
@@ -2537,7 +2411,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               isSelected ? FontWeight.w800 : FontWeight.w600,
                           color: isSelected
                               ? Colors.white
-                              : const Color(0xFF94A3B8),
+                              : colors.onSurface.withValues(alpha: 0.62),
                         ),
                       ),
                     ),
@@ -2568,6 +2442,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildCleanTripCard(dynamic trip) {
+    final colors = Theme.of(context).colorScheme;
     final rawName = (trip['name'] ?? 'Road Trip').toString();
     final startRaw =
         (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? '')
@@ -2620,7 +2495,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         onTap: () => _openTrip(trip),
         child: _glass(
           radius: 18,
-          color: const Color(0xFF0F1523).withValues(alpha: 0.8),
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2650,8 +2524,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2),
@@ -2677,9 +2551,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert_rounded,
-                        color: Color(0xFF94A3B8), size: 18),
-                    color: const Color(0xFF1E293B),
+                    icon: Icon(Icons.more_vert_rounded,
+                        color: colors.onSurface.withValues(alpha: 0.58),
+                        size: 18),
+                    color: colors.surface,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12)),
                     onSelected: (action) {
@@ -2731,20 +2606,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _metaPill(IconData icon, String label) {
+    final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: colors.onSurface.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: const Color(0xFF94A3B8)),
+          Icon(icon, size: 12, color: colors.onSurface.withValues(alpha: 0.58)),
           const SizedBox(width: 5),
           Text(label,
-              style: const TextStyle(
-                  color: Color(0xFFCBD5E1),
+              style: TextStyle(
+                  color: colors.onSurface.withValues(alpha: 0.74),
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600)),
         ],
@@ -2818,6 +2694,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 8. RIGHT SIDEBAR: ROUTE PREVIEW CARD WITH LIVE INTERACTIVE MAP
   // ==========================================================================
   Widget _buildRoutePreviewCard() {
+    final colors = Theme.of(context).colorScheme;
     dynamic previewTrip = _activeTrip;
     if (previewTrip == null && _trips.isNotEmpty) {
       previewTrip = _trips.first;
@@ -2830,14 +2707,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.alt_route_rounded,
+                const Icon(Icons.alt_route_rounded,
                     color: Color(0xFF38BDF8), size: 18),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text('Route Preview',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: colors.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w800)),
               ],
@@ -2847,9 +2724,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF0A0E17),
+                color: colors.onSurface.withValues(alpha: 0.055),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                border:
+                    Border.all(color: colors.outline.withValues(alpha: 0.66)),
               ),
               child: Column(
                 children: [
@@ -2867,17 +2745,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         color: Color(0xFF38BDF8), size: 28),
                   ),
                   const SizedBox(height: 12),
-                  const Text('Plan your next adventure',
+                  Text('Plan your next adventure',
                       style: TextStyle(
-                          color: Colors.white,
+                          color: colors.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                       'Create and visualize your road trips with real routes, stops, and tolls.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: Color(0xFF94A3B8), fontSize: 12, height: 1.3)),
+                          color: colors.onSurface.withValues(alpha: 0.62),
+                          fontSize: 12,
+                          height: 1.3)),
                   const SizedBox(height: 16),
                   ElevatedButton.icon(
                     onPressed: () => _planTrip(),
@@ -2973,9 +2853,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               const Icon(Icons.alt_route_rounded,
                   color: Color(0xFF38BDF8), size: 18),
               const SizedBox(width: 8),
-              const Text('Route Preview',
+              Text('Route Preview',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: colors.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w800)),
               const Spacer(),
@@ -3006,7 +2886,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               width: double.infinity,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                border:
+                    Border.all(color: colors.outline.withValues(alpha: 0.66)),
               ),
               child: Stack(
                 children: [
@@ -3208,8 +3089,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   children: [
                     Text(
                       '$startCity → $endCity',
-                      style: const TextStyle(
-                          color: Colors.white,
+                      style: TextStyle(
+                          color: colors.onSurface,
                           fontSize: 14,
                           fontWeight: FontWeight.w800),
                       maxLines: 1,
@@ -3218,8 +3099,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     const SizedBox(height: 2),
                     Text(
                       rawName,
-                      style: const TextStyle(
-                          color: Color(0xFF94A3B8), fontSize: 11.5),
+                      style: TextStyle(
+                          color: colors.onSurface.withValues(alpha: 0.62),
+                          fontSize: 11.5),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -3274,9 +3156,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: OutlinedButton(
                   onPressed: () => _openTrip(previewTrip),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side:
-                        BorderSide(color: Colors.white.withValues(alpha: 0.2)),
+                    foregroundColor: colors.onSurface,
+                    side: BorderSide(color: colors.outline),
                     padding: const EdgeInsets.symmetric(vertical: 9),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
@@ -3291,7 +3172,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 child: FilledButton.tonal(
                   onPressed: () => _openTrip(previewTrip),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF1E293B),
+                    backgroundColor: colors.onSurface.withValues(alpha: 0.08),
                     foregroundColor: const Color(0xFF38BDF8),
                     padding: const EdgeInsets.symmetric(vertical: 9),
                     shape: RoundedRectangleBorder(
@@ -3369,32 +3250,34 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _metricBox(String title, String val, IconData icon) {
+    final colors = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+          color: colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          border: Border.all(color: colors.outline.withValues(alpha: 0.66)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(icon, size: 13, color: const Color(0xFF94A3B8)),
+                Icon(icon,
+                    size: 13, color: colors.onSurface.withValues(alpha: 0.58)),
                 const SizedBox(width: 4),
                 Text(title,
-                    style: const TextStyle(
-                        color: Color(0xFF94A3B8),
+                    style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.58),
                         fontSize: 10,
                         fontWeight: FontWeight.w700)),
               ],
             ),
             const SizedBox(height: 4),
             Text(val,
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: colors.onSurface,
                     fontSize: 14,
                     fontWeight: FontWeight.w800)),
           ],
@@ -3407,6 +3290,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 9. SMART TRAVEL INTELLIGENCE & FUEL INTELLIGENCE CARDS
   // ==========================================================================
   Widget _buildSmartTravelIntelligenceCard() {
+    final colors = Theme.of(context).colorScheme;
     final livePetrol = FuelPriceService.instance
         .getFuelPrice(locationName: 'Bangalore', fuelType: 'petrol')
         .price;
@@ -3417,14 +3301,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.psychology_rounded,
+              const Icon(Icons.psychology_rounded,
                   color: Color(0xFFA855F7), size: 18),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text('Smart Travel Intelligence',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: colors.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w800)),
             ],
@@ -3451,6 +3335,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _intelRow(IconData icon, String title, String value, Color color) {
+    final colors = Theme.of(context).colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -3470,13 +3355,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title,
-                    style: const TextStyle(
-                        color: Color(0xFF94A3B8),
+                    style: TextStyle(
+                        color: colors.onSurface.withValues(alpha: 0.62),
                         fontSize: 11,
                         fontWeight: FontWeight.w700)),
                 Text(value,
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: colors.onSurface,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600)),
               ],
@@ -3488,6 +3373,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildFuelIntelligenceCard() {
+    final colors = Theme.of(context).colorScheme;
     final vehicle = _selectedVehicle;
     final isBike = vehicle?.type == 'motorcycle';
     final isEv = vehicle?.fuelType == 'ev';
@@ -3525,8 +3411,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               const SizedBox(width: 8),
               Text(
                 isEv ? 'Battery & Range' : 'Fuel Intelligence',
-                style: const TextStyle(
-                    color: Colors.white,
+                style: TextStyle(
+                    color: colors.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w800),
               ),
@@ -3542,8 +3428,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 10),
           Text(name,
-              style: const TextStyle(
-                  color: Colors.white,
+              style: TextStyle(
+                  color: colors.onSurface,
                   fontSize: 14.5,
                   fontWeight: FontWeight.w800)),
           const SizedBox(height: 10),
@@ -3588,19 +3474,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _fuelStat(String label, String value, Color color) {
+    final colors = Theme.of(context).colorScheme;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: const Color(0xFF0A0E17).withValues(alpha: 0.7),
+          color: colors.onSurface.withValues(alpha: 0.055),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: const TextStyle(
-                    color: Color(0xFF94A3B8),
+                style: TextStyle(
+                    color: colors.onSurface.withValues(alpha: 0.62),
                     fontSize: 10.5,
                     fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
@@ -3617,6 +3504,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 10. TRIP INSPIRATION SECTION
   // ==========================================================================
   Widget _buildTripInspirationSection() {
+    final colors = Theme.of(context).colorScheme;
     final inspirations = [
       {
         'title': 'Top 10 Monsoon Road Trips',
@@ -3680,10 +3568,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const Icon(Icons.explore_outlined,
                 color: Color(0xFF38BDF8), size: 18),
             const SizedBox(width: 8),
-            const Expanded(
+            Expanded(
               child: Text('Trip Inspiration',
                   style: TextStyle(
-                      color: Colors.white,
+                      color: colors.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.3)),
@@ -3712,9 +3600,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ],
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Tap a card → AI plans the complete trip. No trip type selection.',
-          style: TextStyle(color: Color(0xFF64748B), fontSize: 11.5),
+          style: TextStyle(
+            color: colors.onSurface.withValues(alpha: 0.56),
+            fontSize: 11.5,
+          ),
         ),
         const SizedBox(height: 14),
         SingleChildScrollView(
@@ -3739,10 +3630,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Container(
                       width: 270,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1523),
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.1)),
+                            color: colors.outline.withValues(alpha: 0.66)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3786,8 +3677,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               children: [
                                 Text(
                                   '${item['emoji']} ${item['title']}',
-                                  style: const TextStyle(
-                                      color: Colors.white,
+                                  style: TextStyle(
+                                      color: colors.onSurface,
                                       fontSize: 13.5,
                                       fontWeight: FontWeight.w800),
                                 ),
@@ -3796,8 +3687,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                   item['desc']!,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                      color: Color(0xFF94A3B8),
+                                  style: TextStyle(
+                                      color: colors.onSurface
+                                          .withValues(alpha: 0.62),
                                       fontSize: 11,
                                       height: 1.3),
                                 ),
@@ -3849,6 +3741,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 11. ROAD TRIP UTILITIES SECTION
   // ==========================================================================
   Widget _buildRoadTripUtilitiesSection() {
+    final colors = Theme.of(context).colorScheme;
     final utils = [
       {
         'title': 'Fuel Price',
@@ -3897,13 +3790,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.handyman_rounded, color: Color(0xFF38BDF8), size: 18),
-            SizedBox(width: 8),
+            const Icon(Icons.handyman_rounded,
+                color: Color(0xFF38BDF8), size: 18),
+            const SizedBox(width: 8),
             Text('Road Trip Utilities',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: colors.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -0.3)),
@@ -3927,10 +3821,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     child: Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0F1523).withValues(alpha: 0.75),
+                        color: colors.surface,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.08)),
+                            color: colors.outline.withValues(alpha: 0.66)),
                       ),
                       child: Row(
                         children: [
@@ -3951,8 +3845,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(item['title'] as String,
-                                    style: const TextStyle(
-                                        color: Colors.white,
+                                    style: TextStyle(
+                                        color: colors.onSurface,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w800)),
                                 const SizedBox(height: 2),
@@ -4202,8 +4096,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 14. PROFILE MENU & NAVIGATION HANDLER
   // ==========================================================================
   void _openProfileMenu() {
-    final email = Supabase.instance.client.auth.currentUser?.email ??
-        'traveller@voyplan.app';
+    final email = AuthSession.instance.user?.email ?? 'traveller@voyplan.app';
     showProfileMenu(context,
         name: _userName, email: email, onSelect: _onMenuSelect);
   }

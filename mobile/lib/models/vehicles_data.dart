@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 
 class VehicleModel {
@@ -54,6 +55,31 @@ class VehicleModel {
     this.source = 'CarDekho',
     this.dataVersion = '2026.3.1',
   });
+
+  /// Dynamic icon mapping based on vehicle type, body type, and fuel type
+  IconData get icon {
+    final t = type.toLowerCase();
+    final isBike = t == 'motorcycle' || t == 'bike' || t == 'scooter' || t == 'two_wheeler';
+    final isElectric = fuelType.toLowerCase() == 'ev' || fuelType.toLowerCase() == 'electric';
+
+    if (isBike) {
+      return isElectric ? Icons.electric_bike_rounded : Icons.two_wheeler_rounded;
+    }
+    if (isElectric) {
+      return Icons.electric_car_rounded;
+    }
+    final body = (bodyType ?? '').toLowerCase();
+    if (body.contains('truck')) {
+      return Icons.local_shipping_rounded;
+    }
+    if (body.contains('van') || body.contains('muv') || (seatingCapacity != null && seatingCapacity! >= 8)) {
+      return Icons.airport_shuttle_rounded;
+    }
+    if (body.contains('suv')) {
+      return Icons.directions_car_filled_rounded;
+    }
+    return Icons.directions_car_rounded;
+  }
 
   /// Effective mileage considering user override if provided
   double get effectiveMileage {

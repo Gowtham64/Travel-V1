@@ -14,6 +14,8 @@ import '../config/app_config.dart';
 import '../models/trip_models.dart';
 import '../models/car_mode_models.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
+import '../services/auth_guard.dart';
 import '../data/temple_database.dart';
 import 'package:flutter/services.dart';
 import '../services/car_guidance_service.dart';
@@ -304,23 +306,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       );
       return;
     }
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Login Required'),
-          content: const Text(
-              'You must be logged in to save trips. Please sign in from the main menu.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-      return;
+    String? validToken = await AuthSession.instance.getValidAccessToken();
+    if (validToken == null) {
+      if (!mounted) return;
+      final authorized = await AuthGuard.ensureAsync(context, action: 'save trips');
+      if (!authorized) return;
+      validToken = await AuthSession.instance.getValidAccessToken();
+      if (validToken == null) return;
     }
 
     setState(() {
@@ -338,7 +330,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         waypoints: _currentWaypoints,
         vehicleType: widget.vehicleType,
         vehicle: widget.vehicle,
-        token: session.accessToken,
+        token: validToken,
         tripStart: _tripStart,
       );
 

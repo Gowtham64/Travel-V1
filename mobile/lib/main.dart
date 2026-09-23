@@ -10,6 +10,9 @@ import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
 import 'config/app_config.dart';
 
+import 'services/auth_session.dart';
+import 'services/theme_controller.dart';
+
 import 'services/trip_reminder_service.dart';
 import 'widgets/trip_start_dialog.dart';
 
@@ -23,17 +26,27 @@ const supabaseAnonKey = AppConfig.supabaseAnonKey;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  if (kIsWeb) {
+    syncWebAuthTokens();
+  }
+
   if (supabaseUrl != 'YOUR_SUPABASE_URL' &&
       supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY') {
     try {
       await Supabase.initialize(
         url: supabaseUrl,
         anonKey: supabaseAnonKey,
-      ).timeout(const Duration(seconds: 8));
+      );
     } catch (e) {
       debugPrint('Supabase initialization warning: $e');
     }
   }
+
+  // Complete session hydration before any page can decide whether the user is
+  // signed in. This is intentionally separate from feature-level checks: the
+  // whole app consumes AuthSession as its single authentication source.
+  await AuthSession.instance.initialize();
+  await ThemeController.instance.initialize();
 
   // Initialize pre-trip departure reminder listener
   try {
@@ -63,62 +76,65 @@ class TravelApp extends StatelessWidget {
         GoogleFonts.poppinsTextTheme(Theme.of(context).textTheme);
     final textTheme = _withFontFallback(baseTextTheme, indicFallback);
 
-    return MaterialApp(
-      navigatorKey: appNavigatorKey,
-      title: 'VoyPlan',
-      debugShowCheckedModeBanner: false,
-      theme: Voy.dark(textTheme),
-      darkTheme: Voy.dark(textTheme),
-      themeMode: ThemeMode.dark,
-      home: const AuthStateWrapper(),
-      // A prominent, unmissable STAGING banner — shown ONLY on staging builds
-      // (APP_ENV=staging) so staging can never be confused with production.
-      builder: (context, child) {
-        final content = child ?? const SizedBox.shrink();
-        final wrapped = GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () {
-            final currentFocus = FocusManager.instance.primaryFocus;
-            if (currentFocus != null && currentFocus.hasFocus) {
-              currentFocus.unfocus();
-            }
-          },
-          child: content,
-        );
-        if (!AppConfig.isStaging) return wrapped;
-        return Directionality(
-          textDirection: TextDirection.ltr,
-          child: Stack(
-            children: [
-              wrapped,
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SafeArea(
-                  bottom: false,
-                  child: IgnorePointer(
-                    child: Container(
-                      color: const Color(0xF2C62828),
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        '⚠ STAGING — NOT PRODUCTION',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          letterSpacing: 1.2,
+    return ListenableBuilder(
+      listenable: ThemeController.instance,
+      builder: (context, _) => MaterialApp(
+        navigatorKey: appNavigatorKey,
+        title: 'VoyPlan',
+        debugShowCheckedModeBanner: false,
+        theme: Voy.light(textTheme),
+        darkTheme: Voy.dark(textTheme),
+        themeMode: ThemeController.instance.mode,
+        home: const AuthStateWrapper(),
+        // A prominent, unmissable STAGING banner — shown ONLY on staging
+        // builds (APP_ENV=staging) so it cannot be mistaken for production.
+        builder: (context, child) {
+          final content = child ?? const SizedBox.shrink();
+          final wrapped = GestureDetector(
+            behavior: HitTestBehavior.translucent,
+            onTap: () {
+              final currentFocus = FocusManager.instance.primaryFocus;
+              if (currentFocus != null && currentFocus.hasFocus) {
+                currentFocus.unfocus();
+              }
+            },
+            child: content,
+          );
+          if (!AppConfig.isStaging) return wrapped;
+          return Directionality(
+            textDirection: TextDirection.ltr,
+            child: Stack(
+              children: [
+                wrapped,
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: IgnorePointer(
+                      child: Container(
+                        color: const Color(0xF2C62828),
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        alignment: Alignment.center,
+                        child: const Text(
+                          '⚠ STAGING — NOT PRODUCTION',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            letterSpacing: 1.2,
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -154,16 +170,23 @@ class AuthStateWrapper extends StatefulWidget {
 }
 
 class _AuthStateWrapperState extends State<AuthStateWrapper> {
-  bool _isLoading = true;
-  bool _isAuthenticated = false;
   StreamSubscription<TripDepartureReminder>? _tripReadySub;
-  StreamSubscription<AuthState>? _authSub;
   bool _isTripStartDialogOpen = false;
+  bool _redirectingToLanding = false;
 
   @override
   void initState() {
     super.initState();
-    _checkAuth();
+    if (kIsWeb) {
+      // Older landing builds included a refresh token in the URL. Supabase now
+      // restores only its canonical browser storage, so remove any lingering
+      // legacy hand-off value before it can leak through history or referrers.
+      final uri = Uri.base;
+      if (uri.queryParameters.containsKey('sb_refresh') ||
+          uri.fragment.contains('sb_refresh=')) {
+        sanitizeBrowserUrl();
+      }
+    }
     _setupTripReadyListener();
   }
 
@@ -196,102 +219,58 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
 
   @override
   void dispose() {
-    _authSub?.cancel();
     _tripReadySub?.cancel();
     super.dispose();
   }
 
-  Future<void> _checkAuth() async {
-    // Check for guest=true query parameter on web to bypass login during automated testing
-    if (kIsWeb) {
-      final uri = Uri.base;
-      // NOTE: do not log the full URL here — it can carry the `sb_refresh`
-      // session-handoff token in its query/fragment, which would leak into
-      // the browser console/logs.
-      if (uri.queryParameters['guest'] == 'true' ||
-          uri.toString().contains('guest=true')) {
-        sanitizeBrowserUrl();
-        setState(() {
-          _isAuthenticated = true;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // The landing page and Flutter share Supabase's canonical browser
-      // storage key. Do not refresh a copied token here: refresh-token rotation
-      // can make that copy stale and leave this screen loading indefinitely.
-      // This only removes legacy hand-off fragments emitted by older builds.
-      if (uri.queryParameters.containsKey('sb_refresh') ||
-          uri.fragment.contains('sb_refresh=')) {
-        sanitizeBrowserUrl();
-      }
-    }
-
-    // If keys aren't set, just bypass auth for local dev
-    if (supabaseUrl == 'YOUR_SUPABASE_URL') {
-      setState(() {
-        _isAuthenticated = true;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    try {
-      final client = Supabase.instance.client;
-      _authSub?.cancel();
-      _authSub = client.auth.onAuthStateChange.listen((data) {
-        final current = data.session;
-        if (mounted) {
-          setState(() {
-            _isAuthenticated = current != null;
-          });
-        }
-      });
-
-      // Supabase continues any canonical browser-storage recovery in the
-      // background. Subscribe before reading the current state so that a late
-      // recovery event is never missed, and always release the loading UI.
-      final session = client.auth.currentSession;
-      if (mounted) {
-        setState(() {
-          _isAuthenticated = session != null;
-          _isLoading = false;
-        });
-      }
-    } on Object catch (e) {
-      debugPrint('Auth check error: $e');
-      if (mounted) {
-        setState(() {
-          _isAuthenticated = false;
-          _isLoading = false;
-        });
-      }
-    }
+  void _redirectToLanding() {
+    if (_redirectingToLanding) return;
+    _redirectingToLanding = true;
+    // The landing page owns sign-in for the web build. Preserve the exact app
+    // destination (including planner query data) so successful login resumes
+    // the action the visitor originally selected.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) redirectToLanding(returnTo: Uri.base.toString());
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: Color(0xFF070D18),
-        body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-        ),
-      );
-    }
-    // Web visitors accessing /app/ are using the application directly
-    if (_isAuthenticated || kIsWeb) return const HomeScreen();
-    // Serve the public VoyPlan landing page for unauthenticated mobile visitors
-    return LandingScreen(
-      onLogin: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-        );
-      },
-      onPlanTrip: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+    return ListenableBuilder(
+      listenable: AuthSession.instance,
+      builder: (context, _) {
+        if (AuthSession.instance.isLoading) {
+          return const Scaffold(
+            backgroundColor: Color(0xFF070D18),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+            ),
+          );
+        }
+        if (AuthSession.instance.isAuthenticated) return const HomeScreen();
+
+        if (kIsWeb) {
+          _redirectToLanding();
+          return const Scaffold(
+            backgroundColor: Color(0xFF070D18),
+            body: Center(
+              child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+            ),
+          );
+        }
+
+        // Native clients retain their in-app public landing screen.
+        return LandingScreen(
+          onLogin: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
+          onPlanTrip: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
         );
       },
     );

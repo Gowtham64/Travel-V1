@@ -10,6 +10,10 @@
 class AppConfig {
   AppConfig._();
 
+  /// Canonical application release version across Web, Android, and iOS.
+  static const String appVersion = '1.0.0';
+  static const int buildNumber = 1;
+
   /// Public Mapbox access token used for map tiles, geocoding and the 3D globe.
   ///
   /// Client tokens are inherently shipped to users, so the real protection is a
@@ -21,6 +25,7 @@ class AppConfig {
 
   /// Whether a Mapbox token was provided at build time.
   static bool get hasMapboxToken => mapboxToken.isNotEmpty;
+
 
   // ---------------------------------------------------------------------------
   // Environment (development / staging / production)

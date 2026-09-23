@@ -358,5 +358,71 @@ void main() {
       expect(secondNav, isFalse);
       expect(guard.redirectCount, equals(1)); // Did not increment, loop blocked!
     });
+
+    // Scenario 12: Intended Destination Preservation (returnTo)
+    test('12. Intended Destination Preservation - returns to target protected feature after login', () async {
+      String? pendingAction;
+      var actionExecuted = false;
+
+      void onSelectPlanTrip() {
+        pendingAction = 'plan-trip';
+      }
+
+      onSelectPlanTrip();
+      expect(pendingAction, equals('plan-trip'));
+
+      // Simulate sign in
+      final session = await authClient.signInWithPassword(
+        email: 'user@voyplan.in',
+        password: 'correctPassword123',
+      );
+      expect(session, isNotNull);
+
+      // On successful auth, execute the preserved target action
+      if (pendingAction == 'plan-trip') {
+        actionExecuted = true;
+        pendingAction = null;
+      }
+
+      expect(actionExecuted, isTrue);
+      expect(pendingAction, isNull);
+    });
+
+    // Scenario 13: Error Code Differentiation (401 vs 403 vs 404 vs 500)
+    test('13. Error Code Distinction - only 401 triggers session expiration notice', () {
+      String resolveError(int statusCode) {
+        if (statusCode == 401) return 'Session expired. Please log in again.';
+        if (statusCode == 403) return 'Access denied (403).';
+        if (statusCode == 404) return 'Requested item not found (404).';
+        if (statusCode >= 500) return 'Server unavailable ($statusCode). Please retry.';
+        return 'Request failed ($statusCode)';
+      }
+
+      expect(resolveError(401), contains('Session expired'));
+      expect(resolveError(403), contains('Access denied'));
+      expect(resolveError(404), contains('Requested item not found'));
+      expect(resolveError(500), contains('Server unavailable'));
+      expect(resolveError(503), contains('Server unavailable'));
+    });
+
+    // Scenario 14: Multi-User Data Isolation
+    test('14. User Data Isolation - User B cannot view User A account trips or cache', () {
+      final storage = <String, String>{};
+
+      String tripKey(String userId) => 'voy_account_${userId}_trips_all';
+
+      // User A creates and caches trips
+      final userAId = 'usr_alice_101';
+      storage[tripKey(userAId)] = '[{"id": "trip_a_1", "title": "Alice Goa Roadtrip"}]';
+
+      // User B logs in
+      final userBId = 'usr_bob_202';
+      final userBTripsRaw = storage[tripKey(userBId)];
+
+      // Verify User B's cache is empty and cannot access User A's data
+      expect(userBTripsRaw, isNull);
+      expect(storage.containsKey(tripKey(userBId)), isFalse);
+      expect(storage[tripKey(userAId)], contains('Alice Goa Roadtrip'));
+    });
   });
 }

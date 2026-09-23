@@ -4,25 +4,43 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/saved_place_model.dart';
 import 'api_service.dart';
+import 'auth_session.dart';
 
 class SavedPlacesService extends ChangeNotifier {
   static final SavedPlacesService _instance = SavedPlacesService._internal();
   factory SavedPlacesService() => _instance;
-  SavedPlacesService._internal();
+  SavedPlacesService._internal() {
+    AuthSession.instance.registerSignOutCallback(resetOnLogout);
+  }
 
-  static const String _storageKey = 'voyplan_saved_individual_places_v1';
   final _api = ApiService();
   List<SavedPlace> _places = [];
   bool _initialized = false;
+  String? _ownerId;
+
+  String get _currentOwnerId =>
+      AuthSession.instance.currentUser?.id ?? 'anonymous';
+  String get _storageKey =>
+      'voyplan_saved_individual_places_v1_$_currentOwnerId';
 
   List<SavedPlace> get places => List.unmodifiable(_places);
 
+  void resetOnLogout() {
+    _initialized = false;
+    _ownerId = null;
+    _places = [];
+    notifyListeners();
+  }
+
   Future<void> init() async {
-    if (_initialized) return;
+    if (_initialized && _ownerId == _currentOwnerId) return;
+    _ownerId = _currentOwnerId;
+    _places = [];
     await _loadFromLocal();
     _initialized = true;
     _syncWithCloud();
   }
+
 
   Future<void> _loadFromLocal() async {
     try {
@@ -30,7 +48,9 @@ class SavedPlacesService extends ChangeNotifier {
       final raw = prefs.getString(_storageKey);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> list = jsonDecode(raw);
-        _places = list.map((item) => SavedPlace.fromJson(Map<String, dynamic>.from(item))).toList();
+        _places = list
+            .map((item) => SavedPlace.fromJson(Map<String, dynamic>.from(item)))
+            .toList();
       } else {
         // Seed default high-quality popular travel locations on first launch
         _places = _getSeedPlaces();
@@ -57,8 +77,7 @@ class SavedPlacesService extends ChangeNotifier {
   }
 
   Future<void> _syncWithCloud() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) return;
+    if (!AuthSession.instance.isAuthenticated) return;
 
     try {
       final data = await _api.accountList('favorites');
@@ -67,49 +86,57 @@ class SavedPlacesService extends ChangeNotifier {
           final lat = (fav['lat'] as num?)?.toDouble() ?? 12.9716;
           final lng = (fav['lng'] as num?)?.toDouble() ?? 77.5946;
           return SavedPlace(
-            id: fav['id']?.toString() ?? fav['ref_id']?.toString() ?? fav['name'].toString(),
+            id: fav['id']?.toString() ??
+                fav['ref_id']?.toString() ??
+                fav['name'].toString(),
             name: fav['name']?.toString() ?? 'Saved Place',
             category: (fav['type']?.toString() ?? 'Attraction').toUpperCase(),
             location: fav['note']?.toString() ?? '',
             lat: lat,
             lng: lng,
-            rating: 4.6,
-            image: fav['image_url']?.toString(),
-            description: fav['note']?.toString(),
-            savedAt: fav['created_at'] != null ? (DateTime.tryParse(fav['created_at'].toString()) ?? DateTime.now()) : DateTime.now(),
+            image: fav['image_url']?.toString() ??
+                'https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600',
+            rating: 4.8,
+            savedAt: fav['created_at'] != null
+                ? (DateTime.tryParse(fav['created_at'].toString()) ??
+                    DateTime.now())
+                : DateTime.now(),
           );
         }).toList();
 
-        final seenIds = _places.map((p) => p.name.toLowerCase()).toSet();
-        for (final cp in cloudPlaces) {
-          if (!seenIds.contains(cp.name.toLowerCase())) {
-            _places.add(cp);
+        // Merge cloud with local, avoiding duplicates by id or name
+        final seen = <String>{};
+        final merged = <SavedPlace>[];
+        for (final p in cloudPlaces) {
+          seen.add(p.name.toLowerCase());
+          merged.add(p);
+        }
+        for (final p in _places) {
+          if (!seen.contains(p.name.toLowerCase())) {
+            merged.add(p);
           }
         }
+        _places = merged;
         await _saveToLocal();
       }
     } catch (e) {
-      debugPrint('[SavedPlacesService] Cloud sync skipped: $e');
+      debugPrint('[SavedPlacesService] Error syncing with cloud: $e');
     }
   }
 
-  Future<void> savePlace(SavedPlace place) async {
-    final existingIdx = _places.indexWhere((p) =>
-        p.id == place.id ||
-        (p.name.trim().toLowerCase() == place.name.trim().toLowerCase() &&
-            (p.lat - place.lat).abs() < 0.01 &&
-            (p.lng - place.lng).abs() < 0.01));
+  Future<void> savePlace(SavedPlace place) => addPlace(place);
 
-    if (existingIdx >= 0) {
-      _places[existingIdx] = place;
+  Future<void> addPlace(SavedPlace place) async {
+    final idx = _places.indexWhere((p) => p.id == place.id);
+    if (idx >= 0) {
+      _places[idx] = place;
     } else {
       _places.insert(0, place);
     }
     await _saveToLocal();
 
-    // Sync to backend if session exists
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
+    // Sync to backend if authenticated
+    if (AuthSession.instance.isAuthenticated) {
       try {
         await _api.accountCreate('favorites', {
           'type': place.category.toLowerCase(),
@@ -127,8 +154,7 @@ class SavedPlacesService extends ChangeNotifier {
     _places.removeWhere((p) => p.id == id);
     await _saveToLocal();
 
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
+    if (AuthSession.instance.isAuthenticated) {
       try {
         await _api.accountDelete('favorites', id);
       } catch (_) {}
@@ -150,8 +176,10 @@ class SavedPlacesService extends ChangeNotifier {
         lat: 12.4514,
         lng: 75.7176,
         rating: 4.6,
-        image: 'https://images.unsplash.com/photo-1546587348-d12660c30c50?q=80&w=800&auto=format&fit=crop',
-        description: 'Roaring cascade surrounded by lush Western Ghats spice estates and coffee plantations.',
+        image:
+            'https://images.unsplash.com/photo-1546587348-d12660c30c50?q=80&w=800&auto=format&fit=crop',
+        description:
+            'Roaring cascade surrounded by lush Western Ghats spice estates and coffee plantations.',
         savedAt: DateTime.now().subtract(const Duration(days: 2)),
       ),
       SavedPlace(
@@ -162,8 +190,10 @@ class SavedPlacesService extends ChangeNotifier {
         lat: 12.3052,
         lng: 76.6552,
         rating: 4.8,
-        image: 'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=800&auto=format&fit=crop',
-        description: 'Spectacular Indo-Saracenic royal palace with illuminated arches and gold ceilings.',
+        image:
+            'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=800&auto=format&fit=crop',
+        description:
+            'Spectacular Indo-Saracenic royal palace with illuminated arches and gold ceilings.',
         savedAt: DateTime.now().subtract(const Duration(days: 5)),
       ),
       SavedPlace(
@@ -174,8 +204,10 @@ class SavedPlacesService extends ChangeNotifier {
         lat: 12.2748,
         lng: 76.6710,
         rating: 4.7,
-        image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop',
-        description: 'Panoramic sunrise vista overlooking the heritage city and palace grounds.',
+        image:
+            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop',
+        description:
+            'Panoramic sunrise vista overlooking the heritage city and palace grounds.',
         savedAt: DateTime.now().subtract(const Duration(days: 7)),
       ),
       SavedPlace(
@@ -186,8 +218,10 @@ class SavedPlacesService extends ChangeNotifier {
         lat: 12.9554,
         lng: 77.5855,
         rating: 4.7,
-        image: 'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?q=80&w=800&auto=format&fit=crop',
-        description: 'Legendary 1924 heritage restaurant famous for rava idli and filter coffee.',
+        image:
+            'https://images.unsplash.com/photo-1626777552726-4a6b54c97e46?q=80&w=800&auto=format&fit=crop',
+        description:
+            'Legendary 1924 heritage restaurant famous for rava idli and filter coffee.',
         savedAt: DateTime.now().subtract(const Duration(days: 10)),
       ),
       SavedPlace(
@@ -198,8 +232,10 @@ class SavedPlacesService extends ChangeNotifier {
         lat: 12.4216,
         lng: 75.7335,
         rating: 4.5,
-        image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop',
-        description: 'Historic garden pavilion with dramatic sunsets over the Coorg mountain valleys.',
+        image:
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800&auto=format&fit=crop',
+        description:
+            'Historic garden pavilion with dramatic sunsets over the Coorg mountain valleys.',
         savedAt: DateTime.now().subtract(const Duration(days: 12)),
       ),
     ];

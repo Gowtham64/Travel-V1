@@ -22,11 +22,11 @@
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
 		9A6DE17BD3E9A1BC7A8CD170 /* VoyplanTripActivity.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 44FBC69969C4AD51C5D4F508 /* VoyplanTripActivity.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BC35D432817FB8F1FEF2D06F /* VoyplanTripActivityLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59070EC49721554A738EC4F7 /* VoyplanTripActivityLiveActivity.swift */; };
-		C934F4FF009A412B8F48A6A9 /* TripActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B313F0E66BB4658C82711C /* TripActivityAttributes.swift */; };
 		C0DE00022EC3CC0700C636F2 /* CarPlaySceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00012EC3CC0400C636F2 /* CarPlaySceneDelegate.swift */; };
 		C0DE00042EC3CC0700C636F2 /* CarPlayNavigationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00032EC3CC0400C636F2 /* CarPlayNavigationManager.swift */; };
 		C0DE00062EC3CC0700C636F2 /* CarPlayMapViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00052EC3CC0400C636F2 /* CarPlayMapViewController.swift */; };
 		C0DE00082EC3CC0700C636F2 /* CarPlayVoiceGuidance.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DE00072EC3CC0400C636F2 /* CarPlayVoiceGuidance.swift */; };
+		C934F4FF009A412B8F48A6A9 /* TripActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89B313F0E66BB4658C82711C /* TripActivityAttributes.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -94,12 +94,12 @@
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AF72966D67BFF1085E34DD1C /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		CC3249BE7FBF5112DDEC6421 /* VoyplanTripActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoyplanTripActivityBundle.swift; sourceTree = "<group>"; };
 		C0DE00012EC3CC0400C636F2 /* CarPlaySceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlaySceneDelegate.swift; sourceTree = "<group>"; };
 		C0DE00032EC3CC0400C636F2 /* CarPlayNavigationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayNavigationManager.swift; sourceTree = "<group>"; };
 		C0DE00052EC3CC0400C636F2 /* CarPlayMapViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayMapViewController.swift; sourceTree = "<group>"; };
 		C0DE00072EC3CC0400C636F2 /* CarPlayVoiceGuidance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CarPlayVoiceGuidance.swift; sourceTree = "<group>"; };
 		C0DE00092EC3CC0400C636F2 /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
+		CC3249BE7FBF5112DDEC6421 /* VoyplanTripActivityBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = VoyplanTripActivityBundle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */

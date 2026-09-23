@@ -3,13 +3,21 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../services/auth_session.dart';
 import '../widgets/app_design.dart';
 import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool startInSignUp;
+  final String? returnTo;
+  final VoidCallback? onSuccess;
 
-  const LoginScreen({super.key, this.startInSignUp = false});
+  const LoginScreen({
+    super.key,
+    this.startInSignUp = false,
+    this.returnTo,
+    this.onSuccess,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -53,6 +61,13 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateToHome() {
     if (!mounted || _hasNavigatedHome) return;
     _hasNavigatedHome = true;
+    if (widget.onSuccess != null) {
+      widget.onSuccess!();
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(true);
+      return;
+    }
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
       (route) => false,
@@ -188,22 +203,27 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         final isPhone = RegExp(r'^\+?[0-9]{7,15}$')
             .hasMatch(identifier.replaceAll(RegExp(r'[^0-9+]'), ''));
+        final AuthResponse res;
         if (isPhone) {
-          await Supabase.instance.client.auth
+          res = await Supabase.instance.client.auth
               .signInWithPassword(
                 phone: identifier,
                 password: password,
               )
               .timeout(const Duration(seconds: 10));
         } else {
-          await Supabase.instance.client.auth
+          res = await Supabase.instance.client.auth
               .signInWithPassword(
                 email: identifier,
                 password: password,
               )
               .timeout(const Duration(seconds: 10));
         }
-        if (Supabase.instance.client.auth.currentSession != null) {
+        if (res.session != null) {
+          AuthSession.instance.updateSession(res.session);
+          _navigateToHome();
+        } else if (Supabase.instance.client.auth.currentSession != null) {
+          AuthSession.instance.updateSession(Supabase.instance.client.auth.currentSession);
           _navigateToHome();
         }
       } on AuthException catch (e) {
@@ -267,6 +287,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _continueAsGuest() {
     if (!mounted) return;
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(false);
+      return;
+    }
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const HomeScreen()),
     );

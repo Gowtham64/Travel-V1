@@ -124,6 +124,9 @@ class _LandingScreenState extends State<LandingScreen> {
       case VoyPlanNavigationItem.planTrip:
         _handlePlanTrip();
         break;
+      case VoyPlanNavigationItem.vehicles:
+        _handleLogin();
+        break;
       case VoyPlanNavigationItem.destinations:
         Navigator.of(context)
             .push(

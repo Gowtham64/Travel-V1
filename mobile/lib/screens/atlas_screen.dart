@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 
 /// "Atlas" — a personal travel map plotting every place from the user's saved
 /// trips, with lightweight travel statistics. Read-only, Mapbox-rendered.
@@ -30,8 +31,8 @@ class _AtlasScreenState extends State<AtlasScreen> {
   }
 
   Future<void> _load() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
+    final token = await AuthSession.instance.getValidAccessToken();
+    if (token == null) {
       setState(() {
         _error = 'Log in to see your travel atlas.';
         _loading = false;
@@ -39,7 +40,7 @@ class _AtlasScreenState extends State<AtlasScreen> {
       return;
     }
     try {
-      final trips = await _api.getSavedTrips(session.accessToken);
+      final trips = await _api.getSavedTrips(token);
       const distance = Distance();
       final pts = <LatLng>[];
       double km = 0;

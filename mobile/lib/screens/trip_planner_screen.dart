@@ -10,6 +10,7 @@ import '../models/trip_models.dart';
 import '../models/vehicles_data.dart';
 import '../utils/landing_redirect.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 import '../data/temple_database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -294,7 +295,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
 
   Future<void> _recordUserSession() async {
     try {
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = AuthSession.instance.currentUser;
       if (user == null) return;
 
       // Check if user_details already exists for this user
@@ -1561,7 +1562,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   Widget build(BuildContext context) {
     User? user;
     try {
-      user = Supabase.instance.client.auth.currentUser;
+      user = AuthSession.instance.currentUser;
     } catch (_) {}
     final isDesktop = MediaQuery.of(context).size.width > 900;
 
@@ -2232,7 +2233,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
             // Auth Button at Bottom (Log in / Sign up for guest, Log out for authenticated user)
             Builder(
               builder: (ctx) {
-                final currentUser = Supabase.instance.client.auth.currentUser;
+                final currentUser = AuthSession.instance.currentUser;
                 final isGuest = currentUser == null;
                 return Padding(
                   padding:
@@ -2279,10 +2280,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                                 builder: (_) => const LoginScreen()),
                           );
                         } else {
-                          try {
-                            await Supabase.instance.client.auth.signOut();
-                          } catch (_) {}
-                          clearWebSessionData();
+                          await AuthSession.instance.signOut();
                           Navigator.pushAndRemoveUntil(
                             ctx,
                             MaterialPageRoute(

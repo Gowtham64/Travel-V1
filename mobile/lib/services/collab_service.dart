@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_session.dart';
 
 /// A cloud-stored, shareable trip (day-by-day itinerary or one-way plan).
 class SharedTrip {
@@ -51,8 +52,8 @@ class CollabService {
   SupabaseClient get _db => Supabase.instance.client;
   static const _table = 'shared_trips';
 
-  String? get _uid => _db.auth.currentSession?.user.id;
-  bool get isSignedIn => _uid != null;
+  String? get _uid => AuthSession.instance.currentUser?.id;
+  bool get isSignedIn => AuthSession.instance.isAuthenticated;
 
   String _code() {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

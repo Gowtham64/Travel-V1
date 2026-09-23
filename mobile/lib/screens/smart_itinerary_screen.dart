@@ -11,6 +11,7 @@ import '../models/trip_models.dart';
 import '../models/trip_extras.dart';
 import '../models/vehicles_data.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 import '../services/trip_extras_store.dart';
 import '../services/trip_history_service.dart';
 import '../services/auth_guard.dart';
@@ -453,8 +454,8 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
     await TripHistoryService.instance.saveTrip(historyItem);
 
     // 3. Direct Supabase cloud persistence for cross-device sync
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session != null) {
+    final token = await AuthSession.instance.getValidAccessToken();
+    if (token != null) {
       try {
         final currentFuel = double.tryParse(_currentFuelCtrl.text.trim()) ?? _vehicle?.tankCapacity ?? 45.0;
         final mileage = double.tryParse(_mileageCtrl.text.trim()) ?? _vehicle?.mileage ?? 15.0;
@@ -464,7 +465,7 @@ class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
           end: endCoord,
           waypoints: waypoints,
           vehicleType: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
-          token: session.accessToken,
+          token: token,
           vehicle: Vehicle(
             type: _vehicle?.type ?? (_transportMode == 'bike' ? 'motorcycle' : 'car'),
             efficiencyKmPerLiter: mileage,

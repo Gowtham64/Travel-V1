@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 import '../services/trip_extras_store.dart';
 import '../services/trip_history_service.dart';
 import '../models/trip_models.dart';
@@ -37,12 +38,12 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     // Local day-by-day / AI itineraries are available to everyone (no login).
     final localPlans = await TripExtrasStore.savedPlans();
 
-    final session = Supabase.instance.client.auth.currentSession;
+    final token = await AuthSession.instance.getValidAccessToken();
     List<dynamic> cloudTrips = [];
     String? err;
-    if (session != null) {
+    if (token != null) {
       try {
-        cloudTrips = await _api.getSavedTrips(session.accessToken);
+        cloudTrips = await _api.getSavedTrips(token);
       } catch (e) {
         err = e.toString();
       }
@@ -536,10 +537,10 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
           : [];
       final vType = trip['vehicle_type'];
       
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session != null) {
+      final token = await AuthSession.instance.getValidAccessToken();
+      if (token != null) {
         await _api.saveTrip(
-          token: session.accessToken,
+          token: token,
           name: name,
           start: startGeo,
           end: endGeo,
@@ -830,12 +831,12 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
 
     try {
       final name = (trip['name'] ?? '').toString();
-      final session = Supabase.instance.client.auth.currentSession;
-      if (session != null && id.isNotEmpty) {
-        await _api.deleteTrip(id, session.accessToken);
+      final token = await AuthSession.instance.getValidAccessToken();
+      if (token != null && id.isNotEmpty) {
+        await _api.deleteTrip(id, token);
       }
       // Remove the specific cloud row by id (covers real cloud trips)…
-      final user = Supabase.instance.client.auth.currentUser;
+      final user = AuthSession.instance.currentUser;
       if (user != null && id.isNotEmpty) {
         try {
           await Supabase.instance.client

@@ -6,7 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>VoyPlan — Discover. Design. Drive.</title>
     <meta name="theme-color" content="#060c18">
-    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png">
+    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png?v=2">
+
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
@@ -240,24 +241,6 @@
             background: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-1px);
-        }
-
-        .sign-in-btn {
-            padding: 0.55rem 1.25rem;
-            background: rgba(255, 255, 255, 0.12);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.18);
-            border-radius: var(--radius-pill);
-            color: #ffffff;
-            font-size: 0.92rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .sign-in-btn:hover {
-            background: rgba(255, 255, 255, 0.22);
-            border-color: rgba(255, 255, 255, 0.35);
         }
 
         .get-started-btn {
@@ -1040,6 +1023,38 @@
             background: #06b6d4;
             color: #060c18;
             border-color: #06b6d4;
+        }
+
+        .dest-region-tabs {
+            display: flex;
+            gap: 0.6rem;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .dest-region-tabs::-webkit-scrollbar { display: none; }
+        .dest-region-btn {
+            padding: 0.45rem 0.95rem;
+            border-radius: var(--radius-pill);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s ease;
+        }
+        .dest-region-btn:hover {
+            color: var(--text-primary);
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+        .dest-region-btn.active {
+            background: rgba(6, 182, 212, 0.15);
+            color: #06b6d4;
+            border-color: #06b6d4;
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
         }
 
         /* 6 Horizontal Destination Cards */
@@ -2238,8 +2253,14 @@
         .island-pin.start { top: 70%; left: 55%; }
 
         /* ════════════════════════════════════════════════════════════════════
-           RESPONSIVE REFLOW RULES
+           RESPONSIVE REFLOW RULES (320px to 3440px)
            ════════════════════════════════════════════════════════════════════ */
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+            max-width: 100vw;
+        }
+
         @media (max-width: 1180px) {
             .hero-content {
                 grid-template-columns: 1fr;
@@ -2264,7 +2285,7 @@
             .swap-btn { display: none; }
             .planner-grid-params { grid-template-columns: 1fr; }
             .features-grid-6 { grid-template-columns: repeat(2, 1fr); }
-            .dest-cards-grid { grid-template-columns: repeat(2, 220px); }
+            .dest-cards-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
             .stats-group { flex-wrap: wrap; gap: 1.2rem; }
             .cta-buttons { flex-direction: column; width: 100%; }
             .btn-cta-primary, .btn-cta-secondary { width: 100%; justify-content: center; }
@@ -2278,9 +2299,40 @@
             .info-modal-card { border-radius: 1.1rem; }
         }
 
-        @media (max-width: 430px) {
+        @media (max-width: 480px) {
+            .dest-cards-grid { grid-template-columns: 1fr; }
+            .features-grid-6 { grid-template-columns: 1fr; }
+            .planner-card { padding: 1.25rem 1rem; }
+            .container { padding: 0 1rem; }
+            .hero-title { font-size: clamp(1.85rem, 8vw, 2.75rem); }
+            .section-title { font-size: clamp(1.65rem, 7vw, 2.25rem); }
+            .hero-badge { font-size: 0.75rem; padding: 0.35rem 0.75rem; }
             .footer-grid { grid-template-columns: 1fr; }
             .footer-brand { grid-column: auto; }
+            .auth-modal-card { padding: 1.5rem 1rem; width: min(94vw, 420px); max-height: 90vh; overflow-y: auto; }
+            .field-input { font-size: 0.95rem; }
+        }
+
+        @media (max-width: 360px) {
+            .container { padding: 0 0.5rem; }
+            .planner-card { padding: 1rem 0.6rem; }
+            .hero-title { font-size: 1.7rem; }
+            .stats-item-val { font-size: 1.35rem; }
+            .hero-badge { font-size: 0.7rem; }
+            .btn-cta-primary, .btn-cta-secondary { font-size: 0.9rem; padding: 0.75rem 1rem; }
+            .auth-modal-card { padding: 1.25rem 0.75rem; }
+        }
+
+        @media (min-width: 1440px) {
+            .container { max-width: 1380px; }
+        }
+
+        @media (min-width: 1920px) {
+            .container { max-width: 1440px; margin-left: auto; margin-right: auto; }
+        }
+
+        @media (min-width: 2560px) {
+            .container { max-width: 1600px; margin-left: auto; margin-right: auto; }
         }
     </style>
 </head>
@@ -2300,7 +2352,7 @@
             <ul class="nav-menu">
                 <li><a href="#hero" class="nav-link">Plan Trip</a></li>
                 <li><a href="#destinations" class="nav-link">Explore</a></li>
-                <li><a href="/app/" class="nav-link">My Trips</a></li>
+                <li><a href="/app/?my_trips=true" class="nav-link">My Trips</a></li>
                 <li><a href="#features" class="nav-link">Features</a></li>
                 <li><a href="#copilot" class="nav-link">Blog</a></li>
                 <li><a href="#cta" class="nav-link">About</a></li>
@@ -2313,7 +2365,6 @@
                 <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
-                <button class="sign-in-btn" id="btnSignIn">Sign In</button>
                 <button class="get-started-btn" id="btnGetStarted">Get Started &rarr;</button>
             </div>
         </div>
@@ -2454,7 +2505,7 @@
                             <div class="input-box">
                                 <div class="input-label"><span>Vehicle</span></div>
                                 <div class="input-inline">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>
                                     <select id="selectVehicle">
                                         <option value="car_petrol">Car (Petrol)</option>
                                         <option value="car_diesel">Car (Diesel)</option>
@@ -2534,9 +2585,9 @@
             <div class="container">
                 <div class="dest-head">
                     <div>
-                        <div class="dest-eyebrow">EXPLORE INDIA'S MOST LOVED ROAD TRIPS</div>
+                        <div class="dest-eyebrow">GLOBAL ROAD TRIPS &amp; SCENIC CORRIDORS</div>
                         <h2 class="dest-title">Popular Destinations</h2>
-                        <p class="dest-subtitle">Handpicked routes to fuel your wanderlust.</p>
+                        <p class="dest-subtitle">Handpicked routes and verified landmarks to fuel your wanderlust.</p>
                     </div>
                     <div class="dest-nav">
                         <a href="/app/?explore=true" class="view-all-link">View all destinations &rarr;</a>
@@ -2547,16 +2598,27 @@
                     </div>
                 </div>
 
+                <div class="dest-region-tabs" id="destRegionTabs">
+                    <button class="dest-region-btn active" data-region="all">🌍 Global Featured</button>
+                    <button class="dest-region-btn" data-region="IN">🇮🇳 India</button>
+                    <button class="dest-region-btn" data-region="US">🇺🇸 United States</button>
+                    <button class="dest-region-btn" data-region="GB">🇬🇧 United Kingdom</button>
+                    <button class="dest-region-btn" data-region="AE">🇦🇪 UAE</button>
+                    <button class="dest-region-btn" data-region="EU">🇪🇺 Europe</button>
+                    <button class="dest-region-btn" data-region="AU">🇦🇺 Australia</button>
+                    <button class="dest-region-btn" data-region="JP">🇯🇵 Japan</button>
+                </div>
+
                 <div class="dest-cards-grid" id="destCardsGrid">
                     <!-- 1. Coorg -->
-                    <div class="dest-card" data-dest="Coorg" data-dist="265 km">
-                        <div class="dest-badge">Most Popular</div>
+                    <div class="dest-card" data-dest="Coorg" data-dist="265 km" data-region="IN">
+                        <div class="dest-badge">Top Hill Station</div>
                         <div class="dest-card-img" style="background-image: url('images/destination_coorg.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Coorg</div>
-                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-state">Karnataka, India</div>
                                 <div class="dest-info-meta">3 Days &bull; 265 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
@@ -2564,13 +2626,13 @@
                     </div>
 
                     <!-- 2. Ooty -->
-                    <div class="dest-card" data-dest="Ooty" data-dist="320 km">
+                    <div class="dest-card" data-dest="Ooty" data-dist="320 km" data-region="IN">
                         <div class="dest-card-img" style="background-image: url('images/destination_ooty.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Ooty</div>
-                                <div class="dest-info-state">Tamil Nadu</div>
+                                <div class="dest-info-state">Tamil Nadu, India</div>
                                 <div class="dest-info-meta">4 Days &bull; 320 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
@@ -2578,13 +2640,13 @@
                     </div>
 
                     <!-- 3. Mysuru -->
-                    <div class="dest-card" data-dest="Mysuru" data-dist="145 km">
+                    <div class="dest-card" data-dest="Mysuru" data-dist="145 km" data-region="IN">
                         <div class="dest-card-img" style="background-image: url('images/destination_mysuru.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Mysuru</div>
-                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-state">Karnataka, India</div>
                                 <div class="dest-info-meta">2 Days &bull; 145 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
@@ -2592,13 +2654,13 @@
                     </div>
 
                     <!-- 4. Chikmagalur -->
-                    <div class="dest-card" data-dest="Chikmagalur" data-dist="245 km">
+                    <div class="dest-card" data-dest="Chikmagalur" data-dist="245 km" data-region="IN">
                         <div class="dest-card-img" style="background-image: url('images/destination_chikmagalur.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Chikmagalur</div>
-                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-state">Karnataka, India</div>
                                 <div class="dest-info-meta">3 Days &bull; 245 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
@@ -2606,13 +2668,13 @@
                     </div>
 
                     <!-- 5. Hampi -->
-                    <div class="dest-card" data-dest="Hampi" data-dist="345 km">
+                    <div class="dest-card" data-dest="Hampi" data-dist="345 km" data-region="IN">
                         <div class="dest-card-img" style="background-image: url('images/destination_hampi.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Hampi</div>
-                                <div class="dest-info-state">Karnataka</div>
+                                <div class="dest-info-state">Karnataka, India</div>
                                 <div class="dest-info-meta">3 Days &bull; 345 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
@@ -2620,14 +2682,115 @@
                     </div>
 
                     <!-- 6. Goa -->
-                    <div class="dest-card" data-dest="Goa" data-dist="560 km">
+                    <div class="dest-card" data-dest="Goa" data-dist="560 km" data-region="IN">
+                        <div class="dest-badge">Beach Vibes</div>
                         <div class="dest-card-img" style="background-image: url('images/destination_goa.png');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
                                 <div class="dest-info-name">Goa</div>
-                                <div class="dest-info-state">Beach Vibes</div>
+                                <div class="dest-info-state">Goa, India</div>
                                 <div class="dest-info-meta">4 Days &bull; 560 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 7. Grand Canyon (US) -->
+                    <div class="dest-card" data-dest="Grand Canyon, Arizona" data-dist="450 mi" data-region="US">
+                        <div class="dest-badge">Iconic USA</div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Grand Canyon</div>
+                                <div class="dest-info-state">Arizona, USA</div>
+                                <div class="dest-info-meta">4 Days &bull; 450 mi</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 8. Big Sur & Highway 1 (US) -->
+                    <div class="dest-card" data-dest="Big Sur, California" data-dist="140 mi" data-region="US">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Big Sur &amp; PCH</div>
+                                <div class="dest-info-state">California, USA</div>
+                                <div class="dest-info-meta">3 Days &bull; 140 mi</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 9. Lake District (GB) -->
+                    <div class="dest-card" data-dest="Lake District, Cumbria" data-dist="190 mi" data-region="GB">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Lake District</div>
+                                <div class="dest-info-state">Cumbria, UK</div>
+                                <div class="dest-info-meta">3 Days &bull; 190 mi</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 10. Dubai & Desert Dunes (AE) -->
+                    <div class="dest-card" data-dest="Dubai" data-dist="180 km" data-region="AE">
+                        <div class="dest-badge">Desert &amp; City</div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Dubai Dunes</div>
+                                <div class="dest-info-state">Dubai, UAE</div>
+                                <div class="dest-info-meta">3 Days &bull; 180 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 11. Amalfi Coast (EU) -->
+                    <div class="dest-card" data-dest="Amalfi Coast, Italy" data-dist="210 km" data-region="EU">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Amalfi Coast</div>
+                                <div class="dest-info-state">Campania, Italy</div>
+                                <div class="dest-info-meta">4 Days &bull; 210 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 12. Great Ocean Road (AU) -->
+                    <div class="dest-card" data-dest="Great Ocean Road, Victoria" data-dist="240 km" data-region="AU">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1529108190281-9a4f620bc2d8?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Great Ocean Road</div>
+                                <div class="dest-info-state">Victoria, Australia</div>
+                                <div class="dest-info-meta">3 Days &bull; 240 km</div>
+                            </div>
+                            <div class="dest-arrow-btn">&rarr;</div>
+                        </div>
+                    </div>
+
+                    <!-- 13. Mount Fuji & Hakone (JP) -->
+                    <div class="dest-card" data-dest="Mount Fuji, Japan" data-dist="160 km" data-region="JP">
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-scrim"></div>
+                        <div class="dest-content">
+                            <div>
+                                <div class="dest-info-name">Mount Fuji</div>
+                                <div class="dest-info-state">Honshu, Japan</div>
+                                <div class="dest-info-meta">2 Days &bull; 160 km</div>
                             </div>
                             <div class="dest-arrow-btn">&rarr;</div>
                         </div>
@@ -2736,7 +2899,8 @@
 
                         <div class="hud-stats-grid">
                             <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path></svg> 2 Travelers</div>
-                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"></rect></svg> Car (Petrol)</div>
+                            <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.1 2 11.5 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg> Car (Petrol)</div>
+
                             <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="22" x2="15" y2="22"></line></svg> <strong>&inr; 2,850</strong> Est. Fuel</div>
                             <div class="hud-stat-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle></svg> <strong>&inr; 320</strong> Est. Tolls</div>
                         </div>
@@ -2870,8 +3034,8 @@
                         <a href="/app/">Plan Trip</a>
                         <a href="/app/?explore=true">Destinations</a>
                         <a href="/app/?inspiration=true">Trip Inspiration</a>
-                        <a href="/app/">My Trips</a>
-                        <a href="/app/?savedPlaces=true">Saved Places</a>
+                        <a href="/app/?my_trips=true">My Trips</a>
+                        <a href="/app/?saved_places=true">Saved Places</a>
                     </div>
                 </nav>
                 <nav aria-label="Product">
@@ -3274,7 +3438,7 @@
                 });
             }
 
-            // --- 7. Primary Plan Trip Action -> Launches /app/ ---
+            // --- 7. Primary Plan Trip Action -> Authenticated /app/ hand-off ---
             function launchAppWithTrip(destName) {
                 const origin = encodeURIComponent(originInput.value.trim() || 'Bengaluru');
                 const dest = encodeURIComponent(destName || destInput.value.trim() || 'Coorg');
@@ -3282,34 +3446,43 @@
                 const vehicle = encodeURIComponent(document.getElementById('selectVehicle').value);
                 const travelers = encodeURIComponent(document.getElementById('selectTravelers').value);
 
-                let appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
-                
-                const refreshToken = localStorage.getItem('sb_refresh_token');
-                if (refreshToken) {
-                    appUrl += '#sb_refresh=' + encodeURIComponent(refreshToken);
-                }
-                window.location.href = appUrl;
+                const appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
+                openAppOrSignIn(appUrl);
             }
 
             document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
-            document.getElementById('btnGetStarted').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
-            document.getElementById('btnCtaExplore').addEventListener('click', () => {
-                window.location.href = `${window.location.origin}/app/?explore=true`;
-            });
-            document.getElementById('btnTryAi').addEventListener('click', () => {
-                window.location.href = `${window.location.origin}/app/?ai=true`;
-            });
-            document.getElementById('btnWatch3D').addEventListener('click', () => {
-                window.location.href = `${window.location.origin}/app/?view3d=true&to=Coorg`;
-            });
+            document.getElementById('btnCtaExplore').addEventListener('click', () =>
+                openAppOrSignIn(`${window.location.origin}/app/?explore=true`));
+            document.getElementById('btnTryAi').addEventListener('click', () =>
+                openAppOrSignIn(`${window.location.origin}/app/?ai=true`));
+            document.getElementById('btnWatch3D').addEventListener('click', () =>
+                openAppOrSignIn(`${window.location.origin}/app/?view3d=true&to=Coorg`));
 
-            // --- 8. Destination Card Clicks ---
-            document.querySelectorAll('.dest-card').forEach(card => {
+            // --- 8. Destination Card Clicks & Region Filtering ---
+            const destCards = document.querySelectorAll('.dest-card');
+            destCards.forEach(card => {
                 card.addEventListener('click', () => {
                     const d = card.getAttribute('data-dest');
                     destInput.value = d;
                     launchAppWithTrip(d);
+                });
+            });
+
+            const regionBtns = document.querySelectorAll('.dest-region-btn');
+            regionBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    regionBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    const selectedRegion = btn.getAttribute('data-region');
+                    destCards.forEach(card => {
+                        const cardRegion = card.getAttribute('data-region');
+                        if (selectedRegion === 'all' || cardRegion === selectedRegion) {
+                            card.style.display = 'flex';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
                 });
             });
 
@@ -3326,20 +3499,74 @@
             document.querySelectorAll('.cat-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const cat = item.getAttribute('data-cat');
-                    window.location.href = `${window.location.origin}/app/?category=${cat}`;
+                    openAppOrSignIn(`${window.location.origin}/app/?category=${cat}`);
                 });
             });
 
-            // --- 9. Supabase Auth Modal & Cross-Engine Storage Sync ---
+            // --- 9. Supabase Auth Modal & canonical browser session ---
             const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
             const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
-            let sb = null;
-            if (window.supabase) {
-                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            const SUPABASE_STORAGE_KEY = 'sb-dtemayjpttktntooxraa-auth-token';
+            const FLUTTER_STORAGE_KEY = 'flutter.' + SUPABASE_STORAGE_KEY;
+
+            function syncStorageTokens(sessionObj) {
+                try {
+                    if (sessionObj) {
+                        const jsonStr = typeof sessionObj === 'string' ? sessionObj : JSON.stringify(sessionObj);
+                        localStorage.setItem(SUPABASE_STORAGE_KEY, jsonStr);
+                        localStorage.setItem(FLUTTER_STORAGE_KEY, jsonStr);
+                    }
+                } catch (_) {}
             }
 
+            // Symmetrically bridge session from Flutter app so user is never prompted twice
+            try {
+                const flutterSession = localStorage.getItem(FLUTTER_STORAGE_KEY);
+                const baseSession = localStorage.getItem(SUPABASE_STORAGE_KEY);
+                if (flutterSession && (!baseSession || baseSession === 'null' || baseSession === '')) {
+                    localStorage.setItem(SUPABASE_STORAGE_KEY, flutterSession);
+                } else if (baseSession && (!flutterSession || flutterSession === 'null' || flutterSession === '')) {
+                    localStorage.setItem(FLUTTER_STORAGE_KEY, baseSession);
+                } else if (flutterSession && baseSession && flutterSession !== baseSession) {
+                    let expF = 0, expB = 0;
+                    try { expF = JSON.parse(flutterSession).expires_at || 0; } catch(_) {}
+                    try { expB = JSON.parse(baseSession).expires_at || 0; } catch(_) {}
+                    if (expB >= expF && expB > 0) {
+                        localStorage.setItem(FLUTTER_STORAGE_KEY, baseSession);
+                    } else if (expF > expB) {
+                        localStorage.setItem(SUPABASE_STORAGE_KEY, flutterSession);
+                    }
+                }
+            } catch (_) {}
+
+            let sb = null;
+            if (window.supabase) {
+                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+                    auth: { storageKey: SUPABASE_STORAGE_KEY }
+                });
+                // Remove legacy hand-off token only; retain canonical Supabase auth keys
+                ['sb_refresh_token'].forEach((key) => localStorage.removeItem(key));
+
+                sb.auth.onAuthStateChange((event, session) => {
+                    updateAuthUi(session);
+                    try {
+                        if (session) {
+                            syncStorageTokens(session);
+                            if (event === 'SIGNED_IN' && !new URLSearchParams(window.location.search).get('logout')) {
+                                authModal.classList.remove('active');
+                                enterApp();
+                            }
+                        } else if (event === 'SIGNED_OUT') {
+                            localStorage.removeItem(FLUTTER_STORAGE_KEY);
+                            localStorage.removeItem(SUPABASE_STORAGE_KEY);
+                        }
+                    } catch (_) {}
+                });
+            }
+
+
             const authModal = document.getElementById('authModal');
-            const btnSignIn = document.getElementById('btnSignIn');
+            const btnGetStarted = document.getElementById('btnGetStarted');
             const btnAuthClose = document.getElementById('btnAuthClose');
             const btnToggleAuthMode = document.getElementById('btnToggleAuthMode');
             const authModalTitle = document.getElementById('authModalTitle');
@@ -3349,21 +3576,82 @@
             const btnAuthGoogle = document.getElementById('btnAuthGoogle');
             const authNotice = document.getElementById('authNotice');
             let isSignUp = false;
+            let pendingAppUrl = null;
 
-            function syncSessionToStorage(session) {
-                if (!session) return;
-                try {
-                    if (session.refresh_token) {
-                        localStorage.setItem('sb_refresh_token', session.refresh_token);
-                    }
-                    const sessStr = JSON.stringify(session);
-                    localStorage.setItem('flutter.sb-dtemayjpttktntooxraa-auth-token', sessStr);
-                    localStorage.setItem('flutter.supabase.auth.token', sessStr);
-                } catch (_) {}
+            function setAuthMode(signUp) {
+                isSignUp = signUp;
+                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
+                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
+                authNameRow.style.display = isSignUp ? 'block' : 'none';
+                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
+                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
             }
 
-            btnSignIn.addEventListener('click', () => {
+            function openAuth(signUp = false) {
+                setAuthMode(signUp);
+                authNotice.style.display = 'none';
                 authModal.classList.add('active');
+            }
+
+            function safeAppUrl(value) {
+                if (!value) return null;
+                try {
+                    const candidate = new URL(value, window.location.origin);
+                    return candidate.origin === window.location.origin && candidate.pathname.startsWith('/app')
+                        ? candidate.toString()
+                        : null;
+                } catch (_) {
+                    return null;
+                }
+            }
+
+            function requestedAppUrl() {
+                const queryTarget = new URLSearchParams(window.location.search).get('returnTo');
+                return safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
+            }
+
+            function enterApp() {
+                try {
+                    const raw = localStorage.getItem(SUPABASE_STORAGE_KEY) || localStorage.getItem(FLUTTER_STORAGE_KEY);
+                    if (raw) syncStorageTokens(raw);
+                } catch (_) {}
+                if (authModal) authModal.classList.remove('active');
+                const target = requestedAppUrl();
+                window.location.assign(target);
+            }
+
+            async function openAppOrSignIn(appUrl) {
+                pendingAppUrl = safeAppUrl(appUrl);
+                if (!sb) {
+                    openAuth(false);
+                    return;
+                }
+                const { data } = await sb.auth.getSession();
+                if (data.session) {
+                    enterApp();
+                } else {
+                    openAuth(false);
+                }
+            }
+
+            function updateAuthUi(session) {
+                if (!session?.user) {
+                    btnGetStarted.innerHTML = 'Get Started &rarr;';
+                    btnGetStarted.onclick = () => openAuth(true);
+                    return;
+                }
+                btnGetStarted.textContent = 'Open VoyPlan →';
+                btnGetStarted.onclick = () => enterApp();
+            }
+            updateAuthUi(null);
+
+            // Every application entry point follows the same session gate,
+            // including navigation/footer links that use ordinary anchors.
+            document.querySelectorAll('a[href^="/app/"]').forEach((link) => {
+                link.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    openAppOrSignIn(link.href);
+                });
             });
 
             btnAuthClose.addEventListener('click', () => {
@@ -3374,14 +3662,7 @@
                 if (e.target === authModal) authModal.classList.remove('active');
             });
 
-            btnToggleAuthMode.addEventListener('click', () => {
-                isSignUp = !isSignUp;
-                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
-                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
-                authNameRow.style.display = isSignUp ? 'block' : 'none';
-                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
-                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
-            });
+            btnToggleAuthMode.addEventListener('click', () => setAuthMode(!isSignUp));
 
             btnAuthSubmit.addEventListener('click', async () => {
                 if (!sb) return;
@@ -3403,8 +3684,8 @@
                         });
                         if (error) throw error;
                         if (data.session) {
-                            syncSessionToStorage(data.session);
-                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
+                            syncStorageTokens(data.session);
+                            enterApp();
                         } else {
                             authNotice.style.display = 'block';
                             authNotice.textContent = 'Check your email to verify your account!';
@@ -3412,8 +3693,9 @@
                     } else {
                         const { data, error } = await sb.auth.signInWithPassword({ email, password });
                         if (error) throw error;
-                        syncSessionToStorage(data.session);
-                        window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
+                        if (!data.session) throw new Error('No session was created. Please try again.');
+                        syncStorageTokens(data.session);
+                        enterApp();
                     }
                 } catch (err) {
                     authNotice.style.display = 'block';
@@ -3429,7 +3711,7 @@
                 try {
                     await sb.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: `${window.location.origin}/app/` }
+                        options: { redirectTo: requestedAppUrl() }
                     });
                 } catch (err) {
                     authNotice.style.display = 'block';
@@ -3437,26 +3719,26 @@
                 }
             });
 
-            // Check if user is already signed in
+            // Reflect the canonical session on the landing header. No token is
+            // copied into custom storage or URL fragments.
             if (sb) {
                 sb.auth.getSession().then(({ data }) => {
-                    if (data && data.session && data.session.user) {
-                        syncSessionToStorage(data.session);
-                        const name = data.session.user.user_metadata?.full_name || data.session.user.email.split('@')[0];
-                        btnSignIn.textContent = name;
-                        btnSignIn.onclick = () => {
-                            window.location.href = `${window.location.origin}/app/#sb_refresh=${encodeURIComponent(data.session.refresh_token)}`;
-                        };
-                    }
+                    updateAuthUi(data?.session);
                 });
+                if (new URLSearchParams(window.location.search).get('logout') === 'true') {
+                    sb.auth.signOut({ scope: 'local' }).finally(() => {
+                        window.history.replaceState({}, '', '/');
+                    });
+                }
             }
 
             // Chat Widget Click
             document.getElementById('btnChatWidget').addEventListener('click', () => {
-                window.location.href = `${window.location.origin}/app/?chat=true`;
+                openAppOrSignIn(`${window.location.origin}/app/?chat=true`);
             });
         });
     </script>
 </body>
 
 </html>
+

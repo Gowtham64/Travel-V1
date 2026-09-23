@@ -5,6 +5,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/trip_models.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
+import '../services/auth_guard.dart';
 import '../services/trip_reminder_service.dart';
 import '../utils/calendar_helper.dart';
 import '../utils/trip_date_time.dart';
@@ -1689,10 +1691,13 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
   /// Saves the complete trip — route, vehicle, chosen start date/time, and the
   /// generated day-by-day itinerary — to the user's account.
   Future<void> _saveTrip() async {
-    final session = Supabase.instance.client.auth.currentSession;
-    if (session == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please log in to save trips.')));
-      return;
+    String? validToken = await AuthSession.instance.getValidAccessToken();
+    if (validToken == null) {
+      if (!mounted) return;
+      final authorized = await AuthGuard.ensureAsync(context, action: 'save trips');
+      if (!authorized) return;
+      validToken = await AuthSession.instance.getValidAccessToken();
+      if (validToken == null) return;
     }
     setState(() => _saving = true);
     try {
@@ -1703,7 +1708,7 @@ class _ItineraryScreenState extends State<ItineraryScreen> {
         waypoints: widget.waypoints,
         vehicleType: widget.vehicleType,
         vehicle: widget.vehicle,
-        token: session.accessToken,
+        token: validToken,
         tripStart: _tripStart,
         itinerary: _generated?.map((d) => d.toJson()).toList(),
       );

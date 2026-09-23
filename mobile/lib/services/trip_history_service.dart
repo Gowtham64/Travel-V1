@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'auth_session.dart';
 import 'trip_extras_store.dart';
 
 class TripHistoryItem {
@@ -37,12 +38,12 @@ class TripHistoryItem {
     required this.tollCost,
     required this.totalCost,
     required this.completedAt,
-    required this.isRoundTrip,
+    this.isRoundTrip = false,
     this.routeCoordinates = const [],
     this.totalStopsCount = 0,
     this.tollPlazas = const [],
     this.places = const [],
-    this.avgSpeedKmh = 60.0,
+    this.avgSpeedKmh = 0,
   });
 
   Map<String, dynamic> toJson() => {
@@ -66,37 +67,78 @@ class TripHistoryItem {
         'avgSpeedKmh': avgSpeedKmh,
       };
 
-  factory TripHistoryItem.fromJson(Map<String, dynamic> json) {
+  factory TripHistoryItem.fromJson(Map<String, dynamic> json) =>
+      TripHistoryItem(
+        id: json['id'] ?? '',
+        title: json['title'] ?? '',
+        startAddress: json['startAddress'] ?? '',
+        endAddress: json['endAddress'] ?? '',
+        waypoints: List<String>.from(json['waypoints'] ?? []),
+        distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
+        durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
+        vehicleType: json['vehicleType'] ?? 'Car',
+        fuelCost: (json['fuelCost'] as num?)?.toDouble() ?? 0.0,
+        tollCost: (json['tollCost'] as num?)?.toDouble() ?? 0.0,
+        totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
+        completedAt: json['completedAt'] != null
+            ? DateTime.tryParse(json['completedAt']) ?? DateTime.now()
+            : DateTime.now(),
+        isRoundTrip: json['isRoundTrip'] ?? false,
+        routeCoordinates: (json['routeCoordinates'] as List?)
+                ?.map((e) => (e as Map).cast<String, double>())
+                .toList() ??
+            [],
+        totalStopsCount: (json['totalStopsCount'] as num?)?.toInt() ?? 0,
+        tollPlazas: (json['tollPlazas'] as List?)
+                ?.map((e) => (e as Map).cast<String, dynamic>())
+                .toList() ??
+            [],
+        places: (json['places'] as List?)
+                ?.map((e) => (e as Map).cast<String, dynamic>())
+                .toList() ??
+            [],
+        avgSpeedKmh: (json['avgSpeedKmh'] as num?)?.toDouble() ?? 0.0,
+      );
+
+  TripHistoryItem copyWith({
+    String? id,
+    String? title,
+    String? startAddress,
+    String? endAddress,
+    List<String>? waypoints,
+    double? distanceKm,
+    int? durationMinutes,
+    String? vehicleType,
+    double? fuelCost,
+    double? tollCost,
+    double? totalCost,
+    DateTime? completedAt,
+    bool? isRoundTrip,
+    List<Map<String, double>>? routeCoordinates,
+    int? totalStopsCount,
+    List<Map<String, dynamic>>? tollPlazas,
+    List<Map<String, dynamic>>? places,
+    double? avgSpeedKmh,
+  }) {
     return TripHistoryItem(
-      id: json['id'] as String? ?? '',
-      title: json['title'] as String? ?? 'Trip',
-      startAddress: json['startAddress'] as String? ?? '',
-      endAddress: json['endAddress'] as String? ?? '',
-      waypoints: (json['waypoints'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      distanceKm: (json['distanceKm'] as num?)?.toDouble() ?? 0.0,
-      durationMinutes: (json['durationMinutes'] as num?)?.toInt() ?? 0,
-      vehicleType: json['vehicleType'] as String? ?? 'car',
-      fuelCost: (json['fuelCost'] as num?)?.toDouble() ?? 0.0,
-      tollCost: (json['tollCost'] as num?)?.toDouble() ?? 0.0,
-      totalCost: (json['totalCost'] as num?)?.toDouble() ?? 0.0,
-      completedAt: DateTime.tryParse(json['completedAt'] as String? ?? '') ??
-          DateTime.now(),
-      isRoundTrip: json['isRoundTrip'] as bool? ?? false,
-      routeCoordinates: (json['routeCoordinates'] as List<dynamic>?)
-              ?.map((e) => (e as Map<String, dynamic>)
-                  .map((k, v) => MapEntry(k, (v as num).toDouble())))
-              .toList() ??
-          [],
-      totalStopsCount: (json['totalStopsCount'] as num?)?.toInt() ?? 0,
-      tollPlazas:
-          (json['tollPlazas'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ??
-              [],
-      places:
-          (json['places'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
-      avgSpeedKmh: (json['avgSpeedKmh'] as num?)?.toDouble() ?? 60.0,
+      id: id ?? this.id,
+      title: title ?? this.title,
+      startAddress: startAddress ?? this.startAddress,
+      endAddress: endAddress ?? this.endAddress,
+      waypoints: waypoints ?? this.waypoints,
+      distanceKm: distanceKm ?? this.distanceKm,
+      durationMinutes: durationMinutes ?? this.durationMinutes,
+      vehicleType: vehicleType ?? this.vehicleType,
+      fuelCost: fuelCost ?? this.fuelCost,
+      tollCost: tollCost ?? this.tollCost,
+      totalCost: totalCost ?? this.totalCost,
+      completedAt: completedAt ?? this.completedAt,
+      isRoundTrip: isRoundTrip ?? this.isRoundTrip,
+      routeCoordinates: routeCoordinates ?? this.routeCoordinates,
+      totalStopsCount: totalStopsCount ?? this.totalStopsCount,
+      tollPlazas: tollPlazas ?? this.tollPlazas,
+      places: places ?? this.places,
+      avgSpeedKmh: avgSpeedKmh ?? this.avgSpeedKmh,
     );
   }
 
@@ -105,16 +147,22 @@ class TripHistoryItem {
     final endPt = (row['end_point'] as Map?) ?? {};
     final stops = (row['trip_stops'] as List?) ?? [];
     final name = (row['name'] as String?) ?? 'Saved Trip';
-    final createdAt = DateTime.tryParse(row['created_at']?.toString() ?? '') ?? DateTime.now();
-    
-    final startName = startPt['name']?.toString() ?? name.split(' to ').first.trim();
-    final endName = endPt['name']?.toString() ?? (name.contains(' to ') ? name.split(' to ').last.trim() : name);
-    final isRound = name.toLowerCase().contains('round') || startName.toLowerCase() == endName.toLowerCase();
+    final createdAt = DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+        DateTime.now();
 
-    final wpNames = stops.map((s) => (s['name'] ?? 'Waypoint').toString()).toList();
+    final startName =
+        startPt['name']?.toString() ?? name.split(' to ').first.trim();
+    final endName = endPt['name']?.toString() ??
+        (name.contains(' to ') ? name.split(' to ').last.trim() : name);
+    final isRound = name.toLowerCase().contains('round') ||
+        startName.toLowerCase() == endName.toLowerCase();
+
+    final wpNames =
+        stops.map((s) => (s['name'] ?? 'Waypoint').toString()).toList();
 
     return TripHistoryItem(
-      id: row['id']?.toString() ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: row['id']?.toString() ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
       title: name,
       startAddress: startName,
       endAddress: endName,
@@ -139,20 +187,45 @@ class TripHistoryItem {
 }
 
 class TripHistoryService {
-  TripHistoryService._();
+  TripHistoryService._() {
+    AuthSession.instance.registerSignOutCallback(resetOnLogout);
+  }
   static final TripHistoryService instance = TripHistoryService._();
 
-  static const String _storageKey = 'voyplan_trip_history_v1';
-  static const String _deletedIdsKey = 'voyplan_deleted_trip_ids_v1';
-  static const String _offlineDeleteQueueKey = 'voyplan_offline_delete_queue_v1';
+  User? get _currentUser {
+    try {
+      return AuthSession.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SupabaseClient? get _client {
+    try {
+      return Supabase.instance.client;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String get _ownerId => _currentUser?.id ?? 'anonymous';
+  String get _storageKey => 'voyplan_trip_history_v1_$_ownerId';
+  String get _deletedIdsKey => 'voyplan_deleted_trip_ids_v1_$_ownerId';
+  String get _offlineDeleteQueueKey =>
+      'voyplan_offline_delete_queue_v1_$_ownerId';
 
   final ValueNotifier<List<TripHistoryItem>> historyNotifier =
       ValueNotifier([]);
+
+  void resetOnLogout() {
+    historyNotifier.value = [];
+  }
 
   Future<void> init() async {
     await flushOfflineDeletionQueue();
     await getHistory();
   }
+
 
   Future<Set<String>> getDeletedIds() async {
     try {
@@ -169,7 +242,9 @@ class TripHistoryService {
       final prefs = await SharedPreferences.getInstance();
       final current = (prefs.getStringList(_deletedIdsKey) ?? []).toSet();
       if (id.isNotEmpty) current.add(id);
-      if (title != null && title.trim().isNotEmpty && title.trim().toLowerCase() != 'to') {
+      if (title != null &&
+          title.trim().isNotEmpty &&
+          title.trim().toLowerCase() != 'to') {
         current.add(title.trim().toLowerCase());
       }
       await prefs.setStringList(_deletedIdsKey, current.toList());
@@ -189,8 +264,9 @@ class TripHistoryService {
 
   Future<void> flushOfflineDeletionQueue() async {
     try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user == null) return;
+      final client = _client;
+      final user = _currentUser;
+      if (client == null || user == null) return;
       final prefs = await SharedPreferences.getInstance();
       final list = prefs.getStringList(_offlineDeleteQueueKey) ?? [];
       if (list.isEmpty) return;
@@ -198,11 +274,11 @@ class TripHistoryService {
       final remaining = <String>[];
       for (final id in list) {
         try {
-          await Supabase.instance.client
-              .from('trips')
-              .update({'status': 'DELETED', 'deleted_at': DateTime.now().toIso8601String()})
-              .eq('id', id);
-          await Supabase.instance.client.from('trips').delete().eq('id', id);
+          await client.from('trips').update({
+            'status': 'DELETED',
+            'deleted_at': DateTime.now().toIso8601String()
+          }).eq('id', id);
+          await client.from('trips').delete().eq('id', id);
         } catch (_) {
           remaining.add(id);
         }
@@ -212,6 +288,13 @@ class TripHistoryService {
   }
 
   Future<List<TripHistoryItem>> getHistory() async {
+    // When live client is connected, do not present account-bound history
+    // without an active session. In test environments (_client == null),
+    // allow local items for lifecycle verification.
+    if (_currentUser == null && _client != null) {
+      historyNotifier.value = [];
+      return [];
+    }
     final deletedIds = await getDeletedIds();
     await flushOfflineDeletionQueue();
 
@@ -225,29 +308,34 @@ class TripHistoryService {
             .map((e) =>
                 TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
             .where((it) {
-              final key = (it.title.isNotEmpty ? it.title : '${it.startAddress} to ${it.endAddress}').trim().toLowerCase();
-              return !deletedIds.contains(it.id) && !deletedIds.contains(key);
-            })
-            .toList();
+          final key = (it.title.isNotEmpty
+                  ? it.title
+                  : '${it.startAddress} to ${it.endAddress}')
+              .trim()
+              .toLowerCase();
+          return !deletedIds.contains(it.id) && !deletedIds.contains(key);
+        }).toList();
       }
     } catch (e) {
       debugPrint('Error loading local trip history: $e');
     }
 
     try {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
+      final client = _client;
+      final user = _currentUser;
+      if (client != null && user != null) {
         final localItems = List<TripHistoryItem>.from(items);
 
-        final cloudRows = await Supabase.instance.client
+        final cloudRows = await client
             .from('trips')
             .select('*, trip_stops(*)')
             .order('created_at', ascending: false);
 
-        String nameKey(TripHistoryItem t) =>
-            (t.title.isNotEmpty ? t.title : '${t.startAddress} to ${t.endAddress}')
-                .trim()
-                .toLowerCase();
+        String nameKey(TripHistoryItem t) => (t.title.isNotEmpty
+                ? t.title
+                : '${t.startAddress} to ${t.endAddress}')
+            .trim()
+            .toLowerCase();
 
         final cloudItems = <TripHistoryItem>[];
         if (cloudRows is List) {
@@ -260,7 +348,10 @@ class TripHistoryService {
             final key = nameKey(cit);
             if (deletedIds.contains(cit.id) || deletedIds.contains(key)) {
               try {
-                Supabase.instance.client.from('trips').delete().eq('id', cit.id);
+                Supabase.instance.client
+                    .from('trips')
+                    .delete()
+                    .eq('id', cit.id);
               } catch (_) {}
               continue;
             }
@@ -286,12 +377,16 @@ class TripHistoryService {
 
         final seenKeys = <String>{};
         for (final it in items) {
-          seenKeys.add('${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
+          seenKeys.add(
+              '${it.startAddress}__${it.endAddress}__${it.completedAt.day}');
         }
         for (final cit in cloudItems) {
-          final key = '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
+          final key =
+              '${cit.startAddress}__${cit.endAddress}__${cit.completedAt.day}';
           final nameK = nameKey(cit);
-          if (!seenKeys.contains(key) && !deletedIds.contains(cit.id) && !deletedIds.contains(nameK)) {
+          if (!seenKeys.contains(key) &&
+              !deletedIds.contains(cit.id) &&
+              !deletedIds.contains(nameK)) {
             items.add(cit);
             seenKeys.add(key);
           }
@@ -328,8 +423,9 @@ class TripHistoryService {
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
 
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null) {
+      final user = _currentUser;
+      final client = _client;
+      if (user != null && client != null) {
         await _pushTripToCloud(item, user);
       }
     } catch (e) {
@@ -338,6 +434,8 @@ class TripHistoryService {
   }
 
   Future<void> _pushTripToCloud(TripHistoryItem item, User user) async {
+    final client = _client;
+    if (client == null) return;
     final startCoord = item.routeCoordinates.isNotEmpty
         ? item.routeCoordinates.first
         : {'lat': 12.9716, 'lng': 77.5946};
@@ -345,37 +443,49 @@ class TripHistoryService {
         ? item.routeCoordinates.last
         : {'lat': 13.6288, 'lng': 79.4192};
 
-    final inserted = await Supabase.instance.client.from('trips').insert({
-      'user_id': user.id,
-      if (user.email != null) 'owner_email': user.email!.toLowerCase(),
-      'name': item.title.isNotEmpty
-          ? item.title
-          : '${item.startAddress} to ${item.endAddress}',
-      'start_point': {'lat': startCoord['lat'], 'lng': startCoord['lng'], 'name': item.startAddress},
-      'end_point': {
-        'lat': endCoord['lat'],
-        'lng': endCoord['lng'],
-        'name': item.endAddress,
-        'distanceKm': item.distanceKm,
-        'durationMinutes': item.durationMinutes,
-        'fuelCost': item.fuelCost,
-        'tollCost': item.tollCost,
-        'totalCost': item.totalCost,
-        'isRoundTrip': item.isRoundTrip,
-      },
-      'vehicle_type': item.vehicleType,
-      'status': 'CONFIRMED',
-    }).select().single();
+    final inserted = await client
+        .from('trips')
+        .insert({
+          'user_id': user.id,
+          if (user.email != null) 'owner_email': user.email!.toLowerCase(),
+          'name': item.title.isNotEmpty
+              ? item.title
+              : '${item.startAddress} to ${item.endAddress}',
+          'start_point': {
+            'lat': startCoord['lat'],
+            'lng': startCoord['lng'],
+            'name': item.startAddress
+          },
+          'end_point': {
+            'lat': endCoord['lat'],
+            'lng': endCoord['lng'],
+            'name': item.endAddress,
+            'distanceKm': item.distanceKm,
+            'durationMinutes': item.durationMinutes,
+            'fuelCost': item.fuelCost,
+            'tollCost': item.tollCost,
+            'totalCost': item.totalCost,
+            'isRoundTrip': item.isRoundTrip,
+          },
+          'vehicle_type': item.vehicleType,
+          'status': 'CONFIRMED',
+        })
+        .select()
+        .single();
 
     if (item.waypoints.isNotEmpty && inserted['id'] != null) {
-      final stops = item.waypoints.asMap().entries.map((e) => {
-            'trip_id': inserted['id'],
-            'type': 'waypoint',
-            'lat': 0.0,
-            'lng': 0.0,
-            'name': e.value,
-            'order_index': e.key,
-          }).toList();
+      final stops = item.waypoints
+          .asMap()
+          .entries
+          .map((e) => {
+                'trip_id': inserted['id'],
+                'type': 'waypoint',
+                'lat': 0.0,
+                'lng': 0.0,
+                'name': e.value,
+                'order_index': e.key,
+              })
+          .toList();
       await Supabase.instance.client.from('trip_stops').insert(stops);
     }
   }
@@ -387,19 +497,22 @@ class TripHistoryService {
       final raw = prefs.getString(_storageKey);
       if (raw != null && raw.isNotEmpty) {
         current = (jsonDecode(raw) as List)
-            .map((e) => TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
+            .map((e) =>
+                TripHistoryItem.fromJson((e as Map).cast<String, dynamic>()))
             .toList();
       }
 
       final matched = current.where((e) => e.id == id).toList();
-      final effectiveTitle = title ?? (matched.isNotEmpty ? matched.first.title : null);
+      final effectiveTitle =
+          title ?? (matched.isNotEmpty ? matched.first.title : null);
 
       await _recordDeleted(id, effectiveTitle);
 
       current.removeWhere((e) =>
           e.id == id ||
           (effectiveTitle != null &&
-              e.title.trim().toLowerCase() == effectiveTitle.trim().toLowerCase()));
+              e.title.trim().toLowerCase() ==
+                  effectiveTitle.trim().toLowerCase()));
       await prefs.setString(
           _storageKey, jsonEncode(current.map((e) => e.toJson()).toList()));
       historyNotifier.value = List.from(current);
@@ -415,7 +528,8 @@ class TripHistoryService {
           for (final sp in saved) {
             final spName = (sp['name'] ?? '').toString().trim().toLowerCase();
             if (spName == effectiveTitle.trim().toLowerCase()) {
-              await TripExtrasStore.removeFromIndex((sp['key'] ?? '').toString());
+              await TripExtrasStore.removeFromIndex(
+                  (sp['key'] ?? '').toString());
             }
           }
         }
@@ -423,14 +537,15 @@ class TripHistoryService {
         debugPrint('TripExtrasStore delete purge note: $e');
       }
 
-      final user = Supabase.instance.client.auth.currentUser;
-      if (user != null && id.isNotEmpty) {
+      final user = _currentUser;
+      final client = _client;
+      if (user != null && client != null && id.isNotEmpty) {
         try {
-          await Supabase.instance.client
-              .from('trips')
-              .update({'status': 'DELETED', 'deleted_at': DateTime.now().toIso8601String()})
-              .eq('id', id);
-          await Supabase.instance.client.from('trips').delete().eq('id', id);
+          await client.from('trips').update({
+            'status': 'DELETED',
+            'deleted_at': DateTime.now().toIso8601String()
+          }).eq('id', id);
+          await client.from('trips').delete().eq('id', id);
         } catch (e) {
           debugPrint('Cloud trip delete note: $e');
           await _enqueueOfflineDelete(id);

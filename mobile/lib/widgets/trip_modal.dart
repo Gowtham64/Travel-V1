@@ -22,6 +22,7 @@ import '../models/saved_place_model.dart';
 import '../screens/map_location_picker_screen.dart';
 import '../screens/trip_screen.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 import '../services/fuel_price_service.dart';
 import '../services/toll_calculation_service.dart';
 import '../services/trip_history_service.dart';
@@ -1105,7 +1106,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
       ).toIso8601String();
 
       final currentToken =
-          Supabase.instance.client.auth.currentSession?.accessToken ?? '';
+          await AuthSession.instance.getValidAccessToken() ?? '';
       await _api.saveTrip(
         name: '$originText to $destText (${isOneWay ? "One-Way" : "Vacation"})',
         start: GeoPoint(lat: origin.lat, lng: origin.lng, name: originText),
