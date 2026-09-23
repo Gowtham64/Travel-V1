@@ -3569,10 +3569,6 @@
                     try {
                         if (session) {
                             syncStorageTokens(session);
-                            if (event === 'SIGNED_IN' && !new URLSearchParams(window.location.search).get('logout')) {
-                                authModal.classList.remove('active');
-                                enterApp();
-                            }
                         } else if (event === 'SIGNED_OUT') {
                             localStorage.removeItem(FLUTTER_STORAGE_KEY);
                             localStorage.removeItem(SUPABASE_STORAGE_KEY);

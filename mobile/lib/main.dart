@@ -173,7 +173,6 @@ class AuthStateWrapper extends StatefulWidget {
 class _AuthStateWrapperState extends State<AuthStateWrapper> {
   StreamSubscription<TripDepartureReminder>? _tripReadySub;
   bool _isTripStartDialogOpen = false;
-  bool _redirectingToLanding = false;
 
   @override
   void initState() {
@@ -224,17 +223,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     super.dispose();
   }
 
-  void _redirectToLanding() {
-    if (_redirectingToLanding) return;
-    _redirectingToLanding = true;
-    // The landing page owns sign-in for the web build. Preserve the exact app
-    // destination (including planner query data) so successful login resumes
-    // the action the visitor originally selected.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) redirectToLanding(returnTo: Uri.base.toString());
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
@@ -250,17 +238,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
         }
         if (AuthSession.instance.isAuthenticated) return const HomeScreen();
 
-        if (kIsWeb) {
-          _redirectToLanding();
-          return const Scaffold(
-            backgroundColor: Color(0xFF070D18),
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-            ),
-          );
-        }
-
-        // Native clients retain their in-app public landing screen.
+        // Render in-app landing and login screens without browser redirect loops
         return LandingScreen(
           onLogin: () {
             Navigator.of(context).push(
