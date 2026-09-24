@@ -80,6 +80,16 @@ class AuthSession extends ChangeNotifier {
           } catch (e) {
             debugPrint('Web session direct recovery note: $e');
           }
+          if (immediateSession == null) {
+            try {
+              final decoded = jsonDecode(webJson);
+              if (decoded is Map<String, dynamic>) {
+                immediateSession = Session.fromJson(decoded);
+              }
+            } catch (e) {
+              debugPrint('Direct session fromJson fallback note: $e');
+            }
+          }
         }
       }
 

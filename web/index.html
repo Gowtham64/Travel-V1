@@ -3236,7 +3236,7 @@
          JAVASCRIPT FUNCTIONALITY & INTERACTION
          ════════════════════════════════════════════════════════════════════ -->
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        function initLandingPage() {
             // --- 1. Header scroll effect ---
             const header = document.getElementById('mainHeader');
             window.addEventListener('scroll', () => {
@@ -3569,6 +3569,9 @@
                     try {
                         if (session) {
                             syncStorageTokens(session);
+                            if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+                                enterApp();
+                            }
                         } else if (event === 'SIGNED_OUT') {
                             localStorage.removeItem(FLUTTER_STORAGE_KEY);
                             localStorage.removeItem(SUPABASE_STORAGE_KEY);
@@ -3623,13 +3626,13 @@
                 return safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
             }
 
-            function enterApp() {
+            function enterApp(customUrl) {
                 try {
                     const raw = localStorage.getItem(SUPABASE_STORAGE_KEY) || localStorage.getItem(FLUTTER_STORAGE_KEY);
                     if (raw) syncStorageTokens(raw);
                 } catch (_) {}
                 if (authModal) authModal.classList.remove('active');
-                const target = requestedAppUrl();
+                const target = customUrl ? (safeAppUrl(customUrl) || requestedAppUrl()) : requestedAppUrl();
                 window.location.assign(target);
             }
 
@@ -3641,7 +3644,7 @@
                 }
                 const { data } = await sb.auth.getSession();
                 if (data.session) {
-                    enterApp();
+                    enterApp(appUrl);
                 } else {
                     openAuth(false);
                 }
@@ -3660,15 +3663,36 @@
             }
 
             function updateAuthUi(session) {
+                if (!btnGetStarted) return;
                 if (!session?.user) {
                     btnGetStarted.innerHTML = 'Get Started &rarr;';
-                    btnGetStarted.onclick = () => openAuth(true);
-                    return;
+                    btnGetStarted.setAttribute('aria-label', 'Get Started');
+                } else {
+                    btnGetStarted.textContent = 'Open VoyPlan →';
+                    btnGetStarted.setAttribute('aria-label', 'Open VoyPlan Dashboard');
                 }
-                btnGetStarted.textContent = 'Open VoyPlan →';
-                btnGetStarted.onclick = () => enterApp();
             }
             updateAuthUi(getCachedSession());
+
+            btnGetStarted.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const session = getCachedSession();
+                if (session && (session.user || session.access_token)) {
+                    enterApp();
+                } else if (sb) {
+                    try {
+                        const { data } = await sb.auth.getSession();
+                        if (data?.session) {
+                            syncStorageTokens(data.session);
+                            enterApp();
+                            return;
+                        }
+                    } catch (_) {}
+                    openAuth(false);
+                } else {
+                    openAuth(false);
+                }
+            });
 
             // Every application entry point follows the same session gate,
             // including navigation/footer links that use ordinary anchors.
@@ -3710,6 +3734,7 @@
                         if (error) throw error;
                         if (data.session) {
                             syncStorageTokens(data.session);
+                            updateAuthUi(data.session);
                             enterApp();
                         } else {
                             authNotice.style.display = 'block';
@@ -3720,6 +3745,7 @@
                         if (error) throw error;
                         if (!data.session) throw new Error('No session was created. Please try again.');
                         syncStorageTokens(data.session);
+                        updateAuthUi(data.session);
                         enterApp();
                     }
                 } catch (err) {
@@ -3761,7 +3787,13 @@
             document.getElementById('btnChatWidget').addEventListener('click', () => {
                 openAppOrSignIn(`${window.location.origin}/app/?chat=true`);
             });
-        });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initLandingPage);
+        } else {
+            initLandingPage();
+        }
     </script>
 </body>
 
