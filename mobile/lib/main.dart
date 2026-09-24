@@ -236,21 +236,7 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
             ),
           );
         }
-        if (AuthSession.instance.isAuthenticated) return const HomeScreen();
-
-        // Render in-app landing and login screens without browser redirect loops
-        return LandingScreen(
-          onLogin: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            );
-          },
-          onPlanTrip: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const LoginScreen()),
-            );
-          },
-        );
+        return const HomeScreen();
       },
     );
   }
