@@ -2379,7 +2379,8 @@
                 <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
-                <button class="get-started-btn" id="btnGetStarted">Get Started &rarr;</button>
+                <button class="login-nav-btn" id="btnLoginNav" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#e2e8f0;padding:0.5rem 1rem;border-radius:var(--radius-pill);font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s ease;">Log In</button>
+                <button class="get-started-btn" id="btnGetStarted">Open VoyPlan &rarr;</button>
             </div>
         </div>
     </header>
@@ -3455,7 +3456,7 @@
                 });
             }
 
-            // --- 7. Primary Plan Trip Action -> Authenticated /app/ hand-off ---
+            // --- 7. Primary Plan Trip Action -> /app/ hand-off ---
             function launchAppWithTrip(destName) {
                 const origin = encodeURIComponent(originInput.value.trim() || 'Bengaluru');
                 const dest = encodeURIComponent(destName || destInput.value.trim() || 'Coorg');
@@ -3464,24 +3465,37 @@
                 const travelers = encodeURIComponent(document.getElementById('selectTravelers').value);
 
                 const appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
-                openAppOrSignIn(appUrl);
+                enterApp(appUrl);
             }
 
             document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaExplore').addEventListener('click', () =>
-                openAppOrSignIn(`${window.location.origin}/app/?explore=true`));
+                enterApp(`${window.location.origin}/app/?explore=true`));
             document.getElementById('btnTryAi').addEventListener('click', () =>
-                openAppOrSignIn(`${window.location.origin}/app/?ai=true`));
+                enterApp(`${window.location.origin}/app/?ai=true`));
             document.getElementById('btnWatch3D').addEventListener('click', () =>
-                openAppOrSignIn(`${window.location.origin}/app/?view3d=true&to=Coorg`));
+                enterApp(`${window.location.origin}/app/?view3d=true&to=Coorg`));
+
+            const btnSearch = document.getElementById('btnSearch');
+            if (btnSearch) {
+                btnSearch.addEventListener('click', () => {
+                    const destInputEl = document.getElementById('inputDestination');
+                    if (destInputEl) {
+                        destInputEl.focus();
+                        destInputEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        enterApp(`${window.location.origin}/app/?explore=true`);
+                    }
+                });
+            }
 
             // --- 8. Destination Card Clicks & Region Filtering ---
             const destCards = document.querySelectorAll('.dest-card');
             destCards.forEach(card => {
                 card.addEventListener('click', () => {
                     const d = card.getAttribute('data-dest');
-                    destInput.value = d;
+                    if (destInput) destInput.value = d;
                     launchAppWithTrip(d);
                 });
             });
@@ -3516,7 +3530,7 @@
             document.querySelectorAll('.cat-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const cat = item.getAttribute('data-cat');
-                    openAppOrSignIn(`${window.location.origin}/app/?category=${cat}`);
+                    enterApp(`${window.location.origin}/app/?category=${cat}`);
                 });
             });
 
@@ -3561,7 +3575,6 @@
                 sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
                     auth: { storageKey: SUPABASE_STORAGE_KEY }
                 });
-                // Remove legacy hand-off token only; retain canonical Supabase auth keys
                 ['sb_refresh_token'].forEach((key) => localStorage.removeItem(key));
 
                 sb.auth.onAuthStateChange((event, session) => {
@@ -3580,9 +3593,9 @@
                 });
             }
 
-
             const authModal = document.getElementById('authModal');
             const btnGetStarted = document.getElementById('btnGetStarted');
+            const btnLoginNav = document.getElementById('btnLoginNav');
             const btnAuthClose = document.getElementById('btnAuthClose');
             const btnToggleAuthMode = document.getElementById('btnToggleAuthMode');
             const authModalTitle = document.getElementById('authModalTitle');
@@ -3633,21 +3646,7 @@
                 } catch (_) {}
                 if (authModal) authModal.classList.remove('active');
                 const target = customUrl ? (safeAppUrl(customUrl) || requestedAppUrl()) : requestedAppUrl();
-                window.location.assign(target);
-            }
-
-            async function openAppOrSignIn(appUrl) {
-                pendingAppUrl = safeAppUrl(appUrl);
-                if (!sb) {
-                    openAuth(false);
-                    return;
-                }
-                const { data } = await sb.auth.getSession();
-                if (data.session) {
-                    enterApp(appUrl);
-                } else {
-                    openAuth(false);
-                }
+                window.location.href = target;
             }
 
             function getCachedSession() {
@@ -3663,43 +3662,51 @@
             }
 
             function updateAuthUi(session) {
-                if (!btnGetStarted) return;
-                if (!session?.user) {
-                    btnGetStarted.innerHTML = 'Get Started &rarr;';
-                    btnGetStarted.setAttribute('aria-label', 'Get Started');
-                } else {
-                    btnGetStarted.textContent = 'Open VoyPlan →';
+                if (btnGetStarted) {
+                    btnGetStarted.innerHTML = 'Open VoyPlan &rarr;';
                     btnGetStarted.setAttribute('aria-label', 'Open VoyPlan Dashboard');
+                }
+                if (btnLoginNav) {
+                    if (session?.user) {
+                        const email = session.user.email || '';
+                        const name = session.user.user_metadata?.full_name || email.split('@')[0] || 'User';
+                        btnLoginNav.textContent = `Sign Out (${name.slice(0, 8)})`;
+                        btnLoginNav.title = `Signed in as ${email}. Click to sign out.`;
+                    } else {
+                        btnLoginNav.textContent = 'Log In';
+                        btnLoginNav.title = 'Log In or Sign Up';
+                    }
                 }
             }
             updateAuthUi(getCachedSession());
 
-            btnGetStarted.addEventListener('click', async (e) => {
+            btnGetStarted.addEventListener('click', (e) => {
                 e.preventDefault();
-                const session = getCachedSession();
-                if (session && (session.user || session.access_token)) {
-                    enterApp();
-                } else if (sb) {
-                    try {
-                        const { data } = await sb.auth.getSession();
-                        if (data?.session) {
-                            syncStorageTokens(data.session);
-                            enterApp();
-                            return;
-                        }
-                    } catch (_) {}
-                    openAuth(false);
-                } else {
-                    openAuth(false);
-                }
+                enterApp();
             });
 
-            // Every application entry point follows the same session gate,
-            // including navigation/footer links that use ordinary anchors.
+            if (btnLoginNav) {
+                btnLoginNav.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const session = getCachedSession();
+                    if (session?.user && sb) {
+                        try {
+                            await sb.auth.signOut();
+                        } catch (_) {}
+                        localStorage.removeItem(SUPABASE_STORAGE_KEY);
+                        localStorage.removeItem(FLUTTER_STORAGE_KEY);
+                        updateAuthUi(null);
+                    } else {
+                        openAuth(false);
+                    }
+                });
+            }
+
+            // Every application entry point navigates directly into /app/
             document.querySelectorAll('a[href^="/app/"]').forEach((link) => {
                 link.addEventListener('click', (event) => {
                     event.preventDefault();
-                    openAppOrSignIn(link.href);
+                    enterApp(link.href);
                 });
             });
 
@@ -3770,8 +3777,6 @@
                 }
             });
 
-            // Reflect the canonical session on the landing header. No token is
-            // copied into custom storage or URL fragments.
             if (sb) {
                 sb.auth.getSession().then(({ data }) => {
                     updateAuthUi(data?.session);
@@ -3785,7 +3790,7 @@
 
             // Chat Widget Click
             document.getElementById('btnChatWidget').addEventListener('click', () => {
-                openAppOrSignIn(`${window.location.origin}/app/?chat=true`);
+                enterApp(`${window.location.origin}/app/?chat=true`);
             });
         }
 
