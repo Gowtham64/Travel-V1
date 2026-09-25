@@ -2364,10 +2364,10 @@
             </a>
 
             <ul class="nav-menu">
-                <li><a href="#hero" class="nav-link">Plan Trip</a></li>
-                <li><a href="#destinations" class="nav-link">Explore</a></li>
+                <li><a href="/app/?route=plan-trip" class="nav-link">Plan Trip</a></li>
+                <li><a href="/app/?explore=true" class="nav-link">Explore</a></li>
                 <li><a href="/app/?my_trips=true" class="nav-link">My Trips</a></li>
-                <li><a href="#features" class="nav-link">Features</a></li>
+                <li><a href="/app/?route=features" class="nav-link">Features</a></li>
                 <li><a href="#copilot" class="nav-link">Blog</a></li>
                 <li><a href="#cta" class="nav-link">About</a></li>
             </ul>
@@ -2380,7 +2380,7 @@
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
                 <button class="login-nav-btn" id="btnLoginNav" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#e2e8f0;padding:0.5rem 1rem;border-radius:var(--radius-pill);font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s ease;">Log In</button>
-                <button class="get-started-btn" id="btnGetStarted">Open VoyPlan &rarr;</button>
+                <a href="/app/" class="get-started-btn" id="btnGetStarted" style="text-decoration:none;">Open VoyPlan &rarr;</a>
             </div>
         </div>
     </header>
@@ -3645,8 +3645,14 @@
                     if (raw) syncStorageTokens(raw);
                 } catch (_) {}
                 if (authModal) authModal.classList.remove('active');
-                const target = customUrl ? (safeAppUrl(customUrl) || requestedAppUrl()) : requestedAppUrl();
-                window.location.href = target;
+                let target = `${window.location.origin}/app/`;
+                if (customUrl) {
+                    target = safeAppUrl(customUrl) || customUrl;
+                } else {
+                    const queryTarget = new URLSearchParams(window.location.search).get('returnTo');
+                    target = safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
+                }
+                window.location.assign(target);
             }
 
             function getCachedSession() {
