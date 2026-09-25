@@ -20,12 +20,12 @@ class AppConfig {
   /// URL-restricted token configured in the Mapbox dashboard — not hiding it.
   static const String mapboxToken = String.fromEnvironment(
     'MAPBOX_TOKEN',
-    defaultValue: 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
+    defaultValue:
+        'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ',
   );
 
   /// Whether a Mapbox token was provided at build time.
   static bool get hasMapboxToken => mapboxToken.isNotEmpty;
-
 
   // ---------------------------------------------------------------------------
   // Environment (development / staging / production)
@@ -49,6 +49,18 @@ class AppConfig {
   static bool get isProduction => appEnv == 'production';
   static bool get isStaging => appEnv == 'staging';
   static bool get isDevelopment => appEnv == 'development';
+
+  /// The public Flutter Web entry point used for authentication callbacks.
+  ///
+  /// OAuth providers must return to a URL registered in Supabase. Keeping this
+  /// separate from [Uri.base] means a Pages preview, a query-string deep link,
+  /// or a custom domain alias cannot accidentally make Supabase fall back to an
+  /// obsolete Site URL. Non-production builds keep using the current browser
+  /// URL unless this is explicitly overridden.
+  static const String webAuthCallbackUrl = String.fromEnvironment(
+    'WEB_AUTH_CALLBACK_URL',
+    defaultValue: appEnv == 'production' ? 'https://voyplan.in/app/' : '',
+  );
 
   /// Supabase project URL. Defaults to the production project.
   static const String supabaseUrl = String.fromEnvironment(

@@ -32,9 +32,6 @@
         href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&family=Caveat:wght@600;700&family=JetBrains+Mono:wght@500;600&display=swap"
         rel="stylesheet">
 
-    <!-- Supabase JS SDK for live Auth -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
     <style>
         /* ════════════════════════════════════════════════════════════════════
            VOYPLAN DESIGN TOKENS (LIGHT & DARK THEMES)
@@ -1186,6 +1183,401 @@
         }
 
         /* ════════════════════════════════════════════════════════════════════
+           LIVE TRIP PREVIEW & ROUTE DISCOVERY
+           ════════════════════════════════════════════════════════════════════ */
+        section.route-preview {
+            --rp-ink: #f5f8ff;
+            --rp-muted: #aebfd7;
+            --rp-line: rgba(105, 176, 255, 0.24);
+            --rp-card: rgba(4, 23, 45, 0.9);
+            --rp-surface: rgba(3, 19, 38, 0.95);
+            --rp-accent: #1b9dff;
+            padding: 4.2rem 0 4.5rem;
+            background:
+                radial-gradient(ellipse at 15% -22%, rgba(20, 127, 237, 0.22), transparent 48rem),
+                radial-gradient(ellipse at 88% 94%, rgba(0, 194, 255, 0.12), transparent 36rem),
+                #020b16;
+            border-top: 1px solid rgba(114, 182, 255, 0.14);
+        }
+
+        [data-theme="dark"] section.route-preview {
+            --rp-ink: #f5f8ff;
+            --rp-muted: #aebfd7;
+            --rp-line: rgba(105, 176, 255, 0.24);
+            --rp-card: rgba(4, 23, 45, 0.9);
+            --rp-surface: rgba(3, 19, 38, 0.95);
+            --rp-accent: #1b9dff;
+        }
+
+        .rp-head {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 1.25rem;
+            margin-bottom: 1.45rem;
+        }
+
+        .rp-eyebrow {
+            color: var(--rp-accent);
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+        }
+
+        .rp-title {
+            margin-top: 0.35rem;
+            color: var(--rp-ink);
+            font-size: clamp(1.7rem, 2.75vw, 2.3rem);
+            font-weight: 740;
+            letter-spacing: -0.035em;
+            line-height: 1.1;
+        }
+
+        .rp-subtitle {
+            max-width: 42rem;
+            margin-top: 0.45rem;
+            color: var(--rp-muted);
+            font-size: 0.92rem;
+            line-height: 1.45;
+        }
+
+        .rp-link-button,
+        .rp-filter,
+        .rp-map-toggle,
+        .rp-place-save {
+            appearance: none;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .rp-link-button {
+            padding: 0.55rem 0;
+            color: var(--rp-accent);
+            font-size: 0.88rem;
+            font-weight: 750;
+            white-space: nowrap;
+        }
+
+        .rp-link-button:disabled { cursor: default; opacity: 0.55; }
+
+        .rp-empty,
+        .rp-error {
+            display: grid;
+            place-items: center;
+            min-height: 9.5rem;
+            padding: 1.25rem;
+            border: 1px dashed rgba(106, 184, 255, 0.28);
+            border-radius: 1.1rem;
+            color: var(--rp-muted);
+            background: rgba(4, 23, 45, 0.58);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .rp-error { color: #c33a58; }
+        [data-theme="dark"] .rp-error { color: #ff9ab0; }
+
+        .rp-summary {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(10.2rem, 1fr));
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.2rem;
+        }
+
+        .rp-metric {
+            position: relative;
+            display: grid;
+            min-width: 10.2rem;
+            min-height: 5.6rem;
+            padding: 0.85rem 0.85rem 0.85rem 3.85rem;
+            border: 1px solid var(--rp-line);
+            border-radius: 0.9rem;
+            background: linear-gradient(145deg, rgba(6, 33, 64, 0.96), rgba(3, 19, 38, 0.92));
+            box-shadow: inset 0 1px 0 rgba(130, 208, 255, 0.06);
+        }
+
+        .rp-metric::before {
+            content: attr(data-rp-icon);
+            position: absolute;
+            left: 0.85rem;
+            top: 50%;
+            display: grid;
+            width: 2.3rem;
+            height: 2.3rem;
+            place-items: center;
+            border: 1px solid rgba(51, 185, 255, 0.34);
+            border-radius: 0.7rem;
+            background: linear-gradient(145deg, rgba(17, 161, 255, 0.25), rgba(33, 81, 230, 0.18));
+            box-shadow: 0 0 1.2rem rgba(17, 146, 255, 0.16);
+            color: #41bbff;
+            font-size: 1.18rem;
+            font-weight: 800;
+            transform: translateY(-50%);
+        }
+
+        .rp-metric-value {
+            color: var(--rp-ink);
+            font-size: 1.25rem;
+            font-weight: 760;
+            letter-spacing: -0.025em;
+        }
+
+        .rp-metric-label,
+        .rp-metric-note {
+            display: block;
+            color: var(--rp-muted);
+            font-size: 0.71rem;
+            line-height: 1.3;
+        }
+
+        .rp-metric-label { margin-top: 0.16rem; font-weight: 680; }
+        .rp-metric-note { min-height: 0.9rem; margin-top: 0.05rem; }
+
+        .rp-main {
+            display: grid;
+            grid-template-columns: minmax(22rem, 0.94fr) minmax(0, 1.12fr);
+            gap: 1rem;
+        }
+
+        .rp-map-card,
+        .rp-discovery {
+            overflow: hidden;
+            border: 1px solid var(--rp-line);
+            border-radius: 1rem;
+            background: linear-gradient(145deg, rgba(5, 29, 56, 0.94), rgba(2, 16, 33, 0.94));
+            box-shadow: 0 1.4rem 3.5rem rgba(0, 0, 0, 0.2);
+        }
+
+        .rp-map-card { min-height: 28rem; }
+
+        .rp-map-bar,
+        .rp-discovery-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding: 0.9rem 1rem;
+        }
+
+        .rp-map-label,
+        .rp-discovery-title {
+            color: var(--rp-ink);
+            font-size: 0.86rem;
+            font-weight: 760;
+            letter-spacing: 0.035em;
+            text-transform: uppercase;
+        }
+
+        .rp-map-switch {
+            display: inline-flex;
+            padding: 0.18rem;
+            border: 1px solid var(--rp-line);
+            border-radius: 999px;
+            background: var(--rp-surface);
+        }
+
+        .rp-map-toggle {
+            padding: 0.33rem 0.65rem;
+            border-radius: 999px;
+            color: var(--rp-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+
+        .rp-map-toggle.is-active { color: #ffffff; background: var(--rp-accent); }
+
+        .rp-map {
+            position: relative;
+            min-height: 23rem;
+            height: 23rem;
+            background: #06182c;
+        }
+
+        .rp-map .mapboxgl-ctrl-bottom-left,
+        .rp-map .mapboxgl-ctrl-bottom-right { display: none; }
+
+        .rp-map-fallback {
+            height: 100%;
+            overflow: hidden;
+            padding: 0;
+            color: #c7d8ee;
+            background:
+                radial-gradient(circle at 76% 16%, rgba(28, 113, 201, 0.26), transparent 31%),
+                linear-gradient(148deg, #06213c, #030e1f 64%);
+        }
+
+        .rp-route-geometry {
+            width: 100%;
+            height: calc(100% - 1.9rem);
+            min-height: 20.5rem;
+        }
+
+        .rp-route-geometry path.rp-route-glow {
+            fill: none;
+            stroke: rgba(19, 146, 255, 0.42);
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 24;
+        }
+
+        .rp-route-geometry path.rp-route-line {
+            fill: none;
+            stroke: #3ab5ff;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 6;
+        }
+
+        .rp-map-fallback-label {
+            margin: 0;
+            padding: 0.42rem 0.75rem 0.55rem;
+            color: #9fc4e8;
+            font-size: 0.68rem;
+            letter-spacing: 0.035em;
+            text-align: center;
+        }
+
+        .rp-map-empty-label {
+            display: grid;
+            height: 100%;
+            place-items: center;
+            padding: 1rem;
+            margin: 0;
+            color: #c7d8ee;
+            text-align: center;
+            font-size: 0.85rem;
+        }
+
+        .rp-map-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.65rem;
+            padding: 0.65rem 0.9rem 0.75rem;
+            color: var(--rp-muted);
+            font-size: 0.7rem;
+        }
+
+        .rp-map-legend span { display: inline-flex; align-items: center; gap: 0.3rem; }
+        .rp-map-legend i { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--rp-accent); }
+        .rp-map-legend i.rp-stop-dot { background: #ffb21a; }
+        .rp-map-legend i.rp-fuel-dot { background: #12c997; }
+
+        .rp-discovery { padding-bottom: 0.85rem; }
+        .rp-discovery-head { padding-bottom: 0.45rem; }
+        .rp-discovery-status { color: var(--rp-muted); font-size: 0.75rem; }
+
+        .rp-filters {
+            display: flex;
+            gap: 0.4rem;
+            overflow-x: auto;
+            padding: 0 0.9rem 0.75rem;
+            scrollbar-width: thin;
+        }
+
+        .rp-filter {
+            flex: 0 0 auto;
+            min-height: 2rem;
+            padding: 0.36rem 0.68rem;
+            border: 1px solid rgba(89, 162, 237, 0.26);
+            border-radius: 999px;
+            color: var(--rp-muted);
+            background: rgba(4, 24, 47, 0.92);
+            font-size: 0.73rem;
+            font-weight: 680;
+        }
+
+        .rp-filter.is-active { border-color: var(--rp-accent); color: #ffffff; background: var(--rp-accent); }
+
+        .rp-place-list {
+            display: grid;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(11.5rem, 13.5rem);
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding: 0 0.9rem 0.3rem;
+            scroll-snap-type: x mandatory;
+        }
+
+        .rp-place-card {
+            position: relative;
+            min-height: 13.6rem;
+            padding: 5.15rem 0.9rem 0.85rem;
+            border: 1px solid rgba(74, 155, 232, 0.25);
+            border-radius: 0.9rem;
+            background: linear-gradient(180deg, rgba(15, 77, 125, 0.72), rgba(2, 17, 35, 0.96) 54%);
+            scroll-snap-align: start;
+        }
+
+        .rp-place-card::before {
+            content: '';
+            position: absolute;
+            inset: 0 0 auto;
+            height: 4.55rem;
+            background:
+                radial-gradient(circle at 80% 24%, rgba(104, 215, 255, 0.75) 0 0.22rem, transparent 0.3rem),
+                linear-gradient(125deg, rgba(17, 92, 153, 0.96), rgba(5, 35, 69, 0.7));
+        }
+
+        .rp-place-card[data-category="restaurant"]::before { background: linear-gradient(125deg, #89511a, #30170b); }
+        .rp-place-card[data-category="hotel"]::before { background: linear-gradient(125deg, #4b2f8d, #17133e); }
+        .rp-place-card[data-category="fuel"]::before { background: linear-gradient(125deg, #056a59, #06332e); }
+        .rp-place-card[data-category="viewpoint"]::before { background: linear-gradient(125deg, #1d618c, #142b5a); }
+
+        .rp-place-icon {
+            display: grid;
+            position: absolute;
+            top: 0.8rem;
+            left: 0.8rem;
+            z-index: 1;
+            width: 2.1rem;
+            height: 2.1rem;
+            place-items: center;
+            border-radius: 0.58rem;
+            background: rgba(2, 18, 36, 0.56);
+            font-size: 0.9rem;
+        }
+
+        .rp-place-name {
+            display: -webkit-box;
+            margin-top: 0;
+            overflow: hidden;
+            color: var(--rp-ink);
+            font-size: 0.89rem;
+            font-weight: 740;
+            line-height: 1.28;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: 2;
+        }
+
+        .rp-place-meta { margin-top: 0.28rem; color: var(--rp-muted); font-size: 0.72rem; line-height: 1.35; }
+        .rp-place-save { position: absolute; z-index: 1; top: 0.72rem; right: 0.68rem; padding: 0.25rem; color: #f6f9ff; font-size: 1.2rem; }
+        .rp-place-save:hover, .rp-place-save:focus-visible { color: var(--rp-accent); }
+        .rp-place-empty { padding: 1.3rem 0.95rem; color: var(--rp-muted); font-size: 0.85rem; }
+
+        .rp-skeleton { position: relative; overflow: hidden; min-height: 1.1rem; border-radius: 0.3rem; background: var(--rp-line); color: transparent; }
+        .rp-skeleton::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent); animation: rp-shimmer 1.2s infinite; }
+        @keyframes rp-shimmer { 100% { transform: translateX(100%); } }
+        @media (prefers-reduced-motion: reduce) { .rp-skeleton::after { animation: none; } }
+
+        @media (max-width: 980px) {
+            .rp-main { grid-template-columns: 1fr; }
+            .rp-map-card { min-height: 20rem; }
+        }
+
+        @media (max-width: 680px) {
+            section.route-preview { padding: 2.6rem 0; }
+            .rp-head { align-items: flex-start; flex-direction: column; margin-bottom: 0.9rem; }
+            .rp-summary { grid-template-columns: repeat(6, minmax(8rem, 1fr)); }
+            .rp-map { min-height: 18.5rem; height: 18.5rem; }
+        }
+
+        /* ════════════════════════════════════════════════════════════════════
            SECTION 3: AI TRAVEL CO-PILOT (ISLAND & ITINERARY HUD)
            ════════════════════════════════════════════════════════════════════ */
         section.ai-copilot {
@@ -1801,117 +2193,6 @@
         .chat-widget-btn svg { width: 24px; height: 24px; }
 
         /* ════════════════════════════════════════════════════════════════════
-           GLASS AUTH MODAL (POPUPS OVER ANY SECTION)
-           ════════════════════════════════════════════════════════════════════ */
-        .auth-modal-backdrop {
-            position: fixed;
-            inset: 0;
-            z-index: 999;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(12px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.25s ease;
-        }
-
-        .auth-modal-backdrop.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .auth-modal-card {
-            width: 100%;
-            max-width: 440px;
-            background: rgba(10, 18, 34, 0.94);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            border-radius: var(--radius-lg);
-            padding: 2.2rem;
-            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
-            position: relative;
-            transform: scale(0.95);
-            transition: transform 0.25s ease;
-        }
-
-        .auth-modal-backdrop.active .auth-modal-card {
-            transform: scale(1);
-        }
-
-        .auth-close-btn {
-            position: absolute;
-            top: 1.2rem;
-            right: 1.2rem;
-            background: none;
-            border: none;
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 1.4rem;
-            line-height: 1;
-        }
-
-        .auth-close-btn:hover { color: #ffffff; }
-
-        .auth-form-title { font-size: 1.8rem; font-weight: 800; text-align: center; margin-bottom: 0.3rem; color: #ffffff; }
-        .auth-form-sub { font-size: 0.9rem; text-align: center; color: var(--text-secondary); margin-bottom: 1.6rem; }
-
-        .auth-field-row {
-            margin-bottom: 0.9rem;
-        }
-
-        .auth-input-wrap {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: rgba(6, 12, 24, 0.7);
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            border-radius: var(--radius-md);
-            padding: 0.85rem 1rem;
-        }
-
-        .auth-input-wrap svg { color: #06b6d4; width: 18px; height: 18px; }
-        .auth-input-wrap input {
-            flex: 1;
-            background: transparent;
-            border: none;
-            color: #ffffff;
-            font-size: 0.95rem;
-        }
-
-        .btn-auth-submit {
-            width: 100%;
-            padding: 0.95rem;
-            border-radius: var(--radius-pill);
-            background: var(--grad-cta);
-            border: none;
-            color: #ffffff;
-            font-size: 1.02rem;
-            font-weight: 700;
-            cursor: pointer;
-            margin-top: 0.8rem;
-            box-shadow: 0 6px 20px rgba(6, 182, 212, 0.4);
-        }
-
-        .btn-auth-google {
-            width: 100%;
-            padding: 0.85rem;
-            border-radius: var(--radius-pill);
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.16);
-            color: #ffffff;
-            font-size: 0.95rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            cursor: pointer;
-            margin-top: 0.9rem;
-        }
-
-        /* ════════════════════════════════════════════════════════════════════
            BRAND FOOTER & INFORMATION PAGES
            ════════════════════════════════════════════════════════════════════ */
         .site-footer {
@@ -2323,7 +2604,6 @@
             .hero-badge { font-size: 0.75rem; padding: 0.35rem 0.75rem; }
             .footer-grid { grid-template-columns: 1fr; }
             .footer-brand { grid-column: auto; }
-            .auth-modal-card { padding: 1.5rem 1rem; width: min(94vw, 420px); max-height: 90vh; overflow-y: auto; }
             .field-input { font-size: 0.95rem; }
         }
 
@@ -2334,7 +2614,6 @@
             .stats-item-val { font-size: 1.35rem; }
             .hero-badge { font-size: 0.7rem; }
             .btn-cta-primary, .btn-cta-secondary { font-size: 0.9rem; padding: 0.75rem 1rem; }
-            .auth-modal-card { padding: 1.25rem 0.75rem; }
         }
 
         @media (min-width: 1440px) {
@@ -2379,8 +2658,7 @@
                 <button class="theme-toggle-btn" id="btnThemeToggle" aria-label="Toggle Light/Dark Theme">
                     <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                 </button>
-                <button class="login-nav-btn" id="btnLoginNav" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.18);color:#e2e8f0;padding:0.5rem 1rem;border-radius:var(--radius-pill);font-weight:600;font-size:0.875rem;cursor:pointer;transition:all 0.2s ease;">Log In</button>
-                <a href="/app/" class="get-started-btn" id="btnGetStarted" style="text-decoration:none;">Open VoyPlan &rarr;</a>
+                <a href="/app/?auth=login" class="get-started-btn" id="btnGetStarted" style="text-decoration:none;">Open VoyPlan &rarr;</a>
             </div>
         </div>
     </header>
@@ -2594,7 +2872,67 @@
         </section>
 
         <!-- ════════════════════════════════════════════════════════════════════
-             3. POPULAR DESTINATIONS SECTION (6 CARDS)
+             3. LIVE TRIP PREVIEW & ROUTE DISCOVERY
+             ════════════════════════════════════════════════════════════════════ -->
+        <section class="route-preview" id="route-preview" aria-labelledby="routePreviewHeading">
+            <div class="container">
+                <div class="rp-head">
+                    <div>
+                        <div class="rp-eyebrow">Trip preview</div>
+                        <h2 class="rp-title" id="routePreviewHeading">Plan a route to see its live preview</h2>
+                        <p class="rp-subtitle" id="routePreviewSubtitle">Route, budget and route-side places appear here after you use the planner above.</p>
+                    </div>
+                    <button class="rp-link-button" id="btnPreviewFullDetails" type="button" disabled>View full details <span aria-hidden="true">→</span></button>
+                </div>
+
+                <div id="routePreviewStatus" role="status" aria-live="polite" class="rp-empty">Choose an origin and destination, then select <strong>Plan My Trip</strong>.</div>
+
+                <div id="routePreviewContent" hidden>
+                    <div class="rp-summary" aria-label="Trip summary">
+                        <article class="rp-metric" data-rp-icon="↝"><div class="rp-metric-value" id="rpDistance">—</div><span class="rp-metric-label">Distance</span><span class="rp-metric-note" id="rpDistanceNote"></span></article>
+                        <article class="rp-metric" data-rp-icon="◷"><div class="rp-metric-value" id="rpDuration">—</div><span class="rp-metric-label">Drive time</span><span class="rp-metric-note" id="rpDurationNote"></span></article>
+                        <article class="rp-metric" data-rp-icon="⌑"><div class="rp-metric-value" id="rpFuel">—</div><span class="rp-metric-label">Fuel cost</span><span class="rp-metric-note" id="rpFuelNote"></span></article>
+                        <article class="rp-metric" data-rp-icon="▱"><div class="rp-metric-value" id="rpTolls">—</div><span class="rp-metric-label">Toll estimate</span><span class="rp-metric-note" id="rpTollsNote"></span></article>
+                        <article class="rp-metric" data-rp-icon="⌘"><div class="rp-metric-value" id="rpFood">—</div><span class="rp-metric-label">Food estimate</span><span class="rp-metric-note" id="rpFoodNote"></span></article>
+                        <article class="rp-metric" data-rp-icon="◫"><div class="rp-metric-value" id="rpTotal">—</div><span class="rp-metric-label">Estimated budget</span><span class="rp-metric-note" id="rpTotalNote"></span></article>
+                    </div>
+
+                    <div class="rp-main">
+                        <article class="rp-map-card" aria-label="Interactive route map">
+                            <div class="rp-map-bar">
+                                <span class="rp-map-label">Your route</span>
+                                <div class="rp-map-switch" aria-label="Map style">
+                                    <button class="rp-map-toggle is-active" type="button" data-map-style="map" aria-pressed="true">Map</button>
+                                    <button class="rp-map-toggle" type="button" data-map-style="satellite" aria-pressed="false">Satellite</button>
+                                </div>
+                            </div>
+                            <div class="rp-map" id="routePreviewMap"><div class="rp-map-fallback">The map will load with your route.</div></div>
+                            <div class="rp-map-legend" aria-label="Map legend"><span><i></i>Route</span><span><i class="rp-stop-dot"></i>Route stop</span><span><i class="rp-fuel-dot"></i>Fuel stop</span></div>
+                        </article>
+
+                        <article class="rp-discovery" aria-labelledby="routeDiscoveryHeading">
+                            <div class="rp-discovery-head">
+                                <h3 class="rp-discovery-title" id="routeDiscoveryHeading">Discover along your route</h3>
+                                <span class="rp-discovery-status" id="routeDiscoveryStatus"></span>
+                            </div>
+                            <div class="rp-filters" role="tablist" aria-label="Route discovery categories">
+                                <button class="rp-filter is-active" type="button" data-place-filter="all" role="tab" aria-selected="true">All</button>
+                                <button class="rp-filter" type="button" data-place-filter="fuel" role="tab" aria-selected="false">Fuel</button>
+                                <button class="rp-filter" type="button" data-place-filter="restaurant" role="tab" aria-selected="false">Food</button>
+                                <button class="rp-filter" type="button" data-place-filter="viewpoint" role="tab" aria-selected="false">Scenic</button>
+                                <button class="rp-filter" type="button" data-place-filter="hotel" role="tab" aria-selected="false">Hotels</button>
+                                <button class="rp-filter" type="button" data-place-filter="attraction" role="tab" aria-selected="false">Attractions</button>
+                                <button class="rp-filter" type="button" data-place-filter="rest_area" role="tab" aria-selected="false">Rest areas</button>
+                            </div>
+                            <div class="rp-place-list" id="routePreviewPlaces" aria-live="polite"></div>
+                        </article>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════════
+             4. POPULAR DESTINATIONS SECTION (6 CARDS)
              ════════════════════════════════════════════════════════════════════ -->
         <section class="destinations" id="destinations">
             <div class="container">
@@ -3187,55 +3525,6 @@
     </div>
 
     <!-- ════════════════════════════════════════════════════════════════════
-         7. GLASS AUTH MODAL (POPUPS ON SIGN IN CLICK)
-         ════════════════════════════════════════════════════════════════════ -->
-    <div class="auth-modal-backdrop" id="authModal">
-        <div class="auth-modal-card">
-            <button class="auth-close-btn" id="btnAuthClose">&times;</button>
-            <h3 class="auth-form-title" id="authModalTitle">Welcome Back</h3>
-            <p class="auth-form-sub" id="authModalSub">Log in to save and access your road trips</p>
-
-            <div id="authNotice" style="color:#38bdf8;font-size:0.9rem;text-align:center;margin-bottom:1rem;display:none;"></div>
-
-            <form id="authModalForm" onsubmit="return false;" style="margin:0;padding:0;">
-                <div class="auth-field-row" id="authNameRow" style="display:none;">
-                    <div class="auth-input-wrap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                        <input type="text" id="authModalName" placeholder="Full Name" autocomplete="name">
-                    </div>
-                </div>
-
-                <div class="auth-field-row">
-                    <div class="auth-input-wrap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-                        <input type="text" id="authModalEmail" placeholder="Email or Phone" autocomplete="username" required>
-                    </div>
-                </div>
-
-                <div class="auth-field-row">
-                    <div class="auth-input-wrap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-                        <input type="password" id="authModalPassword" placeholder="Password" autocomplete="current-password" required>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn-auth-submit" id="btnAuthSubmit">Log In</button>
-            </form>
-
-            <button type="button" class="btn-auth-google" id="btnAuthGoogle">
-                <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
-                Continue with Google
-            </button>
-
-            <div style="text-align:center;margin-top:1.2rem;">
-                <button type="button" id="btnToggleAuthMode" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:0.9rem;">
-                    Don't have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- ════════════════════════════════════════════════════════════════════
          JAVASCRIPT FUNCTIONALITY & INTERACTION
          ════════════════════════════════════════════════════════════════════ -->
     <script>
@@ -3470,7 +3759,584 @@
                 enterApp(appUrl);
             }
 
-            document.getElementById('btnPlanTrip').addEventListener('click', () => launchAppWithTrip());
+            // --- 8. Live landing-page trip preview ---
+            // This section owns no auth state and does not calculate example
+            // data in the browser. It projects the canonical Worker route
+            // result selected in the hero planner above.
+            const previewApiBases = (() => {
+                if (typeof window.VOYPLAN_API_BASE === 'string' && window.VOYPLAN_API_BASE) {
+                    return [window.VOYPLAN_API_BASE.replace(/\/$/, '')];
+                }
+                const localHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+                // The local Worker exposes the richer preview endpoint. The public
+                // route endpoint is kept as a compatibility fallback until the
+                // Worker deployment is made, so a local landing page never opens
+                // into an empty preview panel.
+                return localHost
+                    ? ['http://127.0.0.1:8787', 'https://api.voyplan.in']
+                    : ['https://api.voyplan.in'];
+            })();
+            const routePreview = document.getElementById('route-preview');
+            const routePreviewHeading = document.getElementById('routePreviewHeading');
+            const routePreviewSubtitle = document.getElementById('routePreviewSubtitle');
+            const routePreviewStatus = document.getElementById('routePreviewStatus');
+            const routePreviewContent = document.getElementById('routePreviewContent');
+            const routePreviewPlaces = document.getElementById('routePreviewPlaces');
+            const routeDiscoveryStatus = document.getElementById('routeDiscoveryStatus');
+            const previewDetailsBtn = document.getElementById('btnPreviewFullDetails');
+            const previewMapContainer = document.getElementById('routePreviewMap');
+            let previewAbortController = null;
+            let previewRequestVersion = 0;
+            let currentPreview = null;
+            let currentPlaceFilter = 'all';
+            let landingMap = null;
+            let landingMapMarkers = [];
+            let landingMapStyle = 'map';
+            let mapboxLoader = null;
+
+            const previewVehicleProfiles = {
+                car_petrol: { type: 'car', efficiencyKmPerLiter: 15, tankCapacityLiters: 45, fuelType: 'petrol' },
+                car_diesel: { type: 'car', efficiencyKmPerLiter: 18, tankCapacityLiters: 45, fuelType: 'diesel' },
+                ev: { type: 'ev', efficiencyKmPerLiter: 6.2, tankCapacityLiters: 50, fuelType: 'ev' },
+                suv: { type: 'suv', efficiencyKmPerLiter: 12, tankCapacityLiters: 55, fuelType: 'petrol' },
+                bike: { type: 'motorcycle', efficiencyKmPerLiter: 38, tankCapacityLiters: 13, fuelType: 'petrol' },
+            };
+            const placeLabels = {
+                fuel: 'Fuel', restaurant: 'Food', viewpoint: 'Scenic', hotel: 'Hotel', attraction: 'Attraction', rest_area: 'Rest area',
+            };
+            const placeIcons = {
+                fuel: '⛽', restaurant: '🍽', viewpoint: '◒', hotel: '⌂', attraction: '⌾', rest_area: '⏸',
+            };
+
+            function readPlannerSelection() {
+                const origin = originInput?.value.trim() || '';
+                const destination = destInput?.value.trim() || '';
+                const vehicleKey = document.getElementById('selectVehicle')?.value || 'car_petrol';
+                const travellers = Math.max(1, Number(document.getElementById('selectTravelers')?.value) || 1);
+                return {
+                    origin,
+                    destination,
+                    vehicleKey,
+                    travellers,
+                    vehicle: previewVehicleProfiles[vehicleKey] || previewVehicleProfiles.car_petrol,
+                    date: document.getElementById('inputDate')?.value || '',
+                };
+            }
+
+            function previewAppUrl() {
+                const selection = readPlannerSelection();
+                const params = new URLSearchParams({
+                    route: 'plan-trip',
+                    mode: activeTripMode,
+                    from: selection.origin,
+                    to: selection.destination,
+                    date: selection.date,
+                    vehicle: selection.vehicleKey,
+                    travelers: String(selection.travellers),
+                });
+                return `${window.location.origin}/app/?${params.toString()}`;
+            }
+
+            function setPreviewStatus(message, isError = false) {
+                routePreviewContent.hidden = true;
+                routePreviewStatus.hidden = false;
+                routePreviewStatus.className = isError ? 'rp-error' : 'rp-empty';
+                routePreviewStatus.textContent = message;
+            }
+
+            function setPreviewLoading() {
+                routePreviewStatus.hidden = true;
+                routePreviewContent.hidden = false;
+                previewDetailsBtn.disabled = true;
+                routePreviewHeading.textContent = 'Calculating your route…';
+                routePreviewSubtitle.textContent = 'Checking the route, budget, toll estimate and mapped stops.';
+                ['rpDistance', 'rpDuration', 'rpFuel', 'rpTolls', 'rpFood', 'rpTotal'].forEach((id) => {
+                    const element = document.getElementById(id);
+                    element.classList.add('rp-skeleton');
+                    element.textContent = 'Loading';
+                });
+                routePreviewPlaces.replaceChildren(...Array.from({ length: 3 }, () => {
+                    const card = document.createElement('div');
+                    card.className = 'rp-place-card rp-skeleton';
+                    return card;
+                }));
+                routeDiscoveryStatus.textContent = 'Finding mapped stops…';
+            }
+
+            function formatDuration(minutes) {
+                const value = Number(minutes);
+                if (!Number.isFinite(value) || value <= 0) return '—';
+                const hours = Math.floor(value / 60);
+                const remaining = Math.round(value % 60);
+                return hours > 0 ? `${hours}h ${remaining}m` : `${remaining}m`;
+            }
+
+            function formatCurrency(value, currencyCode) {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric)) return '—';
+                try {
+                    return new Intl.NumberFormat('en-IN', {
+                        style: 'currency',
+                        currency: currencyCode || 'INR',
+                        maximumFractionDigits: 0,
+                    }).format(numeric);
+                } catch (_) {
+                    return `${Math.round(numeric)}`;
+                }
+            }
+
+            function setMetric(id, value, note = '') {
+                const valueElement = document.getElementById(id);
+                valueElement.classList.remove('rp-skeleton');
+                valueElement.textContent = value;
+                const noteElement = document.getElementById(`${id}Note`);
+                if (noteElement) noteElement.textContent = note;
+            }
+
+            async function geocodePreviewLocation(query, signal) {
+                let lastError = null;
+                for (const apiBase of previewApiBases) {
+                    try {
+                        const response = await fetch(`${apiBase}/api/geocode?q=${encodeURIComponent(query)}`, { signal });
+                        const payload = await response.json().catch(() => ({}));
+                        if (response.ok && Number.isFinite(Number(payload.lat)) && Number.isFinite(Number(payload.lng))) {
+                            return { lat: Number(payload.lat), lng: Number(payload.lng), name: payload.displayName || query };
+                        }
+                        lastError = new Error(payload.error || `We could not locate “${query}”.`);
+                    } catch (error) {
+                        if (error?.name === 'AbortError') throw error;
+                        lastError = error;
+                    }
+                }
+                throw lastError || new Error(`We could not locate “${query}”.`);
+            }
+
+            async function requestTripPreview(payload, signal) {
+                let lastError = null;
+                for (const apiBase of previewApiBases) {
+                    try {
+                        const response = await fetch(`${apiBase}/api/trip/preview`, {
+                            method: 'POST',
+                            signal,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+                        const preview = await response.json().catch(() => ({}));
+                        if (response.ok) return preview;
+                        lastError = new Error(preview.error || 'The route preview is not available right now.');
+                    } catch (error) {
+                        if (error?.name === 'AbortError') throw error;
+                        lastError = error;
+                    }
+                }
+
+                // Existing production deployments already provide the canonical
+                // calculator. Use that real response to render a route immediately
+                // while /trip/preview is awaiting deployment; do not manufacture
+                // place cards or budget values in the landing page.
+                for (const apiBase of previewApiBases) {
+                    try {
+                        const response = await fetch(`${apiBase}/api/trip/calculate-route`, {
+                            method: 'POST',
+                            signal,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
+                        const trip = await response.json().catch(() => ({}));
+                        if (response.ok) {
+                            return {
+                                trip,
+                                places: {},
+                                fuelPlan: trip.tripPlan?.fuel || null,
+                                toll: {
+                                    count: trip.tripPlan?.toll?.tollCount,
+                                    amount: trip.budget?.tolls,
+                                },
+                                map: { provider: 'mapbox', accessToken: null },
+                            };
+                        }
+                        lastError = new Error(trip.error || 'The route could not be calculated right now.');
+                    } catch (error) {
+                        if (error?.name === 'AbortError') throw error;
+                        lastError = error;
+                    }
+                }
+                throw lastError || new Error('The route could not be calculated right now.');
+            }
+
+            function routeCoordinates(preview) {
+                const coords = preview?.trip?.route?.coordinates;
+                if (Array.isArray(coords) && coords.length > 1) {
+                    return coords.map((point) => Array.isArray(point)
+                        ? [Number(point[0]), Number(point[1])]
+                        : [Number(point.lng), Number(point.lat)])
+                        .filter(([lng, lat]) => Number.isFinite(lat) && Number.isFinite(lng));
+                }
+                const geometry = preview?.trip?.route?.geometry?.coordinates;
+                return Array.isArray(geometry) ? geometry
+                    .map(([lng, lat]) => [Number(lng), Number(lat)])
+                    .filter(([lng, lat]) => Number.isFinite(lat) && Number.isFinite(lng)) : [];
+            }
+
+            function renderRouteGeometryFallback() {
+                const coordinates = routeCoordinates(currentPreview);
+                previewMapContainer.replaceChildren();
+                const fallback = document.createElement('div');
+                fallback.className = 'rp-map-fallback';
+                if (coordinates.length < 2) {
+                    const empty = document.createElement('p');
+                    empty.className = 'rp-map-empty-label';
+                    empty.textContent = 'Live route details are ready. A route geometry was not returned for this journey.';
+                    fallback.appendChild(empty);
+                    previewMapContainer.appendChild(fallback);
+                    return;
+                }
+
+                const lngs = coordinates.map(([lng]) => lng);
+                const lats = coordinates.map(([, lat]) => lat);
+                const minLng = Math.min(...lngs);
+                const maxLng = Math.max(...lngs);
+                const minLat = Math.min(...lats);
+                const maxLat = Math.max(...lats);
+                const width = 1000;
+                const height = 620;
+                const inset = 82;
+                const lngRange = Math.max(maxLng - minLng, 0.001);
+                const latRange = Math.max(maxLat - minLat, 0.001);
+                const points = coordinates.map(([lng, lat]) => {
+                    const x = inset + ((lng - minLng) / lngRange) * (width - inset * 2);
+                    const y = height - inset - ((lat - minLat) / latRange) * (height - inset * 2);
+                    return [x, y];
+                });
+                const pathData = points.map(([x, y], index) => `${index === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`).join(' ');
+                const svgNs = 'http://www.w3.org/2000/svg';
+                const svg = document.createElementNS(svgNs, 'svg');
+                svg.classList.add('rp-route-geometry');
+                svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+                svg.setAttribute('role', 'img');
+                svg.setAttribute('aria-label', 'Live route geometry');
+                [0.24, 0.5, 0.76].forEach((fraction) => {
+                    const line = document.createElementNS(svgNs, 'line');
+                    line.setAttribute('x1', String(width * fraction));
+                    line.setAttribute('x2', String(width * fraction));
+                    line.setAttribute('y1', '0');
+                    line.setAttribute('y2', String(height));
+                    line.setAttribute('stroke', 'rgba(105, 177, 255, 0.1)');
+                    line.setAttribute('stroke-width', '1');
+                    svg.appendChild(line);
+                });
+                [0.28, 0.58, 0.82].forEach((fraction) => {
+                    const line = document.createElementNS(svgNs, 'line');
+                    line.setAttribute('x1', '0');
+                    line.setAttribute('x2', String(width));
+                    line.setAttribute('y1', String(height * fraction));
+                    line.setAttribute('y2', String(height * fraction));
+                    line.setAttribute('stroke', 'rgba(105, 177, 255, 0.1)');
+                    line.setAttribute('stroke-width', '1');
+                    svg.appendChild(line);
+                });
+                ['rp-route-glow', 'rp-route-line'].forEach((className) => {
+                    const path = document.createElementNS(svgNs, 'path');
+                    path.setAttribute('class', className);
+                    path.setAttribute('d', pathData);
+                    svg.appendChild(path);
+                });
+                const trip = currentPreview?.trip || {};
+                [[points[0], '#13b5ff', trip.origin?.name || 'Origin'], [points.at(-1), '#ff5974', trip.destination?.name || 'Destination']]
+                    .forEach(([point, color, label]) => {
+                        const marker = document.createElementNS(svgNs, 'circle');
+                        marker.setAttribute('cx', point[0].toFixed(1));
+                        marker.setAttribute('cy', point[1].toFixed(1));
+                        marker.setAttribute('r', '14');
+                        marker.setAttribute('fill', color);
+                        marker.setAttribute('stroke', '#ffffff');
+                        marker.setAttribute('stroke-width', '4');
+                        const title = document.createElementNS(svgNs, 'title');
+                        title.textContent = label;
+                        marker.appendChild(title);
+                        svg.appendChild(marker);
+                    });
+                const label = document.createElement('p');
+                label.className = 'rp-map-fallback-label';
+                label.textContent = 'Live route geometry · Add a public Mapbox token in the Worker for the interactive map';
+                fallback.append(svg, label);
+                previewMapContainer.appendChild(fallback);
+            }
+
+            function filteredPlaces() {
+                if (!currentPreview?.places) return [];
+                const groups = currentPreview.places;
+                const relevantGroups = currentPlaceFilter === 'all'
+                    ? Object.entries(groups)
+                    : [[currentPlaceFilter, groups[currentPlaceFilter] || []]];
+                return relevantGroups.flatMap(([category, places]) => (Array.isArray(places) ? places : [])
+                    .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
+                    .map((place) => ({ ...place, category: place.category || category })));
+            }
+
+            function renderPlaces() {
+                const places = filteredPlaces();
+                routePreviewPlaces.replaceChildren();
+                if (places.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'rp-place-empty';
+                    empty.textContent = 'No mapped places were found in this route corridor for this filter.';
+                    routePreviewPlaces.appendChild(empty);
+                    routeDiscoveryStatus.textContent = 'No mapped results';
+                    renderMapMarkers();
+                    return;
+                }
+
+                places.slice(0, 24).forEach((place) => {
+                    const card = document.createElement('article');
+                    card.className = 'rp-place-card';
+                    card.dataset.category = place.category || 'attraction';
+                    const icon = document.createElement('span');
+                    icon.className = 'rp-place-icon';
+                    icon.setAttribute('aria-hidden', 'true');
+                    icon.textContent = placeIcons[place.category] || '•';
+                    const name = document.createElement('h4');
+                    name.className = 'rp-place-name';
+                    name.textContent = place.name;
+                    const meta = document.createElement('p');
+                    meta.className = 'rp-place-meta';
+                    meta.textContent = `${placeLabels[place.category] || 'Place'} · Near route`;
+                    const save = document.createElement('button');
+                    save.className = 'rp-place-save';
+                    save.type = 'button';
+                    save.title = `Save ${place.name}`;
+                    save.setAttribute('aria-label', `Save ${place.name}`);
+                    save.textContent = '♡';
+                    save.addEventListener('click', () => saveRoutePlace(place));
+                    card.append(icon, name, meta, save);
+                    routePreviewPlaces.appendChild(card);
+                });
+                routeDiscoveryStatus.textContent = `${places.length} mapped ${places.length === 1 ? 'place' : 'places'}`;
+                renderMapMarkers();
+            }
+
+            function saveRoutePlace(place) {
+                const selection = readPlannerSelection();
+                const params = new URLSearchParams({
+                    route: 'plan-trip',
+                    mode: activeTripMode,
+                    from: selection.origin,
+                    to: selection.destination,
+                    date: selection.date,
+                    vehicle: selection.vehicleKey,
+                    travelers: String(selection.travellers),
+                    save_place: JSON.stringify({
+                        id: String(place.id),
+                        name: place.name,
+                        type: placeLabels[place.category] || 'Place',
+                        lat: Number(place.lat),
+                        lng: Number(place.lng),
+                    }),
+                });
+                enterApp(`${window.location.origin}/app/?${params.toString()}`);
+            }
+
+            function mapStyleUrl() {
+                return landingMapStyle === 'satellite'
+                    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+                    : 'mapbox://styles/mapbox/streets-v12';
+            }
+
+            function mapMarker(color, title) {
+                const element = document.createElement('span');
+                element.style.cssText = `display:block;width:14px;height:14px;border:2px solid #fff;border-radius:50%;background:${color};box-shadow:0 2px 8px rgba(0,0,0,.38)`;
+                element.setAttribute('role', 'img');
+                element.setAttribute('aria-label', title);
+                return element;
+            }
+
+            function renderMapMarkers() {
+                if (!landingMap || !window.mapboxgl || !currentPreview) return;
+                landingMapMarkers.forEach((marker) => marker.remove());
+                landingMapMarkers = [];
+                const addMarker = (lng, lat, color, title) => {
+                    if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return;
+                    const marker = new window.mapboxgl.Marker({ element: mapMarker(color, title) })
+                        .setLngLat([Number(lng), Number(lat)])
+                        .setPopup(new window.mapboxgl.Popup({ offset: 12 }).setText(title))
+                        .addTo(landingMap);
+                    landingMapMarkers.push(marker);
+                };
+                const trip = currentPreview.trip;
+                addMarker(trip?.origin?.lng, trip?.origin?.lat, '#16a7ff', trip?.origin?.name || 'Origin');
+                addMarker(trip?.destination?.lng, trip?.destination?.lat, '#ff596d', trip?.destination?.name || 'Destination');
+                (currentPreview.fuelPlan?.refuelStops || []).forEach((stop) => addMarker(stop.lng, stop.lat, '#12c997', stop.name));
+                filteredPlaces().slice(0, 12).forEach((place) => addMarker(place.lng, place.lat, '#ffb21a', place.name));
+            }
+
+            function paintRouteOnMap({ fit = false } = {}) {
+                if (!landingMap || !currentPreview) return;
+                const coordinates = routeCoordinates(currentPreview);
+                if (coordinates.length < 2) return;
+                const feature = { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates } };
+                const source = landingMap.getSource('landing-route');
+                if (source) {
+                    source.setData(feature);
+                } else {
+                    landingMap.addSource('landing-route', { type: 'geojson', data: feature });
+                    landingMap.addLayer({ id: 'landing-route-glow', type: 'line', source: 'landing-route', paint: { 'line-color': '#0f8dff', 'line-width': 8, 'line-opacity': 0.25, 'line-blur': 4 } });
+                    landingMap.addLayer({ id: 'landing-route-line', type: 'line', source: 'landing-route', paint: { 'line-color': '#55b6ff', 'line-width': 4, 'line-opacity': 0.96 } });
+                }
+                renderMapMarkers();
+                if (fit) {
+                    const bounds = coordinates.reduce((result, point) => result.extend(point), new window.mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+                    landingMap.fitBounds(bounds, { padding: 44, maxZoom: 12, duration: 0 });
+                }
+            }
+
+            function loadMapbox() {
+                if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
+                if (mapboxLoader) return mapboxLoader;
+                mapboxLoader = new Promise((resolve, reject) => {
+                    const stylesheet = document.createElement('link');
+                    stylesheet.rel = 'stylesheet';
+                    stylesheet.href = 'https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.css';
+                    document.head.appendChild(stylesheet);
+                    const script = document.createElement('script');
+                    script.src = 'https://api.mapbox.com/mapbox-gl-js/v3.26.0/mapbox-gl.js';
+                    script.onload = () => resolve(window.mapboxgl);
+                    script.onerror = () => reject(new Error('The map library could not be loaded.'));
+                    document.head.appendChild(script);
+                });
+                return mapboxLoader;
+            }
+
+            async function renderPreviewMap() {
+                const token = currentPreview?.map?.accessToken;
+                if (!token) {
+                    renderRouteGeometryFallback();
+                    return;
+                }
+                try {
+                    await loadMapbox();
+                    window.mapboxgl.accessToken = token;
+                    if (!landingMap) {
+                        previewMapContainer.replaceChildren();
+                        landingMap = new window.mapboxgl.Map({
+                            container: previewMapContainer,
+                            style: mapStyleUrl(),
+                            accessToken: token,
+                            attributionControl: false,
+                        });
+                        landingMap.addControl(new window.mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
+                        landingMap.once('load', () => paintRouteOnMap({ fit: true }));
+                        landingMap.on('error', () => {
+                            routeDiscoveryStatus.textContent = 'Map unavailable; route details remain ready.';
+                        });
+                    } else if (landingMap.isStyleLoaded()) {
+                        paintRouteOnMap({ fit: true });
+                    } else {
+                        landingMap.once('load', () => paintRouteOnMap({ fit: true }));
+                    }
+                } catch (_) {
+                    renderRouteGeometryFallback();
+                }
+            }
+
+            function setMapStyle(nextStyle) {
+                if (!currentPreview || !landingMap || landingMapStyle === nextStyle) return;
+                landingMapStyle = nextStyle;
+                document.querySelectorAll('.rp-map-toggle').forEach((button) => {
+                    const active = button.dataset.mapStyle === nextStyle;
+                    button.classList.toggle('is-active', active);
+                    button.setAttribute('aria-pressed', String(active));
+                });
+                landingMap.setStyle(mapStyleUrl());
+                landingMap.once('style.load', () => paintRouteOnMap({ fit: false }));
+            }
+
+            function showPreview(preview) {
+                currentPreview = preview;
+                const trip = preview.trip;
+                const budget = trip?.budget || {};
+                const currencyCode = budget.currency || 'INR';
+                const selection = readPlannerSelection();
+                routePreviewHeading.textContent = `${trip.origin.name} → ${trip.destination.name}`;
+                routePreviewSubtitle.textContent = 'Live road-route and estimate from the VoyPlan planner.';
+                setMetric('rpDistance', `${Number(trip.route.distanceKm).toLocaleString('en-IN')} km`, `${selection.travellers} ${selection.travellers === 1 ? 'traveler' : 'travelers'}`);
+                setMetric('rpDuration', formatDuration(trip.route.durationMin), 'Driving time');
+                const fuelStops = preview.fuelPlan?.refuelStops || [];
+                setMetric('rpFuel', formatCurrency(budget.fuel, currencyCode), fuelStops.length ? `${fuelStops.length} mapped ${fuelStops.length === 1 ? 'stop' : 'stops'}` : 'No mapped stop needed');
+                const tollCount = preview.toll?.count;
+                setMetric('rpTolls', formatCurrency(preview.toll?.amount ?? budget.tolls, currencyCode), Number.isFinite(Number(tollCount)) ? `${tollCount} ${Number(tollCount) === 1 ? 'plaza' : 'plazas'}` : 'Route estimate');
+                setMetric('rpFood', formatCurrency(budget.food, currencyCode), 'Trip estimate');
+                setMetric('rpTotal', formatCurrency(budget.total, currencyCode), 'Trip estimate');
+                previewDetailsBtn.disabled = false;
+                routePreviewContent.hidden = false;
+                routePreviewStatus.hidden = true;
+                renderPlaces();
+                renderPreviewMap();
+            }
+
+            async function planRoutePreview(options = {}) {
+                const shouldScroll = options?.scrollIntoView !== false;
+                const selection = readPlannerSelection();
+                if (!selection.origin || !selection.destination) {
+                    setPreviewStatus('Enter both an origin and destination to preview a route.', true);
+                    if (shouldScroll) routePreview?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    return;
+                }
+                previewAbortController?.abort();
+                previewAbortController = new AbortController();
+                const requestVersion = ++previewRequestVersion;
+                setPreviewLoading();
+                if (shouldScroll) routePreview?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                try {
+                    const [origin, destination] = await Promise.all([
+                        geocodePreviewLocation(selection.origin, previewAbortController.signal),
+                        geocodePreviewLocation(selection.destination, previewAbortController.signal),
+                    ]);
+                    const preview = await requestTripPreview({
+                        origin,
+                        destination,
+                        vehicle: selection.vehicle,
+                        tripType: activeTripMode,
+                        durationDays: 1,
+                        travellers: selection.travellers,
+                        categories: ['fuel', 'restaurant', 'viewpoint', 'hotel', 'attraction', 'rest_area'],
+                    }, previewAbortController.signal);
+                    if (requestVersion !== previewRequestVersion) return;
+                    showPreview(preview);
+                } catch (error) {
+                    if (error?.name === 'AbortError') return;
+                    setPreviewStatus(error?.message || 'The route could not be calculated right now.', true);
+                }
+            }
+
+            document.querySelectorAll('.rp-filter').forEach((button) => {
+                button.addEventListener('click', () => {
+                    currentPlaceFilter = button.dataset.placeFilter || 'all';
+                    document.querySelectorAll('.rp-filter').forEach((filter) => {
+                        const active = filter === button;
+                        filter.classList.toggle('is-active', active);
+                        filter.setAttribute('aria-selected', String(active));
+                    });
+                    renderPlaces();
+                });
+            });
+
+            document.querySelectorAll('.rp-map-toggle').forEach((button) => {
+                button.addEventListener('click', () => setMapStyle(button.dataset.mapStyle || 'map'));
+            });
+            previewDetailsBtn?.addEventListener('click', () => enterApp(previewAppUrl()));
+            window.addEventListener('pagehide', () => {
+                previewAbortController?.abort();
+                landingMap?.remove();
+                landingMap = null;
+            }, { once: true });
+
+            document.getElementById('btnPlanTrip').addEventListener('click', planRoutePreview);
+            window.setTimeout(() => {
+                const selection = readPlannerSelection();
+                if (selection.origin && selection.destination) {
+                    planRoutePreview({ scrollIntoView: false });
+                }
+            }, 0);
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaExplore').addEventListener('click', () =>
                 enterApp(`${window.location.origin}/app/?explore=true`));
@@ -3536,94 +4402,9 @@
                 });
             });
 
-            // --- 9. Supabase Auth Modal & canonical browser session ---
-            const SUPABASE_URL = 'https://dtemayjpttktntooxraa.supabase.co';
-            const SUPABASE_ANON_KEY = 'sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh';
-            const SUPABASE_STORAGE_KEY = 'sb-dtemayjpttktntooxraa-auth-token';
-            const FLUTTER_STORAGE_KEY = 'flutter.' + SUPABASE_STORAGE_KEY;
-
-            function syncStorageTokens(sessionObj) {
-                try {
-                    if (sessionObj) {
-                        const jsonStr = typeof sessionObj === 'string' ? sessionObj : JSON.stringify(sessionObj);
-                        localStorage.setItem(SUPABASE_STORAGE_KEY, jsonStr);
-                        localStorage.setItem(FLUTTER_STORAGE_KEY, jsonStr);
-                    }
-                } catch (_) {}
-            }
-
-            // Symmetrically bridge session from Flutter app so user is never prompted twice
-            try {
-                const flutterSession = localStorage.getItem(FLUTTER_STORAGE_KEY);
-                const baseSession = localStorage.getItem(SUPABASE_STORAGE_KEY);
-                if (flutterSession && (!baseSession || baseSession === 'null' || baseSession === '')) {
-                    localStorage.setItem(SUPABASE_STORAGE_KEY, flutterSession);
-                } else if (baseSession && (!flutterSession || flutterSession === 'null' || flutterSession === '')) {
-                    localStorage.setItem(FLUTTER_STORAGE_KEY, baseSession);
-                } else if (flutterSession && baseSession && flutterSession !== baseSession) {
-                    let expF = 0, expB = 0;
-                    try { expF = JSON.parse(flutterSession).expires_at || 0; } catch(_) {}
-                    try { expB = JSON.parse(baseSession).expires_at || 0; } catch(_) {}
-                    if (expB >= expF && expB > 0) {
-                        localStorage.setItem(FLUTTER_STORAGE_KEY, baseSession);
-                    } else if (expF > expB) {
-                        localStorage.setItem(SUPABASE_STORAGE_KEY, flutterSession);
-                    }
-                }
-            } catch (_) {}
-
-            let sb = null;
-            if (window.supabase) {
-                sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-                    auth: { storageKey: SUPABASE_STORAGE_KEY }
-                });
-                ['sb_refresh_token'].forEach((key) => localStorage.removeItem(key));
-
-                sb.auth.onAuthStateChange((event, session) => {
-                    updateAuthUi(session);
-                    try {
-                        if (session) {
-                            syncStorageTokens(session);
-                            const isLogoutFlowNow = new URLSearchParams(window.location.search).get('logout') === 'true';
-                            if (!isLogoutFlowNow) {
-                                enterApp();
-                            }
-                        } else if (event === 'SIGNED_OUT') {
-                            localStorage.removeItem(FLUTTER_STORAGE_KEY);
-                            localStorage.removeItem(SUPABASE_STORAGE_KEY);
-                        }
-                    } catch (_) {}
-                });
-            }
-
-            const authModal = document.getElementById('authModal');
-            const btnGetStarted = document.getElementById('btnGetStarted');
-            const btnLoginNav = document.getElementById('btnLoginNav');
-            const btnAuthClose = document.getElementById('btnAuthClose');
-            const btnToggleAuthMode = document.getElementById('btnToggleAuthMode');
-            const authModalTitle = document.getElementById('authModalTitle');
-            const authModalSub = document.getElementById('authModalSub');
-            const authNameRow = document.getElementById('authNameRow');
-            const btnAuthSubmit = document.getElementById('btnAuthSubmit');
-            const btnAuthGoogle = document.getElementById('btnAuthGoogle');
-            const authNotice = document.getElementById('authNotice');
-            let isSignUp = false;
-            let pendingAppUrl = null;
-
-            function setAuthMode(signUp) {
-                isSignUp = signUp;
-                authModalTitle.textContent = isSignUp ? 'Create Account' : 'Welcome Back';
-                authModalSub.textContent = isSignUp ? 'Sign up to start planning your road trips' : 'Log in to save and access your road trips';
-                authNameRow.style.display = isSignUp ? 'block' : 'none';
-                btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
-                btnToggleAuthMode.innerHTML = isSignUp ? 'Already have an account? <span style="color:#06b6d4;font-weight:700;">Log In</span>' : 'Don\'t have an account? <span style="color:#06b6d4;font-weight:700;">Sign Up</span>';
-            }
-
-            function openAuth(signUp = false) {
-                setAuthMode(signUp);
-                authNotice.style.display = 'none';
-                authModal.classList.add('active');
-            }
+            // --- 9. Application hand-off ---
+            // The Flutter client is the sole Supabase owner. The landing page
+            // never creates a second auth client or copies session tokens.
 
             function safeAppUrl(value) {
                 if (!value) return null;
@@ -3637,194 +4418,9 @@
                 }
             }
 
-            function requestedAppUrl() {
-                const queryTarget = new URLSearchParams(window.location.search).get('returnTo');
-                return safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
-            }
-
             function enterApp(customUrl) {
-                try {
-                    const raw = localStorage.getItem(SUPABASE_STORAGE_KEY) || localStorage.getItem(FLUTTER_STORAGE_KEY);
-                    if (raw) syncStorageTokens(raw);
-                } catch (_) {}
-                if (authModal) authModal.classList.remove('active');
-                let target = `${window.location.origin}/app/`;
-                if (customUrl) {
-                    target = safeAppUrl(customUrl) || customUrl;
-                } else {
-                    const queryTarget = new URLSearchParams(window.location.search).get('returnTo');
-                    target = safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
-                }
-                try {
-                    window.location.assign(target);
-                } catch (_) {
-                    window.location.href = target;
-                }
-            }
-
-            function getCachedSession() {
-                try {
-                    const raw = localStorage.getItem(SUPABASE_STORAGE_KEY) || localStorage.getItem(FLUTTER_STORAGE_KEY);
-                    if (!raw) return null;
-                    const parsed = JSON.parse(raw);
-                    if (parsed && (parsed.access_token || parsed.user)) {
-                        return parsed;
-                    }
-                } catch (_) {}
-                return null;
-            }
-
-            function updateAuthUi(session) {
-                if (btnGetStarted) {
-                    btnGetStarted.innerHTML = 'Open VoyPlan &rarr;';
-                    btnGetStarted.setAttribute('aria-label', 'Open VoyPlan Dashboard');
-                }
-                if (btnLoginNav) {
-                    if (session?.user) {
-                        const email = session.user.email || '';
-                        const name = session.user.user_metadata?.full_name || email.split('@')[0] || 'User';
-                        btnLoginNav.textContent = `Sign Out (${name.slice(0, 8)})`;
-                        btnLoginNav.title = `Signed in as ${email}. Click to sign out.`;
-                    } else {
-                        btnLoginNav.textContent = 'Log In';
-                        btnLoginNav.title = 'Log In or Sign Up';
-                    }
-                }
-            }
-            updateAuthUi(getCachedSession());
-
-            // If user is already logged in on the landing page (and not in logout flow),
-            // take them straight to the VoyPlan Dashboard immediately.
-            const isLogoutFlow = new URLSearchParams(window.location.search).get('logout') === 'true';
-            if (!isLogoutFlow) {
-                const existingSession = getCachedSession();
-                if (existingSession && (existingSession.access_token || existingSession.user)) {
-                    enterApp();
-                }
-            }
-
-            btnGetStarted.addEventListener('click', (e) => {
-                e.preventDefault();
-                enterApp();
-            });
-
-            if (btnLoginNav) {
-                btnLoginNav.addEventListener('click', async (e) => {
-                    e.preventDefault();
-                    const session = getCachedSession();
-                    if (session?.user && sb) {
-                        try {
-                            await sb.auth.signOut();
-                        } catch (_) {}
-                        localStorage.removeItem(SUPABASE_STORAGE_KEY);
-                        localStorage.removeItem(FLUTTER_STORAGE_KEY);
-                        updateAuthUi(null);
-                    } else {
-                        openAuth(false);
-                    }
-                });
-            }
-
-            // Every application entry point navigates directly into /app/
-            document.querySelectorAll('a[href^="/app/"]').forEach((link) => {
-                link.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    enterApp(link.href);
-                });
-            });
-
-            btnAuthClose.addEventListener('click', () => {
-                authModal.classList.remove('active');
-            });
-
-            authModal.addEventListener('click', (e) => {
-                if (e.target === authModal) authModal.classList.remove('active');
-            });
-
-            btnToggleAuthMode.addEventListener('click', () => setAuthMode(!isSignUp));
-
-            const authModalForm = document.getElementById('authModalForm');
-
-            async function handleAuthSubmit(e) {
-                if (e) e.preventDefault();
-                if (!sb) return;
-                const email = document.getElementById('authModalEmail').value.trim();
-                const password = document.getElementById('authModalPassword').value;
-                const fullName = document.getElementById('authModalName').value.trim();
-                if (!email || !password) {
-                    authNotice.style.display = 'block';
-                    authNotice.textContent = 'Please enter your email and password.';
-                    return;
-                }
-                btnAuthSubmit.disabled = true;
-                btnAuthSubmit.textContent = isSignUp ? 'Creating Account…' : 'Logging In…';
-                authNotice.style.display = 'none';
-                try {
-                    if (isSignUp) {
-                        const { data, error } = await sb.auth.signUp({
-                            email, password,
-                            options: { data: { full_name: fullName } }
-                        });
-                        if (error) throw error;
-                        if (data.session) {
-                            syncStorageTokens(data.session);
-                            updateAuthUi(data.session);
-                            btnAuthSubmit.textContent = 'Opening Dashboard…';
-                            enterApp();
-                        } else {
-                            authNotice.style.display = 'block';
-                            authNotice.textContent = 'Check your email to verify your account!';
-                            btnAuthSubmit.disabled = false;
-                            btnAuthSubmit.textContent = 'Sign Up';
-                        }
-                    } else {
-                        const { data, error } = await sb.auth.signInWithPassword({ email, password });
-                        if (error) throw error;
-                        if (!data.session) throw new Error('No session was created. Please try again.');
-                        syncStorageTokens(data.session);
-                        updateAuthUi(data.session);
-                        btnAuthSubmit.textContent = 'Opening Dashboard…';
-                        enterApp();
-                    }
-                } catch (err) {
-                    authNotice.style.display = 'block';
-                    authNotice.textContent = err.message || 'Authentication failed.';
-                    btnAuthSubmit.disabled = false;
-                    btnAuthSubmit.textContent = isSignUp ? 'Sign Up' : 'Log In';
-                }
-            }
-
-            if (authModalForm) authModalForm.addEventListener('submit', handleAuthSubmit);
-            btnAuthSubmit.addEventListener('click', handleAuthSubmit);
-
-            btnAuthGoogle.addEventListener('click', async () => {
-                if (!sb) return;
-                btnAuthGoogle.textContent = 'Connecting to Google…';
-                try {
-                    await sb.auth.signInWithOAuth({
-                        provider: 'google',
-                        options: { redirectTo: `${window.location.origin}/app/` }
-                    });
-                } catch (err) {
-                    authNotice.style.display = 'block';
-                    authNotice.textContent = err.message || 'Google authentication failed.';
-                    btnAuthGoogle.textContent = 'Continue with Google';
-                }
-            });
-
-            if (sb) {
-                sb.auth.getSession().then(({ data }) => {
-                    updateAuthUi(data?.session);
-                    if (data?.session && !isLogoutFlow) {
-                        syncStorageTokens(data.session);
-                        enterApp();
-                    }
-                });
-                if (isLogoutFlow) {
-                    sb.auth.signOut({ scope: 'local' }).finally(() => {
-                        window.history.replaceState({}, '', '/');
-                    });
-                }
+                const target = safeAppUrl(customUrl) || `${window.location.origin}/app/`;
+                window.location.assign(target);
             }
 
             // Chat Widget Click
@@ -3842,4 +4438,3 @@
 </body>
 
 </html>
-

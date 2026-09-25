@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:travel_app/config/app_config.dart';
@@ -17,78 +16,9 @@ void main() {
     });
 
     test('Supabase Production Project configuration matches voyplan.in', () {
-      expect(AppConfig.supabaseUrl, equals('https://dtemayjpttktntooxraa.supabase.co'));
+      expect(AppConfig.supabaseUrl,
+          equals('https://dtemayjpttktntooxraa.supabase.co'));
       expect(AppConfig.supabaseAnonKey, isNotEmpty);
-    });
-  });
-
-  group('VoyPlan Bidirectional Session Sync Engine', () {
-    test('Synchronizes fresher session from base to Flutter key', () {
-      final storage = <String, String>{};
-      const kBase = 'sb-dtemayjpttktntooxraa-auth-token';
-      const kFlutter = 'flutter.$kBase';
-
-      final oldFlutterSession = jsonEncode({
-        'access_token': 'old_token_1',
-        'expires_at': 1700000000,
-      });
-      final newBaseSession = jsonEncode({
-        'access_token': 'new_token_2',
-        'expires_at': 1800000000,
-      });
-
-      storage[kFlutter] = oldFlutterSession;
-      storage[kBase] = newBaseSession;
-
-      // Simulate syncWebAuthTokens logic
-      final sBase = storage[kBase];
-      final sFlutter = storage[kFlutter];
-      if (sBase != null && sFlutter != null && sBase != sFlutter) {
-        int expB = (jsonDecode(sBase)['expires_at'] as num).toInt();
-        int expF = (jsonDecode(sFlutter)['expires_at'] as num).toInt();
-        if (expB >= expF) {
-          storage[kFlutter] = sBase;
-        } else {
-          storage[kBase] = sFlutter;
-        }
-      }
-
-      expect(storage[kFlutter], equals(newBaseSession));
-      expect(jsonDecode(storage[kFlutter]!)['access_token'], equals('new_token_2'));
-    });
-
-    test('Synchronizes fresher session from Flutter to base key', () {
-      final storage = <String, String>{};
-      const kBase = 'sb-dtemayjpttktntooxraa-auth-token';
-      const kFlutter = 'flutter.$kBase';
-
-      final oldBaseSession = jsonEncode({
-        'access_token': 'old_base_token',
-        'expires_at': 1700000000,
-      });
-      final newFlutterSession = jsonEncode({
-        'access_token': 'new_flutter_token',
-        'expires_at': 1850000000,
-      });
-
-      storage[kBase] = oldBaseSession;
-      storage[kFlutter] = newFlutterSession;
-
-      // Simulate syncWebAuthTokens logic
-      final sBase = storage[kBase];
-      final sFlutter = storage[kFlutter];
-      if (sBase != null && sFlutter != null && sBase != sFlutter) {
-        int expB = (jsonDecode(sBase)['expires_at'] as num).toInt();
-        int expF = (jsonDecode(sFlutter)['expires_at'] as num).toInt();
-        if (expB >= expF) {
-          storage[kFlutter] = sBase;
-        } else {
-          storage[kBase] = sFlutter;
-        }
-      }
-
-      expect(storage[kBase], equals(newFlutterSession));
-      expect(jsonDecode(storage[kBase]!)['access_token'], equals('new_flutter_token'));
     });
   });
 
@@ -120,7 +50,9 @@ void main() {
     ];
 
     for (final size in viewports) {
-      testWidgets('Renders layout container safely at ${size.width.toInt()}x${size.height.toInt()}', (tester) async {
+      testWidgets(
+          'Renders layout container safely at ${size.width.toInt()}x${size.height.toInt()}',
+          (tester) async {
         tester.view.physicalSize = size;
         tester.view.devicePixelRatio = 1.0;
         addTearDown(() {
@@ -134,7 +66,8 @@ void main() {
               body: LayoutBuilder(
                 builder: (context, constraints) {
                   final isMobile = constraints.maxWidth < 600;
-                  final isTablet = constraints.maxWidth >= 600 && constraints.maxWidth < 1100;
+                  final isTablet = constraints.maxWidth >= 600 &&
+                      constraints.maxWidth < 1100;
                   final isDesktop = constraints.maxWidth >= 1100;
 
                   return Container(

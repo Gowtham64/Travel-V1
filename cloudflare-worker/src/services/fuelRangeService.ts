@@ -81,6 +81,9 @@ class FuelRangeService {
       currentChargePercent,
       efficiencyKmPerKwh,
       chargingConnector = 'CCS2',
+      // The landing preview may only show mapped, verifiable stops. Existing
+      // planners retain their current synthesized-stop fallback by default.
+      allowSyntheticStops = true,
       chargingSpeedKw = 50.0,
     } = vehicle;
 
@@ -192,7 +195,16 @@ class FuelRangeService {
         if (riskyCandidates.length > 0) {
           chosenStation = riskyCandidates[0];
         } else {
-          // Geometric synthesized stop if no OSM station exists in dataset
+          // Geometric synthesized stop if no OSM station exists in dataset.
+          // This is useful for trip safety warnings, but callers that render
+          // public place cards can opt out and show no stop instead.
+          if (!allowSyntheticStops) {
+            unreachable = true;
+            unreachableReason = isEV
+              ? `No mapped EV charging station found before the safe reserve limit (${Math.round(safeHorizonKm)} km).`
+              : `No mapped fuel station found before the safe limit (${Math.round(safeHorizonKm)} km).`;
+            break;
+          }
           const synthKm = Math.min(totalDistanceKm - 1.0, safeHorizonKm - 5.0);
           if (synthKm > lastStopKm + 2.0) {
             const synthPoint = annotated.find((p) => p.cumulativeKm >= synthKm) || annotated[annotated.length - 1];

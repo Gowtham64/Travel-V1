@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -36,7 +37,6 @@ import 'trip_screen.dart';
 import 'account_screens.dart';
 import 'trip_history_screen.dart';
 import 'map_location_picker_screen.dart';
-import 'landing_screen.dart';
 import 'smart_itinerary_screen.dart';
 import '../widgets/voyplan_navigation.dart';
 
@@ -149,7 +149,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _checkWebDeepLinks() {
+  Future<void> _checkWebDeepLinks() async {
     try {
       final uri = Uri.base;
       final start = uri.queryParameters['from'] ?? uri.queryParameters['start'];
@@ -157,6 +157,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final days = int.tryParse(uri.queryParameters['days'] ?? '');
       final mode = uri.queryParameters['mode'];
       final route = (uri.queryParameters['route'] ?? uri.path).toLowerCase();
+      final pendingPlace = uri.queryParameters['save_place'];
+
+      // The static landing page deliberately does not own an auth client. A
+      // guest reaches this handler only after the existing login flow returns
+      // to the preserved /app/ URL, so this save remains user-scoped.
+      if (pendingPlace != null && pendingPlace.isNotEmpty) {
+        await _saveLandingPlace(pendingPlace);
+        return;
+      }
 
       if (route.contains('plan-trip')) {
         _planTrip(tripType: mode, start: start, dest: dest, days: days);
@@ -209,6 +218,47 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         );
       }
     } catch (_) {}
+  }
+
+  Future<void> _saveLandingPlace(String encodedPlace) async {
+    try {
+      final raw = jsonDecode(encodedPlace);
+      if (raw is! Map) return;
+      final place = raw.cast<String, dynamic>();
+      final name = place['name']?.toString().trim() ?? '';
+      final type = place['type']?.toString().trim() ?? '';
+      final lat = (place['lat'] as num?)?.toDouble();
+      final lng = (place['lng'] as num?)?.toDouble();
+      final refId = place['id']?.toString().trim() ?? '';
+      final note = place['address']?.toString().trim() ?? '';
+      if (name.isEmpty || type.isEmpty || lat == null || lng == null || refId.isEmpty) {
+        return;
+      }
+
+      // A browser reload keeps query parameters. Persisting this small receipt
+      // prevents the same landing action from making duplicate favorites.
+      final prefs = await SharedPreferences.getInstance();
+      final receiptKey = 'voyplan_landing_saved_place_$refId';
+      if (prefs.getBool(receiptKey) != true) {
+        await _api.accountCreate('favorites', {
+          'type': type,
+          'name': name,
+          'ref_id': refId,
+          'lat': lat,
+          'lng': lng,
+          if (note.isNotEmpty) 'note': note,
+        });
+        await prefs.setBool(receiptKey, true);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$name saved to your places')),
+      );
+      _openSavedPlaces();
+    } catch (_) {
+      // A malformed URL must never break normal landing-page deep links.
+    }
   }
 
   @override
@@ -639,12 +689,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return;
     }
 
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const LandingScreen()),
-        (route) => false,
-      );
-    }
+    // AuthStateWrapper observes the same AuthSession and replaces this
+    // protected dashboard with LoginScreen on native platforms.
   }
 
   Future<void> _deleteTrip(dynamic trip) async {
@@ -1249,8 +1295,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _tripTypeButton(
                   'One Way', 'one_way', Icons.arrow_forward_rounded),
               const SizedBox(width: 8),
-              _tripTypeButton(
-                  'Around Trip', 'around', Icons.sync_alt_rounded),
+              _tripTypeButton('Around Trip', 'around', Icons.sync_alt_rounded),
               const SizedBox(width: 8),
               _tripTypeButton(
                   'Vacation', 'vacation', Icons.beach_access_rounded),
@@ -2442,7 +2487,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildTripSkeleton() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
+    final baseColor =
+        isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0);
     final highlightColor =
         isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9);
 

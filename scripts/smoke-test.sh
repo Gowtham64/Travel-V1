@@ -63,15 +63,18 @@ else
   assert_pass "Web root does NOT contain infinite loop APP_URL pattern"
 fi
 
-# 2. Flutter App SPA /login Route Check
+# 2. Canonical Flutter login route check
 echo "--- 2. Testing SPA Route ($WEB_HOST/login) ---"
-LOGIN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$WEB_HOST/login" || echo "000")
-if [ "$LOGIN_STATUS" = "200" ]; then
-  assert_pass "SPA /login route returns HTTP 200 (Cloudflare Pages fallback active)"
+LOGIN_HEADERS=$(curl -sSI "$WEB_HOST/login" || true)
+LOGIN_STATUS=$(printf '%s\n' "$LOGIN_HEADERS" | awk '/^HTTP\// { code = $2 } END { print code }')
+LOGIN_LOCATION=$(printf '%s\n' "$LOGIN_HEADERS" | awk 'tolower($1) == "location:" { print $2; exit }' | tr -d '\r')
+if { [ "$LOGIN_STATUS" = "301" ] || [ "$LOGIN_STATUS" = "302" ]; } &&
+  case "$LOGIN_LOCATION" in *'/app/?auth=login'*) true ;; *) false ;; esac; then
+  assert_pass "Login route redirects to the canonical Flutter authentication entry"
 elif [ "$LOGIN_STATUS" = "404" ]; then
-  assert_fail "SPA /login route returns 404 (Missing SPA fallback rule)"
+  assert_fail "Login route returns 404 (canonical auth redirect missing)"
 else
-  assert_warn "SPA /login route returned status $LOGIN_STATUS"
+  assert_fail "Login route must redirect to /app/?auth=login (HTTP $LOGIN_STATUS, Location: ${LOGIN_LOCATION:-missing})"
 fi
 
 # 3. Flutter Web App Subpath Check (/app/)

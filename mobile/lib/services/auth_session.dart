@@ -1,10 +1,6 @@
 import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../utils/landing_redirect.dart';
-
 
 /// The one authoritative view of the Supabase session for the application.
 ///
@@ -23,7 +19,6 @@ class AuthSession extends ChangeNotifier {
   Session? _session;
   StreamSubscription<AuthState>? _subscription;
   Future<void>? _initializing;
-  Completer<void>? _readyCompleter;
   final List<VoidCallback> _signOutCallbacks = [];
 
   AuthStatus get status => _status;
@@ -45,120 +40,40 @@ class AuthSession extends ChangeNotifier {
   /// Calling this more than once is safe and shares the original operation.
   Future<void> initialize() => _initializing ??= _initialize();
 
-  /// Awaits until session hydration has completed or [timeout] expires.
-  Future<void> waitForSessionReady([Duration timeout = const Duration(seconds: 4)]) async {
-    if (!isLoading) return;
-    try {
-      final completer = _readyCompleter ??= Completer<void>();
-      await completer.future.timeout(timeout);
-    } catch (_) {
-      // Timeout fallback: finalize loading state based on current session
-      if (_status == AuthStatus.loading) {
-        try {
-          final s = Supabase.instance.client.auth.currentSession;
-          _finalizeInitialState(s);
-        } catch (_) {
-          _finalizeInitialState(null);
-        }
-      }
-    }
-  }
+  /// Waits for the SDK-owned session restoration started by [initialize].
+  /// There is deliberately no browser-storage fallback or time-based route
+  /// decision: Supabase emits its initial session before this future resolves.
+  Future<void> waitForSessionReady(
+          [Duration timeout = const Duration(seconds: 4)]) =>
+      initialize().timeout(timeout);
 
   Future<void> _initialize() async {
-    _readyCompleter ??= Completer<void>();
     try {
       final client = Supabase.instance.client;
-
-      // Check if client already has a synchronous session (e.g. mock or fast restore)
-      var immediateSession = client.auth.currentSession;
-      if (immediateSession == null && kIsWeb) {
-        final webJson = getStoredWebSessionJson();
-        if (webJson != null) {
-          try {
-            final res = await client.auth.recoverSession(webJson);
-            immediateSession = res.session ?? client.auth.currentSession;
-          } catch (e) {
-            debugPrint('Web session direct recovery note: $e');
-          }
-          if (immediateSession == null) {
-            try {
-              final decoded = jsonDecode(webJson);
-              if (decoded is Map<String, dynamic>) {
-                immediateSession = Session.fromJson(decoded);
-              }
-            } catch (e) {
-              debugPrint('Direct session fromJson fallback note: $e');
-            }
-          }
-        }
-      }
-
-      if (immediateSession != null) {
-        _update(immediateSession, notify: false);
-        _markReady();
-      }
-
+      // Supabase.initialize has already restored persisted state and handled
+      // a web OAuth callback before this app-level listener is installed.
+      // This is the one listener that mirrors SDK state into the UI.
       _subscription = client.auth.onAuthStateChange.listen(
         (state) {
           _update(state.session);
-          _markReady();
         },
         onError: (error) {
           debugPrint('Auth state change error: $error');
-          _markReady();
+          _update(null);
         },
       );
-
-      // If no session event fired yet, wait up to 1 second for initial session
-      if (_status == AuthStatus.loading) {
-        await _readyCompleter!.future.timeout(
-          const Duration(seconds: 1),
-          onTimeout: () {
-            var finalSession = client.auth.currentSession;
-            if (finalSession == null && kIsWeb) {
-              final webJson = getStoredWebSessionJson();
-              if (webJson != null) {
-                try {
-                  final decoded = jsonDecode(webJson);
-                  if (decoded is Map<String, dynamic>) {
-                    finalSession = Session.fromJson(decoded);
-                  }
-                } catch (_) {}
-              }
-            }
-            _finalizeInitialState(finalSession);
-          },
-        );
-      }
+      _update(client.auth.currentSession, notify: false);
+      notifyListeners();
     } on Object catch (error) {
       debugPrint('Auth session initialization failed: $error');
-      _finalizeInitialState(null);
+      _update(null, notify: false);
+      notifyListeners();
     }
-  }
-
-
-  void _markReady() {
-    if (_readyCompleter != null && !_readyCompleter!.isCompleted) {
-      _readyCompleter!.complete();
-    }
-  }
-
-  void _finalizeInitialState(Session? fallbackSession) {
-    _session = fallbackSession;
-    _status = fallbackSession != null
-        ? AuthStatus.authenticated
-        : AuthStatus.unauthenticated;
-    _markReady();
-    if (kIsWeb) {
-      syncWebAuthTokens();
-    }
-    notifyListeners();
   }
 
   /// Manually update session and notify listeners immediately (e.g. after login).
   void updateSession(Session? next) {
     _update(next);
-    _markReady();
   }
 
   void _update(Session? next, {bool notify = true}) {
@@ -169,9 +84,6 @@ class AuthSession extends ChangeNotifier {
         _status != nextStatus;
     _session = next;
     _status = nextStatus;
-    if (kIsWeb) {
-      syncWebAuthTokens();
-    }
     if (notify && changed) notifyListeners();
   }
 
@@ -199,7 +111,6 @@ class AuthSession extends ChangeNotifier {
         _session = res.session;
         if (_session != null) {
           _status = AuthStatus.authenticated;
-          if (kIsWeb) syncWebAuthTokens();
           notifyListeners();
           return _session?.accessToken;
         }
@@ -218,7 +129,6 @@ class AuthSession extends ChangeNotifier {
     } catch (e) {
       debugPrint('Supabase signOut error: $e');
     }
-    clearWebSessionData();
     _session = null;
     _status = AuthStatus.unauthenticated;
     for (final cb in _signOutCallbacks) {
@@ -237,5 +147,3 @@ class AuthSession extends ChangeNotifier {
     super.dispose();
   }
 }
-
-

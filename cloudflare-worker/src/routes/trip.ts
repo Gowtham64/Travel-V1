@@ -12,11 +12,41 @@ import { buildItinerary } from '../services/itineraryService';
 import { getWikiPlaces } from '../services/wikiService';
 import { getDestinationEvents } from '../services/eventsService';
 import { annotateCumulativeDistance, nearestRouteDistanceKm } from '../utils/geo';
-import { findPOIsAlongRoute } from '../services/orsPoiService';
 import { createTripShare, getTripShare } from '../services/sharingService';
 import { requireAuth } from '../middleware/auth';
 
 const trip = new Hono<{ Bindings: Env; Variables: AppVariables }>();
+
+const ROUTE_DISCOVERY_CATEGORIES = new Set([
+  'fuel',
+  'restaurant',
+  'viewpoint',
+  'hotel',
+  'attraction',
+  'rest_area',
+]);
+
+function normalizeDiscoveryCategories(value: unknown) {
+  const requested = Array.isArray(value) ? value : [];
+  const categories = requested
+    .map((category) => String(category).trim().toLowerCase())
+    .filter((category) => ROUTE_DISCOVERY_CATEGORIES.has(category));
+  return [...new Set(categories)];
+}
+
+async function discoverMappedPlaces(routeCoordinates: any[], categories: string[]) {
+  const entries = await Promise.all(
+    categories.map(async (category) => {
+      try {
+        return [category, await findPlacesAlongRoute(routeCoordinates, category as any)] as const;
+      } catch (err: any) {
+        console.warn(`Route discovery skipped ${category}:`, err?.message || err);
+        return [category, []] as const;
+      }
+    })
+  );
+  return Object.fromEntries(entries);
+}
 
 // POST /api/trip/calculate-route
 trip.post('/calculate-route', async (c) => {
@@ -49,6 +79,91 @@ trip.post('/calculate-route', async (c) => {
   } catch (err: any) {
     console.error('[TRIP ROUTE CALCULATION] Error:', err?.message || err);
     return c.json({ error: err?.message || 'Route calculation failed' }, 400);
+  }
+});
+
+// POST /api/trip/preview
+//
+// Landing-page projection of the canonical route calculation. It deliberately
+// adds only real, named OSM places and actual mapped fuel stations; no sample
+// cards, fabricated ratings, or invented detours are returned to the browser.
+trip.post('/preview', async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as any;
+  const {
+    origin,
+    destination,
+    stops = [],
+    vehicle = {},
+    tripType = 'one_way',
+    durationDays = 1,
+    travellers = 1,
+    routeVersion = 1,
+    options = {},
+  } = body;
+
+  if (!isValidPoint(origin) || !isValidPoint(destination)) {
+    return c.json({ error: 'origin and destination must be { lat, lng } objects' }, 400);
+  }
+
+  const categories = normalizeDiscoveryCategories(body.categories);
+  const requestedCategories = categories.length > 0 ? categories : [...ROUTE_DISCOVERY_CATEGORIES];
+
+  try {
+    const tripResult = await calculateTripRoute({
+      origin,
+      destination,
+      stops,
+      vehicle,
+      tripType,
+      durationDays,
+      travellers,
+      routeVersion,
+      options,
+    });
+
+    const places = await discoverMappedPlaces(tripResult.route.coordinates, requestedCategories);
+    const fuelStations = places.fuel || [];
+    let fuelPlan: any = null;
+    try {
+      fuelPlan = FuelRangeService.planSmartRefuelStops({
+        routeCoordinates: tripResult.route.coordinates,
+        userStops: stops,
+        stations: fuelStations,
+        vehicle: {
+          currentFuelLiters: vehicle.currentFuelLiters ?? vehicle.tankCapacityLiters,
+          tankCapacityLiters: vehicle.tankCapacityLiters,
+          efficiencyKmPerLiter: vehicle.efficiencyKmPerLiter,
+          fuelType: vehicle.fuelType,
+        },
+        options: {
+          totalRouteDistanceKm: tripResult.route.distanceKm,
+          allowSyntheticStops: false,
+        },
+      });
+    } catch (err: any) {
+      console.warn('Landing preview fuel-stop planning skipped:', err?.message || err);
+    }
+
+    const toll = tripResult.tripPlan?.toll || {};
+    return c.json({
+      trip: tripResult,
+      places,
+      fuelPlan,
+      toll: {
+        count: Number.isFinite(toll.tollCount) ? toll.tollCount : null,
+        amount: tripResult.budget.tolls,
+      },
+      // Mapbox `pk.*` values are intentionally public client tokens. The
+      // endpoint never returns a secret token and keeps token ownership in the
+      // existing Worker configuration rather than the landing-page source.
+      map: {
+        provider: 'mapbox',
+        accessToken: c.env.MAPBOX_TOKEN?.startsWith('pk.') ? c.env.MAPBOX_TOKEN : null,
+      },
+    });
+  } catch (err: any) {
+    console.error('[TRIP PREVIEW] Error:', err?.message || err);
+    return c.json({ error: err?.message || 'Trip preview failed' }, 400);
   }
 });
 
@@ -303,8 +418,13 @@ trip.post('/pois', async (c) => {
     return c.json({ error: 'categories must be an array of strings' }, 400);
   }
 
+  const requestedCategories = normalizeDiscoveryCategories(categories);
+  if (requestedCategories.length === 0) {
+    return c.json({ error: 'categories must include a supported route discovery category' }, 400);
+  }
+
   try {
-    const places = await findPOIsAlongRoute(coordinates, categories);
+    const places = await discoverMappedPlaces(coordinates, requestedCategories);
     return c.json({ places });
   } catch (err: any) {
     console.error('Failed to fetch POIs:', err?.message || err);

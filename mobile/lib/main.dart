@@ -5,12 +5,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
-import 'screens/landing_screen.dart';
-import 'utils/landing_redirect.dart';
 import 'theme/app_theme.dart';
 import 'config/app_config.dart';
 
 import 'services/auth_session.dart';
+import 'services/auth_route.dart';
 import 'services/theme_controller.dart';
 
 import 'services/trip_reminder_service.dart';
@@ -26,17 +25,16 @@ const supabaseAnonKey = AppConfig.supabaseAnonKey;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (kIsWeb) {
-    syncWebAuthTokens();
-    syncWebTheme();
-  }
-
   if (supabaseUrl != 'YOUR_SUPABASE_URL' &&
       supabaseAnonKey != 'YOUR_SUPABASE_ANON_KEY') {
     try {
       await Supabase.initialize(
         url: supabaseUrl,
         anonKey: supabaseAnonKey,
+        authOptions: const FlutterAuthClientOptions(
+          authFlowType: AuthFlowType.pkce,
+          detectSessionInUri: true,
+        ),
       );
     } catch (e) {
       debugPrint('Supabase initialization warning: $e');
@@ -177,16 +175,6 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
-      // Older landing builds included a refresh token in the URL. Supabase now
-      // restores only its canonical browser storage, so remove any lingering
-      // legacy hand-off value before it can leak through history or referrers.
-      final uri = Uri.base;
-      if (uri.queryParameters.containsKey('sb_refresh') ||
-          uri.fragment.contains('sb_refresh=')) {
-        sanitizeBrowserUrl();
-      }
-    }
     _setupTripReadyListener();
   }
 
@@ -228,15 +216,22 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     return ListenableBuilder(
       listenable: AuthSession.instance,
       builder: (context, _) {
-        if (AuthSession.instance.isLoading) {
-          return const Scaffold(
-            backgroundColor: Color(0xFF070D18),
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
-            ),
-          );
+        switch (AuthRoute.resolve(AuthSession.instance.status)) {
+          case AuthDestination.loading:
+            return const Scaffold(
+              backgroundColor: Color(0xFF070D18),
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFFD4AF37)),
+              ),
+            );
+          case AuthDestination.dashboard:
+            return const HomeScreen();
+          case AuthDestination.login:
+            return LoginScreen(
+              startInSignUp:
+                  kIsWeb && Uri.base.queryParameters['auth'] == 'signup',
+            );
         }
-        return const HomeScreen();
       },
     );
   }

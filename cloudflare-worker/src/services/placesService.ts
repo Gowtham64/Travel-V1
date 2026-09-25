@@ -19,6 +19,7 @@ const CATEGORY_FILTERS = {
   river: '["waterway"="river"]',
   viewpoint: '["tourism"="viewpoint"]',
   charging: '["amenity"="charging_station"]',
+  rest_area: '["highway"="rest_area"]',
 };
 
 /**
@@ -118,17 +119,24 @@ async function findPlacesAlongRoute(routeCoordinates, category, radiusMeters = 5
   const seen = new Set();
   const places = [];
   for (const el of elements) {
-    if (seen.has(el.id)) continue;
+    const key = `${el.type}/${el.id}`;
+    if (seen.has(key)) continue;
     // Nodes carry lat/lon directly; ways/relations carry a computed `center`.
     const lat = el.lat ?? (el.center && el.center.lat);
     const lng = el.lon ?? (el.center && el.center.lon);
     if (lat == null || lng == null) continue;
-    seen.add(el.id);
+    // A route discovery card must always name a real mapped place. Skip
+    // unnamed OSM features rather than manufacturing a display name.
+    const name = el.tags?.name?.trim();
+    if (!name) continue;
+
+    seen.add(key);
     places.push({
-      id: el.id,
-      name: (el.tags && el.tags.name) || `Unnamed ${category}`,
+      id: `osm_${el.type}_${el.id}`,
+      name,
       lat,
       lng,
+      category,
     });
   }
   return places;

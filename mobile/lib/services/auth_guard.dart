@@ -26,7 +26,8 @@ class AuthGuard {
   /// sign-in prompt for [action] (e.g. "save trips") and returns false — the
   /// caller should then abort the action.
   /// If [onAuthorized] is provided, it will be executed upon successful login.
-  static bool ensure(BuildContext context, {required String action, VoidCallback? onAuthorized}) {
+  static bool ensure(BuildContext context,
+      {required String action, VoidCallback? onAuthorized}) {
     if (isSignedIn) {
       onAuthorized?.call();
       return true;
@@ -46,7 +47,8 @@ class AuthGuard {
   }
 
   /// Async variant of [ensure] that waits for hydration before checking.
-  static Future<bool> ensureAsync(BuildContext context, {required String action, VoidCallback? onAuthorized}) async {
+  static Future<bool> ensureAsync(BuildContext context,
+      {required String action, VoidCallback? onAuthorized}) async {
     if (isSignedIn) {
       onAuthorized?.call();
       return true;
@@ -62,8 +64,8 @@ class AuthGuard {
     return false;
   }
 
-
-  static void _promptSignIn(BuildContext context, String action, {VoidCallback? onAuthorized}) {
+  static void _promptSignIn(BuildContext context, String action,
+      {VoidCallback? onAuthorized}) {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Voy.surface,
@@ -111,9 +113,7 @@ class AuthGuard {
                       Navigator.pop(ctx);
                       final success = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(
-                          builder: (_) => LoginScreen(
-                            onSuccess: onAuthorized,
-                          ),
+                          builder: (_) => const LoginScreen(),
                         ),
                       );
                       if (success == true) {

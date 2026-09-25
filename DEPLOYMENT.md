@@ -38,7 +38,8 @@ Use **Actions → Deploy Production (Cloudflare Worker + Pages) → Run workflow
 ./scripts/smoke-test.sh https://voyplan.in https://api.voyplan.in
 ```
 
-Confirm that `/`, `/login`, and `/health` return HTTP 200 and that authenticated trip creation works from `voyplan.in`.
+Confirm that `/` and `/health` return HTTP 200, `/login` redirects to
+`/app/?auth=login`, and authenticated trip creation works from `voyplan.in`.
 
 ## Mobile builds
 

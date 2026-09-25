@@ -88,6 +88,23 @@ describe("VoyPlan Cloudflare Worker API", () => {
     });
   });
 
+  describe("Trip preview input validation", () => {
+    it("rejects a landing preview without two coordinate points", async () => {
+      const res = await app.request(
+        "/api/trip/preview",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ origin: { lat: 12.9, lng: 77.5 } }),
+        },
+        mockEnv
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json() as any;
+      expect(json.error).toContain("origin and destination");
+    });
+  });
+
   describe("Vehicle Registry Routes", () => {
     it("GET /api/vehicles/brands returns brands list", async () => {
       const res = await app.request("/api/vehicles/brands", {}, mockEnv);

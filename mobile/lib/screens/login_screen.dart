@@ -3,20 +3,16 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config/app_config.dart';
 import '../services/auth_session.dart';
+import '../services/auth_route.dart';
 import '../widgets/app_design.dart';
-import 'home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool startInSignUp;
-  final String? returnTo;
-  final VoidCallback? onSuccess;
-
   const LoginScreen({
     super.key,
     this.startInSignUp = false,
-    this.returnTo,
-    this.onSuccess,
   });
 
   @override
@@ -36,9 +32,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _isSignUp = false;
-  bool _waitingForOAuth = false;
-  bool _hasNavigatedHome = false;
-  StreamSubscription<AuthState>? _authSubscription;
+  bool _obscurePassword = true;
+  bool _hasCompletedModalLogin = false;
+  late final VoidCallback _authStateListener;
 
   final String _bgUrl =
       'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
@@ -47,39 +43,36 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _isSignUp = widget.startInSignUp;
-    // Password auth is handled immediately below; this listener specifically
-    // completes the return journey from an external OAuth/Google browser.
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (state) {
-        if (_waitingForOAuth && state.session != null) {
-          _navigateToHome();
-        }
-      },
-    );
+    _authStateListener = _completeModalLoginIfNeeded;
+    AuthSession.instance.addListener(_authStateListener);
   }
 
-  void _navigateToHome() {
-    if (!mounted || _hasNavigatedHome) return;
-    _hasNavigatedHome = true;
-    if (widget.onSuccess != null) {
-      widget.onSuccess!();
-    }
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(true);
+  /// A root login is replaced by [AuthStateWrapper] when AuthSession changes.
+  /// When this screen was presented as an action prompt, close only that modal
+  /// route so the caller can resume its authorized action. This observes the
+  /// existing app auth state; it does not create another Supabase listener.
+  void _completeModalLoginIfNeeded() {
+    if (_hasCompletedModalLogin ||
+        !mounted ||
+        !AuthSession.instance.isAuthenticated ||
+        !Navigator.of(context).canPop()) {
       return;
     }
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-      (route) => false,
-    );
+    _hasCompletedModalLogin = true;
+    Navigator.of(context).pop(true);
   }
 
   /// Where the auth provider should send the user back to.
-  /// - Web: the current page URL (Supabase completes the session in-page).
+  /// - Web: this Flutter app URL (Supabase completes the PKCE callback here).
   /// - Native: a deep link this app registers (intent-filter in AndroidManifest),
   ///   so the OAuth callback returns to the app instead of a dead web URL.
   String _authRedirectUrl() {
-    if (kIsWeb) return Uri.base.toString().split('?').first;
+    if (kIsWeb) {
+      return AuthRoute.oauthCallbackUri(
+        Uri.base,
+        canonicalAppUrl: AppConfig.webAuthCallbackUrl,
+      ).toString();
+    }
     return 'io.github.gowtham64.travelapp://login-callback/';
   }
 
@@ -147,23 +140,35 @@ class _LoginScreenState extends State<LoginScreen> {
         final user = authResponse.user;
         if (user != null) {
           final deviceAccess = _getDeviceAccessInfo();
+          final session = authResponse.session ??
+              Supabase.instance.client.auth.currentSession;
+
+          // Authentication succeeds independently from optional profile setup.
+          // A transient database/RLS issue must never strand a valid session on
+          // the login screen.
+          if (session != null) {
+            AuthSession.instance.updateSession(session);
+          }
 
           // Save non-sensitive profile details to public.user_details.
           // NOTE: the password is intentionally NOT stored here — Supabase Auth
           // already manages credentials securely.
-          await Supabase.instance.client.from('user_details').insert({
-            'user_id': user.id,
-            'name': name,
-            'phone': phone,
-            'email': email,
-            'location': location,
-            'device_access': deviceAccess,
-          });
+          try {
+            await Supabase.instance.client.from('user_details').insert({
+              'user_id': user.id,
+              'name': name,
+              'phone': phone,
+              'email': email,
+              'location': location,
+              'device_access': deviceAccess,
+            });
+          } catch (error) {
+            debugPrint('Profile setup warning: $error');
+          }
 
           if (mounted) {
             // If email confirmation is required, no session exists yet.
-            final needsConfirmation =
-                Supabase.instance.client.auth.currentSession == null;
+            final needsConfirmation = session == null;
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(needsConfirmation
@@ -173,19 +178,19 @@ class _LoginScreenState extends State<LoginScreen> {
             );
             if (needsConfirmation) {
               setState(() => _isSignUp = false);
-            } else {
-              _navigateToHome();
             }
           }
         }
       } on AuthException catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(e.message)));
+        }
       } catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Failed to register details: $e')));
+        }
       } finally {
         if (mounted) setState(() => _isLoading = false);
       }
@@ -221,25 +226,21 @@ class _LoginScreenState extends State<LoginScreen> {
         }
         if (res.session != null) {
           AuthSession.instance.updateSession(res.session);
-          _navigateToHome();
         } else if (Supabase.instance.client.auth.currentSession != null) {
-          AuthSession.instance.updateSession(Supabase.instance.client.auth.currentSession);
-          _navigateToHome();
+          AuthSession.instance
+              .updateSession(Supabase.instance.client.auth.currentSession);
         }
       } on AuthException catch (e) {
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(e.message)));
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Login failed: ${e.toString().contains('TimeoutException') ? 'Connection timed out. Please try again or continue as Guest.' : e}'),
-              action: SnackBarAction(
-                label: 'Guest Mode',
-                onPressed: _continueAsGuest,
-              ),
+                  'Login failed: ${e.toString().contains('TimeoutException') ? 'Connection timed out. Please try again.' : e}'),
             ),
           );
         }
@@ -251,7 +252,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _signInWithGoogle() async {
     setState(() => _isLoading = true);
-    _waitingForOAuth = true;
     try {
       await Supabase.instance.client.auth
           .signInWithOAuth(
@@ -267,16 +267,11 @@ class _LoginScreenState extends State<LoginScreen> {
           )
           .timeout(const Duration(seconds: 30));
     } catch (e) {
-      _waitingForOAuth = false;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
                 'Failed to sign in with Google: ${e.toString().contains('TimeoutException') ? 'Connection timed out.' : e}'),
-            action: SnackBarAction(
-              label: 'Guest Mode',
-              onPressed: _continueAsGuest,
-            ),
           ),
         );
       }
@@ -285,20 +280,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _continueAsGuest() {
-    if (!mounted) return;
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop(false);
-      return;
-    }
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
-    );
-  }
-
   @override
   void dispose() {
-    _authSubscription?.cancel();
+    AuthSession.instance.removeListener(_authStateListener);
     _identifierController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
@@ -311,193 +295,314 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
+      backgroundColor: AppColors.obsidian,
       body: AnimatedBackground(
         imageUrl: _bgUrl,
-        overlayOpacity: 0.45,
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: RevealIn(
-              child: SizedBox(
-                width: 400,
-                child: GlassCard(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: RevealIn.stagger([
-                      Text(
-                        _isSignUp ? 'Create Account' : 'Welcome Back',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
+        overlayOpacity: 0.58,
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final horizontalPadding =
+                  constraints.maxWidth < 520 ? 20.0 : 32.0;
+              return Center(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    28,
+                    horizontalPadding,
+                    40,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 460),
+                    child: RevealIn(
+                      child: Container(
+                        padding: EdgeInsets.all(
+                          constraints.maxWidth < 520 ? 24 : 32,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        _isSignUp
-                            ? 'Sign up to start planning your trips'
-                            : 'Log in to continue exploring',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-                      if (_isSignUp) ...[
-                        _buildTextField(
-                          controller: _nameController,
-                          label: 'Full Name',
-                          hint: 'John Doe',
-                          icon: Icons.person_outline,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _emailController,
-                          label: 'Email ID',
-                          hint: 'johndoe@example.com',
-                          icon: Icons.mail_outline,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _phoneController,
-                          label: 'Phone Number',
-                          hint: '+919876543210',
-                          icon: Icons.phone_outlined,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          controller: _locationController,
-                          label: 'Location',
-                          hint: 'Coimbatore, India',
-                          icon: Icons.location_on_outlined,
-                        ),
-                      ] else ...[
-                        _buildTextField(
-                          controller: _identifierController,
-                          label: 'Email or Phone Number',
-                          hint: 'user@example.com or +1234567890',
-                          icon: Icons.person_outline,
-                        ),
-                      ],
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        controller: _passwordController,
-                        label: 'Password',
-                        hint: '••••••••',
-                        icon: Icons.lock_outline,
-                        isPassword: true,
-                        onSubmitted: (_) => _authenticate(),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton(
-                        onPressed: _isLoading ? null : _authenticate,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2E75B6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFCFDFF),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.72),
                           ),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x660F172A),
+                              blurRadius: 44,
+                              offset: Offset(0, 22),
+                            ),
+                          ],
                         ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white))
-                            : Text(
-                                _isSignUp ? 'Sign Up' : 'Log In',
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: RevealIn.stagger([
+                            _buildBrand(),
+                            const SizedBox(height: 28),
+                            Text(
+                              _isSignUp
+                                  ? 'Start your next journey'
+                                  : 'Welcome back',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF0F172A),
+                                fontSize: 30,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: -0.5,
                               ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextButton(
-                        onPressed: () => setState(() => _isSignUp = !_isSignUp),
-                        child: Text(
-                          _isSignUp
-                              ? 'Already have an account? Log In'
-                              : 'Need an account? Sign Up',
-                          style: const TextStyle(color: Colors.white),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _isSignUp
+                                  ? 'Create your account and keep every trip in one place.'
+                                  : 'Sign in to pick up where your planning left off.',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 15,
+                                height: 1.45,
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+                            if (_isSignUp) ...[
+                              _buildTextField(
+                                controller: _nameController,
+                                label: 'Full name',
+                                hint: 'John Doe',
+                                icon: Icons.person_outline_rounded,
+                                autofillHints: const [AutofillHints.name],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _emailController,
+                                label: 'Email address',
+                                hint: 'you@example.com',
+                                icon: Icons.mail_outline_rounded,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [AutofillHints.email],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _phoneController,
+                                label: 'Phone number',
+                                hint: '+91 98765 43210',
+                                icon: Icons.phone_outlined,
+                                keyboardType: TextInputType.phone,
+                                autofillHints: const [
+                                  AutofillHints.telephoneNumber
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _locationController,
+                                label: 'Home base',
+                                hint: 'Coimbatore, India',
+                                icon: Icons.location_on_outlined,
+                                autofillHints: const [
+                                  AutofillHints.addressCity
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+                            ] else ...[
+                              _buildTextField(
+                                controller: _identifierController,
+                                label: 'Email or phone number',
+                                hint: 'you@example.com',
+                                icon: Icons.person_outline_rounded,
+                                keyboardType: TextInputType.emailAddress,
+                                autofillHints: const [AutofillHints.username],
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            _buildTextField(
+                              controller: _passwordController,
+                              label: 'Password',
+                              hint: 'Enter your password',
+                              icon: Icons.lock_outline_rounded,
+                              isPassword: true,
+                              autofillHints: [
+                                _isSignUp
+                                    ? AutofillHints.newPassword
+                                    : AutofillHints.password,
+                              ],
+                              onSubmitted: (_) => _authenticate(),
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 52,
+                              child: ElevatedButton(
+                                onPressed: _isLoading ? null : _authenticate,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accent,
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      const Color(0xFFE2E8F0),
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: _isLoading
+                                    ? const SizedBox(
+                                        height: 22,
+                                        width: 22,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        _isSignUp
+                                            ? 'Create account'
+                                            : 'Continue',
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => setState(
+                                        () => _isSignUp = !_isSignUp,
+                                      ),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.accent,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                              child: Text(
+                                _isSignUp
+                                    ? 'Already have an account? Sign in'
+                                    : 'New to VoyPlan? Create an account',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            const Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  child: Text(
+                                    'OR',
+                                    style: TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
+                            SizedBox(
+                              height: 52,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    _isLoading ? null : _signInWithGoogle,
+                                icon: const Text(
+                                  'G',
+                                  style: TextStyle(
+                                    color: Color(0xFF4285F4),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                label: const Text(
+                                  'Continue with Google',
+                                  style: TextStyle(
+                                    color: Color(0xFF0F172A),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(
+                                    color: Color(0xFFCBD5E1),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  backgroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Your trips and account stay private and secure.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ]),
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                              child: Divider(
-                                  color: Colors.white.withOpacity(0.3))),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: Text('OR',
-                                style: TextStyle(
-                                    color: Colors.white.withOpacity(0.7))),
-                          ),
-                          Expanded(
-                              child: Divider(
-                                  color: Colors.white.withOpacity(0.3))),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      OutlinedButton.icon(
-                        onPressed: _isLoading ? null : _signInWithGoogle,
-                        icon: Image.network(
-                          'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/512px-Google_%22G%22_Logo.svg.png',
-                          height: 20,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.g_mobiledata,
-                              color: Colors.white),
-                        ),
-                        label: const Text(
-                          'Sign in with Google',
-                          style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.w600),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          side:
-                              BorderSide(color: Colors.white.withOpacity(0.3)),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          backgroundColor: Colors.white.withOpacity(0.05),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      ElevatedButton.icon(
-                        onPressed: _continueAsGuest,
-                        icon: const Icon(Icons.directions_car,
-                            color: Colors.white),
-                        label: const Text(
-                          'Continue as Guest (Skip Login)',
-                          style: TextStyle(
-                              color: Colors.white, fontWeight: FontWeight.bold),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          backgroundColor: const Color(0xFF6366F1),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ]),
+                    ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBrand() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          height: 38,
+          width: 38,
+          decoration: BoxDecoration(
+            gradient: AppColors.accentGradient,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withOpacity(0.26),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.explore_rounded,
+            color: Colors.white,
+            size: 22,
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Text(
+          'VoyPlan',
+          style: TextStyle(
+            color: Color(0xFF0F172A),
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.3,
+          ),
+        ),
+      ],
     );
   }
 
@@ -507,41 +612,79 @@ class _LoginScreenState extends State<LoginScreen> {
     required String hint,
     required IconData icon,
     bool isPassword = false,
-    Function(String)? onSubmitted,
+    TextInputType? keyboardType,
+    Iterable<String>? autofillHints,
+    ValueChanged<String>? onSubmitted,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(left: 12, right: 8),
-            child: Icon(icon, color: Colors.white.withOpacity(0.7)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF334155),
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
           ),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              obscureText: isPassword,
-              style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(
-                labelText: label,
-                labelStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                hintText: hint,
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          obscureText: isPassword && _obscurePassword,
+          keyboardType: keyboardType,
+          autofillHints: autofillHints,
+          enableSuggestions: !isPassword,
+          autocorrect: !isPassword,
+          style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16),
+          cursorColor: AppColors.accent,
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+            prefixIcon: Icon(icon, color: AppColors.accent),
+            suffixIcon: isPassword
+                ? IconButton(
+                    tooltip:
+                        _obscurePassword ? 'Show password' : 'Hide password',
+                    onPressed: () => setState(
+                      () => _obscurePassword = !_obscurePassword,
+                    ),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: const Color(0xFF64748B),
+                    ),
+                  )
+                : null,
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 17,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFFCBD5E1),
               ),
-              onSubmitted: onSubmitted,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFFCBD5E1),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: AppColors.accentLight,
+                width: 1.6,
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
+          onSubmitted: onSubmitted,
+        ),
+      ],
     );
   }
 }

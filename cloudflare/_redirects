@@ -13,11 +13,10 @@
 /ai-copilot /app/?route=ai-copilot 302
 /features /app/?route=features 302
 
-# SPA route alias for login
-/login /index.html 200
+# Canonical login entry point. Flutter owns authentication and route gating.
+/login /app/?auth=login 302
 
 # Static landing-page legal routes
 /terms /index.html 200
 /privacy /index.html 200
 /contact /index.html 200
-
