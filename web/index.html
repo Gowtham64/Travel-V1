@@ -1278,6 +1278,12 @@
             font-size: 0.9rem;
         }
 
+        /* The state classes above set display:grid, so explicitly preserve the
+           semantic hidden attribute when a live preview has replaced the empty
+           message. */
+        #routePreviewStatus[hidden],
+        #routePreviewContent[hidden] { display: none !important; }
+
         .rp-error { color: #c33a58; }
         [data-theme="dark"] .rp-error { color: #ff9ab0; }
 
@@ -4256,7 +4262,9 @@
                 const budget = trip?.budget || {};
                 const currencyCode = budget.currency || 'INR';
                 const selection = readPlannerSelection();
-                routePreviewHeading.textContent = `${trip.origin.name} → ${trip.destination.name}`;
+                // Keep the preview title aligned with what the traveler typed,
+                // rather than exposing the geocoder's long administrative label.
+                routePreviewHeading.textContent = `${selection.origin || trip.origin?.name || 'Origin'} → ${selection.destination || trip.destination?.name || 'Destination'}`;
                 routePreviewSubtitle.textContent = 'Live road-route and estimate from the VoyPlan planner.';
                 setMetric('rpDistance', `${Number(trip.route.distanceKm).toLocaleString('en-IN')} km`, `${selection.travellers} ${selection.travellers === 1 ? 'traveler' : 'travelers'}`);
                 setMetric('rpDuration', formatDuration(trip.route.durationMin), 'Driving time');

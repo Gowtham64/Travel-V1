@@ -67,13 +67,21 @@ async function queryOverpass(query: string): Promise<any> {
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        // Overpass rejects large anonymous route-corridor requests. This is a
+        // generic service identifier only; no user or location data is exposed
+        // beyond the query itself.
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+          "User-Agent": "VoyPlan-route-discovery/1.0",
+        },
         body: encoded,
         signal: AbortSignal.timeout(15000),
       });
       if (response.ok) {
         return await response.json();
       }
+      lastError = new Error(`Overpass mirror returned HTTP ${response.status}`);
     } catch (err) {
       const status = err.response ? err.response.status : "network";
       console.warn(`Overpass mirror ${url} failed (${status}), trying next...`);
