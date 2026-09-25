@@ -3582,7 +3582,8 @@
                     try {
                         if (session) {
                             syncStorageTokens(session);
-                            if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+                            const isLogoutFlowNow = new URLSearchParams(window.location.search).get('logout') === 'true';
+                            if (!isLogoutFlowNow) {
                                 enterApp();
                             }
                         } else if (event === 'SIGNED_OUT') {
@@ -3652,7 +3653,11 @@
                     const queryTarget = new URLSearchParams(window.location.search).get('returnTo');
                     target = safeAppUrl(pendingAppUrl) || safeAppUrl(queryTarget) || `${window.location.origin}/app/`;
                 }
-                window.location.assign(target);
+                try {
+                    window.location.assign(target);
+                } catch (_) {
+                    window.location.href = target;
+                }
             }
 
             function getCachedSession() {
@@ -3685,6 +3690,16 @@
                 }
             }
             updateAuthUi(getCachedSession());
+
+            // If user is already logged in on the landing page (and not in logout flow),
+            // take them straight to the VoyPlan Dashboard immediately.
+            const isLogoutFlow = new URLSearchParams(window.location.search).get('logout') === 'true';
+            if (!isLogoutFlow) {
+                const existingSession = getCachedSession();
+                if (existingSession && (existingSession.access_token || existingSession.user)) {
+                    enterApp();
+                }
+            }
 
             btnGetStarted.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -3775,7 +3790,7 @@
                 try {
                     await sb.auth.signInWithOAuth({
                         provider: 'google',
-                        options: { redirectTo: requestedAppUrl() }
+                        options: { redirectTo: `${window.location.origin}/app/` }
                     });
                 } catch (err) {
                     authNotice.style.display = 'block';
@@ -3786,8 +3801,12 @@
             if (sb) {
                 sb.auth.getSession().then(({ data }) => {
                     updateAuthUi(data?.session);
+                    if (data?.session && !isLogoutFlow) {
+                        syncStorageTokens(data.session);
+                        enterApp();
+                    }
                 });
-                if (new URLSearchParams(window.location.search).get('logout') === 'true') {
+                if (isLogoutFlow) {
                     sb.auth.signOut({ scope: 'local' }).finally(() => {
                         window.history.replaceState({}, '', '/');
                     });
