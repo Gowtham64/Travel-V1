@@ -94,6 +94,18 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx wrangler deploy
 
+      - name: Configure public Mapbox token for route preview
+        working-directory: cloudflare-worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+        run: |
+          case "$MAPBOX_TOKEN" in
+            pk.*) printf '%s' "$MAPBOX_TOKEN" | npx wrangler secret put MAPBOX_TOKEN ;;
+            *) echo "::warning::MAPBOX_TOKEN is not a public pk.* token; route preview will use its live geometry fallback." ;;
+          esac
+
       - name: Verify API health
         run: |
           echo "Verifying API health on https://api.voyplan.in/health..."

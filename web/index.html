@@ -1301,31 +1301,34 @@
             display: grid;
             min-width: 10.2rem;
             min-height: 5.6rem;
-            padding: 0.85rem 0.85rem 0.85rem 3.85rem;
+            padding: 0.85rem 0.85rem 0.85rem 4.15rem;
             border: 1px solid var(--rp-line);
             border-radius: 0.9rem;
             background: linear-gradient(145deg, rgba(6, 33, 64, 0.96), rgba(3, 19, 38, 0.92));
             box-shadow: inset 0 1px 0 rgba(130, 208, 255, 0.06);
         }
 
-        .rp-metric::before {
-            content: attr(data-rp-icon);
+        .rp-metric-icon {
             position: absolute;
-            left: 0.85rem;
+            left: 0.82rem;
             top: 50%;
             display: grid;
-            width: 2.3rem;
-            height: 2.3rem;
+            width: 2.52rem;
+            height: 2.52rem;
             place-items: center;
             border: 1px solid rgba(51, 185, 255, 0.34);
             border-radius: 0.7rem;
             background: linear-gradient(145deg, rgba(17, 161, 255, 0.25), rgba(33, 81, 230, 0.18));
             box-shadow: 0 0 1.2rem rgba(17, 146, 255, 0.16);
             color: #41bbff;
-            font-size: 1.18rem;
-            font-weight: 800;
             transform: translateY(-50%);
         }
+
+        .rp-metric-icon svg { width: 1.34rem; height: 1.34rem; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; }
+        .rp-metric[data-rp-tone="fuel"] .rp-metric-icon { color: #26e4b7; border-color: rgba(26, 224, 174, 0.35); background: linear-gradient(145deg, rgba(9, 165, 125, 0.3), rgba(5, 78, 69, 0.28)); }
+        .rp-metric[data-rp-tone="toll"] .rp-metric-icon { color: #af72ff; border-color: rgba(157, 102, 255, 0.34); background: linear-gradient(145deg, rgba(91, 53, 231, 0.35), rgba(61, 26, 142, 0.3)); }
+        .rp-metric[data-rp-tone="food"] .rp-metric-icon { color: #ffc239; border-color: rgba(255, 191, 43, 0.3); background: linear-gradient(145deg, rgba(184, 118, 9, 0.3), rgba(100, 65, 3, 0.24)); }
+        .rp-metric[data-rp-tone="budget"] .rp-metric-icon { color: #60b7ff; border-color: rgba(99, 166, 255, 0.34); background: linear-gradient(145deg, rgba(72, 73, 225, 0.4), rgba(50, 37, 136, 0.34)); }
 
         .rp-metric-value {
             color: var(--rp-ink);
@@ -1398,8 +1401,13 @@
 
         .rp-map-toggle.is-active { color: #ffffff; background: var(--rp-accent); }
 
-        .rp-map {
+        .rp-map-shell {
             position: relative;
+            min-height: 23rem;
+            height: 23rem;
+        }
+
+        .rp-map {
             min-height: 23rem;
             height: 23rem;
             background: #06182c;
@@ -1409,6 +1417,7 @@
         .rp-map .mapboxgl-ctrl-bottom-right { display: none; }
 
         .rp-map-fallback {
+            position: relative;
             height: 100%;
             overflow: hidden;
             padding: 0;
@@ -1460,6 +1469,29 @@
             font-size: 0.85rem;
         }
 
+        .rp-map-overlay {
+            position: absolute;
+            z-index: 2;
+            top: 1rem;
+            right: 0.9rem;
+            width: min(12.6rem, calc(100% - 2rem));
+            padding: 0.5rem;
+            border: 1px solid rgba(79, 175, 255, 0.25);
+            border-radius: 0.75rem;
+            background: rgba(2, 20, 39, 0.82);
+            backdrop-filter: blur(0.6rem);
+            box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
+        }
+
+        .rp-map-overlay[hidden] { display: none; }
+        .rp-map-overlay-title { display: block; padding: 0.18rem 0.28rem 0.38rem; color: #dbeaff; font-size: 0.68rem; font-weight: 780; letter-spacing: 0.025em; }
+        .rp-map-overlay-list { display: grid; gap: 0.18rem; margin: 0; padding: 0; list-style: none; }
+        .rp-map-overlay-list li { display: flex; align-items: center; gap: 0.45rem; padding: 0.28rem; color: #e8f3ff; font-size: 0.67rem; font-weight: 650; }
+        .rp-map-overlay-list i { display: grid; width: 1.22rem; height: 1.22rem; place-items: center; border-radius: 0.35rem; color: #bfe7ff; background: rgba(18, 128, 212, 0.25); font-style: normal; font-size: 0.75rem; }
+        .rp-map-overlay-list li[data-kind="fuel"] i { color: #43e6bf; background: rgba(0, 152, 115, 0.28); }
+        .rp-map-overlay-list li[data-kind="toll"] i { color: #be94ff; background: rgba(112, 67, 218, 0.3); }
+        .rp-map-overlay-list li[data-kind="food"] i { color: #ffc557; background: rgba(157, 100, 8, 0.27); }
+
         .rp-map-legend {
             display: flex;
             flex-wrap: wrap;
@@ -1475,8 +1507,8 @@
         .rp-map-legend i.rp-fuel-dot { background: #12c997; }
 
         .rp-discovery { padding-bottom: 0.85rem; }
-        .rp-discovery-head { padding-bottom: 0.45rem; }
-        .rp-discovery-status { color: var(--rp-muted); font-size: 0.75rem; }
+        .rp-discovery-head { padding-bottom: 0.18rem; }
+        .rp-discovery-status { display: block; padding: 0 1rem 0.62rem; color: var(--rp-muted); font-size: 0.75rem; }
 
         .rp-filters {
             display: flex;
@@ -1512,33 +1544,38 @@
 
         .rp-place-card {
             position: relative;
-            min-height: 13.6rem;
-            padding: 5.15rem 0.9rem 0.85rem;
+            min-height: 16.1rem;
+            padding: 7rem 0.9rem 0.85rem;
             border: 1px solid rgba(74, 155, 232, 0.25);
             border-radius: 0.9rem;
-            background: linear-gradient(180deg, rgba(15, 77, 125, 0.72), rgba(2, 17, 35, 0.96) 54%);
+            background: linear-gradient(180deg, rgba(12, 61, 100, 0.76), rgba(2, 17, 35, 0.98) 56%);
             scroll-snap-align: start;
         }
 
-        .rp-place-card::before {
-            content: '';
+        .rp-place-cover {
             position: absolute;
             inset: 0 0 auto;
-            height: 4.55rem;
+            height: 6.25rem;
+            overflow: hidden;
+            border-radius: 0.85rem 0.85rem 0 0;
             background:
-                radial-gradient(circle at 80% 24%, rgba(104, 215, 255, 0.75) 0 0.22rem, transparent 0.3rem),
-                linear-gradient(125deg, rgba(17, 92, 153, 0.96), rgba(5, 35, 69, 0.7));
+                radial-gradient(circle at 78% 20%, rgba(127, 220, 255, 0.9) 0 0.24rem, transparent 0.34rem),
+                radial-gradient(ellipse at 16% 100%, rgba(39, 146, 203, 0.8), transparent 58%),
+                linear-gradient(138deg, #0b77b5, #073662 58%, #042443);
         }
 
-        .rp-place-card[data-category="restaurant"]::before { background: linear-gradient(125deg, #89511a, #30170b); }
-        .rp-place-card[data-category="hotel"]::before { background: linear-gradient(125deg, #4b2f8d, #17133e); }
-        .rp-place-card[data-category="fuel"]::before { background: linear-gradient(125deg, #056a59, #06332e); }
-        .rp-place-card[data-category="viewpoint"]::before { background: linear-gradient(125deg, #1d618c, #142b5a); }
+        .rp-place-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, rgba(1, 13, 27, 0.72)); }
+        .rp-place-card[data-category="restaurant"] .rp-place-cover { background: radial-gradient(ellipse at 82% 14%, rgba(255, 211, 109, 0.72), transparent 25%), linear-gradient(140deg, #a65b18, #4d270a 62%, #251307); }
+        .rp-place-card[data-category="hotel"] .rp-place-cover { background: radial-gradient(ellipse at 78% 14%, rgba(213, 159, 255, 0.67), transparent 25%), linear-gradient(140deg, #6941b5, #2e1c67 62%, #160d37); }
+        .rp-place-card[data-category="fuel"] .rp-place-cover { background: radial-gradient(ellipse at 80% 15%, rgba(87, 255, 202, 0.7), transparent 25%), linear-gradient(140deg, #058f78, #075448 62%, #042c2a); }
+        .rp-place-card[data-category="viewpoint"] .rp-place-cover { background: radial-gradient(ellipse at 75% 12%, rgba(186, 226, 255, 0.8), transparent 25%), linear-gradient(140deg, #1a86be, #124a75 62%, #0b294b); }
+        .rp-place-card[data-category="attraction"] .rp-place-cover { background: radial-gradient(ellipse at 75% 14%, rgba(255, 189, 112, 0.68), transparent 25%), linear-gradient(140deg, #8e572c, #462b19 62%, #24150d); }
+        .rp-place-card[data-category="rest_area"] .rp-place-cover { background: radial-gradient(ellipse at 77% 14%, rgba(153, 205, 255, 0.7), transparent 25%), linear-gradient(140deg, #27517a, #15304c 62%, #0b192a); }
 
         .rp-place-icon {
             display: grid;
             position: absolute;
-            top: 0.8rem;
+            top: 0.78rem;
             left: 0.8rem;
             z-index: 1;
             width: 2.1rem;
@@ -1554,7 +1591,7 @@
             margin-top: 0;
             overflow: hidden;
             color: var(--rp-ink);
-            font-size: 0.89rem;
+            font-size: 0.92rem;
             font-weight: 740;
             line-height: 1.28;
             -webkit-box-orient: vertical;
@@ -1562,6 +1599,8 @@
         }
 
         .rp-place-meta { margin-top: 0.28rem; color: var(--rp-muted); font-size: 0.72rem; line-height: 1.35; }
+        .rp-place-proximity { display: inline-flex; align-items: center; gap: 0.28rem; margin-top: 0.56rem; padding: 0.28rem 0.46rem; border: 1px solid rgba(7, 219, 167, 0.26); border-radius: 999px; color: #35e3bb; background: rgba(3, 122, 96, 0.25); font-size: 0.64rem; font-weight: 720; }
+        .rp-place-proximity::before { content: '↗'; font-size: 0.74rem; }
         .rp-place-save { position: absolute; z-index: 1; top: 0.72rem; right: 0.68rem; padding: 0.25rem; color: #f6f9ff; font-size: 1.2rem; }
         .rp-place-save:hover, .rp-place-save:focus-visible { color: var(--rp-accent); }
         .rp-place-empty { padding: 1.3rem 0.95rem; color: var(--rp-muted); font-size: 0.85rem; }
@@ -1580,7 +1619,9 @@
             section.route-preview { padding: 2.6rem 0; }
             .rp-head { align-items: flex-start; flex-direction: column; margin-bottom: 0.9rem; }
             .rp-summary { grid-template-columns: repeat(6, minmax(8rem, 1fr)); }
+            .rp-map-shell,
             .rp-map { min-height: 18.5rem; height: 18.5rem; }
+            .rp-map-overlay { top: 0.65rem; right: 0.65rem; transform: scale(0.86); transform-origin: top right; }
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -2895,12 +2936,12 @@
 
                 <div id="routePreviewContent" hidden>
                     <div class="rp-summary" aria-label="Trip summary">
-                        <article class="rp-metric" data-rp-icon="↝"><div class="rp-metric-value" id="rpDistance">—</div><span class="rp-metric-label">Distance</span><span class="rp-metric-note" id="rpDistanceNote"></span></article>
-                        <article class="rp-metric" data-rp-icon="◷"><div class="rp-metric-value" id="rpDuration">—</div><span class="rp-metric-label">Drive time</span><span class="rp-metric-note" id="rpDurationNote"></span></article>
-                        <article class="rp-metric" data-rp-icon="⌑"><div class="rp-metric-value" id="rpFuel">—</div><span class="rp-metric-label">Fuel cost</span><span class="rp-metric-note" id="rpFuelNote"></span></article>
-                        <article class="rp-metric" data-rp-icon="▱"><div class="rp-metric-value" id="rpTolls">—</div><span class="rp-metric-label">Toll estimate</span><span class="rp-metric-note" id="rpTollsNote"></span></article>
-                        <article class="rp-metric" data-rp-icon="⌘"><div class="rp-metric-value" id="rpFood">—</div><span class="rp-metric-label">Food estimate</span><span class="rp-metric-note" id="rpFoodNote"></span></article>
-                        <article class="rp-metric" data-rp-icon="◫"><div class="rp-metric-value" id="rpTotal">—</div><span class="rp-metric-label">Estimated budget</span><span class="rp-metric-note" id="rpTotalNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="distance"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="5" cy="7" r="2"></circle><circle cx="19" cy="5" r="2"></circle><circle cx="16" cy="18" r="2"></circle><path d="M7 7h5l2 2h3"></path><path d="M5 9v4l4 2 3-3h2l2 4"></path></svg></span><div class="rp-metric-value" id="rpDistance">—</div><span class="rp-metric-label">Distance</span><span class="rp-metric-note" id="rpDistanceNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="time"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 7v5l3.5 2"></path><path d="M12 2v2M22 12h-2"></path></svg></span><div class="rp-metric-value" id="rpDuration">—</div><span class="rp-metric-label">Drive time</span><span class="rp-metric-note" id="rpDurationNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="fuel"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 21V5h9v16"></path><path d="M8 8h3"></path><path d="M14 9h2l2 2v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-7l-2.2-2.2"></path><path d="M8 21h8"></path></svg></span><div class="rp-metric-value" id="rpFuel">—</div><span class="rp-metric-label">Fuel cost</span><span class="rp-metric-note" id="rpFuelNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="toll"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path><path d="M8 9h8M8 13h4M13 17h3"></path></svg></span><div class="rp-metric-value" id="rpTolls">—</div><span class="rp-metric-label">Toll estimate</span><span class="rp-metric-note" id="rpTollsNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="food"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v8M4 3v4a3 3 0 0 0 6 0V3M7 11v10M16 3v18M16 3c3 1 4 4 4 7h-4"></path></svg></span><div class="rp-metric-value" id="rpFood">—</div><span class="rp-metric-label">Food estimate</span><span class="rp-metric-note" id="rpFoodNote"></span></article>
+                        <article class="rp-metric" data-rp-tone="budget"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v14H6.5A2.5 2.5 0 0 1 4 16.5z"></path><path d="M4 7.5A2.5 2.5 0 0 1 6.5 10H19M15 14h2"></path></svg></span><div class="rp-metric-value" id="rpTotal">—</div><span class="rp-metric-label">Total budget</span><span class="rp-metric-note" id="rpTotalNote"></span></article>
                     </div>
 
                     <div class="rp-main">
@@ -2912,15 +2953,19 @@
                                     <button class="rp-map-toggle" type="button" data-map-style="satellite" aria-pressed="false">Satellite</button>
                                 </div>
                             </div>
-                            <div class="rp-map" id="routePreviewMap"><div class="rp-map-fallback">The map will load with your route.</div></div>
+                            <div class="rp-map-shell">
+                                <div class="rp-map" id="routePreviewMap"><div class="rp-map-fallback">The map will load with your route.</div></div>
+                                <aside class="rp-map-overlay" id="routePreviewMapOverlay" aria-label="Route stop summary" hidden></aside>
+                            </div>
                             <div class="rp-map-legend" aria-label="Map legend"><span><i></i>Route</span><span><i class="rp-stop-dot"></i>Route stop</span><span><i class="rp-fuel-dot"></i>Fuel stop</span></div>
                         </article>
 
                         <article class="rp-discovery" aria-labelledby="routeDiscoveryHeading">
                             <div class="rp-discovery-head">
                                 <h3 class="rp-discovery-title" id="routeDiscoveryHeading">Discover along your route</h3>
-                                <span class="rp-discovery-status" id="routeDiscoveryStatus"></span>
+                                <button class="rp-link-button" id="btnPreviewAllStops" type="button" disabled>View all stops <span aria-hidden="true">→</span></button>
                             </div>
+                            <span class="rp-discovery-status" id="routeDiscoveryStatus"></span>
                             <div class="rp-filters" role="tablist" aria-label="Route discovery categories">
                                 <button class="rp-filter is-active" type="button" data-place-filter="all" role="tab" aria-selected="true">All</button>
                                 <button class="rp-filter" type="button" data-place-filter="fuel" role="tab" aria-selected="false">Fuel</button>
@@ -3790,7 +3835,9 @@
             const routePreviewPlaces = document.getElementById('routePreviewPlaces');
             const routeDiscoveryStatus = document.getElementById('routeDiscoveryStatus');
             const previewDetailsBtn = document.getElementById('btnPreviewFullDetails');
+            const previewAllStopsBtn = document.getElementById('btnPreviewAllStops');
             const previewMapContainer = document.getElementById('routePreviewMap');
+            const previewMapOverlay = document.getElementById('routePreviewMapOverlay');
             let previewAbortController = null;
             let previewRequestVersion = 0;
             let currentPreview = null;
@@ -3848,12 +3895,14 @@
                 routePreviewStatus.hidden = false;
                 routePreviewStatus.className = isError ? 'rp-error' : 'rp-empty';
                 routePreviewStatus.textContent = message;
+                previewMapOverlay.hidden = true;
             }
 
             function setPreviewLoading() {
                 routePreviewStatus.hidden = true;
                 routePreviewContent.hidden = false;
                 previewDetailsBtn.disabled = true;
+                previewAllStopsBtn.disabled = true;
                 routePreviewHeading.textContent = 'Calculating your route…';
                 routePreviewSubtitle.textContent = 'Checking the route, budget, toll estimate and mapped stops.';
                 ['rpDistance', 'rpDuration', 'rpFuel', 'rpTolls', 'rpFood', 'rpTotal'].forEach((id) => {
@@ -3984,6 +4033,52 @@
                     .filter(([lng, lat]) => Number.isFinite(lat) && Number.isFinite(lng)) : [];
             }
 
+            function allPreviewPlaces() {
+                if (!currentPreview?.places) return [];
+                return Object.entries(currentPreview.places).flatMap(([category, places]) => (Array.isArray(places) ? places : [])
+                    .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
+                    .map((place) => ({ ...place, category: place.category || category })));
+            }
+
+            function shortMapLabel(value, fallback) {
+                const compact = String(value || fallback || '').split(',')[0].trim();
+                return compact.length > 18 ? `${compact.slice(0, 17)}…` : compact;
+            }
+
+            function renderMapOverlay() {
+                if (!currentPreview || !previewMapOverlay) return;
+                const allPlaces = allPreviewPlaces();
+                const groups = currentPreview.places || {};
+                const fuelStops = Array.isArray(currentPreview.fuelPlan?.refuelStops)
+                    ? currentPreview.fuelPlan.refuelStops.length
+                    : (Array.isArray(groups.fuel) ? groups.fuel.length : 0);
+                const tollCount = Number(currentPreview.toll?.count);
+                const rows = [
+                    { kind: 'fuel', icon: '⛽', text: `${fuelStops} fuel ${fuelStops === 1 ? 'stop' : 'stops'}` },
+                    { kind: 'toll', icon: '▱', text: Number.isFinite(tollCount) ? `${tollCount} toll ${tollCount === 1 ? 'plaza' : 'plazas'}` : 'Toll estimate ready' },
+                    { kind: 'place', icon: '⌖', text: `${allPlaces.length} mapped places` },
+                    { kind: 'food', icon: '⌘', text: `${(groups.restaurant || []).length} food stops` },
+                    { kind: 'place', icon: '◒', text: `${(groups.viewpoint || []).length} viewpoints` },
+                ];
+                const title = document.createElement('strong');
+                title.className = 'rp-map-overlay-title';
+                title.textContent = 'ROUTE SUMMARY';
+                const list = document.createElement('ul');
+                list.className = 'rp-map-overlay-list';
+                rows.forEach((row) => {
+                    const item = document.createElement('li');
+                    item.dataset.kind = row.kind;
+                    const icon = document.createElement('i');
+                    icon.textContent = row.icon;
+                    const text = document.createElement('span');
+                    text.textContent = row.text;
+                    item.append(icon, text);
+                    list.appendChild(item);
+                });
+                previewMapOverlay.replaceChildren(title, list);
+                previewMapOverlay.hidden = false;
+            }
+
             function renderRouteGeometryFallback() {
                 const coordinates = routeCoordinates(currentPreview);
                 previewMapContainer.replaceChildren();
@@ -4047,37 +4142,98 @@
                     path.setAttribute('d', pathData);
                     svg.appendChild(path);
                 });
+
+                const drawLabelledMarker = (point, color, label, position = 'right') => {
+                    if (!point || !label) return;
+                    const [x, y] = point;
+                    const group = document.createElementNS(svgNs, 'g');
+                    const text = document.createElementNS(svgNs, 'text');
+                    const visibleLabel = shortMapLabel(label, 'Stop');
+                    const textWidth = Math.max(54, visibleLabel.length * 8 + 18);
+                    const labelOnLeft = position === 'left' || x > width * 0.68;
+                    const rectX = labelOnLeft ? x - textWidth - 22 : x + 22;
+                    const textX = labelOnLeft ? x - textWidth - 13 : x + 31;
+                    const rect = document.createElementNS(svgNs, 'rect');
+                    rect.setAttribute('x', String(rectX));
+                    rect.setAttribute('y', String(y - 19));
+                    rect.setAttribute('width', String(textWidth));
+                    rect.setAttribute('height', '30');
+                    rect.setAttribute('rx', '10');
+                    rect.setAttribute('fill', 'rgba(2, 20, 39, 0.86)');
+                    rect.setAttribute('stroke', 'rgba(101, 184, 255, 0.28)');
+                    const circle = document.createElementNS(svgNs, 'circle');
+                    circle.setAttribute('cx', String(x));
+                    circle.setAttribute('cy', String(y));
+                    circle.setAttribute('r', '10');
+                    circle.setAttribute('fill', color);
+                    circle.setAttribute('stroke', '#ffffff');
+                    circle.setAttribute('stroke-width', '3');
+                    text.setAttribute('x', String(textX));
+                    text.setAttribute('y', String(y + 5));
+                    text.setAttribute('fill', '#f4f8ff');
+                    text.setAttribute('font-size', '15');
+                    text.setAttribute('font-family', 'system-ui, sans-serif');
+                    text.setAttribute('font-weight', '700');
+                    text.textContent = visibleLabel;
+                    group.append(rect, circle, text);
+                    svg.appendChild(group);
+                };
                 const trip = currentPreview?.trip || {};
-                [[points[0], '#13b5ff', trip.origin?.name || 'Origin'], [points.at(-1), '#ff5974', trip.destination?.name || 'Destination']]
-                    .forEach(([point, color, label]) => {
-                        const marker = document.createElementNS(svgNs, 'circle');
-                        marker.setAttribute('cx', point[0].toFixed(1));
-                        marker.setAttribute('cy', point[1].toFixed(1));
-                        marker.setAttribute('r', '14');
-                        marker.setAttribute('fill', color);
-                        marker.setAttribute('stroke', '#ffffff');
-                        marker.setAttribute('stroke-width', '4');
-                        const title = document.createElementNS(svgNs, 'title');
-                        title.textContent = label;
-                        marker.appendChild(title);
-                        svg.appendChild(marker);
-                    });
+                drawLabelledMarker(points[0], '#16cfa7', trip.origin?.name || 'Origin', 'right');
+                drawLabelledMarker(points.at(-1), '#ff5974', trip.destination?.name || 'Destination', 'left');
+                const routePlaces = allPreviewPlaces();
+                const shownCategories = new Set();
+                routePlaces.forEach((place) => {
+                    if (shownCategories.size >= 4 || shownCategories.has(place.category)) return;
+                    const x = Math.max(inset, Math.min(width - inset, inset + ((Number(place.lng) - minLng) / lngRange) * (width - inset * 2)));
+                    const y = Math.max(inset, Math.min(height - inset, height - inset - ((Number(place.lat) - minLat) / latRange) * (height - inset * 2)));
+                    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+                    shownCategories.add(place.category);
+                    drawLabelledMarker([x, y], place.category === 'fuel' ? '#15d4a6' : '#ffb21a', place.name, x > width * 0.62 ? 'left' : 'right');
+                });
                 const label = document.createElement('p');
                 label.className = 'rp-map-fallback-label';
-                label.textContent = 'Live route geometry · Add a public Mapbox token in the Worker for the interactive map';
+                label.textContent = 'Live route geometry · Interactive satellite imagery becomes available when a public Mapbox token is configured.';
                 fallback.append(svg, label);
                 previewMapContainer.appendChild(fallback);
+                renderMapOverlay();
             }
 
             function filteredPlaces() {
-                if (!currentPreview?.places) return [];
-                const groups = currentPreview.places;
-                const relevantGroups = currentPlaceFilter === 'all'
-                    ? Object.entries(groups)
-                    : [[currentPlaceFilter, groups[currentPlaceFilter] || []]];
-                return relevantGroups.flatMap(([category, places]) => (Array.isArray(places) ? places : [])
-                    .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
-                    .map((place) => ({ ...place, category: place.category || category })));
+                return currentPlaceFilter === 'all'
+                    ? allPreviewPlaces()
+                    : allPreviewPlaces().filter((place) => place.category === currentPlaceFilter);
+            }
+
+            function pointDistanceKm(from, to) {
+                const toRadians = (value) => value * Math.PI / 180;
+                const earthRadiusKm = 6371;
+                const dLat = toRadians(Number(to.lat) - Number(from.lat));
+                const dLng = toRadians(Number(to.lng) - Number(from.lng));
+                const a = Math.sin(dLat / 2) ** 2
+                    + Math.cos(toRadians(Number(from.lat))) * Math.cos(toRadians(Number(to.lat))) * Math.sin(dLng / 2) ** 2;
+                return 2 * earthRadiusKm * Math.asin(Math.sqrt(a));
+            }
+
+            function distanceFromRouteKm(place) {
+                const coordinates = routeCoordinates(currentPreview);
+                if (coordinates.length < 2) return null;
+                const sampleStride = Math.max(1, Math.ceil(coordinates.length / 420));
+                let nearest = Infinity;
+                for (let index = 0; index < coordinates.length; index += sampleStride) {
+                    const [lng, lat] = coordinates[index];
+                    const distance = pointDistanceKm({ lat: Number(place.lat), lng: Number(place.lng) }, { lat, lng });
+                    if (distance < nearest) nearest = distance;
+                }
+                return Number.isFinite(nearest) ? nearest : null;
+            }
+
+            function placeProximity(place) {
+                const distanceKm = distanceFromRouteKm(place);
+                if (distanceKm == null) return 'Mapped along route';
+                if (distanceKm < 0.15) return 'On the route';
+                const precision = distanceKm < 10 ? 1 : 0;
+                return `About ${distanceKm.toFixed(precision)} km from route`;
             }
 
             function renderPlaces() {
@@ -4097,6 +4253,9 @@
                     const card = document.createElement('article');
                     card.className = 'rp-place-card';
                     card.dataset.category = place.category || 'attraction';
+                    const cover = document.createElement('div');
+                    cover.className = 'rp-place-cover';
+                    cover.setAttribute('aria-hidden', 'true');
                     const icon = document.createElement('span');
                     icon.className = 'rp-place-icon';
                     icon.setAttribute('aria-hidden', 'true');
@@ -4106,7 +4265,10 @@
                     name.textContent = place.name;
                     const meta = document.createElement('p');
                     meta.className = 'rp-place-meta';
-                    meta.textContent = `${placeLabels[place.category] || 'Place'} · Near route`;
+                    meta.textContent = `${placeLabels[place.category] || 'Place'} · OpenStreetMap`;
+                    const proximity = document.createElement('span');
+                    proximity.className = 'rp-place-proximity';
+                    proximity.textContent = placeProximity(place);
                     const save = document.createElement('button');
                     save.className = 'rp-place-save';
                     save.type = 'button';
@@ -4114,7 +4276,7 @@
                     save.setAttribute('aria-label', `Save ${place.name}`);
                     save.textContent = '♡';
                     save.addEventListener('click', () => saveRoutePlace(place));
-                    card.append(icon, name, meta, save);
+                    card.append(cover, icon, name, meta, proximity, save);
                     routePreviewPlaces.appendChild(card);
                 });
                 routeDiscoveryStatus.textContent = `${places.length} mapped ${places.length === 1 ? 'place' : 'places'}`;
@@ -4145,7 +4307,7 @@
             function mapStyleUrl() {
                 return landingMapStyle === 'satellite'
                     ? 'mapbox://styles/mapbox/satellite-streets-v12'
-                    : 'mapbox://styles/mapbox/streets-v12';
+                    : 'mapbox://styles/mapbox/navigation-night-v1';
             }
 
             function mapMarker(color, title) {
@@ -4245,13 +4407,14 @@
             }
 
             function setMapStyle(nextStyle) {
-                if (!currentPreview || !landingMap || landingMapStyle === nextStyle) return;
+                if (!currentPreview || landingMapStyle === nextStyle) return;
                 landingMapStyle = nextStyle;
                 document.querySelectorAll('.rp-map-toggle').forEach((button) => {
                     const active = button.dataset.mapStyle === nextStyle;
                     button.classList.toggle('is-active', active);
                     button.setAttribute('aria-pressed', String(active));
                 });
+                if (!landingMap) return;
                 landingMap.setStyle(mapStyleUrl());
                 landingMap.once('style.load', () => paintRouteOnMap({ fit: false }));
             }
@@ -4275,8 +4438,10 @@
                 setMetric('rpFood', formatCurrency(budget.food, currencyCode), 'Trip estimate');
                 setMetric('rpTotal', formatCurrency(budget.total, currencyCode), 'Trip estimate');
                 previewDetailsBtn.disabled = false;
+                previewAllStopsBtn.disabled = false;
                 routePreviewContent.hidden = false;
                 routePreviewStatus.hidden = true;
+                renderMapOverlay();
                 renderPlaces();
                 renderPreviewMap();
             }
@@ -4332,6 +4497,11 @@
                 button.addEventListener('click', () => setMapStyle(button.dataset.mapStyle || 'map'));
             });
             previewDetailsBtn?.addEventListener('click', () => enterApp(previewAppUrl()));
+            previewAllStopsBtn?.addEventListener('click', () => {
+                const target = new URL(previewAppUrl());
+                target.searchParams.set('explore', 'true');
+                enterApp(target.toString());
+            });
             window.addEventListener('pagehide', () => {
                 previewAbortController?.abort();
                 landingMap?.remove();
