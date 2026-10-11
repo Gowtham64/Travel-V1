@@ -101,7 +101,7 @@ async function queryOverpass(query: string): Promise<any> {
  * @param {number} [sampleEveryKm=30] - distance between sample points along the route
  * @returns {Promise<Array<{id:number, name:string, lat:number, lng:number}>>}
  */
-async function findPlacesAlongRoute(routeCoordinates, category, radiusMeters = 5000, sampleEveryKm = 30) {
+async function findPlacesAlongRoute(routeCoordinates, category, radiusMeters = 5000, sampleEveryKm = 10) {
   const filter = CATEGORY_FILTERS[category];
   if (!filter) {
     throw new Error(

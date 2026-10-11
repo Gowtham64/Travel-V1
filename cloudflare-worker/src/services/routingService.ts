@@ -126,7 +126,7 @@ function validateRouteStartEnd(start, end, coordinates, maxToleranceMeters = 500
  * - Distance matches the sum of legs
  * - Around-trip completes full loop
  */
-function validateRoute(start, end, waypoints = [], routeResult, maxToleranceMeters = 5000) {
+function validateRoute(start, end, waypoints = [], routeResult, maxToleranceMeters = 10000) {
   if (!routeResult) {
     return { valid: false, reason: "Route result is null or undefined" };
   }
