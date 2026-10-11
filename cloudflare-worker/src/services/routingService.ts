@@ -496,6 +496,10 @@ async function fetchOsrmRoute(start: any, end: any, waypoints: any, options: any
     destination: end,
     waypoints,
     coordinates: interpolated,
+    geometry: {
+      type: "LineString",
+      coordinates: interpolated.map((p) => [p.lng, p.lat]),
+    },
     distanceMeters: inflatedMeters,
     durationSeconds: estDurationSeconds,
     legs: [
