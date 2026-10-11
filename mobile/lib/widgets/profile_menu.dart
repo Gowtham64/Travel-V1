@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
@@ -106,9 +107,10 @@ class _ProfileMenuSheet extends StatelessWidget {
           _Item('currency', 'Currency', Icons.paid_outlined),
           _Item('security', 'Security', Icons.lock_outline_rounded),
         ]),
-        _Section('❓', 'Support & App', const [
-          _Item('download_apk', 'Download Android App (APK)', Icons.android_rounded, accent: Voy.brand),
-          _Item('help', 'Help & Support', Icons.help_outline_rounded),
+        _Section('❓', 'Support & App', [
+          if (kIsWeb || defaultTargetPlatform != TargetPlatform.iOS)
+            const _Item('download_apk', 'Download Android App (APK)', Icons.android_rounded, accent: Voy.brand),
+          const _Item('help', 'Help & Support', Icons.help_outline_rounded),
         ]),
       ];
 

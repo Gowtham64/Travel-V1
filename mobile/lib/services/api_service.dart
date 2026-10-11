@@ -274,6 +274,21 @@ class ApiService {
     return data;
   }
 
+  /// Purges all user data and profile (Apple App Store Guideline 5.1.1(v) compliance)
+  Future<void> deleteAccount() async {
+    final headers = await _authHeaders();
+    final res = await http
+        .delete(Uri.parse('$baseUrl/api/account/profile'), headers: headers)
+        .timeout(const Duration(seconds: 12));
+    if (res.statusCode >= 400 && res.statusCode != 404) {
+      throw ApiException(_accountErr(res));
+    }
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_profileStoreKey);
+    } catch (_) {}
+  }
+
   Future<Map<String, dynamic>> convertCurrency(
       {required String from,
       required String to,

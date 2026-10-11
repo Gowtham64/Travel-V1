@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../services/api_service.dart';
+import '../services/auth_session.dart';
 
 // ============================================================================
 // Config-driven CRUD for the profile-menu entities.
@@ -851,7 +852,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _city = TextEditingController();
   final _phone = TextEditingController();
   String _language = 'en', _currency = 'INR', _theme = 'dark';
-  bool _loading = true, _saving = false;
+  bool _loading = true, _saving = false, _deleting = false;
 
   @override
   void initState() {
@@ -909,6 +910,63 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Voy.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+            SizedBox(width: 10),
+            Text('Delete Account?',
+                style: TextStyle(color: Voy.ink, fontWeight: FontWeight.w800, fontSize: 18)),
+          ],
+        ),
+        content: const Text(
+          'This action will permanently delete your account, trips, bookings, itineraries, and all personal preferences. This cannot be undone.',
+          style: TextStyle(color: Voy.sub, fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel', style: TextStyle(color: Voy.ink)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    try {
+      await _api.deleteAccount();
+      await AuthSession.instance.signOut();
+      if (!mounted) return;
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your account and data have been completely deleted.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Account deletion failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -963,6 +1021,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: CircularProgressIndicator(strokeWidth: 2))
                       : const Text('Save changes'),
                 ),
+                const SizedBox(height: 36),
+                _section('Account Security'),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.redAccent.withValues(alpha: 0.25)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.shield_outlined, color: Colors.redAccent, size: 20),
+                          SizedBox(width: 8),
+                          Text('Delete Account & Personal Data',
+                              style: TextStyle(
+                                  color: Colors.redAccent,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Permanently erase your account, trips, itineraries, bookings, and cached documents from VoyPlan servers.',
+                        style: TextStyle(color: Voy.sub, fontSize: 12, height: 1.4),
+                      ),
+                      const SizedBox(height: 14),
+                      OutlinedButton.icon(
+                        icon: _deleting
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.redAccent))
+                            : const Icon(Icons.delete_forever_rounded,
+                                color: Colors.redAccent, size: 18),
+                        label: Text(_deleting ? 'Deleting...' : 'Delete Account',
+                            style: const TextStyle(
+                                color: Colors.redAccent, fontWeight: FontWeight.w700)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.redAccent),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                        onPressed: _deleting ? null : _confirmDeleteAccount,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
     );

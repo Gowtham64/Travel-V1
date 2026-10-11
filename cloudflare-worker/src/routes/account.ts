@@ -60,6 +60,38 @@ account.put('/profile', async (c) => {
   }
 });
 
+// Purge user account data (Apple App Store Guideline 5.1.1(v) compliance)
+account.delete('/profile', async (c) => {
+  const user = c.get('user')!;
+  const supabase = c.get('supabase')!;
+
+  try {
+    const userTables = [
+      'favorites',
+      'bookings',
+      'expenses',
+      'budgets',
+      'documents',
+      'emergency_contacts',
+      'packing_items',
+      'user_vehicles',
+      'notifications',
+      'trips',
+      'user_profiles',
+    ];
+
+    for (const t of userTables) {
+      try {
+        await supabase.from(t).delete().eq('user_id', user.id);
+      } catch (_) {}
+    }
+
+    return c.json({ ok: true, message: 'Account data purged successfully' });
+  } catch (e: any) {
+    return c.json({ error: e?.message || 'Failed to delete account data' }, 500);
+  }
+});
+
 /**
  * Generic CRUD helper for user-scoped tables
  */

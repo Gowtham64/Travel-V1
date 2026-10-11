@@ -96,11 +96,7 @@
 		<string>processing</string>
 		<string>fetch</string>
 		<string>audio</string>
-		<string>external-accessory</string>
-		<string>push-to-talk</string>
 		<string>remote-notification</string>
-		<string>bluetooth-central</string>
-		<string>nearby-interaction</string>
 	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
