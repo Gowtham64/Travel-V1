@@ -14,6 +14,9 @@ import 'services/theme_controller.dart';
 
 import 'services/trip_reminder_service.dart';
 import 'widgets/trip_start_dialog.dart';
+import 'screens/trip_screen.dart';
+import 'services/api_service.dart';
+import 'models/trip_models.dart';
 
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -194,8 +197,57 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
     TripStartDialog.show(
       navContext,
       reminder,
-      onStartNavigation: () {
+      onStartNavigation: () async {
         _isTripStartDialogOpen = false;
+        final ctx = appNavigatorKey.currentContext;
+        if (ctx == null) return;
+        try {
+          final api = ApiService();
+          final startPoint =
+              GeoPoint(lat: 12.9716, lng: 77.5946, name: reminder.startPoint);
+          final endPoint =
+              GeoPoint(lat: 12.2958, lng: 76.6394, name: reminder.destination);
+          final isBike = reminder.vehicleType == 'motorcycle' ||
+              reminder.vehicleType == 'bike';
+          final vehicle = Vehicle(
+            type: reminder.vehicleType,
+            efficiencyKmPerLiter: isBike ? 35.0 : 16.0,
+            tankCapacityLiters: isBike ? 13.0 : 45.0,
+            currentFuelLiters: isBike ? 10.0 : 35.0,
+          );
+          final plan = await api.planTrip(
+            start: startPoint,
+            end: endPoint,
+            vehicle: vehicle,
+          );
+          if (appNavigatorKey.currentContext != null) {
+            Navigator.of(appNavigatorKey.currentContext!).push(
+              MaterialPageRoute(
+                builder: (_) => TripScreen(
+                  plan: plan,
+                  startAddress: reminder.startPoint,
+                  endAddress: reminder.destination,
+                  vehicleType: reminder.vehicleType,
+                  poiCategories: const [
+                    'restaurant',
+                    'attraction',
+                    'hotel',
+                    'fuel',
+                    'ev',
+                    'viewpoint'
+                  ],
+                  start: startPoint,
+                  end: endPoint,
+                  waypoints: const [],
+                  vehicle: vehicle,
+                  autoStartNavigation: true,
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          debugPrint('Failed to start navigation from reminder: $e');
+        }
       },
       onPostponed: (_) {
         _isTripStartDialogOpen = false;

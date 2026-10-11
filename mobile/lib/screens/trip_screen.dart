@@ -67,6 +67,9 @@ class TripScreen extends StatefulWidget {
   final DateTime? initialTripStart;
   final List<Map<String, dynamic>>? savedItinerary;
 
+  /// If true, automatically engages live navigation once the screen loads.
+  final bool autoStartNavigation;
+
   const TripScreen({
     super.key,
     required this.plan,
@@ -84,6 +87,7 @@ class TripScreen extends StatefulWidget {
     this.travellers = 1,
     this.initialTripStart,
     this.savedItinerary,
+    this.autoStartNavigation = false,
   });
 
   @override
@@ -237,6 +241,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     // uses the soft, natural voice instead of the default robotic one.
     _carGuidance.primeVoices();
     _voice.prime();
+
+    if (widget.autoStartNavigation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _startLiveNavigation();
+      });
+    }
   }
 
   @override
@@ -1176,26 +1186,26 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Primary full-width "Start" button for Overview
+  /// Primary full-width "Start Live Navigation" button for Overview
   Widget _buildStartButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: ElevatedButton.icon(
         onPressed: _startLiveNavigation,
-        icon: const Icon(Icons.play_arrow_rounded, size: 26),
+        icon: const Icon(Icons.navigation_rounded, size: 24),
         label: const Text(
-          'Start',
+          'Start Live Navigation',
           style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+              fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.3),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF2563EB),
+          backgroundColor: const Color(0xFF10B981),
           foregroundColor: Colors.white,
           minimumSize: const Size(double.infinity, 54),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 4,
-          shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
+          shadowColor: const Color(0xFF10B981).withOpacity(0.4),
         ),
       ),
     );
@@ -2693,20 +2703,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     // Check location permission & service capability
     try {
-      if (kIsWeb) {
-        // Web browsers often block or lack continuous automotive GPS accuracy;
-        // start simulated navigation drive.
-        fallbackToSimulation = true;
-        fallbackReason = 'Web browser navigation';
-      } else {
-        await _ensureLocationPermission();
-      }
+      await _ensureLocationPermission();
     } catch (e) {
       fallbackToSimulation = true;
       fallbackReason = '$e';
     }
 
-    // Check proximity if permission succeeded on native
+    // Check proximity if permission succeeded on native or web
     if (!fallbackToSimulation) {
       try {
         final first = await Geolocator.getCurrentPosition(
@@ -2720,18 +2723,18 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             LengthUnit.Meter, here, _currentPlan.coordinates.first.toLatLng());
 
         // If user is far from the route starting point (e.g. testing remotely from home/office):
-        // do not overwrite the trip with an unwanted reroute to home!
+        // do not overwrite the trip with an unwanted reroute to home; simulate navigation drive
         if (startDist > 500.0) {
           fallbackToSimulation = true;
           fallbackReason =
-              '${(startDist / 1000).toStringAsFixed(1)} km from start point';
+              '${(startDist / 1000).toStringAsFixed(1)} km from start point (Route Simulation)';
         } else {
           _onLivePosition(first);
         }
       } catch (_) {
         // If initial GPS read times out or fails, gracefully run simulation
         fallbackToSimulation = true;
-        fallbackReason = 'GPS signal unavailable';
+        fallbackReason = 'GPS signal unavailable (Route Simulation)';
       }
     }
 
@@ -2739,13 +2742,23 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Starting navigation ($fallbackReason)'),
+            content: Text('Starting Live Navigation ($fallbackReason)'),
             backgroundColor: const Color(0xFF0F172A),
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
       _startAnimation(preview: false);
+      setState(() {
+        _isLiveNavigating = true;
+        _liveRemainingKm = _currentPlan.distanceKm;
+        _liveRemainingMin = _currentPlan.durationMin;
+        _liveSpeedKmh = 50.0;
+        _gpsHealth = GpsHealthStatus.active;
+      });
+      _voice.reset();
+      _voice.speak('Starting navigation. Follow the highlighted route.',
+          force: true);
       return;
     }
 
@@ -2757,6 +2770,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _visitedStops.clear();
       _tripProgressPercent = 0.0;
       _liveSpeedKmh = 0.0;
+      _liveRemainingKm = _currentPlan.distanceKm;
+      _liveRemainingMin = _currentPlan.durationMin;
+      _gpsHealth = GpsHealthStatus.active;
       _consecutiveOffRouteFixes = 0;
       _isRerouting = false;
     });
@@ -3554,6 +3570,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         slowDownTicks--;
       }
 
+      final double remKm = ((1 - progressPercent) * _currentPlan.distanceKm)
+          .clamp(0.0, _currentPlan.distanceKm);
+      final int remMin =
+          ((1 - progressPercent) * _currentPlan.durationMin).round();
+
       setState(() {
         _animationIndex = segmentIdx;
         _animatedVehiclePosition = currentLatLng;
@@ -3563,14 +3584,16 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _isTurningLeft = leftTurnTicks > 0;
         _isTurningRight = rightTurnTicks > 0;
         _tripProgressPercent = progressPercent;
+        if (_isLiveNavigating) {
+          _liveSpeedKmh =
+              (slowDownTicks > 0 ? 32.0 : 68.0) * _currentSpeedModifier;
+          _liveRemainingKm = remKm;
+          _liveRemainingMin = remMin;
+        }
       });
 
       // Mirror the simulated drive to Android Auto / CarPlay (throttled) so the
       // car map follows along even when test-driving without a real GPS fix.
-      final double remKm = ((1 - progressPercent) * _currentPlan.distanceKm)
-          .clamp(0.0, _currentPlan.distanceKm);
-      final int remMin =
-          ((1 - progressPercent) * _currentPlan.durationMin).round();
       double bearingDeg = currentHeading * 180.0 / pi;
       bearingDeg = ((bearingDeg % 360) + 360) % 360;
       final camManeuver = _carGuidance.calculateManeuver(
@@ -3705,10 +3728,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _startLiveNavigation,
-                    icon: const Icon(Icons.navigation, size: 20),
-                    label: const Text('Start Trip'),
+                    icon: const Icon(Icons.navigation_rounded, size: 20),
+                    label: const Text('Start Navigation'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2E75B6),
+                      backgroundColor: const Color(0xFF10B981),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
@@ -5758,10 +5781,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     if (!_isPlayingAnimation) return const SizedBox.shrink();
 
     final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
-    final String remainingDistanceKm = _isLiveNavigating
-        ? _liveRemainingKm.toStringAsFixed(1)
-        : (_currentPlan.distanceKm * remainingFrac).toStringAsFixed(1);
-    final int remainingMinutes = _isLiveNavigating
+    final double distKm = (_isLiveNavigating && _liveRemainingKm > 0)
+        ? _liveRemainingKm
+        : (_currentPlan.distanceKm * remainingFrac);
+    final String remainingDistanceKm = distKm.toStringAsFixed(1);
+    final int remainingMinutes = (_isLiveNavigating && _liveRemainingMin > 0)
         ? _liveRemainingMin
         : (_currentPlan.durationMin * remainingFrac).round();
     final String etaText = _formatEta(remainingMinutes);
@@ -6421,9 +6445,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(width: 10),
           _mapPillButton(
-            icon: Icons.navigation,
-            label: 'Start Trip',
-            bg: darkBg,
+            icon: Icons.navigation_rounded,
+            label: 'Start Navigation',
+            bg: const Color(0xFF10B981),
             onTap: _startLiveNavigation,
           ),
         ],

@@ -1865,7 +1865,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           Row(
             children: [
               ElevatedButton.icon(
-                onPressed: () => _openTrip(_activeTrip!),
+                onPressed: () =>
+                    _openTripNavigation(_activeTrip!, autoStart: true),
                 icon: const Icon(Icons.navigation_rounded, size: 18),
                 label: const Text('Continue Navigation →',
                     style:
@@ -2058,6 +2059,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'onTap': () => _planTrip()
       },
       {
+        'title': 'Live Navigation',
+        'desc': 'Turn-by-turn GPS',
+        'icon': Icons.navigation_rounded,
+        'color': const Color(0xFF10B981),
+        'onTap': _startLiveNavFlow,
+      },
+      {
         'title': 'My Trips',
         'desc': 'View & manage',
         'icon': Icons.bookmark_rounded,
@@ -2082,7 +2090,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'title': 'Explore',
         'desc': 'Discover places',
         'icon': Icons.explore_rounded,
-        'color': const Color(0xFF10B981),
+        'color': const Color(0xFF14B8A6),
         'onTap': _openExplore
       },
       {
@@ -2091,6 +2099,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         'icon': Icons.lightbulb_rounded,
         'color': const Color(0xFF6366F1),
         'onTap': () => _openTripInspiration()
+      },
+      {
+        'title': 'AI Co-Pilot',
+        'desc': 'Smart assistance',
+        'icon': Icons.auto_awesome_rounded,
+        'color': const Color(0xFFA855F7),
+        'onTap': () => Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const SmartItineraryScreen()))
       },
     ];
 
@@ -2127,7 +2143,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         const SizedBox(height: 14),
         LayoutBuilder(
           builder: (ctx, constraints) {
-            final colCount = isDesktop ? 6 : (isTablet ? 3 : 2);
+            final colCount = isDesktop ? 4 : (isTablet ? 4 : 2);
             return Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -4469,6 +4485,237 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Failed to load trip: $e')));
     }
+  }
+
+  Future<void> _openTripNavigation(dynamic trip, {bool autoStart = true}) async {
+    final name = (trip['name'] as String?) ?? 'Trip';
+    final endMeta = trip['end_point'];
+    final it =
+        trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
+
+    final startLat =
+        (trip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
+    final startLng =
+        (trip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
+    final endLat = (trip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
+    final endLng = (trip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
+
+    setState(() => _opening = true);
+    try {
+      final parts = name.split(' to ');
+      final startAddress = (trip['start_point']?['name'] ??
+              trip['start_point']?['address'] ??
+              (parts.isNotEmpty ? parts[0] : 'Start'))
+          .toString();
+      final endAddress = (trip['end_point']?['name'] ??
+              trip['end_point']?['address'] ??
+              (parts.length > 1 ? parts[1] : 'End'))
+          .toString();
+      final startPoint =
+          GeoPoint(lat: startLat, lng: startLng, name: startAddress);
+      final endPoint = GeoPoint(lat: endLat, lng: endLng, name: endAddress);
+
+      final List<dynamic> stopsList = trip['trip_stops'] ?? [];
+      stopsList.sort((a, b) => (a['order_index'] as int? ?? 0)
+          .compareTo(b['order_index'] as int? ?? 0));
+      final waypoints = stopsList
+          .map((s) => GeoPoint(
+              lat: (s['lat'] as num).toDouble(),
+              lng: (s['lng'] as num).toDouble(),
+              name: s['name'] as String? ?? 'Waypoint'))
+          .toList();
+
+      final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
+      final savedVehicle =
+          trip['end_point'] is Map ? trip['end_point']['vehicle'] : null;
+      final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
+
+      final plan = await _api.planTrip(
+          start: startPoint,
+          end: endPoint,
+          waypoints: waypoints,
+          vehicle: vehicle);
+      if (!mounted) return;
+      setState(() => _opening = false);
+
+      final ts =
+          trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
+      DateTime? savedStart;
+      if (ts is String) savedStart = DateTime.tryParse(ts);
+      List<Map<String, dynamic>>? savedItinerary;
+      if (it is List) {
+        savedItinerary =
+            it.map((e) => (e as Map).cast<String, dynamic>()).toList();
+      }
+
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => TripScreen(
+          plan: plan,
+          startAddress: startAddress,
+          endAddress: endAddress,
+          vehicleType: vehicleType,
+          poiCategories: const [
+            'restaurant',
+            'attraction',
+            'hotel',
+            'fuel',
+            'ev',
+            'viewpoint'
+          ],
+          start: startPoint,
+          end: endPoint,
+          waypoints: waypoints,
+          vehicle: vehicle,
+          initialTripStart: savedStart,
+          savedItinerary: savedItinerary,
+          autoStartNavigation: autoStart,
+        ),
+      ));
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _opening = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load navigation: $e')));
+    }
+  }
+
+  void _startLiveNavFlow() {
+    if (_activeTrip != null) {
+      _openTripNavigation(_activeTrip!, autoStart: true);
+      return;
+    }
+    if (_trips.isNotEmpty) {
+      _showLiveNavTripSelector();
+      return;
+    }
+    _planTrip();
+  }
+
+  void _showLiveNavTripSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF0F172A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Row(
+                  children: [
+                    Icon(Icons.navigation_rounded,
+                        color: Color(0xFF10B981), size: 24),
+                    SizedBox(width: 10),
+                    Text(
+                      'Live Navigation',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Select a route to start turn-by-turn GPS navigation:',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.7),
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: _trips.take(4).length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final trip = _trips[i];
+                      final name = (trip['name'] ?? 'Road Trip').toString();
+                      return Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1E293B),
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08)),
+                        ),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 4),
+                          leading: const CircleAvatar(
+                            backgroundColor: Color(0xFF10B981),
+                            child: Icon(Icons.navigation_rounded,
+                                color: Colors.white, size: 20),
+                          ),
+                          title: Text(
+                            name,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15),
+                          ),
+                          trailing: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              _openTripNavigation(trip, autoStart: true);
+                            },
+                            child: const Text('Start Nav',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF38BDF8),
+                    side: const BorderSide(color: Color(0xFF38BDF8)),
+                    minimumSize: const Size(double.infinity, 46),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _planTrip();
+                  },
+                  icon: const Icon(Icons.add_road_rounded, size: 18),
+                  label: const Text('Plan New Route to Navigate'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
 

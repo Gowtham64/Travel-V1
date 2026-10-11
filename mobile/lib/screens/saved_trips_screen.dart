@@ -400,120 +400,160 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     final start = (trip['start_point']?['name'] ?? trip['start_point']?['address'] ?? (parts.isNotEmpty ? parts.first : 'Start')).toString();
     final end = (trip['end_point']?['name'] ?? trip['end_point']?['address'] ?? (parts.length > 1 ? parts.last : 'End')).toString();
 
+    final endMeta = trip['end_point'];
+    final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
+    final tripKey = endMeta is Map ? endMeta['tripKey'] : null;
+    final hasItinerary = tripKey != null || (it is List && it.isNotEmpty);
+
     return _buildTripCard(
       trip: trip,
       start: start,
       end: end,
-      onTap: () async {
-              final endMeta = trip['end_point'];
-              final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
-              final tripKey = endMeta is Map ? endMeta['tripKey'] : null;
-
-              // If it's a day-planner/itinerary trip, open in DayPlannerScreen directly
-              if (tripKey != null || (it is List && it.isNotEmpty)) {
-                await Navigator.of(context).push(MaterialPageRoute(
-                  builder: (_) => DayPlannerScreen(
-                    tripKey: tripKey?.toString() ?? 'smart_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
-                    tripName: name,
-                  ),
-                ));
-                _loadTrips();
-                return;
-              }
-
-              final startLat = (trip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
-              final startLng = (trip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
-              final endLat = (trip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
-              final endLng = (trip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
-
-              try {
-                setState(() {
-                  _loadingTripDetails = true;
-                });
-
-                final startPoint = GeoPoint(
-                  lat: startLat,
-                  lng: startLng,
-                  name: start,
-                );
-                final endPoint = GeoPoint(
-                  lat: endLat,
-                  lng: endLng,
-                  name: end,
-                );
-
-                final List<dynamic> stopsList = trip['trip_stops'] ?? [];
-                stopsList.sort((a, b) => (a['order_index'] as int? ?? 0).compareTo(b['order_index'] as int? ?? 0));
-                
-                final List<GeoPoint> waypoints = stopsList.map((stop) => GeoPoint(
-                  lat: (stop['lat'] as num).toDouble(),
-                  lng: (stop['lng'] as num).toDouble(),
-                  name: stop['name'] as String? ?? 'Waypoint',
-                )).toList();
-
-                final String vehicleType = trip['vehicle_type'] ?? 'car';
-                // Prefer the exact vehicle spec saved with the trip; only fall
-                // back to a type-based guess for older trips saved before specs
-                // were persisted.
-                final savedVehicle = trip['end_point'] is Map
-                    ? trip['end_point']['vehicle']
-                    : null;
-                final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
-
-                final plan = await _api.planTrip(
-                  start: startPoint,
-                  end: endPoint,
-                  waypoints: waypoints,
-                  vehicle: vehicle,
-                );
-
-                final endMeta = trip['end_point'];
-                DateTime? savedStart;
-                final ts = trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
-                if (ts is String) savedStart = DateTime.tryParse(ts);
-                List<Map<String, dynamic>>? savedItinerary;
-                final it = trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
-                if (it is List) {
-                  savedItinerary = it.map((e) => (e as Map).cast<String, dynamic>()).toList();
-                }
-
-                if (mounted) {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => TripScreen(
-                        plan: plan,
-                        startAddress: start,
-                        endAddress: end,
-                        vehicleType: vehicleType,
-                        poiCategories: const ['restaurant', 'attraction', 'hotel', 'fuel', 'ev', 'viewpoint'],
-                        start: startPoint,
-                        end: endPoint,
-                        waypoints: waypoints,
-                        vehicle: vehicle,
-                        initialTripStart: savedStart,
-                        savedItinerary: savedItinerary,
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to load trip: $e'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              } finally {
-                if (mounted) {
-                  setState(() {
-                    _loadingTripDetails = false;
-                  });
-                }
-              }
-            },
+      hasItinerary: hasItinerary,
+      onOpenItinerary: hasItinerary
+          ? () async {
+              await Navigator.of(context).push(MaterialPageRoute(
+                builder: (_) => DayPlannerScreen(
+                  tripKey: tripKey?.toString() ??
+                      'smart_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+                  tripName: name,
+                ),
+              ));
+              _loadTrips();
+            }
+          : null,
+      onNavigate: () => _openTripNavigation(trip, autoStart: true),
+      onTap: () {
+        if (hasItinerary) {
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => DayPlannerScreen(
+              tripKey: tripKey?.toString() ??
+                  'smart_${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_')}',
+              tripName: name,
+            ),
+          )).then((_) => _loadTrips());
+        } else {
+          _openTripNavigation(trip, autoStart: false);
+        }
+      },
     );
+  }
+
+  Future<void> _openTripNavigation(dynamic trip, {bool autoStart = true}) async {
+    final name = (trip['name'] as String?) ?? 'Trip';
+    final parts = name.split(' to ');
+    final start = (trip['start_point']?['name'] ??
+            trip['start_point']?['address'] ??
+            (parts.isNotEmpty ? parts.first : 'Start'))
+        .toString();
+    final end = (trip['end_point']?['name'] ??
+            trip['end_point']?['address'] ??
+            (parts.length > 1 ? parts.last : 'End'))
+        .toString();
+
+    final startLat =
+        (trip['start_point']?['lat'] as num?)?.toDouble() ?? 12.9716;
+    final startLng =
+        (trip['start_point']?['lng'] as num?)?.toDouble() ?? 77.5946;
+    final endLat = (trip['end_point']?['lat'] as num?)?.toDouble() ?? 12.2958;
+    final endLng = (trip['end_point']?['lng'] as num?)?.toDouble() ?? 76.6394;
+
+    try {
+      setState(() {
+        _loadingTripDetails = true;
+      });
+
+      final startPoint = GeoPoint(
+        lat: startLat,
+        lng: startLng,
+        name: start,
+      );
+      final endPoint = GeoPoint(
+        lat: endLat,
+        lng: endLng,
+        name: end,
+      );
+
+      final List<dynamic> stopsList = trip['trip_stops'] ?? [];
+      stopsList.sort((a, b) => (a['order_index'] as int? ?? 0)
+          .compareTo(b['order_index'] as int? ?? 0));
+
+      final List<GeoPoint> waypoints = stopsList
+          .map((stop) => GeoPoint(
+                lat: (stop['lat'] as num).toDouble(),
+                lng: (stop['lng'] as num).toDouble(),
+                name: stop['name'] as String? ?? 'Waypoint',
+              ))
+          .toList();
+
+      final String vehicleType = trip['vehicle_type'] ?? 'car';
+      final savedVehicle =
+          trip['end_point'] is Map ? trip['end_point']['vehicle'] : null;
+      final vehicle = _vehicleFromSaved(savedVehicle, vehicleType);
+
+      final plan = await _api.planTrip(
+        start: startPoint,
+        end: endPoint,
+        waypoints: waypoints,
+        vehicle: vehicle,
+      );
+
+      final endMeta = trip['end_point'];
+      DateTime? savedStart;
+      final ts =
+          trip['trip_start'] ?? (endMeta is Map ? endMeta['tripStart'] : null);
+      if (ts is String) savedStart = DateTime.tryParse(ts);
+      List<Map<String, dynamic>>? savedItinerary;
+      final it =
+          trip['itinerary'] ?? (endMeta is Map ? endMeta['itinerary'] : null);
+      if (it is List) {
+        savedItinerary =
+            it.map((e) => (e as Map).cast<String, dynamic>()).toList();
+      }
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => TripScreen(
+              plan: plan,
+              startAddress: start,
+              endAddress: end,
+              vehicleType: vehicleType,
+              poiCategories: const [
+                'restaurant',
+                'attraction',
+                'hotel',
+                'fuel',
+                'ev',
+                'viewpoint'
+              ],
+              start: startPoint,
+              end: endPoint,
+              waypoints: waypoints,
+              vehicle: vehicle,
+              initialTripStart: savedStart,
+              savedItinerary: savedItinerary,
+              autoStartNavigation: autoStart,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load navigation: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loadingTripDetails = false;
+        });
+      }
+    }
   }
 
   Future<void> _duplicateTrip(dynamic trip) async {
@@ -579,6 +619,9 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
     required dynamic trip,
     required String start,
     required String end,
+    bool hasItinerary = false,
+    VoidCallback? onOpenItinerary,
+    required VoidCallback onNavigate,
     required VoidCallback onTap,
   }) {
     final vehicleType = (trip['vehicle_type'] ?? 'car').toString();
@@ -739,7 +782,7 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
 
             const SizedBox(height: 14),
 
-            // Actions Row: Continue Trip, Start Navigation, Edit
+            // Actions Row: Edit, Itinerary (if available), Start Nav
             Row(
               children: [
                 Expanded(
@@ -754,15 +797,30 @@ class _SavedTripsScreenState extends State<SavedTripsScreen> {
                     label: const Text('Edit Trip', style: TextStyle(color: Color(0xFF38BDF8), fontSize: 12, fontWeight: FontWeight.w700)),
                   ),
                 ),
+                if (hasItinerary && onOpenItinerary != null) ...[
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFFA855F7)),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: onOpenItinerary,
+                      icon: const Icon(Icons.event_note_rounded, color: Color(0xFFA855F7), size: 15),
+                      label: const Text('Itinerary', style: TextStyle(color: Color(0xFFA855F7), fontSize: 12, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2563EB),
+                      backgroundColor: const Color(0xFF10B981),
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
-                    onPressed: onTap,
+                    onPressed: onNavigate,
                     icon: const Icon(Icons.navigation_rounded, color: Colors.white, size: 15),
                     label: const Text('Start Nav', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
                   ),

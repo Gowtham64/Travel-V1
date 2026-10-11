@@ -435,6 +435,7 @@ class _TripInspirationWidgetState extends State<TripInspirationWidget> {
           savedItinerary: (_generatedItinerary?['days'] as List<dynamic>?)
               ?.map((e) => Map<String, dynamic>.from(e as Map))
               .toList(),
+          autoStartNavigation: true,
         ),
       ),
     );
