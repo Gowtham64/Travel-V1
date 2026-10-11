@@ -436,7 +436,7 @@ async function getRoute(start, end, waypoints = [], options = {}) {
           provider: "Mapbox",
         });
 
-        const validation = validateRoute(start, end, waypoints, canonical, 5000);
+        const validation = validateRoute(start, end, waypoints, canonical);
         if (validation.valid) {
           cacheRoute(hash, canonical);
           logRouteResponse(start, end, canonical, "Mapbox");
@@ -513,7 +513,7 @@ async function getRoute(start, end, waypoints = [], options = {}) {
           provider: "OpenRouteService",
         });
 
-        const validation = validateRoute(start, end, waypoints, canonical, 5000);
+        const validation = validateRoute(start, end, waypoints, canonical);
         if (validation.valid) {
           cacheRoute(hash, canonical);
           logRouteResponse(start, end, canonical, "OpenRouteService");

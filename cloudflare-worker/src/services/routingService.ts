@@ -551,7 +551,7 @@ async function getRoute(start: any, end?: any, waypoints: any = [], options: any
     if (!fetchFn) continue;
     const result = await fetchFn(start, end, waypoints, options);
     if (result) {
-      const validation = validateRoute(start, end, waypoints, result, 5000);
+      const validation = validateRoute(start, end, waypoints, result);
       if (validation.valid) {
         cacheRoute(hash, result);
         logRouteResponse(start, end, result, result.provider);
