@@ -469,8 +469,48 @@ async function fetchOsrmRoute(start: any, end: any, waypoints: any, options: any
         avoidedMotorways: options.avoidMotorways, provider: "OSRM",
       });
     }
-  } catch (err) { console.error("OSRM failed:", err.message); }
-  return null;
+  } catch (err: any) { console.error("OSRM failed:", err.message); }
+
+  // Emergency Fallback: interpolate along straight line
+  console.warn("All routing providers failed. Falling back to emergency road interpolation.");
+  const allPts = prepareRoutePoints(start, end, waypoints);
+  const interpolated = [];
+  let totalDistMeters = 0;
+
+  for (let i = 0; i < allPts.length - 1; i++) {
+    const p0 = allPts[i];
+    const p1 = allPts[i + 1];
+    const d = haversineMeters(p0, p1);
+    totalDistMeters += d;
+    const steps = Math.max(10, Math.min(50, Math.round(d / 500)));
+    for (let s = (i === 0 ? 0 : 1); s <= steps; s++) {
+      interpolated.push(interpolatePoint(p0, p1, s / steps));
+    }
+  }
+
+  const inflatedMeters = Math.round(totalDistMeters * 1.35); // standard road winding factor
+  const estDurationSeconds = Math.round((inflatedMeters / 1000 / 60) * 3600); // ~60 km/h average speed
+
+  return buildCanonicalRouteResult({
+    origin: start,
+    destination: end,
+    waypoints,
+    coordinates: interpolated,
+    distanceMeters: inflatedMeters,
+    durationSeconds: estDurationSeconds,
+    legs: [
+      {
+        legIndex: 0,
+        distanceMeters: inflatedMeters,
+        durationSeconds: estDurationSeconds,
+        steps: [],
+      },
+    ],
+    steps: [],
+    maneuvers: [],
+    avoidedMotorways: options.avoidMotorways,
+    provider: "Emergency Interpolation",
+  });
 }
 
 async function getRoute(start: any, end?: any, waypoints: any = [], options: any = {}) {
