@@ -27,7 +27,7 @@ health.get('/ready', async (c) => {
     if (client && !c.env.SUPABASE_URL?.includes('mock')) {
       const probePromise = client.from('route_cache').select('route_hash').limit(1);
       const timeoutPromise = new Promise<{ error: any }>((_, reject) =>
-        setTimeout(() => reject(new Error('timeout')), 1200)
+        setTimeout(() => reject(new Error('timeout')), 4000)
       );
       const result = await Promise.race([probePromise, timeoutPromise]) as any;
       if (result.error && result.error.code !== 'PGRST116') {

@@ -1405,7 +1405,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$baseUrl/api/ai/recommend'),
-          headers: {'Content-Type': 'application/json'},
+          headers: await _authHeaders(),
           body:
               jsonEncode({'start': start, 'end': end, 'waypoints': waypoints}),
         )
@@ -1431,7 +1431,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/ai/search'),
-            headers: {'Content-Type': 'application/json'},
+            headers: await _authHeaders(),
             body: jsonEncode({'query': query, if (near != null) 'near': near}),
           )
           .timeout(const Duration(seconds: 8));
@@ -1488,7 +1488,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/ai/itinerary'),
-            headers: {'Content-Type': 'application/json'},
+            headers: await _authHeaders(),
             body: jsonEncode({
               'start': start,
               'end': end,
@@ -1574,7 +1574,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/ai/smart-itinerary'),
-            headers: {'Content-Type': 'application/json'},
+            headers: await _authHeaders(),
             body: jsonEncode({
               'destination': destination,
               'startLocation': startLocation,
@@ -1722,7 +1722,7 @@ class ApiService {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/ai/recalculate-itinerary'),
-            headers: {'Content-Type': 'application/json'},
+            headers: await _authHeaders(),
             body: jsonEncode({
               'days': days.map((d) => d.toJson()).toList(),
               if (startTime != null) 'startTime': startTime,
@@ -3677,7 +3677,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$baseUrl/api/ai/travel-options'),
-          headers: {'Content-Type': 'application/json'},
+          headers: await _authHeaders(),
           body: jsonEncode({
             'to': to,
             'from': from,
@@ -3719,7 +3719,7 @@ class ApiService {
     final response = await http
         .post(
           Uri.parse('$baseUrl/api/ai/ask'),
-          headers: {'Content-Type': 'application/json'},
+          headers: await _authHeaders(),
           body: jsonEncode(
               {'question': question, if (context != null) 'context': context}),
         )

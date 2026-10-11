@@ -706,12 +706,13 @@ async function planItinerary(params: any = {}) {
   }
 
   // Step 1 & 2: Pre-Flight Destination Validation & Hard Locking (Requirements #1, #2, #3, #9, #12)
-  const destPt = await resolveLocation(destination, "Trip Destination");
-  if (!destPt || !Number.isFinite(destPt.lat) || !Number.isFinite(destPt.lng) || (destPt.lat === 0 && destPt.lng === 0)) {
-    throw new Error("We couldn't identify the selected destination. Please select the destination again.");
-  }
+  
+  const [destPt, startPt_raw] = await Promise.all([
+    resolveLocation(destination, "Trip Destination"),
+    resolveLocation(startLocation || destination, "Trip Origin")
+  ]);
+  const startPt = startPt_raw || destPt;
 
-  const startPt = await resolveLocation(startLocation || destPt, "Trip Origin");
   if (!startPt || !Number.isFinite(startPt.lat) || !Number.isFinite(startPt.lng) || (startPt.lat === 0 && startPt.lng === 0)) {
     throw new Error("We couldn't identify the starting location. Please select the starting point again.");
   }
@@ -767,21 +768,22 @@ async function planItinerary(params: any = {}) {
   const rawCandidates = [];
 
     // A. User-specified places take top priority
-    for (const p of places) {
-      if (!p) continue;
-      const resolved = await resolveLocation(p, String(p), lockedDestination);
-      if (resolved) {
-        rawCandidates.push({
+    const resolvedUserPlaces = await Promise.all(
+      places.filter(Boolean).map(async (p) => {
+        const resolved = await resolveLocation(p, String(p), lockedDestination);
+        if (!resolved) return null;
+        return {
           ...resolved,
           placeId: resolved.placeId || `user_${Math.round(resolved.lat * 10000)}_${Math.round(resolved.lng * 10000)}`,
           isUserSpecified: true,
           category: resolved.category || "famous_places",
           source: "user_specified",
-        });
-      }
-    }
+        };
+      })
+    );
+    rawCandidates.push(...resolvedUserPlaces.filter(Boolean));
 
-    // B. Curated database matching strictly near destination or along practical corridor
+    // B. Curated places matching strictly near destination or along practical corridor
     for (const cp of curatedPlaces) {
       const distToDest = haversineDistanceKm(lockedDestination, cp);
       const distToStart = haversineDistanceKm(startPt, cp);
@@ -934,23 +936,58 @@ async function planItinerary(params: any = {}) {
   const tankCapacity = Number(vehicle.tankCapacityLiters) > 0 ? Number(vehicle.tankCapacityLiters) : (vehicle.type === "bike" ? 13 : 45);
   const currentFuel = Number(vehicle.currentFuelLiters) > 0 ? Number(vehicle.currentFuelLiters) : tankCapacity * 0.7;
 
-  // Distribute destination sights across days
-  // Day 1 gets outbound midway stops + Destination Arrival + some dest sights
+  // Distribute destination sights across days - DISTANCE AWARE
   const dayBuckets = [];
   const remainingDestStops = [...optimizedDestStops];
+  
+  // Constraints for a "smooth" day
+  const MAX_LOCAL_KM_PER_DAY = 60; 
+  const MAX_STOPS_PER_DAY = 5;
 
   if (totalDays === 1) {
     dayBuckets.push([...midwayOutboundStops, ...remainingDestStops]);
   } else {
-    // Multi-day trip: Day 1 takes all midway outbound stops + up to 2 initial dest sights
-    const day1DestSights = remainingDestStops.splice(0, Math.min(2, Math.ceil(remainingDestStops.length / totalDays)));
-    dayBuckets.push([...midwayOutboundStops, ...day1DestSights]);
+    // Day 1: Outbound midway stops + Destination Arrival + initial sights
+    const day1Bucket = [...midwayOutboundStops];
+    let day1Km = 0;
+    
+    while (remainingDestStops.length > 0 && day1Bucket.length < MAX_STOPS_PER_DAY) {
+      const nextStop = remainingDestStops[0];
+      // We use haversine for quick distance check here
+      const dist = Math.sqrt(Math.pow(nextStop.lat - lockedDestination.lat, 2) + Math.pow(nextStop.lng - lockedDestination.lng, 2)) * 111;
+      if (day1Km + dist > MAX_LOCAL_KM_PER_DAY) break;
+      
+      day1Bucket.push(remainingDestStops.shift());
+      day1Km += dist;
+    }
+    dayBuckets.push(day1Bucket);
 
-    // Subsequent days share remaining destination sights
-    const daysRemaining = totalDays - 1;
-    const perDay = Math.ceil(remainingDestStops.length / daysRemaining) || 1;
-    for (let d = 1; d < totalDays; d++) {
-      dayBuckets.push(remainingDestStops.splice(0, perDay));
+    // Subsequent days: Distribute remaining sights by distance and count
+    while (remainingDestStops.length > 0 && dayBuckets.length < totalDays) {
+      const currentDayBucket = [];
+      let currentDayKm = 0;
+      let lastLoc = lockedDestination;
+
+      while (remainingDestStops.length > 0 && currentDayBucket.length < MAX_STOPS_PER_DAY) {
+        const nextStop = remainingDestStops[0];
+        const dist = Math.sqrt(Math.pow(nextStop.lat - lastLoc.lat, 2) + Math.pow(nextStop.lng - lastLoc.lng, 2)) * 111;
+        if (currentDayKm + dist > MAX_LOCAL_KM_PER_DAY) break;
+
+        currentDayBucket.push(remainingDestStops.shift());
+        currentDayKm += dist;
+        lastLoc = nextStop;
+      }
+      dayBuckets.push(currentDayBucket);
+    }
+    
+    // If we have sights left but no more days, dump them into the last day
+    if (remainingDestStops.length > 0) {
+      dayBuckets[dayBuckets.length - 1].push(...remainingDestStops);
+    }
+    
+    // Fill empty days if any
+    while (dayBuckets.length < totalDays) {
+      dayBuckets.push([]);
     }
   }
 

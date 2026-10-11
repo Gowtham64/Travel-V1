@@ -231,7 +231,7 @@ describe("VoyPlan Cloudflare Worker API", () => {
       expect(typeof json.configured).toBe("boolean");
     });
 
-    it("POST /api/ai/recommend returns 400 when location missing", async () => {
+    it("POST /api/ai/recommend returns 401 when unauthorized", async () => {
       const res = await app.request(
         "/api/ai/recommend",
         {
@@ -241,7 +241,7 @@ describe("VoyPlan Cloudflare Worker API", () => {
         },
         mockEnv
       );
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(401);
       const json = await res.json() as any;
       expect(json.error).toBeDefined();
     });

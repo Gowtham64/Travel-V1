@@ -1,3 +1,4 @@
+import { requireAuth } from "../middleware/auth";
 import { Hono } from "hono";
 import type { Env, Variables } from "../types/env";
 import { aiRateLimiter } from "../middleware/rateLimit";
@@ -23,8 +24,17 @@ import { normalizeTripType } from "../utils/tripType";
 
 const aiRouter = new Hono<{ Bindings: Env; Variables: Variables }>();
 
-// Apply AI rate limiter (30 req / 1 min)
+// Apply AI rate limiter (30 req / 1 min) across all AI routes
 aiRouter.use("*", aiRateLimiter);
+
+// Secure AI Endpoints: require Supabase authentication for all credit-consuming functions
+aiRouter.use("/recommend", requireAuth);
+aiRouter.use("/search", requireAuth);
+aiRouter.use("/travel-options", requireAuth);
+aiRouter.use("/itinerary", requireAuth);
+aiRouter.use("/smart-itinerary", requireAuth);
+aiRouter.use("/recalculate-itinerary", requireAuth);
+aiRouter.use("/ask", requireAuth);
 
 // Generous bounding box for India (mainland + islands).
 function isInIndia(pt: { lat: number; lng: number } | null) {
@@ -225,6 +235,7 @@ aiRouter.post("/smart-itinerary", async (c) => {
   try {
     const startLocation = normalizeLocationInput(b.startLocation) || normalizeLocationInput(b.destination);
     const destination = normalizeLocationInput(b.destination) || startLocation;
+    const geocodePromise = geocode(destination, "").catch(() => null);
     let resolvedDate = b.startDate ? String(b.startDate) : "";
     let resolvedTime = b.startTime ? String(b.startTime) : "";
     if (b.startDateTime && (!resolvedDate || !resolvedTime)) {
@@ -344,7 +355,7 @@ aiRouter.post("/smart-itinerary", async (c) => {
       const transportLegs: any[] = [];
       let international = false;
       try {
-        const destPt = await geocode(destination, "");
+        const destPt = await geocodePromise;
         if (destPt) international = !isInIndia(destPt);
       } catch (_) {}
 
@@ -473,16 +484,16 @@ aiRouter.post("/recalculate-itinerary", async (c) => {
     let destPoint: any = null;
     const intermediateStops: any[] = [];
 
-    if (b.origin || b.startLocation) {
-      try {
-        startPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.origin || b.startLocation), "Origin");
-      } catch (_) {}
-    }
-    if (b.destination) {
-      try {
-        destPoint = await itineraryEngine.resolveLocation(normalizeLocationInput(b.destination), "Destination", startPoint);
-      } catch (_) {}
-    }
+    const [resStart, resDest] = await Promise.all([
+      (b.origin || b.startLocation)
+        ? itineraryEngine.resolveLocation(normalizeLocationInput(b.origin || b.startLocation), "Origin").catch(() => null)
+        : Promise.resolve(null),
+      b.destination
+        ? itineraryEngine.resolveLocation(normalizeLocationInput(b.destination), "Destination").catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    if (resStart) startPoint = resStart;
+    if (resDest) destPoint = resDest;
 
     for (const day of days) {
       const blocks = Array.isArray(day.blocks) ? day.blocks : [];

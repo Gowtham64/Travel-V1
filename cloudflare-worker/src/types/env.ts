@@ -24,6 +24,9 @@ export interface Env {
 
   // Admin Tokens
   PRICE_ADMIN_TOKEN?: string;
+
+  // Cloudflare KV Bindings
+  RATE_LIMIT_KV?: KVNamespace;
 }
 
 export interface AppVariables {

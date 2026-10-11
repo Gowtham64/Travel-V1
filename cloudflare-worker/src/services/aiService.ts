@@ -1,3 +1,13 @@
+function sanitizeInput(input: any): string {
+  if (typeof input !== "string") return String(input || "");
+  return input
+    .replace(/[\0\x08\x0B\x0C]/g, "")
+    .replace(/\r\n|\r|\n/g, " ")
+    .replace(/\t/g, " ")
+    .replace(/(?:ignore|disregard|forget|override)\s+(?:all\s+)?(?:previous|prior|above)\s+(?:instructions|rules|prompts|commands)/gi, "[REDACTED]")
+    .replace(/(?:you\s+are\s+now|system\s*prompt|system\s*directive|jailbreak|DAN\s+mode)/gi, "[REDACTED]")
+    .trim();
+}
 import CURATED_PLACES from "../data/curatedPlaces.json";
 import { haversineDistanceKm } from "../utils/geo";
 import { MAJOR_CITIES } from "../data/majorCities";
@@ -121,7 +131,11 @@ async function recommendStops({ start, end, waypoints = [] }) {
   const via = waypoints.length ? ` via ${waypoints.join(", ")}` : "";
   const prompt =
     `Suggest up to 8 genuinely notable, popular places to stop and visit on a road trip ` +
-    `from "${start}" to "${end}"${via}. Prefer well-known attractions, viewpoints, temples, ` +
+    `from ###START###
+${sanitizeInput(start)}
+###END### to ###START###
+${sanitizeInput(end)}
+###END###${via}. Prefer well-known attractions, viewpoints, temples, ` +
     `forts, waterfalls, lakes and towns roughly on or near the route. ${PLACES_JSON_HINT}`;
   return safeParsePlaces(await generate(prompt, {
     system: "You are a concise, accurate India-aware road-trip guide. Only suggest real places.",
@@ -133,7 +147,9 @@ async function searchPlaces({ query, near }) {
   const qClean = (query || "").trim().toLowerCase();
   try {
     const anchor = near ? ` near ${near}` : "";
-    const prompt = `Find up to 8 real, specific places matching this request${anchor}: "${query}". ${PLACES_JSON_HINT}`;
+    const prompt = `Find up to 8 real, specific places matching this request${anchor}: ###INPUT###
+${sanitizeInput(query)}
+###END###. ${PLACES_JSON_HINT}`;
     const res = safeParsePlaces(await generate(prompt, {
       system: "You are a concise, accurate travel search assistant. Only return real, specific places.",
       json: true,
@@ -216,7 +232,9 @@ async function travelOptions({ from, to, startDate = "", travellers = 1, nights 
   const paxLine = Number(travellers) > 1 ? `for ${travellers} travellers ` : "";
   const nightsLine = Number(nights) > 0 ? `staying ${nights} night(s) ` : "";
   const prompt =
-    `Suggest realistic travel and stay options for a trip from ${origin} to "${to}" ${dateLine}${paxLine}${nightsLine}. ` +
+    `Suggest realistic travel and stay options for a trip from ${origin} to ###DESTINATION###
+${sanitizeInput(to)}
+###END### ${dateLine}${paxLine}${nightsLine}. ` +
     `flights: 2–4 realistic airline options for this route. Depart from the NEAREST major airport to the ` +
     `origin and name it in the route (e.g. Bengaluru BLR for Mandya). Prefer a NON-STOP flight when one ` +
     `genuinely operates between these cities; if NO direct flight exists, give the best CONNECTING options ` +
@@ -250,15 +268,18 @@ async function ask({ question, context }) {
   const ctx = context
     ? `\n\nTrip context:\n${Object.entries(context)
         .filter(([, v]) => v != null && v !== "")
-        .map(([k, v]) => `- ${k}: ${v}`)
+        .map(([k, v]) => `- ${sanitizeInput(k)}: ${sanitizeInput(v)}`)
         .join("\n")}`
     : "";
-  return generate(`${question}${ctx}`, {
-    system:
-      "You are Voyplan's road-trip assistant. Be concise, practical and specific. " +
-      "Use short paragraphs or bullet points. When asked for an itinerary, give a clear " +
-      "day-by-day plan with drive legs, stops, and meal/rest suggestions.",
-  });
+  return generate(
+    `User question:\n###USER_QUESTION###\n${sanitizeInput(question)}\n###END_USER_QUESTION###${ctx}`,
+    {
+      system:
+        "You are Voyplan's road-trip assistant. Be concise, practical and specific. " +
+        "Use short paragraphs or bullet points. When asked for an itinerary, give a clear " +
+        "day-by-day plan with drive legs, stops, and meal/rest suggestions.",
+    }
+  );
 }
 
 // Accepts {"days":[...]} or a bare array; normalizes each day + activity.
@@ -363,7 +384,11 @@ async function buildItinerary({ start, end, days = 1, waypoints = [], travellers
   const startPart = h24 < 12 ? "Morning" : (h24 < 17 ? "Afternoon" : (h24 < 21 ? "Evening" : "Night"));
 
   const prompt =
-    `Create a practical, realistic day-by-day travel itinerary for a road trip from "${start}" to "${end}"${via}, ` +
+    `Create a practical, realistic day-by-day travel itinerary for a road trip from ###START###
+${sanitizeInput(start)}
+###END### to ###START###
+${sanitizeInput(end)}
+###END###${via}, ` +
     `lasting ${days} day(s) for ${travellers} traveller(s)${purpose ? ` (${purpose} trip)` : ""}` +
     `${startDate ? `, starting ${startDate}` : ""}. ` +
     `CRITICAL TIME REQUIREMENT: Day 1 MUST start at exactly ${canonical12h} (${canonical24h}). NEVER convert PM to AM. Do not schedule Day 1 before ${canonical12h}. ` +

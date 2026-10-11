@@ -318,241 +318,137 @@ function buildCanonicalRouteResult({
  * @param {{avoidMotorways?:boolean}} [options]
  * @returns {Promise<RouteResult>}
  */
-async function getRoute(start: any, end?: any, waypoints: any = [], options: any = {}) {
-  // Support object-style parameter invocation: getRoute({ origin/start, destination/end, waypoints, options })
-  if (start && !end && (start.origin || start.start)) {
-    const obj = start;
-    start = obj.origin || obj.start;
-    end = obj.destination || obj.end;
-    waypoints = obj.waypoints || [];
-    options = obj.options || {};
+
+/**
+ * Regional provider preference to avoid known blind spots and reduce lag.
+ * Mapbox is generally best for cities, ORS for remote road trips.
+ */
+function getProviderPriority(lat, lng) {
+  // India region (approx)
+  if (lat >= 6.5 && lat <= 37.5 && lng >= 68.0 && lng <= 97.5) {
+    return ['mapbox', 'ors', 'osrm'];
   }
-
-  const avoidMotorways = options.avoidMotorways === true;
-  logRouteRequest(start, end, waypoints, options);
-
-  const hash = getRouteHash(start, end, waypoints, { avoidMotorways });
-
-  // 1. Try to get from cache first
-  const cached = await getCachedRoute(hash);
-  if (cached) {
-    const coordinatesCount = cached.coordinates ? cached.coordinates.length : 0;
-    const distance = cached.distanceKm || 0;
-    const isSimplified = distance > 2 && coordinatesCount < 45;
-
-    if (!isSimplified && cached.distanceMeters != null && cached.legs != null) {
-      console.log("Serving canonical route from cache...");
-      logRouteResponse(start, end, cached, `Cache (${cached.provider || "Supabase"})`);
-      return cached;
-    }
+  // Europe region (approx)
+  if (lat >= 34 && lat <= 71 && lng >= -25 && lng <= 45) {
+    return ['mapbox', 'osrm', 'ors'];
   }
+  // Default global
+  return ['mapbox', 'ors', 'osrm'];
+}
 
-  // 2. Mapbox Directions API (Primary)
+
+
+async function fetchMapboxRoute(start, end, waypoints, options) {
   const mapboxKey = process.env.MAPBOX_TOKEN;
-  if (mapboxKey) {
-    try {
-      console.log("Fetching traffic-aware canonical route from Mapbox Directions...");
-      const routePts = prepareRoutePoints(start, end, waypoints);
-      
-      let route = null;
-      if (routePts.length <= 25) {
-        const coordsString = routePts.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
-        const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
+  if (!mapboxKey) return null;
+  try {
+    const routePts = prepareRoutePoints(start, end, waypoints);
+    let route = null;
+    if (routePts.length <= 25) {
+      const coordsString = routePts.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+      const excludeParam = options.avoidMotorways ? "&exclude=motorway" : "";
+      const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
+      const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
+      const responseData: any = await response.json();
+      route = responseData?.routes?.[0];
+    } else {
+      const chunkSize = 24;
+      const mergedRoute: any = { distance: 0, duration: 0, geometry: { type: "LineString", coordinates: [] }, legs: [] };
+      for (let i = 0; i < routePts.length - 1; i += (chunkSize - 1)) {
+        const slice = routePts.slice(i, Math.min(i + chunkSize, routePts.length));
+        if (slice.length < 2) continue;
+        const coordsString = slice.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
+        const excludeParam = options.avoidMotorways ? "&exclude=motorway" : "";
         const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
         const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
         const responseData: any = await response.json();
-        route = responseData?.routes?.[0];
-      } else {
-        // Chunk requests for > 25 coordinates (Mapbox maximum is 25 per request)
-        const chunkSize = 24;
-        const mergedRoute: any = {
-          distance: 0,
-          duration: 0,
-          geometry: { type: "LineString", coordinates: [] },
-          legs: [],
-        };
-        for (let i = 0; i < routePts.length - 1; i += (chunkSize - 1)) {
-          const slice = routePts.slice(i, Math.min(i + chunkSize, routePts.length));
-          if (slice.length < 2) continue;
-          const coordsString = slice.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
-          const excludeParam = avoidMotorways ? "&exclude=motorway" : "";
-          const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordsString}?geometries=geojson&overview=full&steps=true${excludeParam}&access_token=${mapboxKey}`;
-          const response = await fetch(url, { signal: AbortSignal.timeout(12000) });
-          const responseData: any = await response.json();
-          const subRoute = responseData?.routes?.[0];
-          if (!subRoute || !subRoute.geometry?.coordinates) {
-            throw new Error(`Mapbox chunk at index ${i} failed`);
-          }
-          mergedRoute.distance += (subRoute.distance || 0);
-          mergedRoute.duration += (subRoute.duration || 0);
-          const subCoords = subRoute.geometry.coordinates;
-          if (mergedRoute.geometry.coordinates.length === 0) {
-            mergedRoute.geometry.coordinates.push(...subCoords);
-          } else {
-            mergedRoute.geometry.coordinates.push(...subCoords.slice(1));
-          }
-          if (Array.isArray(subRoute.legs)) {
-            mergedRoute.legs.push(...subRoute.legs);
-          }
-        }
-        route = mergedRoute;
+        const subRoute = responseData?.routes?.[0];
+        if (!subRoute || !subRoute.geometry?.coordinates) throw new Error("Mapbox chunk failed");
+        mergedRoute.distance += (subRoute.distance || 0);
+        mergedRoute.duration += (subRoute.duration || 0);
+        const subCoords = subRoute.geometry.coordinates;
+        if (mergedRoute.geometry.coordinates.length === 0) mergedRoute.geometry.coordinates.push(...subCoords);
+        else mergedRoute.geometry.coordinates.push(...subCoords.slice(1));
+        if (Array.isArray(subRoute.legs)) mergedRoute.legs.push(...subRoute.legs);
       }
-
-      if (route && route.geometry && Array.isArray(route.geometry.coordinates) && route.geometry.coordinates.length >= 2) {
-        const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-
-        const rawLegs = route.legs || [];
-        const legs = rawLegs.map((leg, legIdx) => ({
-          legIndex: legIdx,
-          distanceMeters: Math.round(leg.distance || 0),
-          durationSeconds: Math.round(leg.duration || 0),
-          steps: (leg.steps || []).map((st) => ({
-            instruction: st.maneuver?.instruction || st.name || "Proceed",
-            distanceMeters: Math.round(st.distance || 0),
-            durationSeconds: Math.round(st.duration || 0),
-            roadName: st.name || "",
-            maneuverType: st.maneuver?.type || "straight",
-            modifier: st.maneuver?.modifier || "",
-            location: st.maneuver?.location
-              ? { lat: st.maneuver.location[1], lng: st.maneuver.location[0] }
-              : null,
-          })),
-        }));
-
-        const allSteps = legs.flatMap((l) => l.steps);
-        const maneuvers = allSteps.map((s) => s.instruction);
-
-        const canonical = buildCanonicalRouteResult({
-          origin: start,
-          destination: end,
-          waypoints,
-          coordinates: coords,
-          geometry: route.geometry,
-          distanceMeters: route.distance,
-          durationSeconds: route.duration,
-          legs,
-          steps: allSteps,
-          maneuvers,
-          avoidedMotorways: avoidMotorways,
-          provider: "Mapbox",
-        });
-
-        const validation = validateRoute(start, end, waypoints, canonical, 5000);
-        if (validation.valid) {
-          cacheRoute(hash, canonical);
-          logRouteResponse(start, end, canonical, "Mapbox");
-          return canonical;
-        } else {
-          console.warn("[ROUTE VALIDATION] Mapbox route failed validation:", validation.reason);
-        }
-      }
-    } catch (e) {
-      console.error("Mapbox Directions API failed, falling back to ORS/OSRM:", e.message);
+      route = mergedRoute;
     }
-  }
-
-  // 3. Fallback 1: OpenRouteService if API key available
-  const apiKey = process.env.ORS_API_KEY;
-  if (apiKey) {
-    try {
-      console.log("Fetching route from OpenRouteService...");
-      const routePts = prepareRoutePoints(start, end, waypoints);
-      const coordinates = routePts.map((p) => [Number(p.lng.toFixed(6)), Number(p.lat.toFixed(6))]);
-      const body: any = {
-        coordinates,
-        instructions: true,
-        preference: "recommended",
-      };
-      if (avoidMotorways) {
-        body.options = { avoid_features: ["highways"] };
-      }
-
-      const response = await fetch(ORS_BASE_URL, {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(12000),
+    if (route && route.geometry && Array.isArray(route.geometry.coordinates) && route.geometry.coordinates.length >= 2) {
+      const coords = route.geometry.coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
+      const legs = (route.legs || []).map((leg: any, legIdx: number) => ({
+        legIndex: legIdx,
+        distanceMeters: Math.round(leg.distance || 0),
+        durationSeconds: Math.round(leg.duration || 0),
+        steps: (leg.steps || []).map((st: any) => ({
+          instruction: st.maneuver?.instruction || st.name || "Proceed",
+          distanceMeters: Math.round(st.distance || 0),
+          durationSeconds: Math.round(st.duration || 0),
+          roadName: st.name || "",
+          maneuverType: st.maneuver?.type || "straight",
+          modifier: st.maneuver?.modifier || "",
+          location: st.maneuver?.location ? { lat: st.maneuver.location[1], lng: st.maneuver.location[0] } : null,
+        })),
+      }));
+      return buildCanonicalRouteResult({
+        origin: start, destination: end, waypoints, coordinates: coords,
+        geometry: route.geometry, distanceMeters: route.distance, durationSeconds: route.duration,
+        legs, steps: legs.flatMap((l: any) => l.steps), maneuvers: legs.flatMap((l: any) => l.steps).map((s: any) => s.instruction),
+        avoidedMotorways: options.avoidMotorways, provider: "Mapbox",
       });
-
-      const responseData: any = await response.json();
-      const feature = responseData?.features?.[0];
-      if (feature && feature.geometry && Array.isArray(feature.geometry.coordinates)) {
-        const summary = feature.properties?.summary || {};
-        const coords = feature.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-
-        const segments = feature.properties?.segments || [];
-        const legs = segments.map((seg, segIdx) => ({
-          legIndex: segIdx,
-          distanceMeters: Math.round(seg.distance || 0),
-          durationSeconds: Math.round(seg.duration || 0),
-          steps: (seg.steps || []).map((st) => ({
-            instruction: st.instruction || "Follow road",
-            distanceMeters: Math.round(st.distance || 0),
-            durationSeconds: Math.round(st.duration || 0),
-            roadName: st.name || "",
-            maneuverType: String(st.type || "straight"),
-            modifier: "",
-            location: null,
-          })),
-        }));
-
-        const allSteps = legs.flatMap((l) => l.steps);
-        const maneuvers = allSteps.map((s) => s.instruction);
-
-        const canonical = buildCanonicalRouteResult({
-          origin: start,
-          destination: end,
-          waypoints,
-          coordinates: coords,
-          geometry: feature.geometry,
-          distanceMeters: summary.distance,
-          durationSeconds: summary.duration,
-          legs,
-          steps: allSteps,
-          maneuvers,
-          avoidedMotorways: avoidMotorways,
-          provider: "OpenRouteService",
-        });
-
-        const validation = validateRoute(start, end, waypoints, canonical, 5000);
-        if (validation.valid) {
-          cacheRoute(hash, canonical);
-          logRouteResponse(start, end, canonical, "OpenRouteService");
-          return canonical;
-        } else {
-          console.warn("[ROUTE VALIDATION] ORS route failed validation:", validation.reason);
-        }
-      }
-    } catch (e) {
-      console.warn("OpenRouteService failed, falling back to OSRM:", e.message);
     }
-  }
-
-  // 4. Fallback 2: Public Project-OSRM Router
-  return await getOsrmRoute(start, end, waypoints, hash, avoidMotorways);
+  } catch (e: any) { console.error("Mapbox failed:", e?.message || e); }
+  return null;
 }
 
-/**
- * Fetch route via OSRM high-resolution engine with steps and legs.
- */
-async function getOsrmRoute(start, end, waypoints = [], hash = null, avoidMotorways = false) {
+async function fetchOrsRoute(start: any, end: any, waypoints: any, options: any) {
+  const apiKey = process.env.ORS_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const routePts = prepareRoutePoints(start, end, waypoints);
+    const coordinates = routePts.map((p) => [Number(p.lng.toFixed(6)), Number(p.lat.toFixed(6))]);
+    const body: any = { coordinates, instructions: true, preference: "recommended" };
+    if (options.avoidMotorways) body.options = { avoid_features: ["highways"] };
+    const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car/geojson", {
+      method: "POST", headers: { Authorization: apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(12000),
+    });
+    const responseData: any = await response.json();
+    const feature = responseData?.features?.[0];
+    if (feature && feature.geometry && Array.isArray(feature.geometry.coordinates)) {
+      const summary = feature.properties?.summary || {};
+      const coords = feature.geometry.coordinates.map(([lng, lat]: [number, number]) => ({ lat, lng }));
+      const legs = (feature.properties?.segments || []).map((seg: any, segIdx: number) => ({
+        legIndex: segIdx,
+        distanceMeters: Math.round(seg.distance || 0),
+        durationSeconds: Math.round(seg.duration || 0),
+        steps: (seg.steps || []).map((st: any) => ({
+          instruction: st.instruction || "Follow road", distanceMeters: Math.round(st.distance || 0),
+          durationSeconds: Math.round(st.duration || 0), roadName: st.name || "",
+          maneuverType: String(st.type || "straight"), modifier: "", location: null,
+        })),
+      }));
+      return buildCanonicalRouteResult({
+        origin: start, destination: end, waypoints, coordinates: coords,
+        geometry: feature.geometry, distanceMeters: summary.distance, durationSeconds: summary.duration,
+        legs, steps: legs.flatMap((l: any) => l.steps), maneuvers: legs.flatMap((l: any) => l.steps).map((s: any) => s.instruction),
+        avoidedMotorways: options.avoidMotorways, provider: "OpenRouteService",
+      });
+    }
+  } catch (e: any) { console.warn("ORS failed:", e?.message || e); }
+  return null;
+}
+
+async function fetchOsrmRoute(start: any, end: any, waypoints: any, options: any) {
   try {
     const routePts = prepareRoutePoints(start, end, waypoints);
     const coordsStr = routePts.map((p) => `${p.lng.toFixed(6)},${p.lat.toFixed(6)}`).join(";");
     const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?overview=full&geometries=geojson&steps=true`;
-    console.log("Fetching real highway route from public OSRM router...");
     const resp = await fetch(url, { signal: AbortSignal.timeout(12000) });
     const respData: any = await resp.json();
     const route = respData?.routes?.[0];
-
     if (route && route.geometry && Array.isArray(route.geometry.coordinates)) {
       const coords = route.geometry.coordinates.map(([lng, lat]) => ({ lat, lng }));
-
-      const rawLegs = route.legs || [];
-      const legs = rawLegs.map((leg, legIdx) => ({
+      const legs = (route.legs || []).map((leg, legIdx) => ({
         legIndex: legIdx,
         distanceMeters: Math.round(leg.distance || 0),
         durationSeconds: Math.round(leg.duration || 0),
@@ -563,95 +459,70 @@ async function getOsrmRoute(start, end, waypoints = [], hash = null, avoidMotorw
           roadName: st.name || "",
           maneuverType: st.maneuver?.type || "straight",
           modifier: st.maneuver?.modifier || "",
-          location: st.maneuver?.location
-            ? { lat: st.maneuver.location[1], lng: st.maneuver.location[0] }
-            : null,
+          location: st.maneuver?.location ? { lat: st.maneuver.location[1], lng: st.maneuver.location[0] } : null,
         })),
       }));
-
-      const allSteps = legs.flatMap((l) => l.steps);
-      const maneuvers = allSteps.map((s) => s.instruction);
-
-      const canonical = buildCanonicalRouteResult({
-        origin: start,
-        destination: end,
-        waypoints,
-        coordinates: coords,
-        geometry: route.geometry,
-        distanceMeters: route.distance,
-        durationSeconds: route.duration,
-        legs,
-        steps: allSteps,
-        maneuvers,
-        avoidedMotorways: Boolean(avoidMotorways),
-        provider: "OSRM",
+      return buildCanonicalRouteResult({
+        origin: start, destination: end, waypoints, coordinates: coords,
+        geometry: route.geometry, distanceMeters: route.distance, durationSeconds: route.duration,
+        legs, steps: legs.flatMap(l => l.steps), maneuvers: legs.flatMap(l => l.steps).map(s => s.instruction),
+        avoidedMotorways: options.avoidMotorways, provider: "OSRM",
       });
-
-      const validation = validateRoute(start, end, waypoints, canonical, 5000);
-      if (!validation.valid) {
-        console.warn("[ROUTE VALIDATION] OSRM route validation warning:", validation.reason);
-      }
-
-      if (hash) cacheRoute(hash, canonical);
-      logRouteResponse(start, end, canonical, "OSRM");
-      return canonical;
     }
-  } catch (err) {
-    console.error("OSRM route fetch failed:", err.message);
-  }
-
-  // 5. Absolute Last-resort fallback: interpolate along straight line
-  console.warn("All routing providers failed. Falling back to emergency road interpolation.");
-  const allPts = prepareRoutePoints(start, end, waypoints);
-  const interpolated = [];
-  let totalDistMeters = 0;
-
-  for (let i = 0; i < allPts.length - 1; i++) {
-    const p0 = allPts[i];
-    const p1 = allPts[i + 1];
-    const d = haversineMeters(p0, p1);
-    totalDistMeters += d;
-    const steps = Math.max(10, Math.min(50, Math.round(d / 500)));
-    for (let s = (i === 0 ? 0 : 1); s <= steps; s++) {
-      interpolated.push(interpolatePoint(p0, p1, s / steps));
-    }
-  }
-
-  const inflatedMeters = Math.round(totalDistMeters * 1.35); // standard road winding factor
-  const estDurationSeconds = Math.round((inflatedMeters / 1000 / 60) * 3600); // ~60 km/h average speed
-
-  const canonical = buildCanonicalRouteResult({
-    origin: start,
-    destination: end,
-    waypoints,
-    coordinates: interpolated,
-    geometry: {
-      type: "LineString",
-      coordinates: interpolated.map((p) => [p.lng, p.lat]),
-    },
-    distanceMeters: inflatedMeters,
-    durationSeconds: estDurationSeconds,
-    legs: [
-      {
-        legIndex: 0,
-        distanceMeters: inflatedMeters,
-        durationSeconds: estDurationSeconds,
-        steps: [],
-      },
-    ],
-    steps: [],
-    maneuvers: [],
-    avoidedMotorways: Boolean(avoidMotorways),
-    provider: "Emergency Interpolation",
-  });
-
-  logRouteResponse(start, end, canonical, "Emergency Interpolation");
-  return canonical;
+  } catch (err) { console.error("OSRM failed:", err.message); }
+  return null;
 }
 
+async function getRoute(start: any, end?: any, waypoints: any = [], options: any = {}) {
+  if (start && !end && (start.origin || start.start)) {
+    const obj = start;
+    start = obj.origin || obj.start;
+    end = obj.destination || obj.end;
+    waypoints = obj.waypoints || [];
+    options = obj.options || {};
+  }
+
+  const avoidMotorways = options.avoidMotorways === true;
+  logRouteRequest(start, end, waypoints, options);
+  const hash = getRouteHash(start, end, waypoints, { avoidMotorways });
+
+  const cached = await getCachedRoute(hash);
+  if (cached && (!cached.distanceKm || cached.distanceKm > 2 || (cached.coordinates && cached.coordinates.length >= 45))) {
+    logRouteResponse(start, end, cached, `Cache (${cached.provider || "Supabase"})`);
+    return cached;
+  }
+
+  const pStart = toPoint(start);
+  const pEnd = toPoint(end);
+  const priority = getProviderPriority(pStart.lat, pStart.lng);
+
+  const providers: Record<string, Function> = {
+    mapbox: fetchMapboxRoute,
+    ors: fetchOrsRoute,
+    osrm: fetchOsrmRoute,
+  };
+
+  for (const providerKey of priority) {
+    const fetchFn = providers[providerKey];
+    if (!fetchFn) continue;
+    const result = await fetchFn(start, end, waypoints, options);
+    if (result) {
+      const validation = validateRoute(start, end, waypoints, result, 5000);
+      if (validation.valid) {
+        cacheRoute(hash, result);
+        logRouteResponse(start, end, result, result.provider);
+        return result;
+      }
+    }
+  }
+
+  // Emergency Fallback
+  return await fetchOsrmRoute(start, end, waypoints, options);
+}
 export {
   getRoute,
-  getOsrmRoute,
+  fetchOsrmRoute,
+  fetchOsrmRoute as getOsrmRoute,
   buildCanonicalRouteResult,
   validateRouteStartEnd,
   validateRoute,
