@@ -659,37 +659,27 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final fullRoutePoints =
         _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
 
-    // Mathematically calculate initial center and zoom to bypass layout race conditions
+    // Mathematically calculate initial center and zoom using true bounding box centroid
     LatLng mapCenter = const LatLng(20.5937, 78.9629);
     double mapZoom = 4.5;
     if (fullRoutePoints.length >= 2) {
-      final lats = fullRoutePoints.map((p) => p.latitude).toList();
-      final lngs = fullRoutePoints.map((p) => p.longitude).toList();
-      final midLat = lats.reduce((a, b) => a + b) / lats.length;
-      final midLng = lngs.reduce((a, b) => a + b) / lngs.length;
-      mapCenter = LatLng(midLat, midLng);
+      final minLat = fullRoutePoints.map((p) => p.latitude).reduce(min);
+      final maxLat = fullRoutePoints.map((p) => p.latitude).reduce(max);
+      final minLng = fullRoutePoints.map((p) => p.longitude).reduce(min);
+      final maxLng = fullRoutePoints.map((p) => p.longitude).reduce(max);
+      mapCenter = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
 
-      final latSpan = lats.reduce((a, b) => a > b ? a : b) -
-          lats.reduce((a, b) => a < b ? a : b);
-      final lngSpan = lngs.reduce((a, b) => a > b ? a : b) -
-          lngs.reduce((a, b) => a < b ? a : b);
-      final span = latSpan > lngSpan ? latSpan : lngSpan;
-      mapZoom = span < 0.5
-          ? 12.0
-          : span < 2
-              ? 9.0
-              : span < 5
-                  ? 7.0
-                  : span < 10
-                      ? 5.5
-                      : 4.5;
+      final latSpan = (maxLat - minLat).abs();
+      final lngSpan = (maxLng - minLng).abs();
+      final span = max(latSpan, lngSpan);
+      if (span > 0) {
+        final calcZoom = (log(360.0 / span) / ln2) - 0.7;
+        mapZoom = calcZoom.clamp(3.0, 15.5);
+      }
     }
 
-    // During the simulated preview we draw a growing trail; during live GPS
-    // navigation we keep the full route visible so the road ahead is shown.
-    final routePoints = (_isPlayingAnimation && !_isLiveNavigating)
-        ? fullRoutePoints.take(_animationIndex + 1).toList()
-        : fullRoutePoints;
+    // Keep full route accessible during simulated preview and navigation
+    final routePoints = fullRoutePoints;
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 900;
     final isMobile = !isDesktop;
@@ -751,31 +741,35 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               ),
               PolylineLayer(
                 polylines: [
-                  if (_isLiveNavigating &&
-                      _animatedVehiclePosition != null &&
+                  if ((_isLiveNavigating || _isPlayingAnimation) &&
                       fullRoutePoints.isNotEmpty) ...[
-                    // Traveled route (behind vehicle)
+                    // Traveled route (behind vehicle / playback head) in subdued slate
                     if (_animationIndex > 0)
                       Polyline(
                         points: [
                           ...fullRoutePoints.take(_animationIndex + 1),
-                          _animatedVehiclePosition!,
+                          if (_animatedVehiclePosition != null)
+                            _animatedVehiclePosition!,
                         ],
                         strokeWidth: 4.5,
                         color: const Color(0xFF64748B).withOpacity(0.55),
                       ),
-                    // Active route (ahead of vehicle) - starts EXACTLY at the vehicle marker
+                    // Active route (ahead of vehicle / playback head) with high-contrast Mapnik casing
                     Polyline(
                       points: [
-                        _animatedVehiclePosition!,
+                        if (_animatedVehiclePosition != null)
+                          _animatedVehiclePosition!
+                        else
+                          fullRoutePoints[_animationIndex.clamp(0, fullRoutePoints.length - 1)],
                         ...fullRoutePoints.skip(_animationIndex + 1),
                       ],
                       strokeWidth: 6.5,
                       color: const Color(0xFF0EA5E9),
                       borderColor: const Color(0xFF0369A1),
-                      borderStrokeWidth: 1.5,
+                      borderStrokeWidth: 1.8,
                     ),
                   ] else ...[
+                    // Full route with Mapnik-style high-contrast casing
                     Polyline(
                       points: routePoints.length > 200
                           ? PolylineSimplifier.simplify(
@@ -784,10 +778,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                                   _mapController.camera.zoom),
                             )
                           : routePoints,
-                      strokeWidth: 6.0,
+                      strokeWidth: 6.5,
                       color: const Color(0xFF0EA5E9),
                       borderColor: const Color(0xFF0369A1),
-                      borderStrokeWidth: 1.2,
+                      borderStrokeWidth: 1.8,
                     ),
                   ],
                 ],
@@ -4791,12 +4785,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
             child: _buildMobileControlRail(),
           ),
 
-        // Dedicated floating Re-center / Follow Navigation button
+        // Dedicated floating Camera Controls: Route Overview & Re-center
         Positioned(
           right: rightPadding,
           bottom:
               isDesktop ? 120 : (MediaQuery.of(context).padding.bottom + 115),
-          child: _buildRecenterButton(),
+          child: _buildCameraControls(),
         ),
 
         _buildTopHUD(topPadding),
@@ -4829,55 +4823,131 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Dedicated floating Re-center / Follow Navigation button with animated state
-  Widget _buildRecenterButton() {
+  /// Frames the full trip route smoothly using the true geographic bounding envelope
+  void _fitRouteBounds() {
+    final fullRoutePoints =
+        _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
+    if (fullRoutePoints.length < 2) return;
+
+    final minLat = fullRoutePoints.map((p) => p.latitude).reduce(min);
+    final maxLat = fullRoutePoints.map((p) => p.latitude).reduce(max);
+    final minLng = fullRoutePoints.map((p) => p.longitude).reduce(min);
+    final maxLng = fullRoutePoints.map((p) => p.longitude).reduce(max);
+    final center = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+    final latSpan = (maxLat - minLat).abs();
+    final lngSpan = (maxLng - minLng).abs();
+    final span = max(latSpan, lngSpan);
+    final zoom = span > 0 ? ((log(360.0 / span) / ln2) - 0.7).clamp(2.5, 15.0) : 10.0;
+
+    setState(() {
+      _cameraMode = NavCameraMode.userExplore;
+    });
+
+    if (_mapStyle == MapStyle.satellite3D) {
+      ThreeDMap.recenter(center.longitude, center.latitude, 0);
+    } else {
+      try {
+        _mapController.move(center, zoom);
+      } catch (_) {}
+    }
+  }
+
+  /// Floating Camera Controls: Route Overview (fit entire trip) and Re-center (follow vehicle)
+  Widget _buildCameraControls() {
     final isExploring = _cameraMode == NavCameraMode.userExplore;
-    return Material(
-      color: isExploring ? const Color(0xFF0EA5E9) : const Color(0xDD111827),
-      borderRadius: BorderRadius.circular(28),
-      elevation: isExploring ? 8 : 4,
-      shadowColor: isExploring
-          ? const Color(0xFF0EA5E9).withOpacity(0.5)
-          : Colors.black45,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(28),
-        onTap: _recenterMap,
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: isExploring ? 14 : 12,
-            vertical: 11,
-          ),
-          decoration: BoxDecoration(
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Fit Route / Overview button
+        Material(
+          color: const Color(0xDD111827),
+          borderRadius: BorderRadius.circular(28),
+          elevation: 4,
+          shadowColor: Colors.black45,
+          child: InkWell(
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(
-              color:
-                  isExploring ? Colors.white : Colors.white.withOpacity(0.18),
-              width: isExploring ? 1.5 : 1.0,
+            onTap: _fitRouteBounds,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.18),
+                  width: 1.0,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.route_rounded,
+                    color: Colors.white,
+                    size: 19,
+                  ),
+                  SizedBox(width: 5),
+                  Text(
+                    'Overview',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isExploring ? Icons.near_me_rounded : Icons.my_location_rounded,
-                color: Colors.white,
-                size: 20,
+        ),
+        const SizedBox(width: 8),
+        // Re-center / Follow Navigation button
+        Material(
+          color: isExploring ? const Color(0xFF0EA5E9) : const Color(0xDD111827),
+          borderRadius: BorderRadius.circular(28),
+          elevation: isExploring ? 8 : 4,
+          shadowColor: isExploring
+              ? const Color(0xFF0EA5E9).withOpacity(0.5)
+              : Colors.black45,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(28),
+            onTap: _recenterMap,
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: isExploring ? 14 : 12,
+                vertical: 11,
               ),
-              if (isExploring) ...[
-                const SizedBox(width: 6),
-                const Text(
-                  'Re-center',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color:
+                      isExploring ? Colors.white : Colors.white.withOpacity(0.18),
+                  width: isExploring ? 1.5 : 1.0,
                 ),
-              ],
-            ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isExploring ? Icons.near_me_rounded : Icons.my_location_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  if (isExploring) ...[
+                    const SizedBox(width: 6),
+                    const Text(
+                      'Re-center',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 
