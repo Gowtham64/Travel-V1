@@ -408,127 +408,12 @@
             font-size: 1.15rem;
             line-height: 1.6;
             color: rgba(255, 255, 255, 0.85);
-            margin-bottom: 1.35rem;
+            margin-bottom: 2.2rem;
             max-width: 520px;
         }
 
         [data-theme="light"] .hero-lead {
             color: #334155;
-        }
-
-        /* Hero Direct APK Download Bar */
-        .hero-app-actions {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.85rem;
-            margin-bottom: 1.75rem;
-        }
-
-        .hero-apk-download-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.85rem;
-            padding: 0.68rem 1.35rem;
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(6, 182, 212, 0.28) 100%);
-            border: 1px solid rgba(52, 211, 153, 0.5);
-            border-radius: var(--radius-pill);
-            color: #ffffff;
-            text-decoration: none;
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.25);
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        .hero-apk-download-btn:hover {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.38) 0%, rgba(6, 182, 212, 0.45) 100%);
-            border-color: #34d399;
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(16, 185, 129, 0.42);
-        }
-
-        [data-theme="light"] .hero-apk-download-btn {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(6, 182, 212, 0.16) 100%);
-            border-color: rgba(5, 150, 105, 0.45);
-            color: #065f46;
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.15);
-        }
-
-        [data-theme="light"] .hero-apk-download-btn:hover {
-            background: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(6, 182, 212, 0.28) 100%);
-            border-color: #059669;
-            color: #044e39;
-        }
-
-        .apk-btn-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #34d399;
-        }
-
-        [data-theme="light"] .apk-btn-icon {
-            color: #059669;
-        }
-
-        .apk-btn-content {
-            display: flex;
-            flex-direction: column;
-            text-align: left;
-            line-height: 1.15;
-        }
-
-        .apk-btn-sub {
-            font-size: 0.68rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            font-weight: 700;
-            opacity: 0.88;
-            color: #34d399;
-        }
-
-        [data-theme="light"] .apk-btn-sub {
-            color: #059669;
-        }
-
-        .apk-btn-main {
-            font-size: 0.95rem;
-            font-weight: 700;
-        }
-
-        .apk-btn-badge {
-            background: rgba(255, 255, 255, 0.16);
-            border: 1px solid rgba(255, 255, 255, 0.22);
-            padding: 0.18rem 0.55rem;
-            border-radius: var(--radius-pill);
-            font-size: 0.72rem;
-            font-family: var(--font-mono);
-            font-weight: 600;
-            color: #a7f3d0;
-        }
-
-        [data-theme="light"] .apk-btn-badge {
-            background: rgba(16, 185, 129, 0.15);
-            border-color: rgba(5, 150, 105, 0.3);
-            color: #065f46;
-        }
-
-        .apk-download-arrow {
-            transition: transform 0.2s ease;
-        }
-
-        .hero-apk-download-btn:hover .apk-download-arrow {
-            transform: translateY(2px);
-        }
-
-        .apk-meta-tag {
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.35rem;
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -2336,29 +2221,6 @@
             border-color: rgba(255, 255, 255, 0.35);
         }
 
-        .btn-cta-apk {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.6rem;
-            padding: 0.9rem 2.2rem;
-            background: linear-gradient(135deg, #10b981 0%, #06b6d4 100%);
-            border: none;
-            border-radius: var(--radius-pill);
-            color: #ffffff;
-            font-size: 1.05rem;
-            font-weight: 700;
-            cursor: pointer;
-            text-decoration: none;
-            box-shadow: 0 8px 24px rgba(16, 185, 129, 0.45);
-            transition: all 0.2s ease;
-        }
-
-        .btn-cta-apk:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 34px rgba(16, 185, 129, 0.6);
-            color: #ffffff;
-        }
-
         /* Floating Handwritten Callouts on CTA Scene */
         .cta-callout-sign {
             position: absolute;
@@ -2807,7 +2669,7 @@
             .dest-cards-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
             .stats-group { flex-wrap: wrap; gap: 1.2rem; }
             .cta-buttons { flex-direction: column; width: 100%; }
-            .btn-cta-primary, .btn-cta-secondary, .btn-cta-apk { width: 100%; justify-content: center; }
+            .btn-cta-primary, .btn-cta-secondary { width: 100%; justify-content: center; }
             .cta-callout-sign, .cta-callout-map { display: none; }
             .footer-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem 1.25rem; }
             .footer-brand { grid-column: 1 / -1; }
@@ -2837,7 +2699,12 @@
             .hero-title { font-size: 1.7rem; }
             .stats-item-val { font-size: 1.35rem; }
             .hero-badge { font-size: 0.7rem; }
-            .btn-cta-primary, .btn-cta-secondary, .btn-cta-apk { font-size: 0.9rem; padding: 0.75rem 1rem; }
+            .btn-cta-primary, .btn-cta-secondary { font-size: 0.9rem; padding: 0.75rem 1rem; }
+        }
+
+        @media (max-width: 580px) {
+            .apk-header-btn span { display: none; }
+            .apk-header-btn { padding: 0.52rem; width: 40px; height: 40px; justify-content: center; }
         }
 
         @media (min-width: 1440px) {
@@ -2871,7 +2738,6 @@
                 <li><a href="/app/?explore=true" class="nav-link">Explore</a></li>
                 <li><a href="/app/?my_trips=true" class="nav-link">My Trips</a></li>
                 <li><a href="/app/?route=features" class="nav-link">Features</a></li>
-                <li><a href="https://github.com/Gowtham64/Travel-V1/releases/download/android-latest/app-prod-release.apk" class="nav-link" download style="color:#34d399;font-weight:600;">Download APK</a></li>
                 <li><a href="#copilot" class="nav-link">Blog</a></li>
                 <li><a href="#cta" class="nav-link">About</a></li>
             </ul>
@@ -2971,28 +2837,6 @@
                     <p class="hero-lead">
                         AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.
                     </p>
-
-                    <!-- Direct Android APK Download Banner -->
-                    <div class="hero-app-actions">
-                        <a href="https://github.com/Gowtham64/Travel-V1/releases/download/android-latest/app-prod-release.apk" class="hero-apk-download-btn" id="btnHeroApkDownload" title="Direct download VoyPlan Android APK" download>
-                            <span class="apk-btn-icon">
-                                <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
-                                    <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9996.4482.9996.9993 0 .5511-.4486.9997-.9996.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9997.4482.9997.9993 0 .5511-.4486.9997-.9997.9997m11.4045-6.02l1.996-3.4572c.1051-.1824.0427-.4154-.1397-.5205-.1824-.1051-.4154-.0426-.5205.1398l-2.023 3.5042C15.6547 8.3546 13.882 8 12 8c-1.882 0-3.6547.3546-5.1943.9877L4.7827 5.4835c-.1051-.1824-.3381-.2449-.5205-.1398-.1824.1051-.2448.3381-.1397.5205l1.996 3.4572C2.6865 11.2385.5 15.111.5 19.5h23c0-4.389-2.1865-8.2615-5.6185-10.1786"/>
-                                </svg>
-                            </span>
-                            <span class="apk-btn-content">
-                                <span class="apk-btn-sub">Direct APK Download</span>
-                                <span class="apk-btn-main">Download for Android (.APK)</span>
-                            </span>
-                            <span class="apk-btn-badge">v2.5.0</span>
-                            <svg class="apk-download-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                                <polyline points="7 10 12 15 17 10"></polyline>
-                                <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                        </a>
-                        <span class="apk-meta-tag">⚡ 1-Click Install • Verified Safe • Free Sideload (108 MB)</span>
-                    </div>
 
                     <!-- Floating Trip Planner Card -->
                     <div class="planner-card">
@@ -3621,12 +3465,6 @@
                 <p class="cta-desc">Choose a destination. We'll help plan the journey.</p>
                 <div class="cta-buttons">
                     <button class="btn-cta-primary" id="btnCtaPlan">Start Planning &rarr;</button>
-                    <a href="https://github.com/Gowtham64/Travel-V1/releases/download/android-latest/app-prod-release.apk" class="btn-cta-apk" id="btnCtaApk" download>
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9996.4482.9996.9993 0 .5511-.4486.9997-.9996.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9997.4482.9997.9993 0 .5511-.4486.9997-.9997.9997m11.4045-6.02l1.996-3.4572c.1051-.1824.0427-.4154-.1397-.5205-.1824-.1051-.4154-.0426-.5205.1398l-2.023 3.5042C15.6547 8.3546 13.882 8 12 8c-1.882 0-3.6547.3546-5.1943.9877L4.7827 5.4835c-.1051-.1824-.3381-.2449-.5205-.1398-.1824.1051-.2448.3381-.1397.5205l1.996 3.4572C2.6865 11.2385.5 15.111.5 19.5h23c0-4.389-2.1865-8.2615-5.6185-10.1786"/>
-                        </svg>
-                        <span>Download Android APK</span>
-                    </a>
                     <button class="btn-cta-secondary" id="btnCtaExplore">Explore Destinations</button>
                 </div>
             </div>
@@ -3648,7 +3486,6 @@
                     <div class="footer-links">
                         <a href="/">Home</a>
                         <a href="/app/">Plan Trip</a>
-                        <a href="https://github.com/Gowtham64/Travel-V1/releases/download/android-latest/app-prod-release.apk" download style="color:#34d399;font-weight:600;">Download Android APK</a>
                         <a href="/app/?explore=true">Destinations</a>
                         <a href="/app/?inspiration=true">Trip Inspiration</a>
                         <a href="/app/?my_trips=true">My Trips</a>
@@ -3659,7 +3496,6 @@
                     <p class="footer-heading">PRODUCT</p>
                     <div class="footer-links">
                         <a href="/#features">Features</a>
-                        <a href="https://github.com/Gowtham64/Travel-V1/releases/download/android-latest/app-prod-release.apk" download>Android APK (.apk)</a>
                         <a href="/app/?ai=true">AI Co-Pilot</a>
                         <a href="/app/?mode=round_trip">Around Trip / Vacation</a>
                         <a href="/app/?mode=one_way">One Way Trip</a>
