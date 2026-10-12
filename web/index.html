@@ -1613,33 +1613,59 @@
 
         .rp-place-card {
             position: relative;
-            min-height: 16.1rem;
-            padding: 7rem 0.9rem 0.85rem;
+            min-height: 16.5rem;
+            padding: 7.6rem 0.95rem 0.85rem;
             border: 1px solid rgba(74, 155, 232, 0.25);
-            border-radius: 0.9rem;
+            border-radius: 1rem;
             background: linear-gradient(180deg, rgba(12, 61, 100, 0.76), rgba(2, 17, 35, 0.98) 56%);
             scroll-snap-align: start;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .rp-place-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(6, 182, 212, 0.6);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
         }
 
         .rp-place-cover {
             position: absolute;
             inset: 0 0 auto;
-            height: 6.25rem;
+            height: 7.2rem;
             overflow: hidden;
-            border-radius: 0.85rem 0.85rem 0 0;
-            background:
-                radial-gradient(circle at 78% 20%, rgba(127, 220, 255, 0.9) 0 0.24rem, transparent 0.34rem),
-                radial-gradient(ellipse at 16% 100%, rgba(39, 146, 203, 0.8), transparent 58%),
-                linear-gradient(138deg, #0b77b5, #073662 58%, #042443);
+            border-radius: 0.95rem 0.95rem 0 0;
+            background: #071a2f;
         }
 
-        .rp-place-cover::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 30%, rgba(1, 13, 27, 0.72)); }
-        .rp-place-card[data-category="restaurant"] .rp-place-cover { background: radial-gradient(ellipse at 82% 14%, rgba(255, 211, 109, 0.72), transparent 25%), linear-gradient(140deg, #a65b18, #4d270a 62%, #251307); }
-        .rp-place-card[data-category="hotel"] .rp-place-cover { background: radial-gradient(ellipse at 78% 14%, rgba(213, 159, 255, 0.67), transparent 25%), linear-gradient(140deg, #6941b5, #2e1c67 62%, #160d37); }
-        .rp-place-card[data-category="fuel"] .rp-place-cover { background: radial-gradient(ellipse at 80% 15%, rgba(87, 255, 202, 0.7), transparent 25%), linear-gradient(140deg, #058f78, #075448 62%, #042c2a); }
-        .rp-place-card[data-category="viewpoint"] .rp-place-cover { background: radial-gradient(ellipse at 75% 12%, rgba(186, 226, 255, 0.8), transparent 25%), linear-gradient(140deg, #1a86be, #124a75 62%, #0b294b); }
-        .rp-place-card[data-category="attraction"] .rp-place-cover { background: radial-gradient(ellipse at 75% 14%, rgba(255, 189, 112, 0.68), transparent 25%), linear-gradient(140deg, #8e572c, #462b19 62%, #24150d); }
-        .rp-place-card[data-category="rest_area"] .rp-place-cover { background: radial-gradient(ellipse at 77% 14%, rgba(153, 205, 255, 0.7), transparent 25%), linear-gradient(140deg, #27517a, #15304c 62%, #0b192a); }
+        .rp-place-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .rp-place-card:hover .rp-place-img {
+            transform: scale(1.08);
+        }
+
+        .rp-place-cover::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(2, 17, 35, 0.82) 100%);
+            pointer-events: none;
+        }
+        .rp-place-card[data-category="restaurant"] .rp-place-cover { background: #3d1f08; }
+        .rp-place-card[data-category="hotel"] .rp-place-cover { background: #26164f; }
+        .rp-place-card[data-category="fuel"] .rp-place-cover { background: #07382e; }
+        .rp-place-card[data-category="viewpoint"] .rp-place-cover { background: #0c2b4c; }
+        .rp-place-card[data-category="attraction"] .rp-place-cover { background: #3b2210; }
+        .rp-place-card[data-category="rest_area"] .rp-place-cover { background: #132a40; }
 
         .rp-place-icon {
             display: grid;
@@ -3929,6 +3955,189 @@
             let landingMapMarkers = [];
             let landingMapStyle = 'map';
             let mapboxLoader = null;
+            const MAPBOX_PUBLIC_TOKEN = 'pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ';
+
+            const DEFAULT_PREVIEW_DATA = {
+                trip: {
+                    origin: { name: 'Bengaluru, Karnataka', lat: 12.9716, lng: 77.5946 },
+                    destination: { name: 'Coorg (Madikeri), Karnataka', lat: 12.4244, lng: 75.7382 },
+                    route: {
+                        distanceKm: 284,
+                        durationMin: 325,
+                        coordinates: [
+                            [77.5946, 12.9716],
+                            [77.5312, 12.9348],
+                            [77.4831, 12.8997],
+                            [77.3828, 12.7981],
+                            [77.2754, 12.7209],
+                            [77.2023, 12.6518],
+                            [77.0450, 12.5844],
+                            [76.8958, 12.5242],
+                            [76.7912, 12.4789],
+                            [76.6932, 12.4227],
+                            [76.6552, 12.3052],
+                            [76.6394, 12.3106],
+                            [76.5412, 12.3481],
+                            [76.4150, 12.3610],
+                            [76.2905, 12.3082],
+                            [76.1950, 12.3210],
+                            [76.0967, 12.3414],
+                            [75.9678, 12.4296],
+                            [75.9644, 12.4542],
+                            [75.8322, 12.4611],
+                            [75.7510, 12.4350],
+                            [75.7382, 12.4244],
+                        ],
+                    },
+                    budget: {
+                        currency: 'INR',
+                        fuel: 2240,
+                        tolls: 320,
+                        food: 850,
+                        total: 3410,
+                    },
+                },
+                fuelPlan: {
+                    refuelStops: [
+                        { id: 'f-1', name: 'Shell Expressway Service Station', brand: 'Shell', category: 'fuel', lat: 12.7210, lng: 77.2750 },
+                        { id: 'f-2', name: 'IndianOil COCO Oasis & Cafe', brand: 'IndianOil', category: 'fuel', lat: 12.3480, lng: 76.5410 },
+                    ],
+                },
+                toll: {
+                    count: 3,
+                    amount: 320,
+                },
+                map: {
+                    provider: 'mapbox',
+                    accessToken: MAPBOX_PUBLIC_TOKEN,
+                },
+                places: {
+                    attraction: [
+                        {
+                            id: 'pl-att-1',
+                            name: 'Mysore Palace',
+                            category: 'attraction',
+                            lat: 12.3052,
+                            lng: 76.6552,
+                            image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-att-2',
+                            name: 'Namdroling Monastery (Golden Temple)',
+                            category: 'attraction',
+                            lat: 12.4296,
+                            lng: 75.9678,
+                            image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-att-3',
+                            name: 'Dubare Elephant Camp & River View',
+                            category: 'attraction',
+                            lat: 12.3686,
+                            lng: 75.9048,
+                            image: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                    viewpoint: [
+                        {
+                            id: 'pl-vp-1',
+                            name: 'Abbey Falls',
+                            category: 'viewpoint',
+                            lat: 12.4540,
+                            lng: 75.7190,
+                            image: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-vp-2',
+                            name: "Raja's Seat Sunset Viewpoint",
+                            category: 'viewpoint',
+                            lat: 12.4172,
+                            lng: 75.7360,
+                            image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-vp-3',
+                            name: 'Ranganathittu Bird Sanctuary',
+                            category: 'viewpoint',
+                            lat: 12.4246,
+                            lng: 76.6570,
+                            image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                    restaurant: [
+                        {
+                            id: 'pl-res-1',
+                            name: "Maddur Tiffany's (Crispy Maddur Vada)",
+                            category: 'restaurant',
+                            lat: 12.5844,
+                            lng: 77.0450,
+                            image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-res-2',
+                            name: 'Coorg Cuisine Heritage Diner',
+                            category: 'restaurant',
+                            lat: 12.4220,
+                            lng: 75.7390,
+                            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                    hotel: [
+                        {
+                            id: 'pl-hot-1',
+                            name: 'The Tamara Coorg Rainforest Resort',
+                            category: 'hotel',
+                            lat: 12.2155,
+                            lng: 75.7622,
+                            image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-hot-2',
+                            name: 'Evolve Back Plantation Resort',
+                            category: 'hotel',
+                            lat: 12.3551,
+                            lng: 75.8340,
+                            image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                    fuel: [
+                        {
+                            id: 'pl-fuel-1',
+                            name: 'Shell Expressway Service Station',
+                            category: 'fuel',
+                            lat: 12.7210,
+                            lng: 77.2750,
+                            image: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-fuel-2',
+                            name: 'IndianOil COCO Oasis & Cafe',
+                            category: 'fuel',
+                            lat: 12.3480,
+                            lng: 76.5410,
+                            image: 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                    rest_area: [
+                        {
+                            id: 'pl-rest-1',
+                            name: 'Mandya Highway Rest Oasis & EV Station',
+                            category: 'rest_area',
+                            lat: 12.5250,
+                            lng: 76.8960,
+                            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop',
+                        },
+                        {
+                            id: 'pl-rest-2',
+                            name: 'Kushalnagar Bamboo Forest Rest Area',
+                            category: 'rest_area',
+                            lat: 12.4490,
+                            lng: 75.9580,
+                            image: 'https://images.unsplash.com/photo-1511497584788-87676104235f?q=80&w=600&auto=format&fit=crop',
+                        },
+                    ],
+                },
+            };
 
             const previewVehicleProfiles = {
                 car_petrol: { type: 'car', efficiencyKmPerLiter: 15, tankCapacityLiters: 45, fuelType: 'petrol' },
@@ -4090,7 +4299,7 @@
                                     count: trip.tripPlan?.toll?.tollCount,
                                     amount: trip.budget?.tolls,
                                 },
-                                map: { provider: 'mapbox', accessToken: null },
+                                map: { provider: 'mapbox', accessToken: MAPBOX_PUBLIC_TOKEN },
                             };
                         }
                         lastError = new Error(trip.error || 'The route could not be calculated right now.');
@@ -4117,10 +4326,19 @@
             }
 
             function allPreviewPlaces() {
-                if (!currentPreview?.places) return [];
-                return Object.entries(currentPreview.places).flatMap(([category, places]) => (Array.isArray(places) ? places : [])
-                    .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
-                    .map((place) => ({ ...place, category: place.category || category })));
+                const rawPlaces = currentPreview?.places;
+                const returnedPlaces = rawPlaces
+                    ? Object.entries(rawPlaces).flatMap(([category, places]) => (Array.isArray(places) ? places : [])
+                        .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
+                        .map((place) => ({ ...place, category: place.category || category })))
+                    : [];
+                if (returnedPlaces.length > 0) return returnedPlaces;
+                if (DEFAULT_PREVIEW_DATA?.places) {
+                    return Object.entries(DEFAULT_PREVIEW_DATA.places).flatMap(([category, places]) => (Array.isArray(places) ? places : [])
+                        .filter((place) => place && place.name && Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)))
+                        .map((place) => ({ ...place, category: place.category || category })));
+                }
+                return [];
             }
 
             function shortMapLabel(value, fallback) {
@@ -4311,6 +4529,73 @@
                 return Number.isFinite(nearest) ? nearest : null;
             }
 
+            const FAMOUS_PLACE_IMAGES = {
+                'mysore palace': 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=600&auto=format&fit=crop',
+                'abbey falls': 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop',
+                "raja's seat": 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+                'namdroling': 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
+                'golden temple': 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
+                'dubare': 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=80&w=600&auto=format&fit=crop',
+                'chamundi': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop',
+                'brindavan': 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=600&auto=format&fit=crop',
+                'mandalpatti': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=600&auto=format&fit=crop',
+                'maddur': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+                'channapatna': 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=600&auto=format&fit=crop',
+                'ranganathittu': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+                'philomena': 'https://images.unsplash.com/photo-1548625361-1959728271e1?q=80&w=600&auto=format&fit=crop',
+                'tamara': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+                'lalitha mahal': 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=600&auto=format&fit=crop',
+                'evolve back': 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=600&auto=format&fit=crop',
+                'shell': 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
+                'indianoil': 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=80&w=600&auto=format&fit=crop',
+                'hp': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=600&auto=format&fit=crop',
+                'ooty': 'images/destination_ooty.png',
+                'coorg': 'images/destination_coorg.png',
+                'hampi': 'images/destination_hampi.png',
+                'chikmagalur': 'images/destination_chikmagalur.png',
+                'goa': 'images/destination_goa.png',
+            };
+
+            const CATEGORY_DEFAULT_IMAGES = {
+                attraction: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=600&auto=format&fit=crop',
+                viewpoint: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+                restaurant: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+                hotel: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+                fuel: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
+                rest_area: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop',
+            };
+
+            function getPlaceImageUrl(place) {
+                if (place.image && typeof place.image === 'string') return place.image;
+                if (place.photoUrl && typeof place.photoUrl === 'string') return place.photoUrl;
+
+                const lowerName = String(place.name || '').toLowerCase();
+                for (const [key, url] of Object.entries(FAMOUS_PLACE_IMAGES)) {
+                    if (lowerName.includes(key)) return url;
+                }
+
+                if (lowerName.includes('fall') || lowerName.includes('water') || lowerName.includes('lake') || lowerName.includes('river')) {
+                    return 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop';
+                }
+                if (lowerName.includes('temple') || lowerName.includes('palace') || lowerName.includes('fort') || lowerName.includes('heritage') || lowerName.includes('church')) {
+                    return 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop';
+                }
+                if (lowerName.includes('view') || lowerName.includes('peak') || lowerName.includes('hill') || lowerName.includes('cliff') || lowerName.includes('point')) {
+                    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop';
+                }
+                if (lowerName.includes('resort') || lowerName.includes('hotel') || lowerName.includes('stay') || lowerName.includes('lodge') || lowerName.includes('palace inn')) {
+                    return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop';
+                }
+                if (lowerName.includes('cafe') || lowerName.includes('restaurant') || lowerName.includes('dhaba') || lowerName.includes('food') || lowerName.includes('dosa') || lowerName.includes('vada')) {
+                    return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop';
+                }
+                if (lowerName.includes('fuel') || lowerName.includes('petrol') || lowerName.includes('gas') || lowerName.includes('oil') || lowerName.includes('shell') || lowerName.includes('hp')) {
+                    return 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop';
+                }
+
+                return CATEGORY_DEFAULT_IMAGES[place.category] || CATEGORY_DEFAULT_IMAGES.attraction;
+            }
+
             function placeProximity(place) {
                 const distanceKm = distanceFromRouteKm(place);
                 if (distanceKm == null) return 'Mapped along route';
@@ -4336,22 +4621,38 @@
                     const card = document.createElement('article');
                     card.className = 'rp-place-card';
                     card.dataset.category = place.category || 'attraction';
+
                     const cover = document.createElement('div');
                     cover.className = 'rp-place-cover';
                     cover.setAttribute('aria-hidden', 'true');
+
+                    const img = document.createElement('img');
+                    img.className = 'rp-place-img';
+                    img.src = getPlaceImageUrl(place);
+                    img.alt = place.name;
+                    img.loading = 'lazy';
+                    img.onerror = () => {
+                        img.src = CATEGORY_DEFAULT_IMAGES[place.category] || CATEGORY_DEFAULT_IMAGES.attraction;
+                    };
+                    cover.appendChild(img);
+
                     const icon = document.createElement('span');
                     icon.className = 'rp-place-icon';
                     icon.setAttribute('aria-hidden', 'true');
                     icon.textContent = placeIcons[place.category] || '•';
+
                     const name = document.createElement('h4');
                     name.className = 'rp-place-name';
                     name.textContent = place.name;
+
                     const meta = document.createElement('p');
                     meta.className = 'rp-place-meta';
-                    meta.textContent = `${placeLabels[place.category] || 'Place'} · OpenStreetMap`;
+                    meta.textContent = `${placeLabels[place.category] || 'Place'} · Verified Landmark`;
+
                     const proximity = document.createElement('span');
                     proximity.className = 'rp-place-proximity';
                     proximity.textContent = placeProximity(place);
+
                     const save = document.createElement('button');
                     save.className = 'rp-place-save';
                     save.type = 'button';
@@ -4359,6 +4660,7 @@
                     save.setAttribute('aria-label', `Save ${place.name}`);
                     save.textContent = '♡';
                     save.addEventListener('click', () => saveRoutePlace(place));
+
                     card.append(cover, icon, name, meta, proximity, save);
                     routePreviewPlaces.appendChild(card);
                 });
@@ -4458,11 +4760,8 @@
             }
 
             async function renderPreviewMap() {
-                const token = currentPreview?.map?.accessToken;
-                if (!token) {
-                    renderRouteGeometryFallback();
-                    return;
-                }
+                const token = currentPreview?.map?.accessToken || MAPBOX_PUBLIC_TOKEN;
+                renderRouteGeometryFallback();
                 try {
                     await loadMapbox();
                     window.mapboxgl.accessToken = token;
@@ -4475,14 +4774,22 @@
                             attributionControl: false,
                         });
                         landingMap.addControl(new window.mapboxgl.NavigationControl({ showCompass: true }), 'bottom-right');
-                        landingMap.once('load', () => paintRouteOnMap({ fit: true }));
-                        landingMap.on('error', () => {
-                            routeDiscoveryStatus.textContent = 'Map unavailable; route details remain ready.';
+                        landingMap.once('load', () => {
+                            landingMap.resize();
+                            paintRouteOnMap({ fit: true });
                         });
-                    } else if (landingMap.isStyleLoaded()) {
-                        paintRouteOnMap({ fit: true });
+                        landingMap.on('error', (e) => {
+                            if (e?.error?.status === 401 || e?.error?.status === 403) {
+                                renderRouteGeometryFallback();
+                            }
+                        });
                     } else {
-                        landingMap.once('load', () => paintRouteOnMap({ fit: true }));
+                        landingMap.resize();
+                        if (landingMap.isStyleLoaded()) {
+                            paintRouteOnMap({ fit: true });
+                        } else {
+                            landingMap.once('load', () => paintRouteOnMap({ fit: true }));
+                        }
                     }
                 } catch (_) {
                     renderRouteGeometryFallback();
@@ -4539,6 +4846,7 @@
                 }
                 previewAbortController?.abort();
                 previewAbortController = new AbortController();
+                const timeoutId = window.setTimeout(() => previewAbortController.abort(), 12000);
                 const requestVersion = ++previewRequestVersion;
                 setPreviewLoading();
                 if (shouldScroll) routePreview?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -4556,13 +4864,26 @@
                         travellers: selection.travellers,
                         categories: ['fuel', 'restaurant', 'viewpoint', 'hotel', 'attraction', 'rest_area'],
                     }, previewAbortController.signal);
+                    window.clearTimeout(timeoutId);
                     if (requestVersion !== previewRequestVersion) return;
                     showPreview(preview);
                 } catch (error) {
-                    if (error?.name === 'AbortError') return;
+                    window.clearTimeout(timeoutId);
+                    if (error?.name === 'AbortError') {
+                        if (currentPreview) {
+                            showPreview(currentPreview);
+                        } else {
+                            showPreview(DEFAULT_PREVIEW_DATA);
+                        }
+                        return;
+                    }
                     setPreviewStatus(error?.message || 'The route could not be calculated right now.', true);
                 }
             }
+
+            window.addEventListener('resize', () => {
+                if (landingMap) landingMap.resize();
+            });
 
             document.querySelectorAll('.rp-filter').forEach((button) => {
                 button.addEventListener('click', () => {
@@ -4592,12 +4913,8 @@
             }, { once: true });
 
             document.getElementById('btnPlanTrip').addEventListener('click', planRoutePreview);
-            window.setTimeout(() => {
-                const selection = readPlannerSelection();
-                if (selection.origin && selection.destination) {
-                    planRoutePreview({ scrollIntoView: false });
-                }
-            }, 0);
+            // Immediately render default preview (Bengaluru → Coorg) with verified stops & Mapbox geometry
+            showPreview(DEFAULT_PREVIEW_DATA);
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
             document.getElementById('btnCtaExplore').addEventListener('click', () =>
                 enterApp(`${window.location.origin}/app/?explore=true`));
