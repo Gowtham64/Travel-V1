@@ -154,6 +154,10 @@
             background: linear-gradient(180deg, rgba(6, 12, 24, 0.7) 0%, rgba(6, 12, 24, 0) 100%);
         }
 
+        [data-theme="light"] header.header {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.75) 0%, rgba(255, 255, 255, 0) 100%);
+        }
+
         header.header.scrolled {
             background: rgba(6, 12, 24, 0.88);
             backdrop-filter: blur(20px);
@@ -162,7 +166,11 @@
         }
 
         [data-theme="light"] header.header.scrolled {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
         }
 
         .header-inner {
@@ -376,7 +384,7 @@
         [data-theme="light"] .hero-scrim {
             background:
                 radial-gradient(ellipse at 22% 38%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 45%, transparent 72%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 16%, transparent 88%, rgba(241, 245, 249, 0.35) 100%);
+                linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 16%, transparent 76%, #f1f5f9 100%);
         }
 
         .hero-content {
@@ -933,6 +941,17 @@
             text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
         }
 
+        [data-theme="light"] .cat-thumb {
+            border-color: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.15);
+        }
+
+        [data-theme="light"] .cat-label {
+            color: #0f172a;
+            font-weight: 700;
+            text-shadow: 0 1px 6px rgba(255, 255, 255, 0.95);
+        }
+
         /* ════════════════════════════════════════════════════════════════════
            HERO BOTTOM STATS RAIL & SCROLL CUE
            ════════════════════════════════════════════════════════════════════ */
@@ -1304,6 +1323,84 @@
             color: #060c18;
             border-color: #06b6d4;
             transform: translateX(3px);
+        }
+
+        [data-theme="light"] .dest-eyebrow {
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .dest-title {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .dest-subtitle {
+            color: #475569;
+        }
+
+        [data-theme="light"] .view-all-link {
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .view-all-link:hover {
+            color: #0369a1;
+        }
+
+        [data-theme="light"] .carousel-btn {
+            background: #ffffff;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            color: #0f172a;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+
+        [data-theme="light"] .carousel-btn:hover:not(:disabled) {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+        }
+
+        [data-theme="light"] .carousel-btn:disabled {
+            opacity: 0.35;
+            background: #f1f5f9;
+            color: #94a3b8;
+            border-color: rgba(15, 23, 42, 0.06);
+        }
+
+        [data-theme="light"] .dest-region-btn {
+            background: #f1f5f9;
+            border: 1px solid rgba(15, 23, 42, 0.09);
+            color: #475569;
+        }
+
+        [data-theme="light"] .dest-region-btn:hover {
+            color: #0f172a;
+            background: #e2e8f0;
+            border-color: rgba(15, 23, 42, 0.16);
+        }
+
+        [data-theme="light"] .dest-region-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.25);
+        }
+
+        [data-theme="light"] .dest-card {
+            border: 1px solid rgba(15, 23, 42, 0.09);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.07);
+        }
+
+        [data-theme="light"] .dest-card:hover {
+            box-shadow: 0 18px 36px rgba(15, 23, 42, 0.12);
+            border-color: rgba(2, 132, 199, 0.5);
+        }
+
+        [data-theme="light"] .dest-badge {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            color: #0f172a;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -2381,10 +2478,15 @@
             z-index: 2;
         }
 
+        [data-theme="light"] section.final-cta {
+            background: #ffffff;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
         [data-theme="light"] .cta-scrim {
             background:
-                radial-gradient(ellipse at 50% 60%, rgba(248, 250, 252, 0.75) 0%, rgba(248, 250, 252, 0.9) 70%),
-                linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, #f8fafc 100%);
+                radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.88) 0%, rgba(248, 250, 252, 0.95) 75%),
+                linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, #ffffff 100%);
         }
 
         .cta-content {
@@ -2497,6 +2599,13 @@
             text-align: center;
             pointer-events: none;
             text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        [data-theme="light"] .cta-callout-sign,
+        [data-theme="light"] .cta-callout-map {
+            color: #0284c7;
+            font-weight: 700;
+            text-shadow: 0 1px 10px rgba(255, 255, 255, 0.95);
         }
 
         /* Floating Support / Chat Widget at bottom right */
@@ -2755,32 +2864,65 @@
 
         body.info-modal-open { overflow: hidden; }
 
-        /* Destination, planner, and feature sections carry their own full
-           visual treatment in both themes instead of being forced to light. */
-        [data-theme="dark"] section.destinations,
-        [data-theme="dark"] section.ai-copilot {
+        /* ════════════════════════════════════════════════════════════════════
+           COHESIVE THEME HARMONY FOR DESTINATIONS, COPILOT, FEATURES & PINS
+           ════════════════════════════════════════════════════════════════════ */
+        [data-theme="dark"] section.destinations {
             background:
-                linear-gradient(180deg, rgba(5, 14, 28, 0.9) 0%, rgba(7, 22, 39, 0.86) 100%),
-                url('images/hero_roadtrip_reference_v2.png') center 40% / cover;
+                radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.08), transparent 42rem),
+                #060c18;
+            border-top: 1px solid var(--border-subtle);
+        }
+
+        [data-theme="light"] section.destinations {
+            background:
+                radial-gradient(ellipse at 85% 15%, rgba(14, 165, 233, 0.05), transparent 42rem),
+                #ffffff;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
         [data-theme="dark"] section.ai-copilot {
             background:
-                radial-gradient(circle at 72% 36%, rgba(8, 145, 178, 0.25), transparent 27rem),
+                radial-gradient(circle at 72% 36%, rgba(8, 145, 178, 0.2), transparent 27rem),
                 linear-gradient(180deg, #071526 0%, #0a1c30 100%);
-        }
-
-        [data-theme="light"] section.destinations,
-        [data-theme="light"] section.ai-copilot {
-            background:
-                linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(235, 247, 255, 0.9) 100%),
-                url('images/hero_roadtrip_reference_v2.png') center 38% / cover;
+            border-top: 1px solid var(--border-subtle);
         }
 
         [data-theme="light"] section.ai-copilot {
             background:
-                radial-gradient(circle at 78% 28%, rgba(34, 211, 238, 0.18), transparent 26rem),
-                linear-gradient(180deg, #fbfeff 0%, #e8f5ff 100%);
+                radial-gradient(circle at 78% 28%, rgba(14, 165, 233, 0.08), transparent 32rem),
+                #f8fafc;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] .ai-script-flourish {
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .ai-eyebrow {
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .ai-title {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .ai-desc {
+            color: #475569;
+        }
+
+        [data-theme="light"] .ai-feat-icon {
+            background: rgba(2, 132, 199, 0.09);
+            border-color: rgba(2, 132, 199, 0.22);
+            color: #0284c7;
+        }
+
+        [data-theme="light"] .ai-feat-title {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .ai-feat-sub {
+            color: #64748b;
         }
 
         [data-theme="dark"] .ai-itinerary-hud {
@@ -2797,26 +2939,51 @@
 
         [data-theme="light"] section.features {
             background:
-                linear-gradient(180deg, rgba(237, 249, 255, 0.72) 0%, rgba(224, 243, 255, 0.58) 100%),
-                url('images/hero_3d_landscape.jpg') center 62% / cover;
+                radial-gradient(ellipse at 50% 10%, rgba(14, 165, 233, 0.05), transparent 45rem),
+                #ffffff;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
         [data-theme="dark"] section.features {
             background:
-                linear-gradient(180deg, rgba(4, 13, 26, 0.78) 0%, rgba(5, 22, 36, 0.84) 100%),
-                url('images/hero_roadtrip_reference_v2.png') center 62% / cover;
+                radial-gradient(ellipse at 50% 10%, rgba(6, 182, 212, 0.1), transparent 45rem),
+                #060c18;
+            border-top: 1px solid var(--border-subtle);
         }
 
-        [data-theme="light"] .features .feat-title { color: #10264a; }
+        [data-theme="light"] .features .feat-eyebrow { color: #0284c7; }
+        [data-theme="light"] .features .feat-title { color: #0f172a; }
         [data-theme="dark"] .features .feat-title { color: #f8fbff; }
 
-        .features .feat-card {
-            background: rgba(8, 24, 47, 0.72);
-            border-color: rgba(255, 255, 255, 0.22);
+        [data-theme="light"] .features .feat-card {
+            background: #ffffff;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
         }
 
-        .features .feat-card-name { color: #ffffff; }
-        .features .feat-card-desc { color: #d3e2f3; }
+        [data-theme="light"] .features .feat-card:hover {
+            border-color: rgba(2, 132, 199, 0.4);
+            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+            transform: translateY(-6px);
+        }
+
+        [data-theme="light"] .features .feat-card-name { color: #0f172a; }
+        [data-theme="light"] .features .feat-card-desc { color: #475569; }
+
+        [data-theme="dark"] .features .feat-card {
+            background: rgba(13, 23, 42, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        [data-theme="dark"] .features .feat-card:hover {
+            border-color: #06b6d4;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
+            transform: translateY(-6px);
+        }
+
+        [data-theme="dark"] .features .feat-card-name { color: #ffffff; }
+        [data-theme="dark"] .features .feat-card-desc { color: #94a3b8; }
 
         .island-img {
             border-radius: 0;
@@ -2857,14 +3024,26 @@
             gap: 0.45rem;
             border-radius: 12px;
             background: rgba(7, 26, 32, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             font-size: 0.68rem;
             line-height: 1.1;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="light"] .island-pin {
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
         }
 
         .island-pin strong,
         .island-pin small { display: block; }
         .island-pin strong { color: #ffffff; font-size: 0.72rem; }
         .island-pin small { color: #cbd5e1; font-size: 0.62rem; margin-top: 0.12rem; }
+
+        [data-theme="light"] .island-pin strong { color: #0f172a; }
+        [data-theme="light"] .island-pin small { color: #64748b; }
+
         .island-pin-thumb {
             width: 27px;
             height: 27px;
@@ -2874,7 +3053,12 @@
             border: 1px solid rgba(255,255,255,.3);
         }
 
+        [data-theme="light"] .island-pin-thumb {
+            border-color: rgba(15, 23, 42, 0.12);
+        }
+
         .island-pin.dest { top: 9%; left: 57%; border-color: rgba(255,255,255,.26); background: rgba(7, 26, 32, .92); }
+        [data-theme="light"] .island-pin.dest { border-color: rgba(239, 68, 68, 0.4); background: rgba(255, 255, 255, 0.96); }
         .island-pin.ram { top: 25%; left: 61%; }
         .island-pin.fuel { top: 40%; left: 56%; }
         .island-pin.scenic { top: 54%; left: 59%; }
@@ -3892,15 +4076,25 @@
 
             // --- 2. Light / Dark Theme Toggle ---
             const themeBtn = document.getElementById('btnThemeToggle');
+            const themeIcon = document.getElementById('themeIcon');
             const themeColorMeta = document.querySelector('meta[name="theme-color"]');
             const colorScheme = window.matchMedia('(prefers-color-scheme: light)');
             const systemTheme = colorScheme.matches ? 'light' : 'dark';
             const savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
+            const updateThemeIcon = (theme) => {
+                if (!themeIcon) return;
+                if (theme === 'light') {
+                    themeIcon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>';
+                } else {
+                    themeIcon.innerHTML = '<circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>';
+                }
+            };
             const applyTheme = (theme, persist = false) => {
                 document.documentElement.setAttribute('data-theme', theme);
                 themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
                 themeBtn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
                 themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
+                updateThemeIcon(theme);
                 if (persist) {
                     localStorage.setItem('voyplan_theme', theme);
                     localStorage.setItem('flutter.voyplan.theme_mode', theme);
