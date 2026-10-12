@@ -30,6 +30,10 @@
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
+    <!-- Preload Day and Night Hero Backdrops for instant switching -->
+    <link rel="preload" as="image" href="images/hero_roadtrip_reference_v2.png">
+    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg">
+
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -363,7 +367,7 @@
             background: #060c18;
         }
 
-        /* 3D Landscape Background Layer */
+        /* 3D Landscape Background Layer (Day & Night) */
         .hero-backdrop {
             position: absolute;
             inset: 0;
@@ -371,9 +375,17 @@
             background-size: cover;
             background-position: center center;
             transform: scale(1.02);
-            transition: transform 0.2s ease-out;
+            transition: transform 0.2s ease-out, background-image 0.4s ease;
             will-change: transform;
             z-index: 1;
+        }
+
+        [data-theme="light"] .hero-backdrop {
+            background-image: url('images/hero_day_roadtrip.jpg');
+        }
+
+        [data-theme="dark"] .hero-backdrop {
+            background-image: url('images/hero_roadtrip_reference_v2.png');
         }
 
         .hero-scrim {
@@ -392,8 +404,8 @@
 
         [data-theme="light"] .hero-scrim {
             background:
-                linear-gradient(90deg, rgba(248, 250, 252, 0.88) 0%, rgba(248, 250, 252, 0.58) 36%, rgba(248, 250, 252, 0.08) 58%, transparent 100%),
-                linear-gradient(180deg, rgba(248, 250, 252, 0.35) 0%, transparent 20%, transparent 64%, rgba(241, 245, 249, 0.65) 82%, #f1f5f9 100%);
+                linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.74) 38%, rgba(255, 255, 255, 0.12) 60%, transparent 100%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 18%, transparent 64%, rgba(241, 245, 249, 0.75) 85%, #f1f5f9 100%);
         }
 
         .hero-content {
@@ -792,6 +804,9 @@
 
         [data-theme="light"] .marker-title { color: #102a43; }
         [data-theme="light"] .marker-dist { color: #31566b; }
+        [data-theme="light"] .marker-scenic .marker-icon {
+            background: url('images/hero_day_roadtrip.jpg') 73% 46% / 220% auto;
+        }
         [data-theme="light"] .hero-script-flourish { color: #102a43; text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8); }
         [data-theme="light"] .hero .hero-script-flourish svg { color: #0284c7; }
 
@@ -4138,7 +4153,9 @@
             const applyTheme = (theme, persist = false) => {
                 document.documentElement.setAttribute('data-theme', theme);
                 themeBtn.setAttribute('aria-pressed', String(theme === 'dark'));
-                themeBtn.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+                const label = theme === 'dark' ? 'Switch to Day drive (Light mode)' : 'Switch to Night drive (Dark mode)';
+                themeBtn.setAttribute('aria-label', label);
+                themeBtn.title = label;
                 themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
                 updateThemeIcon(theme);
                 if (persist) {
