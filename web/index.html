@@ -8,6 +8,11 @@
     <meta name="theme-color" content="#060c18">
     <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png?v=2">
 
+    <!-- Force browser to revalidate HTML so releases land immediately -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <!-- Synchronous Render-Blocking Theme Initializer (Prevents Theme Flash) -->
     <script>
         (function () {
@@ -381,10 +386,14 @@
             pointer-events: none;
         }
 
+        [data-theme="light"] .hero {
+            background: #f1f5f9;
+        }
+
         [data-theme="light"] .hero-scrim {
             background:
-                radial-gradient(ellipse at 22% 38%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 45%, transparent 72%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.25) 0%, transparent 16%, transparent 76%, #f1f5f9 100%);
+                linear-gradient(90deg, rgba(248, 250, 252, 0.88) 0%, rgba(248, 250, 252, 0.58) 36%, rgba(248, 250, 252, 0.08) 58%, transparent 100%),
+                linear-gradient(180deg, rgba(248, 250, 252, 0.35) 0%, transparent 20%, transparent 64%, rgba(241, 245, 249, 0.65) 82%, #f1f5f9 100%);
         }
 
         .hero-content {
@@ -533,6 +542,12 @@
         .input-box:focus-within {
             border-color: #06b6d4;
             background: rgba(6, 12, 24, 0.85);
+        }
+
+        [data-theme="light"] .input-box:focus-within {
+            background: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
         }
 
         .input-label {
@@ -2267,6 +2282,19 @@
             font-weight: 700;
         }
 
+        [data-theme="light"] .hud-tabs {
+            background: #e2e8f0;
+        }
+
+        [data-theme="light"] .hud-tab {
+            color: #475569;
+        }
+
+        [data-theme="light"] .hud-tab.active {
+            background: #0284c7;
+            color: #ffffff;
+        }
+
         /* Destination Preview Block */
         .hud-preview-block {
             display: flex;
@@ -2483,10 +2511,15 @@
             border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
+        [data-theme="light"] .cta-backdrop {
+            opacity: 0.12;
+            filter: grayscale(1) contrast(1.1);
+        }
+
         [data-theme="light"] .cta-scrim {
             background:
-                radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.88) 0%, rgba(248, 250, 252, 0.95) 75%),
-                linear-gradient(180deg, rgba(248, 250, 252, 0.4) 0%, #ffffff 100%);
+                radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.98) 75%),
+                linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
         }
 
         .cta-content {
@@ -2563,6 +2596,12 @@
             background: #ffffff;
             border-color: rgba(15, 23, 42, 0.2);
             color: #0f172a;
+        }
+
+        [data-theme="light"] .btn-cta-secondary:hover {
+            background: #f8fafc;
+            border-color: rgba(15, 23, 42, 0.35);
+            color: #0284c7;
         }
 
         .btn-cta-secondary:hover {
@@ -2706,6 +2745,8 @@
 
         [data-theme="light"] .footer-links a { color: #52647d; }
         .footer-links a:hover, .footer-links a:focus-visible { color: #22d3ee; }
+        [data-theme="light"] .footer-links a:hover,
+        [data-theme="light"] .footer-links a:focus-visible { color: #0284c7; }
 
         .footer-bottom {
             display: flex;
@@ -2778,6 +2819,10 @@
             letter-spacing: 0.15em;
         }
 
+        [data-theme="light"] .info-modal-eyebrow {
+            color: #0284c7;
+        }
+
         .info-modal-title {
             margin: 0 2.75rem 0.65rem 0;
             color: inherit;
@@ -2799,6 +2844,7 @@
         .info-modal-content h3 { margin-bottom: 0.35rem; color: inherit; font-size: 1.05rem; }
         .info-modal-content ul { padding-left: 1.2rem; }
         .info-modal-content a { color: #22d3ee; font-weight: 700; }
+        [data-theme="light"] .info-modal-content a { color: #0284c7; }
 
         .legal-page-brand {
             display: block;

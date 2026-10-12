@@ -7,7 +7,25 @@
   X-Frame-Options: SAMEORIGIN
 
 # Root HTML & bootstrap must never be cached so releases are instant
+/
+  Cache-Control: no-cache, no-store, must-revalidate
+
 /index.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/terms
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/privacy
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/contact
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/app
+  Cache-Control: no-cache, no-store, must-revalidate
+
+/app/
   Cache-Control: no-cache, no-store, must-revalidate
 
 /app/index.html
