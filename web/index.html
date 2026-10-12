@@ -367,6 +367,12 @@
             background: #060c18;
         }
 
+        @keyframes heroDrift {
+            0% { transform: scale(1.02) translate(0, 0); }
+            50% { transform: scale(1.045) translate(-0.35%, -0.2%); }
+            100% { transform: scale(1.02) translate(0, 0); }
+        }
+
         /* 3D Landscape Background Layer (Day & Night) */
         .hero-backdrop {
             position: absolute;
@@ -375,7 +381,8 @@
             background-size: cover;
             background-position: center center;
             transform: scale(1.02);
-            transition: transform 0.2s ease-out, background-image 0.4s ease;
+            animation: heroDrift 28s ease-in-out infinite alternate;
+            transition: background-image 0.5s ease;
             will-change: transform;
             z-index: 1;
         }
@@ -404,8 +411,8 @@
 
         [data-theme="light"] .hero-scrim {
             background:
-                linear-gradient(90deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.74) 38%, rgba(255, 255, 255, 0.12) 60%, transparent 100%),
-                linear-gradient(180deg, rgba(255, 255, 255, 0.4) 0%, transparent 18%, transparent 64%, rgba(241, 245, 249, 0.75) 85%, #f1f5f9 100%);
+                linear-gradient(90deg, rgba(248, 250, 252, 0.45) 0%, rgba(248, 250, 252, 0.15) 35%, transparent 65%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, transparent 15%, transparent 84%, rgba(241, 245, 249, 0.65) 95%, #f1f5f9 100%);
         }
 
         .hero-content {
@@ -732,7 +739,7 @@
             color: #ffffff;
             pointer-events: auto;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
-            animation: floatSlow 4s ease-in-out infinite;
+            animation: floatMarker 4.6s ease-in-out infinite;
         }
 
         .floating-marker::after {
@@ -753,9 +760,9 @@
             border-color: #06b6d4;
         }
 
-        @keyframes floatSlow {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-7px); }
+        @keyframes floatMarker {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-8px) rotate(0.6deg); }
         }
 
         .marker-icon {
@@ -815,6 +822,11 @@
         .marker-fuel { top: 32%; right: 16%; animation-delay: 1.5s; }
         .marker-coorg { top: 43%; right: 11%; animation-delay: 0.8s; }
 
+        @keyframes floatHud {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
         /* Route HUD Card on Lower Highway */
         .route-hud-card {
             position: absolute;
@@ -830,6 +842,7 @@
             align-items: center;
             gap: 1.2rem;
             box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+            animation: floatHud 5.2s ease-in-out infinite 0.8s;
         }
 
         .hud-left {
@@ -2522,27 +2535,51 @@
         }
 
         [data-theme="light"] section.final-cta {
-            background: #ffffff;
+            background: #0f172a;
             border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
         [data-theme="light"] .cta-backdrop {
-            opacity: 0.12;
-            filter: grayscale(1) contrast(1.1);
+            opacity: 0.95;
+            filter: saturate(1.08) contrast(1.02);
+        }
+
+        [data-theme="dark"] .cta-backdrop {
+            opacity: 0.85;
+            filter: brightness(0.85);
         }
 
         [data-theme="light"] .cta-scrim {
             background:
-                radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.96) 0%, rgba(248, 250, 252, 0.98) 75%),
-                linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+                radial-gradient(ellipse at 50% 50%, rgba(255, 255, 255, 0.15) 0%, rgba(248, 250, 252, 0.4) 55%, rgba(241, 245, 249, 0.75) 100%),
+                linear-gradient(180deg, rgba(241, 245, 249, 0.45) 0%, transparent 25%, transparent 75%, rgba(241, 245, 249, 0.65) 100%);
         }
 
         .cta-content {
             position: relative;
             z-index: 10;
             text-align: center;
-            max-width: 620px;
-            padding: 3rem 1.5rem;
+            max-width: 660px;
+            padding: 3rem 2.5rem;
+            transition: transform 0.3s ease;
+        }
+
+        [data-theme="light"] .cta-content {
+            background: rgba(255, 255, 255, 0.86);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            border-radius: 28px;
+            box-shadow: 0 24px 60px rgba(15, 23, 42, 0.14);
+        }
+
+        [data-theme="dark"] .cta-content {
+            background: rgba(6, 12, 24, 0.82);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 28px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
         }
 
         .cta-title {
@@ -2937,8 +2974,8 @@
 
         [data-theme="light"] section.destinations {
             background:
-                radial-gradient(ellipse at 85% 15%, rgba(14, 165, 233, 0.05), transparent 42rem),
-                #ffffff;
+                radial-gradient(ellipse at 85% 15%, rgba(14, 165, 233, 0.08), transparent 42rem),
+                linear-gradient(180deg, #f1f5f9 0%, #f8fafc 50%, #f1f5f9 100%);
             border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
@@ -2999,16 +3036,18 @@
         }
 
         [data-theme="light"] section.features {
+            position: relative;
             background:
-                radial-gradient(ellipse at 50% 10%, rgba(14, 165, 233, 0.05), transparent 45rem),
-                #ffffff;
+                linear-gradient(180deg, rgba(241, 245, 249, 0.88) 0%, rgba(241, 245, 249, 0.68) 40%, rgba(241, 245, 249, 0.9) 100%),
+                url('images/hero_3d_landscape.jpg') center 46% / cover no-repeat;
             border-top: 1px solid rgba(15, 23, 42, 0.08);
         }
 
         [data-theme="dark"] section.features {
+            position: relative;
             background:
-                radial-gradient(ellipse at 50% 10%, rgba(6, 182, 212, 0.1), transparent 45rem),
-                #060c18;
+                linear-gradient(180deg, rgba(6, 12, 24, 0.88) 0%, rgba(6, 12, 24, 0.68) 40%, rgba(6, 12, 24, 0.92) 100%),
+                url('images/hero_3d_landscape.jpg') center 46% / cover no-repeat;
             border-top: 1px solid var(--border-subtle);
         }
 
@@ -3017,30 +3056,41 @@
         [data-theme="dark"] .features .feat-title { color: #f8fbff; }
 
         [data-theme="light"] .features .feat-card {
-            background: #ffffff;
-            border: 1px solid rgba(15, 23, 42, 0.08);
-            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.25s ease;
         }
 
         [data-theme="light"] .features .feat-card:hover {
-            border-color: rgba(2, 132, 199, 0.4);
-            box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
-            transform: translateY(-6px);
+            border-color: rgba(2, 132, 199, 0.45);
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+            transform: translateY(-8px);
         }
 
         [data-theme="light"] .features .feat-card-name { color: #0f172a; }
         [data-theme="light"] .features .feat-card-desc { color: #475569; }
 
         [data-theme="dark"] .features .feat-card {
-            background: rgba(13, 23, 42, 0.72);
+            background: rgba(13, 23, 42, 0.76);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.14);
             box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.25s ease;
         }
 
         [data-theme="dark"] .features .feat-card:hover {
             border-color: #06b6d4;
-            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5);
-            transform: translateY(-6px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            transform: translateY(-8px);
+        }
+
+        .feat-card:hover .feat-card-icon {
+            transform: scale(1.14) rotate(-3deg);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
         [data-theme="dark"] .features .feat-card-name { color: #ffffff; }
@@ -3063,10 +3113,16 @@
             justify-content: flex-start;
         }
 
+        @keyframes floatIsland {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
         .island-container {
             width: 52%;
             max-width: 440px;
             margin-left: 0;
+            animation: floatIsland 6s ease-in-out infinite;
         }
 
         .island-img { display: block; }
@@ -3118,12 +3174,41 @@
             border-color: rgba(15, 23, 42, 0.12);
         }
 
-        .island-pin.dest { top: 9%; left: 57%; border-color: rgba(255,255,255,.26); background: rgba(7, 26, 32, .92); }
+        @keyframes beaconPulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+
+        .island-pin.dest { top: 9%; left: 57%; border-color: rgba(255,255,255,.26); background: rgba(7, 26, 32, .92); animation: beaconPulse 2.5s infinite; }
         [data-theme="light"] .island-pin.dest { border-color: rgba(239, 68, 68, 0.4); background: rgba(255, 255, 255, 0.96); }
         .island-pin.ram { top: 25%; left: 61%; }
         .island-pin.fuel { top: 40%; left: 56%; }
         .island-pin.scenic { top: 54%; left: 59%; }
         .island-pin.start { top: 70%; left: 55%; }
+
+        /* Tactile Press Motion & Scroll Entrance Transitions */
+        button:active,
+        .btn-plan-trip:active,
+        .get-started-btn:active,
+        .btn-cta-primary:active,
+        .btn-cta-secondary:active,
+        .carousel-btn:active,
+        .dest-card:active {
+            transform: scale(0.97) !important;
+            transition: transform 0.1s ease !important;
+        }
+
+        .reveal-on-scroll {
+            opacity: 0;
+            transform: translateY(22px);
+            transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1), transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: opacity, transform;
+        }
+        .reveal-on-scroll.is-revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
         /* ════════════════════════════════════════════════════════════════════
            RESPONSIVE REFLOW RULES (320px to 3440px)
@@ -5546,6 +5631,23 @@
             document.getElementById('btnChatWidget').addEventListener('click', () => {
                 enterApp(`${window.location.origin}/app/?chat=true`);
             });
+
+            // --- 10. Smooth Scroll-Entrance Motion ---
+            if ('IntersectionObserver' in window) {
+                const scrollObserver = new IntersectionObserver((entries) => {
+                    entries.forEach((entry) => {
+                        if (entry.isIntersecting) {
+                            entry.target.classList.add('is-revealed');
+                            scrollObserver.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' });
+
+                document.querySelectorAll('section:not(.hero), .features-grid-6, .dest-carousel-track, .rp-map-grid').forEach((el) => {
+                    el.classList.add('reveal-on-scroll');
+                    scrollObserver.observe(el);
+                });
+            }
         }
 
         if (document.readyState === 'loading') {
