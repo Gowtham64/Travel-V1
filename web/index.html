@@ -221,6 +221,11 @@
             position: relative;
         }
 
+        [data-theme="light"] .nav-link {
+            color: #102a43;
+            font-weight: 600;
+        }
+
         [data-theme="light"] .header.scrolled .nav-link {
             color: var(--text-secondary);
         }
@@ -252,6 +257,21 @@
             background: rgba(255, 255, 255, 0.2);
             border-color: rgba(255, 255, 255, 0.3);
             transform: translateY(-1px);
+        }
+
+        [data-theme="light"] .search-btn,
+        [data-theme="light"] .theme-toggle-btn {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(15, 23, 42, 0.14);
+            color: #0f172a;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+        }
+
+        [data-theme="light"] .search-btn:hover,
+        [data-theme="light"] .theme-toggle-btn:hover {
+            background: #ffffff;
+            border-color: rgba(6, 182, 212, 0.5);
+            color: #0284c7;
         }
 
         .get-started-btn {
@@ -355,8 +375,8 @@
 
         [data-theme="light"] .hero-scrim {
             background:
-                radial-gradient(ellipse at 25% 45%, rgba(248, 250, 252, 0.85) 0%, rgba(248, 250, 252, 0.5) 45%, rgba(248, 250, 252, 0.05) 75%),
-                linear-gradient(180deg, rgba(248, 250, 252, 0.2) 0%, transparent 40%, #f8fafc 95%);
+                radial-gradient(ellipse at 22% 38%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 45%, transparent 72%),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, transparent 16%, transparent 88%, rgba(241, 245, 249, 0.35) 100%);
         }
 
         .hero-content {
@@ -395,6 +415,7 @@
 
         [data-theme="light"] .hero-title {
             color: #0f172a;
+            text-shadow: 0 1px 16px rgba(255, 255, 255, 0.7);
         }
 
         .hero-title .accent {
@@ -413,7 +434,9 @@
         }
 
         [data-theme="light"] .hero-lead {
-            color: #334155;
+            color: #1e293b;
+            font-weight: 500;
+            text-shadow: 0 1px 12px rgba(255, 255, 255, 0.7);
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -925,7 +948,7 @@
         }
 
         [data-theme="light"] .hero-bottom-bar {
-            border-color: rgba(15, 23, 42, 0.08);
+            border-color: rgba(255, 255, 255, 0.4);
         }
 
         .stats-group {
@@ -940,6 +963,16 @@
             gap: 0.75rem;
         }
 
+        [data-theme="light"] .stat-badge {
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding: 0.35rem 0.85rem;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+        }
+
         .stat-icon {
             width: 36px;
             height: 36px;
@@ -951,11 +984,18 @@
             place-items: center;
         }
 
+        [data-theme="light"] .stat-icon {
+            background: rgba(6, 182, 212, 0.12);
+            border-color: rgba(6, 182, 212, 0.3);
+            color: #0284c7;
+        }
+
         .stat-icon svg { width: 18px; height: 18px; }
 
         .stat-val { font-size: 1.05rem; font-weight: 800; color: #ffffff; }
         [data-theme="light"] .stat-val { color: #0f172a; }
         .stat-lbl { font-size: 0.75rem; color: #94a3b8; }
+        [data-theme="light"] .stat-lbl { color: #475569; font-weight: 600; }
 
         .scroll-cue {
             display: flex;
@@ -967,12 +1007,27 @@
             letter-spacing: 0.04em;
         }
 
+        [data-theme="light"] .scroll-cue {
+            color: #1e293b;
+            background: rgba(255, 255, 255, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            padding: 0.35rem 0.85rem;
+            border-radius: var(--radius-pill);
+            border: 1px solid rgba(255, 255, 255, 0.95);
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+        }
+
         .mouse-icon {
             width: 18px;
             height: 28px;
             border: 1.5px solid rgba(255, 255, 255, 0.5);
             border-radius: 10px;
             position: relative;
+        }
+
+        [data-theme="light"] .mouse-icon {
+            border-color: rgba(15, 23, 42, 0.45);
         }
 
         .mouse-icon::after {
@@ -1276,6 +1331,142 @@
             --rp-card: rgba(4, 23, 45, 0.9);
             --rp-surface: rgba(3, 19, 38, 0.95);
             --rp-accent: #1b9dff;
+        }
+
+        [data-theme="light"] section.route-preview {
+            --rp-ink: #0f172a;
+            --rp-muted: #475569;
+            --rp-line: rgba(14, 165, 233, 0.18);
+            --rp-card: #ffffff;
+            --rp-surface: #f8fafc;
+            --rp-accent: #0284c7;
+            background:
+                radial-gradient(ellipse at 15% -22%, rgba(14, 165, 233, 0.08), transparent 48rem),
+                radial-gradient(ellipse at 88% 94%, rgba(6, 182, 212, 0.06), transparent 36rem),
+                #f1f5f9;
+            border-top: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] .rp-metric {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.09);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+        }
+
+        [data-theme="light"] .rp-metric-value {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .rp-metric-label {
+            color: #475569;
+        }
+
+        [data-theme="light"] .rp-metric-note {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .rp-map-card,
+        [data-theme="light"] .rp-discovery {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.09);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+        }
+
+        [data-theme="light"] .rp-map-label,
+        [data-theme="light"] .rp-discovery-title {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .rp-map-switch {
+            background: #f1f5f9;
+            border-color: rgba(15, 23, 42, 0.1);
+        }
+
+        [data-theme="light"] .rp-map-toggle {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .rp-map-toggle.is-active {
+            color: #ffffff;
+            background: #0284c7;
+        }
+
+        [data-theme="light"] .rp-map-fallback {
+            color: #334155;
+            background:
+                radial-gradient(circle at 76% 16%, rgba(2, 132, 199, 0.12), transparent 35%),
+                linear-gradient(148deg, #e0f2fe, #f8fafc 64%);
+        }
+
+        [data-theme="light"] .rp-map-fallback-label {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .rp-place-card {
+            background: #ffffff;
+            border-color: rgba(15, 23, 42, 0.1);
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+        }
+
+        [data-theme="light"] .rp-place-card:hover {
+            border-color: rgba(2, 132, 199, 0.5);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+        }
+
+        [data-theme="light"] .rp-place-name {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .rp-place-meta {
+            color: #64748b;
+        }
+
+        [data-theme="light"] .rp-place-proximity {
+            color: #0284c7;
+            background: rgba(2, 132, 199, 0.08);
+        }
+
+        [data-theme="light"] .rp-place-save {
+            color: #64748b;
+            background: rgba(241, 245, 249, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] .rp-place-save:hover {
+            color: #ef4444;
+            background: rgba(254, 226, 226, 0.9);
+        }
+
+        [data-theme="light"] .rp-filter {
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+        }
+
+        [data-theme="light"] .rp-filter.is-active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+        }
+
+        [data-theme="light"] .rp-map-overlay {
+            background: rgba(255, 255, 255, 0.94);
+            border-color: rgba(15, 23, 42, 0.1);
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+        }
+
+        [data-theme="light"] .rp-map-overlay-title {
+            color: #0f172a;
+        }
+
+        [data-theme="light"] .rp-map-overlay-list li {
+            color: #334155;
+            border-bottom-color: rgba(15, 23, 42, 0.06);
+        }
+
+        [data-theme="light"] .rp-map-legend {
+            color: #475569;
+            border-top-color: rgba(15, 23, 42, 0.08);
         }
 
         .rp-head {
@@ -3714,6 +3905,7 @@
                     localStorage.setItem('voyplan_theme', theme);
                     localStorage.setItem('flutter.voyplan.theme_mode', theme);
                 }
+                window.dispatchEvent(new CustomEvent('voyplan:themechange', { detail: { theme } }));
             };
             applyTheme(savedTheme || systemTheme);
 
@@ -4690,10 +4882,21 @@
             }
 
             function mapStyleUrl() {
-                return landingMapStyle === 'satellite'
-                    ? 'mapbox://styles/mapbox/satellite-streets-v12'
+                if (landingMapStyle === 'satellite') {
+                    return 'mapbox://styles/mapbox/satellite-streets-v12';
+                }
+                const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+                return isLight
+                    ? 'mapbox://styles/mapbox/navigation-day-v1'
                     : 'mapbox://styles/mapbox/navigation-night-v1';
             }
+
+            window.addEventListener('voyplan:themechange', () => {
+                if (landingMap && landingMapStyle !== 'satellite') {
+                    landingMap.setStyle(mapStyleUrl());
+                    landingMap.once('style.load', () => paintRouteOnMap({ fit: false }));
+                }
+            });
 
             function mapMarker(color, title) {
                 const element = document.createElement('span');
