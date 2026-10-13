@@ -25,7 +25,7 @@
                 if (meta) meta.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
 
                 // High-priority preload only active hero background to save 4MB+ initial network tax
-                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg' : 'images/hero_night_roadtrip.jpg';
+                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg?v=2' : 'images/hero_night_roadtrip.jpg?v=2';
                 var preloadLink = document.createElement('link');
                 preloadLink.rel = 'preload';
                 preloadLink.as = 'image';
@@ -40,8 +40,8 @@
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
     <!-- Preload active theme hero backdrop with media-query gating for static pre-parsers -->
-    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg" media="(prefers-color-scheme: light)">
-    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg" media="(prefers-color-scheme: dark)">
+    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg?v=2" media="(prefers-color-scheme: light)">
+    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg?v=2" media="(prefers-color-scheme: dark)">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -428,12 +428,12 @@
         }
 
         .hero-backdrop-day {
-            background-image: url('images/hero_day_roadtrip.jpg');
+            background-image: url('images/hero_day_roadtrip.jpg?v=2');
             opacity: 0;
         }
 
         .hero-backdrop-night {
-            background-image: url('images/hero_night_roadtrip.jpg');
+            background-image: url('images/hero_night_roadtrip.jpg?v=2');
             opacity: 1;
         }
 
@@ -4674,8 +4674,8 @@
                     };
                     test.src = url;
                 };
-                verifyImg('images/hero_day_roadtrip.jpg', heroBackdropDay, 'day');
-                verifyImg('images/hero_night_roadtrip.jpg', heroBackdropNight, 'night');
+                verifyImg('images/hero_day_roadtrip.jpg?v=2', heroBackdropDay, 'day');
+                verifyImg('images/hero_night_roadtrip.jpg?v=2', heroBackdropNight, 'night');
             }
 
             // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)
