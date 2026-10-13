@@ -1527,53 +1527,83 @@
             --rp-ink: #f5f8ff;
             --rp-muted: #aebfd7;
             --rp-line: rgba(105, 176, 255, 0.24);
-            --rp-card: rgba(4, 23, 45, 0.9);
-            --rp-surface: rgba(3, 19, 38, 0.95);
+            --rp-card: rgba(4, 23, 45, 0.88);
+            --rp-surface: rgba(3, 19, 38, 0.94);
             --rp-accent: #1b9dff;
-            padding: 4.2rem 0 4.5rem;
+            position: relative;
+            padding: 4.5rem 0 4.8rem;
             background:
-                radial-gradient(ellipse at 15% -22%, rgba(20, 127, 237, 0.22), transparent 48rem),
-                radial-gradient(ellipse at 88% 94%, rgba(0, 194, 255, 0.12), transparent 36rem),
-                #020b16;
-            border-top: 1px solid rgba(114, 182, 255, 0.14);
+                linear-gradient(180deg, rgba(2, 11, 22, 0.94) 0%, rgba(4, 18, 36, 0.84) 40%, rgba(2, 11, 22, 0.95) 100%),
+                url('images/route_preview_scenic.jpg') center 25% / cover no-repeat;
+            border-top: 1px solid rgba(114, 182, 255, 0.18);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="dark"] section.route-preview {
             --rp-ink: #f5f8ff;
             --rp-muted: #aebfd7;
             --rp-line: rgba(105, 176, 255, 0.24);
-            --rp-card: rgba(4, 23, 45, 0.9);
-            --rp-surface: rgba(3, 19, 38, 0.95);
+            --rp-card: rgba(4, 23, 45, 0.88);
+            --rp-surface: rgba(3, 19, 38, 0.94);
             --rp-accent: #1b9dff;
+            background:
+                linear-gradient(180deg, rgba(2, 11, 22, 0.94) 0%, rgba(4, 18, 36, 0.84) 40%, rgba(2, 11, 22, 0.95) 100%),
+                url('images/route_preview_scenic.jpg') center 25% / cover no-repeat;
+            border-top: 1px solid rgba(114, 182, 255, 0.18);
         }
 
         [data-theme="light"] section.route-preview {
-            --rp-ink: #0f172a;
+            --rp-ink: #081320;
             --rp-muted: #334155;
-            --rp-line: rgba(14, 165, 233, 0.25);
-            --rp-card: rgba(255, 255, 255, 0.94);
-            --rp-surface: #ffffff;
+            --rp-line: rgba(14, 165, 233, 0.28);
+            --rp-card: rgba(255, 255, 255, 0.92);
+            --rp-surface: rgba(255, 255, 255, 0.96);
             --rp-accent: #0284c7;
             background:
-                radial-gradient(ellipse at 15% -22%, rgba(2, 132, 199, 0.12), transparent 48rem),
-                radial-gradient(ellipse at 88% 94%, rgba(6, 182, 212, 0.08), transparent 36rem),
-                linear-gradient(180deg, #e8edf5 0%, #f1f5f9 50%, #e8edf5 100%);
-            border-top: 1px solid rgba(15, 23, 42, 0.1);
+                linear-gradient(180deg, rgba(228, 240, 251, 0.9) 0%, rgba(218, 234, 249, 0.8) 40%, rgba(224, 238, 251, 0.88) 75%, rgba(215, 230, 246, 0.95) 100%),
+                url('images/route_preview_scenic.jpg') center 25% / cover no-repeat;
+            border-top: 1px solid rgba(14, 165, 233, 0.22);
+        }
+
+        [data-theme="light"] .rp-eyebrow {
+            display: inline-block;
+            color: #0369a1;
+            font-weight: 800;
+            background: rgba(255, 255, 255, 0.92);
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            border: 1px solid rgba(2, 132, 199, 0.25);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+            margin-bottom: 0.35rem;
+        }
+
+        [data-theme="light"] .rp-title {
+            color: #081320;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95);
+        }
+
+        [data-theme="light"] .rp-subtitle {
+            color: #1e293b;
+            font-weight: 500;
         }
 
         [data-theme="light"] .rp-metric {
             background: rgba(255, 255, 255, 0.92);
-            backdrop-filter: blur(14px);
-            border-color: rgba(15, 23, 42, 0.12);
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.06);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.96);
+            box-shadow: 0 6px 20px rgba(15, 35, 65, 0.08);
         }
 
         [data-theme="light"] .rp-metric-value {
-            color: #0f172a;
+            color: #081320;
+            font-weight: 800;
         }
 
         [data-theme="light"] .rp-metric-label {
-            color: #475569;
+            color: #334155;
+            font-weight: 700;
         }
 
         [data-theme="light"] .rp-metric-note {
@@ -1582,23 +1612,27 @@
 
         [data-theme="light"] .rp-map-card,
         [data-theme="light"] .rp-discovery {
-            background: #ffffff;
-            border-color: rgba(15, 23, 42, 0.09);
-            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.96);
+            box-shadow: 0 16px 40px rgba(15, 35, 65, 0.1);
         }
 
         [data-theme="light"] .rp-map-label,
         [data-theme="light"] .rp-discovery-title {
-            color: #0f172a;
+            color: #081320;
+            font-weight: 800;
         }
 
         [data-theme="light"] .rp-map-switch {
-            background: #f1f5f9;
-            border-color: rgba(15, 23, 42, 0.1);
+            background: #e2e8f0;
+            border-color: rgba(15, 23, 42, 0.12);
         }
 
         [data-theme="light"] .rp-map-toggle {
-            color: #64748b;
+            color: #475569;
+            font-weight: 700;
         }
 
         [data-theme="light"] .rp-map-toggle.is-active {
@@ -1618,22 +1652,27 @@
         }
 
         [data-theme="light"] .rp-place-card {
-            background: #ffffff;
-            border-color: rgba(15, 23, 42, 0.1);
-            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.96);
+            box-shadow: 0 6px 20px rgba(15, 35, 65, 0.08);
         }
 
         [data-theme="light"] .rp-place-card:hover {
-            border-color: rgba(2, 132, 199, 0.5);
-            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.1);
+            border-color: rgba(2, 132, 199, 0.6);
+            box-shadow: 0 12px 32px rgba(15, 35, 65, 0.14);
+            transform: translateY(-4px);
         }
 
         [data-theme="light"] .rp-place-name {
-            color: #0f172a;
+            color: #081320;
+            font-weight: 800;
         }
 
         [data-theme="light"] .rp-place-meta {
-            color: #64748b;
+            color: #475569;
+            font-weight: 600;
         }
 
         [data-theme="light"] .rp-place-proximity {
@@ -3046,17 +3085,57 @@
            COHESIVE THEME HARMONY FOR DESTINATIONS, COPILOT, FEATURES & PINS
            ════════════════════════════════════════════════════════════════════ */
         [data-theme="dark"] section.destinations {
+            position: relative;
             background:
-                radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.08), transparent 42rem),
-                #060c18;
-            border-top: 1px solid var(--border-subtle);
+                radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.12), transparent 42rem),
+                linear-gradient(180deg, rgba(2, 11, 22, 0.95) 0%, rgba(6, 15, 30, 0.86) 50%, rgba(2, 11, 22, 0.95) 100%),
+                url('images/route_preview_scenic.jpg') center 75% / cover no-repeat;
+            border-top: 1px solid rgba(114, 182, 255, 0.14);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="light"] section.destinations {
+            position: relative;
             background:
-                radial-gradient(ellipse at 85% 15%, rgba(14, 165, 233, 0.12), transparent 42rem),
-                linear-gradient(180deg, #e8edf5 0%, #f0f4f9 50%, #e5ecf4 100%);
-            border-top: 1px solid rgba(15, 23, 42, 0.1);
+                radial-gradient(ellipse at 85% 20%, rgba(14, 165, 233, 0.18), transparent 38rem),
+                linear-gradient(180deg, rgba(215, 230, 246, 0.94) 0%, rgba(225, 238, 250, 0.84) 50%, rgba(210, 226, 244, 0.95) 100%),
+                url('images/route_preview_scenic.jpg') center 75% / cover no-repeat;
+            border-top: 1px solid rgba(14, 165, 233, 0.18);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+        }
+
+        [data-theme="light"] .dest-title {
+            color: #081320;
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95);
+        }
+
+        [data-theme="light"] .dest-subtitle {
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        [data-theme="light"] .dest-region-btn {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-color: rgba(15, 23, 42, 0.12);
+            color: #1e293b;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+
+        [data-theme="light"] .dest-region-btn:hover {
+            color: #0284c7;
+            background: #ffffff;
+            border-color: rgba(2, 132, 199, 0.4);
+        }
+
+        [data-theme="light"] .dest-region-btn.active {
+            background: #0284c7;
+            color: #ffffff;
+            border-color: #0284c7;
+            box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
         }
 
         [data-theme="dark"] section.ai-copilot {
@@ -3067,11 +3146,15 @@
         }
 
         [data-theme="light"] section.ai-copilot {
+            position: relative;
             background:
-                radial-gradient(circle at 75% 35%, rgba(2, 132, 199, 0.14), transparent 36rem),
-                radial-gradient(circle at 20% 80%, rgba(14, 165, 233, 0.08), transparent 30rem),
-                linear-gradient(180deg, #e5ecf4 0%, #edf3f8 50%, #e2eaf2 100%);
-            border-top: 1px solid rgba(15, 23, 42, 0.1);
+                radial-gradient(circle at 75% 35%, rgba(2, 132, 199, 0.16), transparent 36rem),
+                radial-gradient(circle at 20% 80%, rgba(14, 165, 233, 0.1), transparent 30rem),
+                linear-gradient(180deg, rgba(210, 226, 244, 0.95) 0%, rgba(220, 234, 248, 0.85) 50%, rgba(215, 230, 246, 0.95) 100%),
+                url('images/hero_3d_landscape.jpg') center 30% / cover no-repeat;
+            border-top: 1px solid rgba(14, 165, 233, 0.18);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="light"] .ai-script-flourish {
