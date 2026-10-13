@@ -385,6 +385,8 @@
             transition: background-image 0.5s ease;
             will-change: transform;
             z-index: 1;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="light"] .hero-backdrop {
@@ -793,7 +795,9 @@
         .marker-purple .marker-icon { background: #8b5cf6; }
         .marker-green .marker-icon { background: #10b981; }
         .marker-scenic .marker-icon {
-            background: url('images/hero_roadtrip_reference_v2.png') 73% 46% / 220% auto;
+            background: url('images/thumb_scenic_view.jpg') center / cover no-repeat;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
         .marker-scenic .marker-icon svg { display: none; }
         .marker-fuel .marker-icon { background: linear-gradient(135deg, #b05cff, #7c3aed); }
@@ -824,7 +828,9 @@
         [data-theme="light"] .marker-title { color: #102a43; }
         [data-theme="light"] .marker-dist { color: #31566b; }
         [data-theme="light"] .marker-scenic .marker-icon {
-            background: url('images/hero_day_roadtrip.jpg') 73% 46% / 220% auto;
+            background: url('images/thumb_scenic_view.jpg') center / cover no-repeat;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
         [data-theme="light"] .hero-script-flourish { color: #102a43; text-shadow: 0 2px 10px rgba(255, 255, 255, 0.8); }
         [data-theme="light"] .hero .hero-script-flourish svg { color: #0284c7; }
@@ -1312,6 +1318,8 @@
             background-size: cover;
             background-position: center;
             transition: transform 0.5s ease;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         .dest-card:hover .dest-card-img {
@@ -1997,6 +2005,8 @@
             object-fit: cover;
             display: block;
             transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         .rp-place-card:hover .rp-place-img {
@@ -2542,6 +2552,8 @@
             background-size: cover;
             background-position: center 50%;
             z-index: 1;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         .cta-scrim {
@@ -3062,6 +3074,8 @@
                 linear-gradient(180deg, rgba(241, 245, 249, 0.55) 0%, rgba(241, 245, 249, 0.25) 40%, rgba(241, 245, 249, 0.6) 100%),
                 url('images/hero_3d_landscape.jpg') center 46% / cover no-repeat;
             border-top: 1px solid rgba(15, 23, 42, 0.1);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="dark"] section.features {
@@ -3070,6 +3084,8 @@
                 linear-gradient(180deg, rgba(6, 12, 24, 0.88) 0%, rgba(6, 12, 24, 0.68) 40%, rgba(6, 12, 24, 0.92) 100%),
                 url('images/hero_3d_landscape.jpg') center 46% / cover no-repeat;
             border-top: 1px solid var(--border-subtle);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         [data-theme="light"] .features .feat-eyebrow { color: #0284c7; }
@@ -3120,6 +3136,8 @@
         .island-img {
             border-radius: 0;
             filter: drop-shadow(0 28px 36px rgba(8, 25, 49, 0.3));
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
         /* Reference composition: editorial copy, blue-route island, itinerary HUD. */
@@ -3754,7 +3772,7 @@
                     <!-- 7. Grand Canyon (US) -->
                     <div class="dest-card" data-dest="Grand Canyon, Arizona" data-dist="450 mi" data-region="US">
                         <div class="dest-badge">Iconic USA</div>
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1474044159687-1ee9f3a51722?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3768,7 +3786,7 @@
 
                     <!-- 8. Big Sur & Highway 1 (US) -->
                     <div class="dest-card" data-dest="Big Sur, California" data-dist="140 mi" data-region="US">
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1508873696983-2df5703bc20d?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3782,7 +3800,7 @@
 
                     <!-- 9. Lake District (GB) -->
                     <div class="dest-card" data-dest="Lake District, Cumbria" data-dist="190 mi" data-region="GB">
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1589802829985-817e51171b92?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3797,7 +3815,7 @@
                     <!-- 10. Dubai & Desert Dunes (AE) -->
                     <div class="dest-card" data-dest="Dubai" data-dist="180 km" data-region="AE">
                         <div class="dest-badge">Desert &amp; City</div>
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3811,7 +3829,7 @@
 
                     <!-- 11. Amalfi Coast (EU) -->
                     <div class="dest-card" data-dest="Amalfi Coast, Italy" data-dist="210 km" data-region="EU">
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1533105079780-92b9be482077?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1533105079780-92b9be482077?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3825,7 +3843,7 @@
 
                     <!-- 12. Great Ocean Road (AU) -->
                     <div class="dest-card" data-dest="Great Ocean Road, Victoria" data-dist="240 km" data-region="AU">
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1529108190281-9a4f620bc2d8?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1529108190281-9a4f620bc2d8?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -3839,7 +3857,7 @@
 
                     <!-- 13. Mount Fuji & Hakone (JP) -->
                     <div class="dest-card" data-dest="Mount Fuji, Japan" data-dist="160 km" data-region="JP">
-                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?q=80&w=800&auto=format&fit=crop');"></div>
+                        <div class="dest-card-img" style="background-image: url('https://images.unsplash.com/photo-1490806843957-31f4c9a91c65?q=85&w=1200&auto=format&fit=crop');"></div>
                         <div class="dest-card-scrim"></div>
                         <div class="dest-content">
                             <div>
@@ -4574,7 +4592,7 @@
                             category: 'attraction',
                             lat: 12.3052,
                             lng: 76.6552,
-                            image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=600&auto=format&fit=crop',
+                            image: 'images/places/mysore_palace.jpg',
                         },
                         {
                             id: 'pl-att-2',
@@ -4582,7 +4600,7 @@
                             category: 'attraction',
                             lat: 12.4296,
                             lng: 75.9678,
-                            image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
+                            image: 'images/places/namdroling_monastery.jpg',
                         },
                         {
                             id: 'pl-att-3',
@@ -4590,7 +4608,7 @@
                             category: 'attraction',
                             lat: 12.3686,
                             lng: 75.9048,
-                            image: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                     viewpoint: [
@@ -4600,7 +4618,7 @@
                             category: 'viewpoint',
                             lat: 12.4540,
                             lng: 75.7190,
-                            image: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop',
+                            image: 'images/places/abbey_falls.jpg',
                         },
                         {
                             id: 'pl-vp-2',
@@ -4608,7 +4626,7 @@
                             category: 'viewpoint',
                             lat: 12.4172,
                             lng: 75.7360,
-                            image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=85&w=1200&auto=format&fit=crop',
                         },
                         {
                             id: 'pl-vp-3',
@@ -4616,7 +4634,7 @@
                             category: 'viewpoint',
                             lat: 12.4246,
                             lng: 76.6570,
-                            image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1444464666168-49d633b86797?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                     restaurant: [
@@ -4626,7 +4644,7 @@
                             category: 'restaurant',
                             lat: 12.5844,
                             lng: 77.0450,
-                            image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=85&w=1200&auto=format&fit=crop',
                         },
                         {
                             id: 'pl-res-2',
@@ -4634,7 +4652,7 @@
                             category: 'restaurant',
                             lat: 12.4220,
                             lng: 75.7390,
-                            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                     hotel: [
@@ -4644,7 +4662,7 @@
                             category: 'hotel',
                             lat: 12.2155,
                             lng: 75.7622,
-                            image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=85&w=1200&auto=format&fit=crop',
                         },
                         {
                             id: 'pl-hot-2',
@@ -4652,7 +4670,7 @@
                             category: 'hotel',
                             lat: 12.3551,
                             lng: 75.8340,
-                            image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                     fuel: [
@@ -4662,7 +4680,7 @@
                             category: 'fuel',
                             lat: 12.7210,
                             lng: 77.2750,
-                            image: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=85&w=1200&auto=format&fit=crop',
                         },
                         {
                             id: 'pl-fuel-2',
@@ -4670,7 +4688,7 @@
                             category: 'fuel',
                             lat: 12.3480,
                             lng: 76.5410,
-                            image: 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                     rest_area: [
@@ -4680,7 +4698,7 @@
                             category: 'rest_area',
                             lat: 12.5250,
                             lng: 76.8960,
-                            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=85&w=1200&auto=format&fit=crop',
                         },
                         {
                             id: 'pl-rest-2',
@@ -4688,7 +4706,7 @@
                             category: 'rest_area',
                             lat: 12.4490,
                             lng: 75.9580,
-                            image: 'https://images.unsplash.com/photo-1511497584788-87676104235f?q=80&w=600&auto=format&fit=crop',
+                            image: 'https://images.unsplash.com/photo-1511497584788-87676104235f?q=85&w=1200&auto=format&fit=crop',
                         },
                     ],
                 },
@@ -5085,25 +5103,25 @@
             }
 
             const FAMOUS_PLACE_IMAGES = {
-                'mysore palace': 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?q=80&w=600&auto=format&fit=crop',
-                'abbey falls': 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop',
-                "raja's seat": 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
-                'namdroling': 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
-                'golden temple': 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
-                'dubare': 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=80&w=600&auto=format&fit=crop',
-                'chamundi': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop',
-                'brindavan': 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=80&w=600&auto=format&fit=crop',
-                'mandalpatti': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=80&w=600&auto=format&fit=crop',
-                'maddur': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
-                'channapatna': 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=600&auto=format&fit=crop',
-                'ranganathittu': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
-                'philomena': 'https://images.unsplash.com/photo-1548625361-1959728271e1?q=80&w=600&auto=format&fit=crop',
-                'tamara': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
-                'lalitha mahal': 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=600&auto=format&fit=crop',
-                'evolve back': 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=80&w=600&auto=format&fit=crop',
-                'shell': 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
-                'indianoil': 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=80&w=600&auto=format&fit=crop',
-                'hp': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=600&auto=format&fit=crop',
+                'mysore palace': 'images/places/mysore_palace.jpg',
+                'abbey falls': 'images/places/abbey_falls.jpg',
+                "raja's seat": 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=85&w=1200&auto=format&fit=crop',
+                'namdroling': 'images/places/namdroling_monastery.jpg',
+                'golden temple': 'images/places/namdroling_monastery.jpg',
+                'dubare': 'https://images.unsplash.com/photo-1557050543-4d5f4e07ef46?q=85&w=1200&auto=format&fit=crop',
+                'chamundi': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=85&w=1200&auto=format&fit=crop',
+                'brindavan': 'https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?q=85&w=1200&auto=format&fit=crop',
+                'mandalpatti': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?q=85&w=1200&auto=format&fit=crop',
+                'maddur': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=85&w=1200&auto=format&fit=crop',
+                'channapatna': 'https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=85&w=1200&auto=format&fit=crop',
+                'ranganathittu': 'https://images.unsplash.com/photo-1444464666168-49d633b86797?q=85&w=1200&auto=format&fit=crop',
+                'philomena': 'https://images.unsplash.com/photo-1548625361-1959728271e1?q=85&w=1200&auto=format&fit=crop',
+                'tamara': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=85&w=1200&auto=format&fit=crop',
+                'lalitha mahal': 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=85&w=1200&auto=format&fit=crop',
+                'evolve back': 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?q=85&w=1200&auto=format&fit=crop',
+                'shell': 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=85&w=1200&auto=format&fit=crop',
+                'indianoil': 'https://images.unsplash.com/photo-1527018601619-a508a2be00be?q=85&w=1200&auto=format&fit=crop',
+                'hp': 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=85&w=1200&auto=format&fit=crop',
                 'ooty': 'images/destination_ooty.png',
                 'coorg': 'images/destination_coorg.png',
                 'hampi': 'images/destination_hampi.png',
@@ -5112,12 +5130,12 @@
             };
 
             const CATEGORY_DEFAULT_IMAGES = {
-                attraction: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?q=80&w=600&auto=format&fit=crop',
-                viewpoint: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
-                restaurant: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
-                hotel: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
-                fuel: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop',
-                rest_area: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=80&w=600&auto=format&fit=crop',
+                attraction: 'images/places/mysore_palace.jpg',
+                viewpoint: 'images/places/abbey_falls.jpg',
+                restaurant: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=85&w=1200&auto=format&fit=crop',
+                hotel: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=85&w=1200&auto=format&fit=crop',
+                fuel: 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=85&w=1200&auto=format&fit=crop',
+                rest_area: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?q=85&w=1200&auto=format&fit=crop',
             };
 
             function getPlaceImageUrl(place) {
@@ -5130,22 +5148,25 @@
                 }
 
                 if (lowerName.includes('fall') || lowerName.includes('water') || lowerName.includes('lake') || lowerName.includes('river')) {
-                    return 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=600&auto=format&fit=crop';
+                    return 'images/places/abbey_falls.jpg';
                 }
-                if (lowerName.includes('temple') || lowerName.includes('palace') || lowerName.includes('fort') || lowerName.includes('heritage') || lowerName.includes('church')) {
-                    return 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop';
+                if (lowerName.includes('temple') || lowerName.includes('monastery')) {
+                    return 'images/places/namdroling_monastery.jpg';
+                }
+                if (lowerName.includes('palace') || lowerName.includes('fort') || lowerName.includes('heritage')) {
+                    return 'images/places/mysore_palace.jpg';
                 }
                 if (lowerName.includes('view') || lowerName.includes('peak') || lowerName.includes('hill') || lowerName.includes('cliff') || lowerName.includes('point')) {
-                    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=600&auto=format&fit=crop';
+                    return 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=85&w=1200&auto=format&fit=crop';
                 }
                 if (lowerName.includes('resort') || lowerName.includes('hotel') || lowerName.includes('stay') || lowerName.includes('lodge') || lowerName.includes('palace inn')) {
-                    return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop';
+                    return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=85&w=1200&auto=format&fit=crop';
                 }
                 if (lowerName.includes('cafe') || lowerName.includes('restaurant') || lowerName.includes('dhaba') || lowerName.includes('food') || lowerName.includes('dosa') || lowerName.includes('vada')) {
-                    return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop';
+                    return 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=85&w=1200&auto=format&fit=crop';
                 }
                 if (lowerName.includes('fuel') || lowerName.includes('petrol') || lowerName.includes('gas') || lowerName.includes('oil') || lowerName.includes('shell') || lowerName.includes('hp')) {
-                    return 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=80&w=600&auto=format&fit=crop';
+                    return 'https://images.unsplash.com/photo-1545459720-aac8509eb02c?q=85&w=1200&auto=format&fit=crop';
                 }
 
                 return CATEGORY_DEFAULT_IMAGES[place.category] || CATEGORY_DEFAULT_IMAGES.attraction;
