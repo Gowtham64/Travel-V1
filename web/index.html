@@ -23,6 +23,15 @@
                 document.documentElement.setAttribute('data-theme', theme);
                 var meta = document.querySelector('meta[name="theme-color"]');
                 if (meta) meta.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
+
+                // High-priority preload only active hero background to save 4MB+ initial network tax
+                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg' : 'images/hero_night_roadtrip.jpg';
+                var preloadLink = document.createElement('link');
+                preloadLink.rel = 'preload';
+                preloadLink.as = 'image';
+                preloadLink.href = activeHeroImg;
+                preloadLink.fetchPriority = 'high';
+                document.head.appendChild(preloadLink);
             } catch (_) {}
         })();
     </script>
@@ -30,9 +39,9 @@
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
-    <!-- Preload Day and Night Hero Backdrops for instant switching -->
-    <link rel="preload" as="image" href="images/hero_roadtrip_reference_v2.png">
-    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg">
+    <!-- Preload active theme hero backdrop with media-query gating for static pre-parsers -->
+    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg" media="(prefers-color-scheme: light)">
+    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg" media="(prefers-color-scheme: dark)">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -364,57 +373,142 @@
             padding-top: calc(var(--nav-height) + 1rem);
             padding-bottom: 3.5rem;
             overflow: hidden;
-            background: #060c18;
+            /* Atmospheric midnight fallback landscape gradient */
+            background:
+                radial-gradient(ellipse 90% 60% at 50% 25%, rgba(30, 64, 175, 0.42) 0%, rgba(15, 23, 42, 0.8) 55%, #020617 100%),
+                linear-gradient(180deg, #020617 0%, #061226 35%, #07152b 70%, #020712 100%);
+            background-color: #060c18;
+            transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        @keyframes heroDrift {
-            0% { transform: scale(1.02) translate(0, 0); }
-            50% { transform: scale(1.045) translate(-0.35%, -0.2%); }
-            100% { transform: scale(1.02) translate(0, 0); }
+        [data-theme="light"] .hero {
+            /* Atmospheric sunlit alpine sky & mountain valley fallback gradient (never black) */
+            background:
+                radial-gradient(ellipse 90% 60% at 50% 20%, rgba(191, 219, 254, 0.85) 0%, rgba(147, 197, 253, 0.5) 45%, rgba(224, 242, 254, 0.9) 75%),
+                linear-gradient(180deg, #eff6ff 0%, #dbeafe 30%, #bfdbfe 60%, #bae6fd 85%, #e4f0fb 100%);
+            background-color: #e4f0fb;
         }
 
-        /* 3D Landscape Background Layer (Day & Night) */
-        .hero-backdrop {
+        @keyframes heroCinematicMotion {
+            0% {
+                transform: translate3d(0, 0, 0) scale(1.02);
+            }
+            50% {
+                transform: translate3d(-0.45%, -0.25%, 0) scale(1.055);
+            }
+            100% {
+                transform: translate3d(0.35%, 0.15%, 0) scale(1.03);
+            }
+        }
+
+        /* Hero Backdrop Container (Supports GPU Parallax translation independently from Ken Burns drift) */
+        .hero-backdrop-container {
             position: absolute;
             inset: 0;
-            background-image: url('images/hero_roadtrip_reference_v2.png');
-            background-size: cover;
-            background-position: center center;
-            transform: scale(1.02);
-            animation: heroDrift 28s ease-in-out infinite alternate;
-            transition: background-image 0.5s ease;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 1;
             will-change: transform;
+        }
+
+        /* 3D Landscape Dual Layers (Day & Night) for 0-flash opacity cross-fades */
+        .hero-backdrop {
+            position: absolute;
+            inset: -3.5%;
+            background-size: cover;
+            background-position: center 38%;
+            background-repeat: no-repeat;
+            transform: translate3d(0, 0, 0) scale(1.02);
+            animation: heroCinematicMotion 28s ease-in-out infinite alternate;
+            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            will-change: transform, opacity;
             z-index: 1;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: high-quality;
         }
 
-        [data-theme="light"] .hero-backdrop {
+        .hero-backdrop-day {
             background-image: url('images/hero_day_roadtrip.jpg');
+            opacity: 0;
         }
 
-        [data-theme="dark"] .hero-backdrop {
-            background-image: url('images/hero_roadtrip_reference_v2.png');
+        .hero-backdrop-night {
+            background-image: url('images/hero_night_roadtrip.jpg');
+            opacity: 1;
+        }
+
+        [data-theme="light"] .hero-backdrop-day {
+            opacity: 1;
+        }
+
+        [data-theme="light"] .hero-backdrop-night {
+            opacity: 0;
+        }
+
+        [data-theme="dark"] .hero-backdrop-day {
+            opacity: 0;
+        }
+
+        [data-theme="dark"] .hero-backdrop-night {
+            opacity: 1;
+        }
+
+        /* Graceful error / offline fallback handling */
+        .hero-backdrop.is-failed {
+            display: none !important;
+        }
+
+        .hero.hero-fallback-day[data-theme="light"],
+        [data-theme="light"] .hero.hero-fallback-day {
+            background:
+                radial-gradient(circle at 75% 25%, rgba(254, 240, 138, 0.4) 0%, transparent 40%),
+                radial-gradient(ellipse 100% 70% at 50% 20%, rgba(186, 230, 253, 0.9) 0%, rgba(147, 197, 253, 0.6) 45%, transparent 75%),
+                linear-gradient(180deg, #eff6ff 0%, #dbeafe 30%, #bfdbfe 60%, #bae6fd 85%, #e4f0fb 100%) !important;
+        }
+
+        .hero.hero-fallback-night[data-theme="dark"],
+        [data-theme="dark"] .hero.hero-fallback-night {
+            background:
+                radial-gradient(circle at 78% 22%, rgba(125, 211, 252, 0.15) 0%, transparent 35%),
+                radial-gradient(ellipse 90% 60% at 50% 25%, rgba(30, 64, 175, 0.45) 0%, rgba(15, 23, 42, 0.85) 55%, transparent 80%),
+                linear-gradient(180deg, #020617 0%, #061226 35%, #07152b 70%, #060c18 100%) !important;
+        }
+
+        @media (max-width: 768px) {
+            .hero-backdrop {
+                inset: -4.5%;
+                background-position: center 34%;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .hero-backdrop,
+            .hero-backdrop-day,
+            .hero-backdrop-night {
+                animation: none !important;
+                transform: translate3d(0, 0, 0) scale(1.01) !important;
+                transition: opacity 0.25s ease !important;
+            }
+            .hero-backdrop-container {
+                transform: none !important;
+            }
         }
 
         .hero-scrim {
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse at 25% 45%, rgba(6, 12, 24, 0.88) 0%, rgba(6, 12, 24, 0.65) 45%, rgba(6, 12, 24, 0.1) 75%),
-                linear-gradient(180deg, rgba(6, 12, 24, 0.4) 0%, transparent 40%, rgba(6, 12, 24, 0.95) 95%);
+                radial-gradient(ellipse 70% 65% at 24% 45%, rgba(6, 12, 24, 0.82) 0%, rgba(6, 12, 24, 0.55) 45%, rgba(6, 12, 24, 0.1) 75%),
+                linear-gradient(180deg, rgba(6, 12, 24, 0.45) 0%, transparent 35%, transparent 70%, rgba(6, 12, 24, 0.96) 100%);
             z-index: 2;
             pointer-events: none;
-        }
-
-        [data-theme="light"] .hero {
-            background: #0b1728;
+            transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         [data-theme="light"] .hero-scrim {
             background:
-                radial-gradient(ellipse at 24% 42%, rgba(255, 255, 255, 0.48) 0%, rgba(255, 255, 255, 0.2) 46%, transparent 74%),
-                linear-gradient(180deg, rgba(15, 23, 42, 0.12) 0%, transparent 16%, transparent 84%, rgba(15, 23, 42, 0.18) 100%);
+                radial-gradient(ellipse 75% 70% at 24% 45%, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.42) 50%, rgba(255, 255, 255, 0.08) 80%),
+                linear-gradient(180deg, rgba(235, 245, 255, 0.5) 0%, transparent 30%, transparent 70%, rgba(228, 240, 251, 0.98) 100%);
         }
 
         .hero-content {
@@ -3515,7 +3609,10 @@
              2. HERO SECTION
              ════════════════════════════════════════════════════════════════════ -->
         <section class="hero" id="hero">
-            <div class="hero-backdrop" id="heroBackdrop"></div>
+            <div class="hero-backdrop-container" id="heroBackdropContainer" aria-hidden="true">
+                <div class="hero-backdrop hero-backdrop-day" id="heroBackdropDay"></div>
+                <div class="hero-backdrop hero-backdrop-night" id="heroBackdropNight"></div>
+            </div>
             <div class="hero-scrim"></div>
 
             <!-- Floating Script on Road: "Same Roads New Stories" -->
@@ -4553,19 +4650,66 @@
                 });
             }
 
-            // --- 5. Hero Parallax on mouse move ---
+            // --- 5. Hero Cinematic Parallax & Image Preflight Verification ---
             const hero = document.getElementById('hero');
-            const heroBackdrop = document.getElementById('heroBackdrop');
-            if (hero && heroBackdrop && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            const parallaxWrap = document.getElementById('heroBackdropContainer');
+            const heroBackdropDay = document.getElementById('heroBackdropDay');
+            const heroBackdropNight = document.getElementById('heroBackdropNight');
+
+            // Image load & error preflight verification
+            if (heroBackdropDay && heroBackdropNight) {
+                const verifyImg = (url, el, theme) => {
+                    const test = new Image();
+                    test.onload = () => {
+                        el.classList.add('is-loaded');
+                    };
+                    test.onerror = () => {
+                        el.classList.add('is-failed');
+                        if (hero) hero.classList.add(`hero-fallback-${theme}`);
+                    };
+                    test.src = url;
+                };
+                verifyImg('images/hero_day_roadtrip.jpg', heroBackdropDay, 'day');
+                verifyImg('images/hero_night_roadtrip.jpg', heroBackdropNight, 'night');
+            }
+
+            // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)
+            if (hero && parallaxWrap && !window.matchMedia('(prefers-reduced-motion: reduce)').matches && window.matchMedia('(pointer: fine)').matches) {
+                let targetX = 0, targetY = 0;
+                let currentX = 0, currentY = 0;
+                let rafId = null;
+                let isHovered = false;
+
+                function renderParallax() {
+                    currentX += (targetX - currentX) * 0.08;
+                    currentY += (targetY - currentY) * 0.08;
+                    parallaxWrap.style.transform = `translate3d(${currentX.toFixed(2)}px, ${currentY.toFixed(2)}px, 0)`;
+
+                    if (isHovered || Math.abs(targetX - currentX) > 0.04 || Math.abs(targetY - currentY) > 0.04) {
+                        rafId = requestAnimationFrame(renderParallax);
+                    } else {
+                        rafId = null;
+                    }
+                }
+
                 hero.addEventListener('mousemove', (e) => {
+                    isHovered = true;
                     const rect = hero.getBoundingClientRect();
-                    const x = (e.clientX / rect.width - 0.5) * 16;
-                    const y = (e.clientY / rect.height - 0.5) * 16;
-                    heroBackdrop.style.transform = `scale(1.04) translate(${-x}px, ${-y}px)`;
-                });
+                    targetX = -((e.clientX - rect.left) / rect.width - 0.5) * 12;
+                    targetY = -((e.clientY - rect.top) / rect.height - 0.5) * 8;
+                    if (!rafId) {
+                        rafId = requestAnimationFrame(renderParallax);
+                    }
+                }, { passive: true });
+
                 hero.addEventListener('mouseleave', () => {
-                    heroBackdrop.style.transform = 'scale(1.02)';
-                });
+                    isHovered = false;
+                    targetX = 0;
+                    targetY = 0;
+                    if (!rafId) {
+                        rafId = requestAnimationFrame(renderParallax);
+                    }
+                }, { passive: true });
             }
 
             // --- 4. Trip Planner Mode Tabs ---
