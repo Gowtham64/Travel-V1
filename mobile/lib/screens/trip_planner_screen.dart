@@ -139,8 +139,7 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
   final ScrollController _formScrollController = ScrollController();
   final MapController _mapController = MapController();
 
-  final String _bgUrl =
-      'https://images.unsplash.com/photo-1518509562904-e7ef99cdcc86?q=80&w=2000&auto=format&fit=crop';
+  final String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
 
   @override
   void initState() {
@@ -1696,11 +1695,22 @@ class _TripPlannerScreenState extends State<TripPlannerScreen>
                         child: child,
                       );
                     },
-                    child: Image.network(_bgUrl, fit: BoxFit.cover),
+                    child: Image.asset(_bgUrl, fit: BoxFit.cover),
                   ),
                 ),
                 Positioned.fill(
-                  child: Container(color: Colors.black.withOpacity(0.5)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          const Color(0xFF060C18).withOpacity(0.55),
+                          const Color(0xFF060C18).withOpacity(0.85),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 SafeArea(
                   child: Center(

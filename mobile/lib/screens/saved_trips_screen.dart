@@ -20,8 +20,7 @@ class SavedTripsScreen extends StatefulWidget {
 
 class _SavedTripsScreenState extends State<SavedTripsScreen> {
   final _api = ApiService();
-  final String _bgUrl =
-      'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2000&auto=format&fit=crop';
+  final String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
   bool _loading = true;
   bool _loadingTripDetails = false;
   String? _error;

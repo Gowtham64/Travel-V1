@@ -85,9 +85,9 @@
       try {
         var savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
         var theme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : 'dark';
-        document.documentElement.style.backgroundColor = theme === 'light' ? '#f8fafc' : '#060c18';
+        document.documentElement.style.backgroundColor = theme === 'light' ? '#060e1a' : '#060c18';
         var meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', theme === 'light' ? '#f8fafc' : '#060c18');
+        if (meta) meta.setAttribute('content', theme === 'light' ? '#060e1a' : '#060c18');
       } catch (_) {}
     })();
   </script>

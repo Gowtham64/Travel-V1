@@ -198,13 +198,13 @@ class _GlassCardState extends State<GlassCard>
 /// darkening overlay. The gentle motion gives every page a "living"
 /// cinematic feel without distracting from the content.
 class AnimatedBackground extends StatefulWidget {
-  final String imageUrl;
+  final String? imageUrl;
   final double overlayOpacity;
   final Widget child;
 
   const AnimatedBackground({
     super.key,
-    required this.imageUrl,
+    this.imageUrl,
     this.overlayOpacity = 0.5,
     required this.child,
   });
@@ -232,6 +232,26 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
     super.dispose();
   }
 
+  Widget _buildImage(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultAsset = isDark
+        ? 'assets/images/hero_night_roadtrip.jpg'
+        : 'assets/images/hero_day_roadtrip.jpg';
+
+    final url = widget.imageUrl;
+    if (url == null || url.isEmpty) {
+      return Image.asset(defaultAsset, fit: BoxFit.cover);
+    }
+    if (url.startsWith('assets/')) {
+      return Image.asset(url, fit: BoxFit.cover);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Image.asset(defaultAsset, fit: BoxFit.cover),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -248,7 +268,7 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
                 child: child,
               );
             },
-            child: Image.network(widget.imageUrl, fit: BoxFit.cover),
+            child: _buildImage(context),
           ),
         ),
         Positioned.fill(
@@ -258,8 +278,8 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Colors.black.withOpacity(widget.overlayOpacity * 0.7),
-                  Colors.black.withOpacity(widget.overlayOpacity),
+                  const Color(0xFF060C18).withOpacity(widget.overlayOpacity * 0.72),
+                  const Color(0xFF060C18).withOpacity(widget.overlayOpacity),
                 ],
               ),
             ),

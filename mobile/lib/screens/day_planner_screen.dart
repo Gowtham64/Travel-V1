@@ -47,8 +47,7 @@ String _uid() => DateTime.now().microsecondsSinceEpoch.toString();
 
 class _DayPlannerScreenState extends State<DayPlannerScreen> {
   // Cinematic theme (matches the trek tool): animated background + glass cards.
-  static const String _bgUrl =
-      'https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=2000&auto=format&fit=crop';
+  static const String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
 
   // Modes of transport for a day (id, label, icon, rough km/h for leg estimates).
   static const List<(String, String, IconData, double)> _transportModes = [

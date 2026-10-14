@@ -22,8 +22,7 @@ class TrekDiscoveryScreen extends StatefulWidget {
 }
 
 class _TrekDiscoveryScreenState extends State<TrekDiscoveryScreen> {
-  static const String _bgUrl =
-      'https://images.unsplash.com/photo-1551632811-561732d1e306?q=80&w=2000&auto=format&fit=crop';
+  static const String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
 
   final _api = ApiService();
   final _searchController = TextEditingController();

@@ -45,8 +45,7 @@ class SmartItineraryScreen extends StatefulWidget {
 }
 
 class _SmartItineraryScreenState extends State<SmartItineraryScreen> {
-  static const String _bgUrl =
-      'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2000&auto=format&fit=crop';
+  static const String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
 
   final _api = ApiService();
   final _destCtrl = TextEditingController();

@@ -36,8 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _hasCompletedModalLogin = false;
   late final VoidCallback _authStateListener;
 
-  final String _bgUrl =
-      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=2000&auto=format&fit=crop';
+  final String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
 
   @override
   void initState() {
@@ -320,16 +319,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           constraints.maxWidth < 520 ? 24 : 32,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFCFDFF),
+                          color: const Color(0xFF0A1324).withOpacity(0.88),
                           borderRadius: BorderRadius.circular(28),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.72),
+                            color: Colors.white.withOpacity(0.16),
                           ),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x660F172A),
-                              blurRadius: 44,
-                              offset: Offset(0, 22),
+                              color: Color(0x99000000),
+                              blurRadius: 48,
+                              offset: Offset(0, 24),
+                            ),
+                            BoxShadow(
+                              color: Color(0x2206B6D4),
+                              blurRadius: 20,
+                              offset: Offset(0, 4),
                             ),
                           ],
                         ),
@@ -345,7 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : 'Welcome back',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Color(0xFF0F172A),
+                                color: Colors.white,
                                 fontSize: 30,
                                 fontWeight: FontWeight.w700,
                                 letterSpacing: -0.5,
@@ -358,7 +362,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   : 'Sign in to pick up where your planning left off.',
                               textAlign: TextAlign.center,
                               style: const TextStyle(
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF94A3B8),
                                 fontSize: 15,
                                 height: 1.45,
                               ),
@@ -433,10 +437,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _authenticate,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.accent,
+                                  backgroundColor: const Color(0xFF06B6D4),
                                   foregroundColor: Colors.white,
                                   disabledBackgroundColor:
-                                      const Color(0xFFE2E8F0),
+                                      const Color(0xFF1E293B),
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
@@ -470,7 +474,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                         () => _isSignUp = !_isSignUp,
                                       ),
                               style: TextButton.styleFrom(
-                                foregroundColor: AppColors.accent,
+                                foregroundColor: const Color(0xFF38BDF8),
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 10),
                               ),
@@ -484,14 +488,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                             const SizedBox(height: 14),
-                            const Row(
+                            Row(
                               children: [
                                 Expanded(
                                   child: Divider(
-                                    color: Color(0xFFE2E8F0),
+                                    color: Colors.white.withOpacity(0.14),
                                   ),
                                 ),
-                                Padding(
+                                const Padding(
                                   padding: EdgeInsets.symmetric(
                                     horizontal: 14,
                                   ),
@@ -507,7 +511,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 Expanded(
                                   child: Divider(
-                                    color: Color(0xFFE2E8F0),
+                                    color: Colors.white.withOpacity(0.14),
                                   ),
                                 ),
                               ],
@@ -529,19 +533,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 label: const Text(
                                   'Continue with Google',
                                   style: TextStyle(
-                                    color: Color(0xFF0F172A),
+                                    color: Colors.white,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(
-                                    color: Color(0xFFCBD5E1),
+                                  side: BorderSide(
+                                    color: Colors.white.withOpacity(0.18),
                                   ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14),
                                   ),
-                                  backgroundColor: Colors.white,
+                                  backgroundColor: const Color(0xFF060C18)
+                                      .withOpacity(0.55),
                                 ),
                               ),
                             ),
@@ -550,7 +555,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               'Your trips and account stay private and secure.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Color(0xFF64748B),
+                                color: Color(0xFF94A3B8),
                                 fontSize: 12,
                               ),
                             ),
@@ -576,13 +581,17 @@ class _LoginScreenState extends State<LoginScreen> {
           height: 38,
           width: 38,
           decoration: BoxDecoration(
-            gradient: AppColors.accentGradient,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
-            boxShadow: [
+            boxShadow: const [
               BoxShadow(
-                color: AppColors.accent.withOpacity(0.26),
+                color: Color(0x6606B6D4),
                 blurRadius: 14,
-                offset: const Offset(0, 5),
+                offset: Offset(0, 5),
               ),
             ],
           ),
@@ -596,7 +605,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const Text(
           'VoyPlan',
           style: TextStyle(
-            color: Color(0xFF0F172A),
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
@@ -622,7 +631,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF334155),
+            color: Colors.white,
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
@@ -635,12 +644,12 @@ class _LoginScreenState extends State<LoginScreen> {
           autofillHints: autofillHints,
           enableSuggestions: !isPassword,
           autocorrect: !isPassword,
-          style: const TextStyle(color: Color(0xFF0F172A), fontSize: 16),
-          cursorColor: AppColors.accent,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+          cursorColor: const Color(0xFF06B6D4),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-            prefixIcon: Icon(icon, color: AppColors.accent),
+            prefixIcon: Icon(icon, color: const Color(0xFF38BDF8)),
             suffixIcon: isPassword
                 ? IconButton(
                     tooltip:
@@ -652,32 +661,32 @@ class _LoginScreenState extends State<LoginScreen> {
                       _obscurePassword
                           ? Icons.visibility_outlined
                           : Icons.visibility_off_outlined,
-                      color: const Color(0xFF64748B),
+                      color: const Color(0xFF94A3B8),
                     ),
                   )
                 : null,
             filled: true,
-            fillColor: const Color(0xFFF8FAFC),
+            fillColor: const Color(0xFF060C18).withOpacity(0.65),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 17,
             ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFCBD5E1),
+              borderSide: BorderSide(
+                color: Colors.white.withOpacity(0.14),
               ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              borderSide: const BorderSide(
-                color: Color(0xFFCBD5E1),
+              borderSide: BorderSide(
+                color: Colors.white.withOpacity(0.14),
               ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
               borderSide: const BorderSide(
-                color: AppColors.accentLight,
+                color: Color(0xFF06B6D4),
                 width: 1.6,
               ),
             ),
