@@ -1046,8 +1046,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _buildDashboardBackground() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bgAsset = isDark
-        ? 'assets/images/hero_night_roadtrip.jpg'
-        : 'assets/images/hero_day_roadtrip.jpg';
+        ? 'assets/images/dashboard_alpine_night.jpg'
+        : 'assets/images/dashboard_alpine_day.jpg';
 
     return Stack(
       fit: StackFit.expand,
