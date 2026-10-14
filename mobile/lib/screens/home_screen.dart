@@ -1409,50 +1409,58 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Widget _tripTypeButton(String title, String mode, IconData icon) {
     final selected = _tripType == mode;
     final colors = Theme.of(context).colorScheme;
-    return InkWell(
-      onTap: () {
-        HapticFeedback.selectionClick();
-        setState(() => _tripType = mode);
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFF2563EB)
-              : const Color(0xFF0F1A2E).withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFF38BDF8)
-                : Colors.white.withValues(alpha: 0.12),
-          ),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                      color: const Color(0xFF0284C7).withValues(alpha: 0.45),
-                      blurRadius: 12,
-                      offset: const Offset(0, 3))
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon,
-                size: 14,
-                color: selected ? Colors.white : const Color(0xFF94A3B8)),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                color: selected ? Colors.white : colors.onSurface,
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-              ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          setState(() => _tripType = mode);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            gradient: selected
+                ? const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
+                  )
+                : null,
+            color: selected ? null : const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFF38BDF8)
+                  : Colors.white.withValues(alpha: 0.12),
             ),
-          ],
+            boxShadow: selected
+                ? [
+                    BoxShadow(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.45),
+                        blurRadius: 14,
+                        offset: const Offset(0, 3))
+                  ]
+                : null,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon,
+                  size: 14,
+                  color: selected ? Colors.white : const Color(0xFF94A3B8)),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  color: selected ? Colors.white : colors.onSurface,
+                  fontSize: 12.5,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2157,9 +2165,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Row(
           children: [
-            const Icon(Icons.flash_on_rounded,
-                color: Color(0xFF38BDF8), size: 18),
-            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF38BDF8).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.30),
+                  width: 1,
+                ),
+              ),
+              child: const Icon(Icons.flash_on_rounded,
+                  color: Color(0xFF38BDF8), size: 15),
+            ),
+            const SizedBox(width: 10),
             Text(
               'Quick Actions',
               style: TextStyle(
@@ -2171,13 +2190,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const Spacer(),
             TextButton.icon(
               onPressed: () => _planTrip(tripType: 'vacation'),
-              icon: const Icon(Icons.auto_awesome_rounded, size: 14),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 13),
               label: const Text('Try AI Planner'),
               style: TextButton.styleFrom(
                 foregroundColor: const Color(0xFFA855F7),
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+                backgroundColor:
+                    const Color(0xFFA855F7).withValues(alpha: 0.10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  side: BorderSide(
+                    color: const Color(0xFFA855F7).withValues(alpha: 0.28),
+                  ),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
                 textStyle:
-                    const TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+                    const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800),
               ),
             ),
           ],
@@ -2194,12 +2222,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     (constraints.maxWidth - (colCount - 1) * 12) / colCount;
                 return SizedBox(
                   width: width,
-                  child: _quickActionCard(
+                  child: _QuickActionTile(
                     title: act['title'] as String,
                     desc: act['desc'] as String,
                     icon: act['icon'] as IconData,
                     color: act['color'] as Color,
                     onTap: act['onTap'] as VoidCallback,
+                    isWide: width >= 195,
                   ),
                 );
               }).toList(),
@@ -2207,65 +2236,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           },
         ),
       ],
-    );
-  }
-
-  Widget _quickActionCard({
-    required String title,
-    required String desc,
-    required IconData icon,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    final colors = Theme.of(context).colorScheme;
-    return _Pressable(
-      onTap: onTap,
-      child: _glass(
-        radius: 18,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: color.withValues(alpha: 0.35)),
-                  ),
-                  child: Icon(icon, color: color, size: 20),
-                ),
-                const Spacer(),
-                Icon(Icons.arrow_forward_rounded,
-                    color: colors.onSurface.withValues(alpha: 0.45), size: 16),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                  color: colors.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              desc,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: colors.onSurface.withValues(alpha: 0.62),
-                fontSize: 11.5,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -4791,3 +4761,250 @@ class _PressableState extends State<_Pressable> {
     );
   }
 }
+
+class _QuickActionTile extends StatefulWidget {
+  final String title;
+  final String desc;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final bool isWide;
+
+  const _QuickActionTile({
+    required this.title,
+    required this.desc,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    required this.isWide,
+  });
+
+  @override
+  State<_QuickActionTile> createState() => _QuickActionTileState();
+}
+
+class _QuickActionTileState extends State<_QuickActionTile> {
+  bool _isHovered = false;
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseBg = isDark
+        ? const Color(0xFF0A1324).withValues(alpha: 0.74)
+        : const Color(0xFF0F1A2E).withValues(alpha: 0.85);
+
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _isPressed = true),
+        onTapUp: (_) => setState(() => _isPressed = false),
+        onTapCancel: () => setState(() => _isPressed = false),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          widget.onTap();
+        },
+        child: AnimatedScale(
+          scale: _isPressed ? 0.975 : (_isHovered ? 1.018 : 1.0),
+          duration: const Duration(milliseconds: 140),
+          curve: Curves.easeOutCubic,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  color: _isHovered
+                      ? const Color(0xFF0E1A33).withValues(alpha: 0.88)
+                      : baseBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isHovered
+                        ? widget.color.withValues(alpha: 0.55)
+                        : Colors.white.withValues(alpha: 0.11),
+                    width: _isHovered ? 1.4 : 1.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _isHovered
+                          ? widget.color.withValues(alpha: 0.28)
+                          : Colors.black.withValues(alpha: 0.35),
+                      blurRadius: _isHovered ? 20 : 12,
+                      offset:
+                          _isHovered ? const Offset(0, 6) : const Offset(0, 4),
+                    ),
+                    if (_isHovered)
+                      BoxShadow(
+                        color: widget.color.withValues(alpha: 0.12),
+                        blurRadius: 30,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+                child: widget.isWide ? _buildWideLayout() : _buildCompactLayout(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWideLayout() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          _buildIconBadge(size: 42, iconSize: 21, radius: 13),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFF8FAFC),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 2.5),
+                Text(
+                  widget.desc,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          _buildChevron(size: 28, iconSize: 14),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactLayout() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              _buildIconBadge(size: 38, iconSize: 19, radius: 12),
+              const Spacer(),
+              _buildChevron(size: 26, iconSize: 13),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            widget.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFFF8FAFC),
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.2,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            widget.desc,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconBadge({
+    required double size,
+    required double iconSize,
+    required double radius,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            widget.color.withValues(alpha: _isHovered ? 0.32 : 0.20),
+            widget.color.withValues(alpha: _isHovered ? 0.15 : 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(radius),
+        border: Border.all(
+          color: widget.color.withValues(alpha: _isHovered ? 0.65 : 0.38),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: widget.color.withValues(alpha: _isHovered ? 0.40 : 0.22),
+            blurRadius: _isHovered ? 14 : 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(widget.icon, color: widget.color, size: iconSize),
+    );
+  }
+
+  Widget _buildChevron({required double size, required double iconSize}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: _isHovered
+            ? widget.color.withValues(alpha: 0.22)
+            : Colors.white.withValues(alpha: 0.05),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: _isHovered
+              ? widget.color.withValues(alpha: 0.45)
+              : Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
+      ),
+      child: Center(
+        child: AnimatedSlide(
+          duration: const Duration(milliseconds: 180),
+          offset: _isHovered ? const Offset(0.08, 0) : Offset.zero,
+          child: Icon(
+            Icons.arrow_forward_rounded,
+            size: iconSize,
+            color:
+                _isHovered ? Colors.white : Colors.white.withValues(alpha: 0.50),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
