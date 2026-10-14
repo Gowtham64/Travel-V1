@@ -1057,26 +1057,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           color: isDark ? const Color(0xFF030712) : const Color(0xFF060E1A),
         ),
 
-        // Atmospheric Scenic Roadtrip Horizon (Placed across the top hero area)
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 680,
+        // Full-screen scenic roadtrip landscape across the COMPLETE page
+        Positioned.fill(
           child: AnimatedBuilder(
             animation: _ambient,
             builder: (context, child) {
               final t = _ambient.value;
               return Transform.scale(
-                scale: 1.0 + 0.04 * math.sin(t * 2 * math.pi),
-                alignment: Alignment.topCenter,
+                scale: 1.03 + 0.03 * math.sin(t * 2 * math.pi),
+                alignment: Alignment.center,
                 child: child,
               );
             },
             child: Image.asset(
               bgAsset,
               fit: BoxFit.cover,
-              alignment: Alignment.topCenter,
+              alignment: Alignment.center,
               errorBuilder: (_, __, ___) => Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -1094,30 +1090,39 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
 
-        // Seamless Multi-Stop Vertical Gradient Scrim
-        // Perfectly dissolves the scenic image into the obsidian base with ZERO lines!
-        Positioned(
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 700,
+        // Complete-page smooth atmospheric gradient scrim
+        // Softly darkens from top to bottom so content is effortlessly legible,
+        // while the scenic roadtrip landscape remains seamlessly blended everywhere with ZERO cutoff lines!
+        Positioned.fill(
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  (isDark ? const Color(0xFF030712) : const Color(0xFF060E1A))
-                      .withValues(alpha: 0.50),
-                  (isDark ? const Color(0xFF030712) : const Color(0xFF060E1A))
-                      .withValues(alpha: 0.35),
-                  (isDark ? const Color(0xFF030712) : const Color(0xFF060E1A))
-                      .withValues(alpha: 0.65),
-                  (isDark ? const Color(0xFF030712) : const Color(0xFF060E1A))
-                      .withValues(alpha: 0.92),
-                  isDark ? const Color(0xFF030712) : const Color(0xFF060E1A),
+                  const Color(0xFF060C18).withValues(alpha: 0.50),
+                  const Color(0xFF060C18).withValues(alpha: 0.60),
+                  const Color(0xFF060C18).withValues(alpha: 0.75),
+                  const Color(0xFF060C18).withValues(alpha: 0.85),
                 ],
-                stops: const [0.0, 0.30, 0.60, 0.85, 1.0],
+                stops: const [0.0, 0.35, 0.70, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // Subtle edge vignette to focus attention inward
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.center,
+                radius: 1.35,
+                colors: [
+                  Colors.transparent,
+                  const Color(0xFF030712).withValues(alpha: 0.55),
+                ],
+                stops: const [0.60, 1.0],
               ),
             ),
           ),
