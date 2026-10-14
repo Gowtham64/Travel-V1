@@ -203,18 +203,32 @@
             flex: 0 0 auto;
             width: 9rem;
             line-height: 0;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+            filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.65)) drop-shadow(0 0 16px rgba(6, 182, 212, 0.28));
+        }
+
+        .brand-logo:hover {
+            transform: translateY(-1px) scale(1.02);
+            filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.75)) drop-shadow(0 0 24px rgba(56, 189, 248, 0.5));
+        }
+
+        .brand-logo:active {
+            transform: scale(0.98);
         }
 
         .brand-logo-image {
             display: block;
             width: 100%;
             height: auto;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
-        .brand-logo-image--light,
-        .brand-logo-image--dark { display: none; }
-        [data-theme="light"] .brand-logo-image--light,
-        [data-theme="dark"] .brand-logo-image--dark { display: block; }
+        .brand-logo-image--light { display: none !important; }
+        .brand-logo-image--dark { display: block !important; }
+        [data-theme="light"] .brand-logo-image--light { display: none !important; }
+        [data-theme="light"] .brand-logo-image--dark { display: block !important; }
+        [data-theme="dark"] .brand-logo-image--dark { display: block !important; }
 
         .brand-icon {
             width: 34px;
@@ -3082,19 +3096,28 @@
             display: block;
             width: 10.25rem;
             line-height: 0;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), filter 0.25s ease;
+            filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 14px rgba(6, 182, 212, 0.2));
+        }
+
+        .footer-brand-lockup:hover {
+            transform: translateY(-1px) scale(1.02);
+            filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 20px rgba(56, 189, 248, 0.4));
         }
 
         .footer-brand-logo-image {
             display: block;
             width: 100%;
             height: auto;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
         }
 
-        .footer-brand-logo-image--light,
-        .footer-brand-logo-image--dark { display: none; }
-        [data-theme="light"] .footer-brand-logo-image--light { display: none; }
-        [data-theme="light"] .footer-brand-logo-image--dark { display: block; }
-        [data-theme="dark"] .footer-brand-logo-image--dark { display: block; }
+        .footer-brand-logo-image--light { display: none !important; }
+        .footer-brand-logo-image--dark { display: block !important; }
+        [data-theme="light"] .footer-brand-logo-image--light { display: none !important; }
+        [data-theme="light"] .footer-brand-logo-image--dark { display: block !important; }
+        [data-theme="dark"] .footer-brand-logo-image--dark { display: block !important; }
 
         .footer-summary {
             max-width: 17.5rem;
@@ -3233,9 +3256,12 @@
             line-height: 0;
         }
 
-        .legal-page-logo-image { display: none; width: 100%; height: auto; }
-        [data-theme="light"] .legal-page-logo-image--light,
-        [data-theme="dark"] .legal-page-logo-image--dark { display: block; }
+        .legal-page-logo-image { display: none; width: 100%; height: auto; image-rendering: high-quality; }
+        .legal-page-logo-image--light { display: none !important; }
+        .legal-page-logo-image--dark { display: block !important; }
+        [data-theme="light"] .legal-page-logo-image--light { display: none !important; }
+        [data-theme="light"] .legal-page-logo-image--dark { display: block !important; }
+        [data-theme="dark"] .legal-page-logo-image--dark { display: block !important; }
 
         .info-modal-meta {
             margin-top: 0.9rem;
@@ -3613,8 +3639,8 @@
     <header class="header" id="mainHeader">
         <div class="container header-inner">
             <a href="#hero" class="brand-logo" aria-label="VoyPlan home">
-                <img class="brand-logo-image brand-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
-                <img class="brand-logo-image brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                <img class="brand-logo-image brand-logo-image--light" src="images/brand/voyplan-logo-light.png?v=4" width="1919" height="820" alt="VoyPlan">
+                <img class="brand-logo-image brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png?v=4" width="1918" height="820" alt="VoyPlan">
             </a>
 
             <ul class="nav-menu">
@@ -4367,8 +4393,8 @@
             <div class="footer-grid">
                 <div class="footer-brand">
                     <a href="/" class="footer-brand-lockup" aria-label="VoyPlan home">
-                        <img class="footer-brand-logo-image footer-brand-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
-                        <img class="footer-brand-logo-image footer-brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                        <img class="footer-brand-logo-image footer-brand-logo-image--light" src="images/brand/voyplan-logo-light.png?v=4" width="1919" height="820" alt="VoyPlan">
+                        <img class="footer-brand-logo-image footer-brand-logo-image--dark" src="images/brand/voyplan-logo-dark.png?v=4" width="1918" height="820" alt="VoyPlan">
                     </a>
                     <p class="footer-summary">Thoughtful travel technology for planning memorable road trips with confidence.</p>
                 </div>
@@ -4427,8 +4453,8 @@
         <article class="info-modal-card">
             <button class="info-modal-close" type="button" aria-label="Close terms and conditions">&times;</button>
             <div class="legal-page-brand" aria-label="VoyPlan">
-                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
-                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png?v=4" width="1919" height="820" alt="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png?v=4" width="1918" height="820" alt="VoyPlan">
             </div>
             <p class="info-modal-eyebrow">VOYPLAN LEGAL</p>
             <h2 class="info-modal-title" id="termsTitle">Terms &amp; Conditions</h2>
@@ -4456,8 +4482,8 @@
         <article class="info-modal-card">
             <button class="info-modal-close" type="button" aria-label="Close data and privacy">&times;</button>
             <div class="legal-page-brand" aria-label="VoyPlan">
-                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
-                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png?v=4" width="1919" height="820" alt="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png?v=4" width="1918" height="820" alt="VoyPlan">
             </div>
             <p class="info-modal-eyebrow">VOYPLAN LEGAL</p>
             <h2 class="info-modal-title" id="privacyTitle">Data &amp; Privacy</h2>
@@ -4488,8 +4514,8 @@
         <article class="info-modal-card">
             <button class="info-modal-close" type="button" aria-label="Close contact information">&times;</button>
             <div class="legal-page-brand" aria-label="VoyPlan">
-                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png" width="1919" height="820" alt="">
-                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png" width="1918" height="820" alt="">
+                <img class="legal-page-logo-image legal-page-logo-image--light" src="images/brand/voyplan-logo-light.png?v=4" width="1919" height="820" alt="VoyPlan">
+                <img class="legal-page-logo-image legal-page-logo-image--dark" src="images/brand/voyplan-logo-dark.png?v=4" width="1918" height="820" alt="VoyPlan">
             </div>
             <p class="info-modal-eyebrow">VOYPLAN SUPPORT</p>
             <h2 class="info-modal-title" id="contactTitle">Contact Us</h2>
