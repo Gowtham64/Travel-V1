@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>VoyPlan — Discover. Design. Drive.</title>
     <meta name="theme-color" content="#060c18">
-    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png?v=3">
+    <link rel="icon" type="image/png" href="images/brand/voyplan-pin.png?v=4">
 
     <!-- Force browser to revalidate HTML so releases land immediately -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -25,7 +25,7 @@
                 if (meta) meta.setAttribute('content', '#060c18');
 
                 // High-priority preload only active hero background to save 4MB+ initial network tax
-                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg?v=3' : 'images/hero_night_roadtrip.jpg?v=3';
+                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg?v=4' : 'images/hero_night_roadtrip.jpg?v=4';
                 var preloadLink = document.createElement('link');
                 preloadLink.rel = 'preload';
                 preloadLink.as = 'image';
@@ -40,8 +40,8 @@
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
 
     <!-- Preload active theme hero backdrop with media-query gating for static pre-parsers -->
-    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg?v=3" media="(prefers-color-scheme: light)">
-    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg?v=3" media="(prefers-color-scheme: dark)">
+    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg?v=4" media="(prefers-color-scheme: light)">
+    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg?v=4" media="(prefers-color-scheme: dark)">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -429,12 +429,12 @@
         }
 
         .hero-backdrop-day {
-            background-image: url('images/hero_day_roadtrip.jpg?v=3');
+            background-image: url('images/hero_day_roadtrip.jpg?v=4');
             opacity: 0;
         }
 
         .hero-backdrop-night {
-            background-image: url('images/hero_night_roadtrip.jpg?v=3');
+            background-image: url('images/hero_night_roadtrip.jpg?v=4');
             opacity: 1;
         }
 
@@ -500,7 +500,7 @@
             inset: 0;
             background:
                 radial-gradient(ellipse 70% 65% at 24% 45%, rgba(6, 12, 24, 0.82) 0%, rgba(6, 12, 24, 0.55) 45%, rgba(6, 12, 24, 0.1) 75%),
-                linear-gradient(180deg, rgba(6, 12, 24, 0.45) 0%, transparent 35%, transparent 70%, rgba(6, 12, 24, 0.96) 100%);
+                linear-gradient(180deg, rgba(6, 12, 24, 0.45) 0%, transparent 35%, transparent 68%, rgba(6, 14, 26, 0.75) 86%, var(--bg-base) 100%);
             z-index: 2;
             pointer-events: none;
             transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -509,7 +509,7 @@
         [data-theme="light"] .hero-scrim {
             background:
                 radial-gradient(ellipse 75% 70% at 24% 45%, rgba(6, 16, 32, 0.65) 0%, rgba(6, 16, 32, 0.35) 45%, rgba(6, 16, 32, 0.05) 75%),
-                linear-gradient(180deg, rgba(6, 16, 32, 0.4) 0%, transparent 25%, transparent 70%, rgba(6, 16, 32, 0.88) 100%);
+                linear-gradient(180deg, rgba(6, 16, 32, 0.4) 0%, transparent 25%, transparent 68%, rgba(6, 14, 26, 0.70) 86%, var(--bg-base) 100%);
         }
 
         .hero-content {
@@ -1286,10 +1286,10 @@
            SECTION 2: POPULAR DESTINATIONS
            ════════════════════════════════════════════════════════════════════ */
         section.destinations {
-            padding: 5.5rem 0 4.5rem;
-            background: var(--bg-surface);
+            padding: 2.2rem 0 5rem;
+            background: transparent;
             position: relative;
-            border-top: 1px solid var(--border-subtle);
+            border-top: none;
         }
 
         .dest-head {
@@ -1626,8 +1626,59 @@
         }
 
         /* ════════════════════════════════════════════════════════════════════
-           LIVE TRIP PREVIEW & ROUTE DISCOVERY
+           SCENIC DISCOVERY CONTINUOUS BAND (ROUTE PREVIEW + POPULAR DESTINATIONS)
+           Seamless panoramic highway landscape — zero dividing lines, zero image split
            ════════════════════════════════════════════════════════════════════ */
+        .scenic-flow-band {
+            position: relative;
+            background:
+                radial-gradient(ellipse at 82% 28%, rgba(14, 165, 233, 0.12), transparent 48rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(6, 14, 26, 0.72) 8%,
+                    rgba(6, 14, 26, 0.44) 25%,
+                    rgba(6, 14, 26, 0.40) 50%,
+                    rgba(6, 14, 26, 0.50) 75%,
+                    rgba(6, 14, 26, 0.76) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/route_preview_scenic.jpg?v=4') center top / cover no-repeat;
+            border: none;
+            overflow: hidden;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+        }
+
+        [data-theme="dark"] .scenic-flow-band {
+            background:
+                radial-gradient(ellipse at 82% 28%, rgba(6, 182, 212, 0.1), transparent 48rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(4, 10, 20, 0.82) 8%,
+                    rgba(4, 10, 20, 0.58) 25%,
+                    rgba(4, 10, 20, 0.52) 50%,
+                    rgba(4, 10, 20, 0.62) 75%,
+                    rgba(4, 10, 20, 0.84) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/route_preview_scenic.jpg?v=4') center top / cover no-repeat;
+        }
+
+        [data-theme="light"] .scenic-flow-band {
+            background:
+                radial-gradient(ellipse at 82% 28%, rgba(14, 165, 233, 0.14), transparent 48rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(6, 14, 26, 0.68) 8%,
+                    rgba(6, 14, 26, 0.40) 25%,
+                    rgba(6, 14, 26, 0.36) 50%,
+                    rgba(6, 14, 26, 0.46) 75%,
+                    rgba(6, 14, 26, 0.72) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/route_preview_scenic.jpg?v=4') center top / cover no-repeat;
+        }
+
         section.route-preview {
             --rp-ink: #f5f8ff;
             --rp-muted: #aebfd7;
@@ -1636,11 +1687,9 @@
             --rp-surface: rgba(3, 19, 38, 0.94);
             --rp-accent: #1b9dff;
             position: relative;
-            padding: 4.5rem 0 4.8rem;
-            background:
-                linear-gradient(180deg, rgba(2, 11, 22, 0.94) 0%, rgba(4, 18, 36, 0.84) 40%, rgba(2, 11, 22, 0.95) 100%),
-                url('images/route_preview_scenic.jpg') center 25% / cover no-repeat;
-            border-top: 1px solid rgba(114, 182, 255, 0.18);
+            padding: 4.5rem 0 2rem;
+            background: transparent;
+            border-top: none;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: high-quality;
         }
@@ -1652,10 +1701,8 @@
             --rp-card: rgba(4, 23, 45, 0.88);
             --rp-surface: rgba(3, 19, 38, 0.94);
             --rp-accent: #1b9dff;
-            background:
-                linear-gradient(180deg, rgba(2, 11, 22, 0.94) 0%, rgba(4, 18, 36, 0.84) 40%, rgba(2, 11, 22, 0.95) 100%),
-                url('images/route_preview_scenic.jpg') center 25% / cover no-repeat;
-            border-top: 1px solid rgba(114, 182, 255, 0.18);
+            background: transparent;
+            border-top: none;
         }
 
         [data-theme="light"] section.route-preview {
@@ -1665,10 +1712,8 @@
             --rp-card: rgba(5, 18, 36, 0.82);
             --rp-surface: rgba(4, 14, 28, 0.9);
             --rp-accent: #38bdf8;
-            background:
-                linear-gradient(180deg, rgba(3, 10, 22, 0.75) 0%, rgba(3, 10, 22, 0.45) 40%, rgba(3, 10, 22, 0.82) 100%),
-                url('images/route_preview_scenic.jpg?v=3') center 25% / cover no-repeat;
-            border-top: 1px solid rgba(114, 182, 255, 0.18);
+            background: transparent;
+            border-top: none;
         }
 
         [data-theme="light"] .rp-eyebrow {
@@ -2263,7 +2308,8 @@
         }
 
         @media (max-width: 680px) {
-            section.route-preview { padding: 2.6rem 0; }
+            section.route-preview { padding: 2.6rem 0 1.2rem; }
+            section.destinations { padding: 1.2rem 0 3.5rem; }
             .rp-head { align-items: flex-start; flex-direction: column; margin-bottom: 0.9rem; }
             .rp-summary { grid-template-columns: repeat(6, minmax(8rem, 1fr)); }
             .rp-map-shell,
@@ -2272,14 +2318,65 @@
         }
 
         /* ════════════════════════════════════════════════════════════════════
-           SECTION 3: AI TRAVEL CO-PILOT (ISLAND & ITINERARY HUD)
+           EXPERIENCE SHOWCASE CONTINUOUS BAND (AI COPILOT + FEATURES)
+           Seamless high-altitude mountain landscape — zero dividing lines
            ════════════════════════════════════════════════════════════════════ */
+        .experience-flow-band {
+            position: relative;
+            background:
+                radial-gradient(circle at 75% 35%, rgba(14, 165, 233, 0.14), transparent 42rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(6, 14, 26, 0.76) 8%,
+                    rgba(6, 14, 26, 0.48) 30%,
+                    rgba(6, 14, 26, 0.46) 55%,
+                    rgba(6, 14, 26, 0.54) 75%,
+                    rgba(6, 14, 26, 0.78) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/hero_3d_landscape.jpg?v=4') center top / cover no-repeat;
+            border: none;
+            overflow: hidden;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: high-quality;
+        }
+
+        [data-theme="dark"] .experience-flow-band {
+            background:
+                radial-gradient(circle at 75% 35%, rgba(8, 145, 178, 0.14), transparent 42rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(4, 10, 20, 0.84) 8%,
+                    rgba(4, 10, 20, 0.60) 30%,
+                    rgba(4, 10, 20, 0.56) 55%,
+                    rgba(4, 10, 20, 0.64) 75%,
+                    rgba(4, 10, 20, 0.86) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/hero_3d_landscape.jpg?v=4') center top / cover no-repeat;
+        }
+
+        [data-theme="light"] .experience-flow-band {
+            background:
+                radial-gradient(circle at 75% 35%, rgba(2, 132, 199, 0.16), transparent 42rem),
+                linear-gradient(180deg,
+                    var(--bg-base) 0%,
+                    rgba(6, 14, 26, 0.72) 8%,
+                    rgba(6, 14, 26, 0.44) 30%,
+                    rgba(6, 14, 26, 0.42) 55%,
+                    rgba(6, 14, 26, 0.50) 75%,
+                    rgba(6, 14, 26, 0.74) 92%,
+                    var(--bg-base) 100%
+                ),
+                url('images/hero_3d_landscape.jpg?v=4') center top / cover no-repeat;
+        }
+
         section.ai-copilot {
-            padding: 6.5rem 0;
-            background: var(--bg-base);
+            padding: 5.5rem 0 2.5rem;
+            background: transparent;
             position: relative;
             overflow: hidden;
-            border-top: 1px solid var(--border-subtle);
+            border-top: none;
         }
 
         .ai-grid {
@@ -2634,9 +2731,9 @@
            SECTION 4: FEATURE GRID (EVERYTHING YOU NEED FOR A BETTER ROAD TRIP)
            ════════════════════════════════════════════════════════════════════ */
         section.features {
-            padding: 6rem 0;
-            background: var(--bg-surface);
-            border-top: 1px solid var(--border-subtle);
+            padding: 2.5rem 0 5.5rem;
+            background: transparent;
+            border-top: none;
         }
 
         .feat-head {
@@ -2733,14 +2830,14 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background: #060c18;
-            border-top: 1px solid var(--border-subtle);
+            background: transparent;
+            border-top: none;
         }
 
         .cta-backdrop {
             position: absolute;
             inset: 0;
-            background-image: url('images/cta_backpack_scene.jpg?v=3');
+            background-image: url('images/cta_backpack_scene.jpg?v=4');
             background-size: cover;
             background-position: center 50%;
             z-index: 1;
@@ -2752,14 +2849,20 @@
             position: absolute;
             inset: 0;
             background:
-                radial-gradient(ellipse at 50% 60%, rgba(6, 12, 24, 0.75) 0%, rgba(6, 12, 24, 0.9) 70%),
-                linear-gradient(180deg, rgba(6, 12, 24, 0.4) 0%, rgba(6, 12, 24, 0.95) 100%);
+                radial-gradient(ellipse at 50% 60%, rgba(6, 12, 24, 0.72) 0%, rgba(6, 12, 24, 0.88) 70%),
+                linear-gradient(180deg, var(--bg-base) 0%, rgba(6, 14, 26, 0.45) 20%, rgba(6, 14, 26, 0.45) 75%, var(--bg-base) 100%);
             z-index: 2;
         }
 
         [data-theme="light"] section.final-cta {
-            background: #060c18;
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            background: transparent;
+            border-top: none;
+        }
+
+        [data-theme="light"] .cta-scrim {
+            background:
+                radial-gradient(ellipse at 50% 60%, rgba(6, 14, 26, 0.65) 0%, rgba(6, 14, 26, 0.85) 70%),
+                linear-gradient(180deg, var(--bg-base) 0%, rgba(6, 14, 26, 0.38) 20%, rgba(6, 14, 26, 0.42) 75%, var(--bg-base) 100%);
         }
 
         [data-theme="light"] .cta-backdrop {
@@ -2954,18 +3057,18 @@
            ════════════════════════════════════════════════════════════════════ */
         .site-footer {
             background:
-                radial-gradient(circle at 16% 0%, rgba(6, 182, 212, 0.13), transparent 22rem),
-                #050b16;
-            border-top: 1px solid rgba(125, 211, 252, 0.17);
+                radial-gradient(circle at 16% 0%, rgba(6, 182, 212, 0.12), transparent 22rem),
+                linear-gradient(180deg, var(--bg-base) 0%, #050b16 35%, #030710 100%);
+            border-top: none;
             color: #ffffff;
             padding: 3.25rem 0 1.35rem;
         }
 
         [data-theme="light"] .site-footer {
             background:
-                radial-gradient(circle at 16% 0%, rgba(2, 132, 199, 0.18), transparent 24rem),
-                #071526;
-            border-top: 1px solid rgba(14, 165, 233, 0.18);
+                radial-gradient(circle at 16% 0%, rgba(2, 132, 199, 0.16), transparent 24rem),
+                linear-gradient(180deg, var(--bg-base) 0%, #071526 35%, #040d18 100%);
+            border-top: none;
             color: #ffffff;
         }
 
@@ -3190,44 +3293,16 @@
         /* ════════════════════════════════════════════════════════════════════
            COHESIVE THEME HARMONY FOR DESTINATIONS, COPILOT, FEATURES & PINS
            ════════════════════════════════════════════════════════════════════ */
-        [data-theme="dark"] section.destinations {
-            position: relative;
-            background:
-                radial-gradient(ellipse at 85% 15%, rgba(6, 182, 212, 0.12), transparent 42rem),
-                linear-gradient(180deg, rgba(2, 11, 22, 0.95) 0%, rgba(6, 15, 30, 0.86) 50%, rgba(2, 11, 22, 0.95) 100%),
-                url('images/route_preview_scenic.jpg') center 75% / cover no-repeat;
-            border-top: 1px solid rgba(114, 182, 255, 0.14);
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: high-quality;
-        }
-
+        [data-theme="dark"] section.destinations,
         [data-theme="light"] section.destinations {
-            position: relative;
-            background:
-                radial-gradient(ellipse at 85% 20%, rgba(14, 165, 233, 0.15), transparent 38rem),
-                linear-gradient(180deg, rgba(3, 10, 22, 0.85) 0%, rgba(4, 14, 28, 0.6) 50%, rgba(3, 10, 22, 0.88) 100%),
-                url('images/route_preview_scenic.jpg?v=3') center 75% / cover no-repeat;
-            border-top: 1px solid rgba(114, 182, 255, 0.15);
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: high-quality;
+            background: transparent !important;
+            border-top: none !important;
         }
 
-        [data-theme="dark"] section.ai-copilot {
-            background:
-                radial-gradient(circle at 72% 36%, rgba(8, 145, 178, 0.2), transparent 27rem),
-                linear-gradient(180deg, #071526 0%, #0a1c30 100%);
-            border-top: 1px solid var(--border-subtle);
-        }
-
+        [data-theme="dark"] section.ai-copilot,
         [data-theme="light"] section.ai-copilot {
-            position: relative;
-            background:
-                radial-gradient(circle at 75% 35%, rgba(2, 132, 199, 0.18), transparent 36rem),
-                linear-gradient(180deg, rgba(4, 12, 24, 0.82) 0%, rgba(5, 16, 32, 0.55) 50%, rgba(4, 12, 24, 0.88) 100%),
-                url('images/hero_3d_landscape.jpg?v=3') center 30% / cover no-repeat;
-            border-top: 1px solid rgba(14, 165, 233, 0.2);
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: high-quality;
+            background: transparent !important;
+            border-top: none !important;
         }
 
         [data-theme="light"] .ai-script-flourish {
@@ -3272,24 +3347,10 @@
             font-weight: 700;
         }
 
-        [data-theme="light"] section.features {
-            position: relative;
-            background:
-                linear-gradient(180deg, rgba(4, 12, 24, 0.85) 0%, rgba(5, 16, 32, 0.6) 40%, rgba(4, 12, 24, 0.9) 100%),
-                url('images/hero_3d_landscape.jpg?v=3') center 46% / cover no-repeat;
-            border-top: 1px solid rgba(15, 23, 42, 0.1);
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: high-quality;
-        }
-
+        [data-theme="light"] section.features,
         [data-theme="dark"] section.features {
-            position: relative;
-            background:
-                linear-gradient(180deg, rgba(6, 12, 24, 0.88) 0%, rgba(6, 12, 24, 0.68) 40%, rgba(6, 12, 24, 0.92) 100%),
-                url('images/hero_3d_landscape.jpg?v=3') center 46% / cover no-repeat;
-            border-top: 1px solid var(--border-subtle);
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: high-quality;
+            background: transparent !important;
+            border-top: none !important;
         }
 
         [data-theme="light"] .features .feat-eyebrow { color: #38bdf8; }
@@ -3409,7 +3470,7 @@
             height: 27px;
             flex: 0 0 27px;
             border-radius: 7px;
-            background: url('images/hero_3d_landscape.jpg?v=3') center / cover;
+            background: url('images/hero_3d_landscape.jpg?v=4') center / cover;
             border: 1px solid rgba(255,255,255,.3);
         }
 
@@ -3795,9 +3856,10 @@
         </section>
 
         <!-- ════════════════════════════════════════════════════════════════════
-             3. LIVE TRIP PREVIEW & ROUTE DISCOVERY
+             3. SCENIC DISCOVERY CONTINUOUS FLOW (ROUTE PREVIEW + POPULAR DESTINATIONS)
              ════════════════════════════════════════════════════════════════════ -->
-        <section class="route-preview" id="route-preview" aria-labelledby="routePreviewHeading">
+        <div class="scenic-flow-band" id="scenicDiscoveryBand">
+            <section class="route-preview" id="route-preview" aria-labelledby="routePreviewHeading">
             <div class="container">
                 <div class="rp-head">
                     <div>
@@ -4077,12 +4139,14 @@
                     </div>
                 </div>
             </div>
-        </section>
+            </section>
+        </div>
 
         <!-- ════════════════════════════════════════════════════════════════════
-             4. AI TRAVEL CO-PILOT (ISLAND & ITINERARY HUD)
+             4. EXPERIENCE SHOWCASE CONTINUOUS FLOW (AI COPILOT + FEATURES)
              ════════════════════════════════════════════════════════════════════ -->
-        <section class="ai-copilot" id="copilot">
+        <div class="experience-flow-band" id="experienceFlowBand">
+            <section class="ai-copilot" id="copilot">
             <div class="container ai-grid">
                 <!-- Left: Headline & Feature List -->
                 <div class="ai-copy">
@@ -4263,7 +4327,8 @@
                     </div>
                 </div>
             </div>
-        </section>
+            </section>
+        </div>
 
         <!-- ════════════════════════════════════════════════════════════════════
              6. FINAL 3D CTA (CINEMATIC TRAVEL BACKPACK & SCENE)
@@ -4648,8 +4713,8 @@
                     };
                     test.src = url;
                 };
-                verifyImg('images/hero_day_roadtrip.jpg?v=3', heroBackdropDay, 'day');
-                verifyImg('images/hero_night_roadtrip.jpg?v=3', heroBackdropNight, 'night');
+                verifyImg('images/hero_day_roadtrip.jpg?v=4', heroBackdropDay, 'day');
+                verifyImg('images/hero_night_roadtrip.jpg?v=4', heroBackdropNight, 'night');
             }
 
             // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)
