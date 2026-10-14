@@ -773,10 +773,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth >= 1024;
     final isTablet = screenWidth >= 700 && screenWidth < 1024;
-    // Keep 1024px-class screens in the tablet reflow. Larger screens receive
-    // a content canvas plus intelligence rail; navigation stays hidden until
-    // the user opens it from their profile picture.
-    final usesDesktopDashboard = screenWidth >= 1240;
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
 
     final drawer = VoyPlanAuthenticatedDrawer(
@@ -802,41 +798,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           Positioned.fill(child: _buildDashboardBackground()),
           SafeArea(
-            child: usesDesktopDashboard
-                ? Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 1760),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: _buildDashboardFeed(
-                              isDesktop: isDesktop,
-                              isTablet: isTablet,
-                              usesDesktopDashboard: true,
-                              isDarkTheme: isDarkTheme,
-                            ),
-                          ),
-                          Builder(
-                            builder: (railContext) => SizedBox(
-                              width: screenWidth >= 1440 ? 292 : 268,
-                              child: _buildDesktopIntelligenceRail(
-                                isDarkTheme: isDarkTheme,
-                                onOpenNavigation: () =>
-                                    Scaffold.of(railContext).openEndDrawer(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _buildDashboardFeed(
-                    isDesktop: isDesktop,
-                    isTablet: isTablet,
-                    usesDesktopDashboard: false,
-                    isDarkTheme: isDarkTheme,
-                  ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1540),
+                child: _buildDashboardFeed(
+                  isDesktop: isDesktop,
+                  isTablet: isTablet,
+                  isDarkTheme: isDarkTheme,
+                ),
+              ),
+            ),
           ),
           if (_opening) _openingOverlay(),
         ],
@@ -845,13 +816,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   // ==========================================================================
-  /// The same dashboard feed is used on every breakpoint. The only change is
-  /// its arrangement around it: an information rail on wide screens or a
-  /// compact mobile header. Navigation always uses the same on-demand drawer.
+  /// The main dashboard feed takes the full viewport with comfortable margins,
+  /// top authenticated navigation bar, and side-by-side desktop modules.
   Widget _buildDashboardFeed({
     required bool isDesktop,
     required bool isTablet,
-    required bool usesDesktopDashboard,
     required bool isDarkTheme,
   }) {
     return RefreshIndicator(
@@ -865,28 +834,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           parent: AlwaysScrollableScrollPhysics(),
         ),
         padding: EdgeInsets.fromLTRB(
-          usesDesktopDashboard ? 14 : (isDesktop ? 28 : 16),
-          usesDesktopDashboard ? 8 : 12,
-          usesDesktopDashboard ? 14 : (isDesktop ? 28 : 16),
+          isDesktop ? 32 : 16,
+          12,
+          isDesktop ? 32 : 16,
           60,
         ),
         children: [
-          if (!usesDesktopDashboard)
-            _stagger(
-              0,
-              Builder(
-                builder: (headerContext) => VoyPlanAuthenticatedNavigation(
-                  onHome: _goHome,
-                  onNotifications: _openNotifications,
-                  onThemeToggle: ThemeController.instance.toggle,
-                  onMenu: () => Scaffold.of(headerContext).openEndDrawer(),
-                  displayName: _userName,
-                  avatarUrl: _userAvatarUrl,
-                  isDark: isDarkTheme,
-                ),
+          _stagger(
+            0,
+            Builder(
+              builder: (headerContext) => VoyPlanAuthenticatedNavigation(
+                onHome: _goHome,
+                onNotifications: _openNotifications,
+                onThemeToggle: ThemeController.instance.toggle,
+                onMenu: () => Scaffold.of(headerContext).openEndDrawer(),
+                displayName: _userName,
+                avatarUrl: _userAvatarUrl,
+                isDark: isDarkTheme,
               ),
             ),
-          SizedBox(height: usesDesktopDashboard ? 6 : 18),
+          ),
+          const SizedBox(height: 14),
           if (_activeTrip != null) ...[
             _stagger(1, _buildActiveTripHUD()),
             const SizedBox(height: 16),
@@ -907,7 +875,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 24),
-          if (usesDesktopDashboard)
+          if (isDesktop)
             _stagger(
               4,
               Row(
@@ -925,7 +893,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             _stagger(5, _buildRoutePreviewCard()),
           ],
           const SizedBox(height: 24),
-          if (usesDesktopDashboard)
+          if (isDesktop)
             _stagger(
               6,
               Row(
@@ -938,104 +906,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               ),
             )
           else ...[
-            _stagger(6, _buildSmartTravelIntelligenceCard()),
+            _stagger(6, _buildTripInspirationSection()),
             const SizedBox(height: 26),
-            _stagger(7, _buildFuelIntelligenceCard()),
-            const SizedBox(height: 26),
-            _stagger(8, _buildTripInspirationSection()),
-            const SizedBox(height: 26),
-            _stagger(9, _buildRoadTripUtilitiesSection()),
+            _stagger(7, _buildRoadTripUtilitiesSection()),
           ],
           const SizedBox(height: 36),
           _buildAppFooter(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopIntelligenceRail({
-    required bool isDarkTheme,
-    required VoidCallback onOpenNavigation,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF07111E).withValues(alpha: 0.68),
-        border: Border(
-          left: BorderSide(
-            color: Colors.white.withValues(alpha: 0.08),
-          ),
-        ),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 22),
-        child: Column(
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: VoyPlanDashboardTopTools(
-                onNotifications: _openNotifications,
-                onThemeToggle: ThemeController.instance.toggle,
-                onProfile: onOpenNavigation,
-                displayName: _userName,
-                avatarUrl: _userAvatarUrl,
-                isDark: isDarkTheme,
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildFuelIntelligenceCard(),
-            const SizedBox(height: 14),
-            _buildSmartTravelIntelligenceCard(),
-            const SizedBox(height: 14),
-            _buildDashboardQuoteCard(isDarkTheme: isDarkTheme),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDashboardQuoteCard({required bool isDarkTheme}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF182B4B), Color(0xFF0A1424)],
-        ),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            '“Not all who\nwander are lost.”',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 17,
-              height: 1.06,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 22),
-          const Row(
-            children: [
-              Icon(Icons.explore_rounded,
-                  color: Color(0xFF38BDF8), size: 16),
-              SizedBox(width: 6),
-              Text(
-                'VoyPlan',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
