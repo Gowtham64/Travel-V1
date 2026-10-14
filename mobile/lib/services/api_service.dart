@@ -505,6 +505,13 @@ class ApiService {
     return plan;
   }
 
+  Future<List<GeoPoint>> fetchRoadCoordinates({
+    required GeoPoint start,
+    required GeoPoint end,
+    List<GeoPoint> waypoints = const [],
+  }) =>
+      _fetchRoadCoordinates(start: start, end: end, waypoints: waypoints);
+
   Future<List<GeoPoint>> _fetchRoadCoordinates({
     required GeoPoint start,
     required GeoPoint end,
