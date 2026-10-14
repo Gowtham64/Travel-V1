@@ -340,40 +340,60 @@
         .apk-header-btn {
             display: inline-flex;
             align-items: center;
-            gap: 0.45rem;
-            padding: 0.52rem 1.1rem;
-            background: rgba(16, 185, 129, 0.15);
-            border: 1px solid rgba(52, 211, 153, 0.45);
+            gap: 0.5rem;
+            padding: 0.52rem 1.15rem;
+            background: rgba(8, 16, 32, 0.72);
+            border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: var(--radius-pill);
-            color: #34d399;
+            color: #ffffff;
             font-size: 0.88rem;
-            font-weight: 700;
+            font-weight: 600;
+            letter-spacing: -0.01em;
             cursor: pointer;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            transition: all 0.2s ease;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 14px rgba(0, 0, 0, 0.4);
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
             text-decoration: none;
         }
 
+        .apk-header-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+            opacity: 0.95;
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+        }
+
         .apk-header-btn:hover {
-            background: rgba(16, 185, 129, 0.28);
-            border-color: #34d399;
+            transform: translateY(-1px);
+            background: rgba(14, 26, 48, 0.88);
+            border-color: rgba(255, 255, 255, 0.28);
             color: #ffffff;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 20px rgba(0, 0, 0, 0.55), 0 0 16px rgba(255, 255, 255, 0.08);
+        }
+
+        .apk-header-btn:hover svg {
+            transform: scale(1.08);
+            opacity: 1;
+        }
+
+        .apk-header-btn:active {
+            transform: scale(0.97);
         }
 
         [data-theme="light"] .apk-header-btn {
-            background: rgba(16, 185, 129, 0.12);
-            border-color: rgba(5, 150, 105, 0.4);
-            color: #059669;
+            background: rgba(8, 18, 34, 0.75);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: #ffffff;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 14px rgba(0, 0, 0, 0.3);
         }
 
         [data-theme="light"] .apk-header-btn:hover {
-            background: #10b981;
-            border-color: #10b981;
+            background: rgba(14, 28, 52, 0.9);
+            border-color: rgba(255, 255, 255, 0.32);
             color: #ffffff;
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 6px 20px rgba(0, 0, 0, 0.45);
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -3524,7 +3544,8 @@
         .btn-cta-primary:active,
         .btn-cta-secondary:active,
         .carousel-btn:active,
-        .dest-card:active {
+        .dest-card:active,
+        .apk-header-btn:active {
             transform: scale(0.97) !important;
             transition: transform 0.1s ease !important;
         }
