@@ -910,8 +910,99 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             const SizedBox(height: 26),
             _stagger(7, _buildRoadTripUtilitiesSection()),
           ],
+          const SizedBox(height: 26),
+          // 8. Bottom Intelligence Section (Fuel & Smart Travel Intelligence)
+          if (isDesktop)
+            _stagger(
+              8,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 50,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildFuelIntelligenceCard(),
+                        const SizedBox(height: 16),
+                        _buildDashboardQuoteCard(isDarkTheme: isDarkTheme),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    flex: 50,
+                    child: _buildSmartTravelIntelligenceCard(),
+                  ),
+                ],
+              ),
+            )
+          else ...[
+            _stagger(8, _buildFuelIntelligenceCard()),
+            const SizedBox(height: 18),
+            _stagger(9, _buildSmartTravelIntelligenceCard()),
+            const SizedBox(height: 18),
+            _stagger(10, _buildDashboardQuoteCard(isDarkTheme: isDarkTheme)),
+          ],
           const SizedBox(height: 36),
           _buildAppFooter(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDashboardQuoteCard({required bool isDarkTheme}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF132238), Color(0xFF08101E)],
+        ),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.12),
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '“Not all who\nwander are lost.”',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              height: 1.15,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.3,
+            ),
+          ),
+          const SizedBox(height: 18),
+          const Row(
+            children: [
+              Icon(Icons.explore_rounded,
+                  color: Color(0xFF38BDF8), size: 16),
+              SizedBox(width: 6),
+              Text(
+                'VoyPlan',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
