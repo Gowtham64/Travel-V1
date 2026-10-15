@@ -36,7 +36,7 @@ CREATE OR REPLACE FUNCTION public.set_trip_owner_email()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   IF NEW.owner_email IS NULL OR NEW.owner_email = '' THEN
@@ -47,6 +47,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.set_trip_owner_email() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_set_trip_owner_email ON public.trips;
 CREATE TRIGGER trg_set_trip_owner_email
@@ -67,6 +69,7 @@ CREATE OR REPLACE FUNCTION public.jwt_email_verified()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = ''
 AS $$
   SELECT COALESCE(
     (auth.jwt() ->> 'email') IS NOT NULL

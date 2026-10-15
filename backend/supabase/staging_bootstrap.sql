@@ -91,8 +91,8 @@ CREATE POLICY "Users can delete their own trip stops" ON public.trip_stops FOR D
 
 -- Allow public access to route cache (it contains no user-specific data)
 ALTER TABLE public.route_cache ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public can view route cache" ON public.route_cache FOR SELECT USING (true);
-CREATE POLICY "Public can insert route cache" ON public.route_cache FOR INSERT WITH CHECK (true);
+CREATE POLICY "Allow read route cache" ON public.route_cache FOR SELECT TO anon, authenticated USING (expires_at > now());
+CREATE POLICY "Allow insert route cache" ON public.route_cache FOR INSERT TO authenticated, service_role WITH CHECK (expires_at > now());
 
 -- 5. User Details Table
 -- Stores custom user information collected on signup
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS public.user_details (
 ALTER TABLE public.user_details ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can view their own details" ON public.user_details FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Public can insert details" ON public.user_details FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can insert their own details" ON public.user_details FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own details" ON public.user_details FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete their own details" ON public.user_details FOR DELETE USING (auth.uid() = user_id);
 
@@ -336,15 +336,17 @@ create policy "trip public read" on public.shared_trips
   for select using (is_public = true);
 
 -- Join a trip as a collaborator using its share code (used by "invite via link/code").
--- SECURITY DEFINER so an invitee can add themselves without owner-only rights.
 create or replace function public.join_trip(p_code text)
 returns uuid
 language plpgsql
-security definer
-set search_path = public
+security invoker
+set search_path = ''
 as $$
 declare tid uuid;
 begin
+  if auth.uid() is null then
+    raise exception 'Authentication required';
+  end if;
   update public.shared_trips
      set collaborators = (select array(select distinct e from unnest(collaborators || auth.uid()) e))
    where share_code = p_code
@@ -353,12 +355,25 @@ begin
 end;
 $$;
 
+revoke all on function public.join_trip(text) from public, anon;
 grant execute on function public.join_trip(text) to authenticated;
+
+-- Allow authenticated users with the share code to add themselves as collaborators
+drop policy if exists "trip allow join" on public.shared_trips;
+create policy "trip allow join" on public.shared_trips
+  for update to authenticated
+  using (share_code is not null)
+  with check (auth.uid() = any(collaborators));
 
 -- Keep updated_at fresh on every write.
 create or replace function public.touch_shared_trip()
-returns trigger language plpgsql as $$
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
 begin new.updated_at = now(); return new; end; $$;
+
+revoke all on function public.touch_shared_trip() from public, anon, authenticated;
 
 drop trigger if exists trg_touch_shared_trip on public.shared_trips;
 create trigger trg_touch_shared_trip before update on public.shared_trips
@@ -448,7 +463,7 @@ CREATE OR REPLACE FUNCTION public.set_trip_owner_email()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = ''
 AS $$
 BEGIN
   IF NEW.owner_email IS NULL OR NEW.owner_email = '' THEN
@@ -459,6 +474,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.set_trip_owner_email() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_set_trip_owner_email ON public.trips;
 CREATE TRIGGER trg_set_trip_owner_email
@@ -479,6 +496,7 @@ CREATE OR REPLACE FUNCTION public.jwt_email_verified()
 RETURNS BOOLEAN
 LANGUAGE sql
 STABLE
+SET search_path = ''
 AS $$
   SELECT COALESCE(
     (auth.jwt() ->> 'email') IS NOT NULL
