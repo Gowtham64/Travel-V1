@@ -309,11 +309,22 @@
 
     function getVehicleMarkerHTML(type) {
       return `
-        <div class="nav-symbol-container" style="width: 52px; height: 52px; position: relative; display: flex; align-items: center; justify-content: center; pointer-events: none;">
-          <div class="pulsing-ring" style="position: absolute; width: 48px; height: 48px; border-radius: 50%; border: 2.5px solid #0EA5E9; background-color: rgba(14, 165, 233, 0.25); animation: ripple 1.2s infinite ease-out; pointer-events: none;"></div>
-          <div class="nav-puck-disc" style="position: relative; width: 38px; height: 38px; border-radius: 50%; background: #ffffff; border: 2.5px solid #0EA5E9; box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45), 0 2px 8px rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" style="display: block; transform: rotate(0deg); transition: transform 0.15s cubic-bezier(0.2, 0, 0, 1);">
-              <path d="M12 2.5L4.5 20.29C4.16 21.12 5.04 21.94 5.84 21.54L12 18.5L18.16 21.54C18.96 21.94 19.84 21.12 19.5 20.29L12 2.5Z" fill="#0EA5E9" stroke="#0284C7" stroke-width="1.2" stroke-linejoin="round"/>
+        <div class="nav-symbol-container" style="width: 72px; height: 72px; position: relative; display: flex; align-items: center; justify-content: center; pointer-events: none;">
+          <!-- Forward-projecting Google Maps Heading Light Cone -->
+          <div class="nav-heading-beam" style="position: absolute; bottom: 50%; left: 50%; width: 68px; height: 74px; margin-left: -34px; transform-origin: bottom center; pointer-events: none; background: linear-gradient(to top, rgba(26, 115, 232, 0.45) 0%, rgba(66, 133, 244, 0.18) 60%, rgba(66, 133, 244, 0.0) 100%); clip-path: polygon(50% 100%, 15% 0%, 85% 0%); filter: blur(0.5px);"></div>
+          <!-- Pulsing Radar Aura -->
+          <div class="pulsing-ring" style="position: absolute; width: 44px; height: 44px; border-radius: 50%; border: 2px solid rgba(26, 115, 232, 0.5); background-color: rgba(26, 115, 232, 0.12); animation: ripple 1.5s infinite ease-out; pointer-events: none;"></div>
+          <!-- Google Maps 3D Navigation Puck -->
+          <div class="nav-puck-disc" style="position: relative; width: 36px; height: 36px; border-radius: 50%; background: #ffffff; border: 2.5px solid #1A73E8; box-shadow: 0 4px 14px rgba(26, 115, 232, 0.4), 0 3px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" style="display: block;">
+              <!-- Left illuminated facet (#4285F4) -->
+              <path d="M12 3.2L4.5 19.8L12 16.2Z" fill="#4285F4"/>
+              <!-- Right shaded facet (#1A73E8) -->
+              <path d="M12 3.2L12 16.2L19.5 19.8Z" fill="#1A73E8"/>
+              <!-- Center crease line -->
+              <path d="M12 3.2V16.2" stroke="#1557B0" stroke-width="0.75"/>
+              <!-- Crisp outer border -->
+              <path d="M12 3.2L4.5 19.8L12 16.2L19.5 19.8L12 3.2Z" stroke="#FFFFFF" stroke-width="1.2" stroke-linejoin="round"/>
             </svg>
           </div>
         </div>
@@ -685,9 +696,30 @@
         const seenIds = new Set();
 
         stops.forEach((stop, index) => {
-          const lat = Number(stop.lat ?? stop.latitude);
-          const lng = Number(stop.lng ?? stop.longitude);
+          let lat = Number(stop.lat ?? stop.latitude);
+          let lng = Number(stop.lng ?? stop.longitude);
           if (isNaN(lat) || isNaN(lng)) return;
+
+          // Reconcile coordinates if stop was inadvertently placed at starting point while having a positive distanceFromStartKm
+          const distKm = Number(stop.distanceFromStartKm || 0);
+          if (distKm > 5 && routePoints.length > 1) {
+            const dStart = Math.hypot(lng - routePoints[0][0], lat - routePoints[0][1]);
+            if (dStart < 0.02) {
+              let accumKm = 0;
+              for (let i = 0; i < routePoints.length - 1; i++) {
+                const p1 = routePoints[i];
+                const p2 = routePoints[i + 1];
+                const segKm = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * 111.0;
+                if (accumKm + segKm >= distKm) {
+                  const frac = segKm > 0 ? Math.max(0, Math.min(1, (distKm - accumKm) / segKm)) : 0;
+                  lng = p1[0] + (p2[0] - p1[0]) * frac;
+                  lat = p1[1] + (p2[1] - p1[1]) * frac;
+                  break;
+                }
+                accumKm += segKm;
+              }
+            }
+          }
 
           const stopKey = `${lat.toFixed(4)}_${lng.toFixed(4)}`;
           if (seenIds.has(stopKey)) return;
@@ -787,22 +819,35 @@
         }, 500);
       }
 
-      // Create navigation symbol marker (hidden initially at 0, 0)
+      // Create navigation symbol marker positioned at route start
       const navEl = document.createElement('div');
       navEl.id = 'vehicle-marker';
-      navEl.style.width = '48px';
-      navEl.style.height = '48px';
+      navEl.style.width = '72px';
+      navEl.style.height = '72px';
       navEl.style.position = 'relative';
-      navEl.style.transition = 'transform 0.1s linear';
       navEl.innerHTML = getVehicleMarkerHTML(vehicleType);
 
-      // Sits upright facing camera and turns accurately with the heading
+      const initialPos = routePoints.length > 0 ? routePoints[0] : [0, 0];
+      let initialRotDeg = 0;
+      if (routePoints.length >= 2) {
+        const p1 = routePoints[0];
+        const p2 = routePoints[1];
+        const dLng = (p2[0] - p1[0]) * (Math.PI / 180);
+        const lat1 = p1[1] * (Math.PI / 180);
+        const lat2 = p2[1] * (Math.PI / 180);
+        const y = Math.sin(dLng) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+        initialRotDeg = Math.atan2(y, x) * (180 / Math.PI);
+      }
+
+      // Sits flat on the road surface and turns accurately with the heading
       const vehicleMarker = new mapboxgl.Marker({
         element: navEl,
         rotationAlignment: 'map',
-        pitchAlignment: 'viewport'
+        pitchAlignment: 'map'
       })
-      .setLngLat([0, 0])
+      .setLngLat(initialPos)
+      .setRotation(initialRotDeg)
       .addTo(map);
 
       // Track user gesture on map for camera exploration mode
@@ -1259,7 +1304,11 @@
         if (window.currentMapInstance) window.currentMapInstance.triggerRepaint();
       }
       if (window.currentVehicleMarker) {
-        window.currentVehicleMarker.setLngLat([0, 0]);
+        if (window.currentRoutePoints && window.currentRoutePoints.length > 0) {
+          window.currentVehicleMarker.setLngLat(window.currentRoutePoints[0]);
+        } else {
+          window.currentVehicleMarker.setLngLat([0, 0]);
+        }
       }
       window.animatedRouteCoords = [];
       

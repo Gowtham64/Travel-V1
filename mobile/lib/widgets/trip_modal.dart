@@ -892,14 +892,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         final refillNeededLiters =
             math.max(10.0, _tankCapacity - _currentFuel);
         final cost = refillNeededLiters * _fuelPricePerUnit;
+        final targetDistKm = (roadKm * 0.48).roundToDouble();
+        final stopPoint = _findCoordinateAtDistance(coords, targetDistKm);
         _fuelStops = [
           RefuelStop(
-            lat: coords[1].lat,
-            lng: coords[1].lng,
+            lat: stopPoint.lat,
+            lng: stopPoint.lng,
             name: _fuelType == 'ev'
                 ? 'EV Supercharger (Recommended)'
                 : 'IndianOil Highway Station (Recommended)',
-            distanceFromStartKm: (roadKm * 0.48).roundToDouble(),
+            distanceFromStartKm: targetDistKm,
             refillLiters: refillNeededLiters,
             estimatedCost: cost,
             pricePerUnit: _fuelPricePerUnit,
@@ -923,6 +925,50 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     }
   }
 
+  static double _calculateHaversineKm(
+      double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180.0;
+    final dLon = (lon2 - lon1) * math.pi / 180.0;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180.0) *
+            math.cos(lat2 * math.pi / 180.0) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
+  }
+
+  GeoPoint _findCoordinateAtDistance(
+      List<GeoPoint> coords, double targetDistKm) {
+    if (coords.isEmpty) {
+      return _oneWayOrigin ?? const GeoPoint(lat: 0, lng: 0);
+    }
+    if (coords.length == 1 || targetDistKm <= 0) {
+      return coords.first;
+    }
+
+    double accumulatedKm = 0.0;
+    for (int i = 0; i < coords.length - 1; i++) {
+      final p1 = coords[i];
+      final p2 = coords[i + 1];
+      final segKm = _calculateHaversineKm(p1.lat, p1.lng, p2.lat, p2.lng);
+      if (accumulatedKm + segKm >= targetDistKm) {
+        final remaining = targetDistKm - accumulatedKm;
+        final fraction = segKm > 0 ? (remaining / segKm).clamp(0.0, 1.0) : 0.0;
+        final lat = p1.lat + (p2.lat - p1.lat) * fraction;
+        final lng = p1.lng + (p2.lng - p1.lng) * fraction;
+        return GeoPoint(
+          lat: double.parse(lat.toStringAsFixed(6)),
+          lng: double.parse(lng.toStringAsFixed(6)),
+          name: 'Highway Fuel Stop',
+        );
+      }
+      accumulatedKm += segKm;
+    }
+    return coords.last;
+  }
+
   void _evaluateFuelStops(TripPlan plan) {
     final safeRange = _estimatedRangeKm;
     final totalDistance = plan.distanceKm;
@@ -930,15 +976,44 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
 
     // If available fuel can't safely reach destination + buffer
     if (safeRange < (totalDistance + bufferKm)) {
+      final coords = plan.coordinates.isNotEmpty
+          ? plan.coordinates
+          : (_oneWayOrigin != null && _oneWayDest != null
+              ? [_oneWayOrigin!, _oneWayDest!]
+              : <GeoPoint>[]);
+
       if (plan.fuel.refuelStops.isNotEmpty) {
-        _fuelStops = plan.fuel.refuelStops;
+        final startPt = coords.isNotEmpty
+            ? coords.first
+            : (_oneWayOrigin ?? const GeoPoint(lat: 0, lng: 0));
+        // Reconcile any stops that were mistakenly placed near origin despite having positive distanceFromStartKm
+        _fuelStops = plan.fuel.refuelStops.map((fs) {
+          final distFromStart = fs.distanceFromStartKm;
+          if (distFromStart > 5.0 &&
+              _calculateHaversineKm(
+                      fs.lat, fs.lng, startPt.lat, startPt.lng) <
+                  2.0 &&
+              coords.length > 2) {
+            final corrected =
+                _findCoordinateAtDistance(coords, distFromStart);
+            return RefuelStop(
+              lat: corrected.lat,
+              lng: corrected.lng,
+              name: fs.name,
+              distanceFromStartKm: fs.distanceFromStartKm,
+              refillLiters: fs.refillLiters,
+              estimatedCost: fs.estimatedCost,
+              pricePerUnit: fs.pricePerUnit,
+              fuelOnArrivalLiters: fs.fuelOnArrivalLiters,
+              fuelType: fs.fuelType,
+            );
+          }
+          return fs;
+        }).toList();
       } else {
         // Fallback: Create a geographically sound midpoint refuel marker along coordinates
-        final coords = plan.coordinates;
-        final midIdx = coords.isNotEmpty
-            ? (coords.length * 0.45).round().clamp(0, coords.length - 1)
-            : 0;
-        final midCoord = coords.isNotEmpty ? coords[midIdx] : _oneWayOrigin!;
+        final targetDistKm = (totalDistance * 0.48).roundToDouble();
+        final midCoord = _findCoordinateAtDistance(coords, targetDistKm);
 
         final refillNeededLiters = math.max(10.0, _tankCapacity - _currentFuel);
         final cost = refillNeededLiters * _fuelPricePerUnit;
@@ -950,7 +1025,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             name: _fuelType == 'ev'
                 ? 'EV Supercharger (Recommended)'
                 : 'IndianOil Highway Station (Recommended)',
-            distanceFromStartKm: (totalDistance * 0.45).roundToDouble(),
+            distanceFromStartKm: targetDistKm,
             refillLiters: refillNeededLiters,
             estimatedCost: cost,
             pricePerUnit: _fuelPricePerUnit,

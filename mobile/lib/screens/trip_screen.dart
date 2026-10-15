@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -194,6 +194,25 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       isRoundTrip: isRound,
       confirmedWaypoints: _currentWaypoints,
     );
+
+    // Initialize vehicle marker position and rotation at route origin immediately
+    final routeCoords = _currentPlan.coordinates.isNotEmpty
+        ? _currentPlan.coordinates
+        : [widget.start, widget.end];
+    if (routeCoords.isNotEmpty) {
+      _animatedVehiclePosition =
+          LatLng(routeCoords.first.lat, routeCoords.first.lng);
+      if (routeCoords.length >= 2) {
+        final p1 = routeCoords[0];
+        final p2 = routeCoords[1];
+        final dLon = (p2.lng - p1.lng) * (pi / 180.0);
+        final lat1 = p1.lat * (pi / 180.0);
+        final lat2 = p2.lat * (pi / 180.0);
+        final y = sin(dLon) * cos(lat2);
+        final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
+        _vehicleRotation = atan2(y, x);
+      }
+    }
 
     // Log calculated fuel stops for live navigation verification
     if (_currentPlan.fuel.refuelStops.isNotEmpty) {
@@ -2364,46 +2383,76 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       ));
     }
 
-    // Animated navigation symbol marker with pulsing aura and directional arrow
+    // Animated navigation symbol marker with pulsing aura, heading beam and 3D Google Navigation chevron
     if (_animatedVehiclePosition != null) {
       markers.add(Marker(
         point: _animatedVehiclePosition!,
-        width: 52,
-        height: 52,
+        width: 72,
+        height: 72,
         child: Stack(
           alignment: Alignment.center,
           children: [
             const _PulsingRing(),
             Transform.rotate(
               angle: _vehicleRotation,
-              child: Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white,
-                  border:
-                      Border.all(color: const Color(0xFF0EA5E9), width: 2.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF0EA5E9).withOpacity(0.4),
-                      blurRadius: 12,
-                      spreadRadius: 2,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
+                children: [
+                  // Forward-projecting Google Maps Heading Light Cone
+                  Positioned(
+                    top: -12,
+                    child: ClipPath(
+                      clipper: _HeadingBeamClipper(),
+                      child: Container(
+                        width: 52,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.bottomCenter,
+                            end: Alignment.topCenter,
+                            colors: [
+                              const Color(0xFF1A73E8).withOpacity(0.45),
+                              const Color(0xFF4285F4).withOpacity(0.18),
+                              const Color(0xFF4285F4).withOpacity(0.0),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Icon(
-                    Icons.navigation_rounded,
-                    color: Color(0xFF0EA5E9),
-                    size: 24,
                   ),
-                ),
+                  // White disc with Google Blue border & authentic 3D chevron
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      border: Border.all(
+                        color: const Color(0xFF1A73E8),
+                        width: 2.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF1A73E8).withOpacity(0.4),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.35),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: CustomPaint(
+                        size: const Size(20, 20),
+                        painter: _GoogleChevronPainter(),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -3665,7 +3714,22 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         _mapStyle = _styleBeforeNav!;
         _styleBeforeNav = null;
       }
-      _animatedVehiclePosition = null;
+      final routeCoords = _currentPlan.coordinates.isNotEmpty
+          ? _currentPlan.coordinates
+          : [widget.start, widget.end];
+      _animatedVehiclePosition = routeCoords.isNotEmpty
+          ? LatLng(routeCoords.first.lat, routeCoords.first.lng)
+          : LatLng(widget.start.lat, widget.start.lng);
+      if (routeCoords.length >= 2) {
+        final p1 = routeCoords[0];
+        final p2 = routeCoords[1];
+        final dLon = (p2.lng - p1.lng) * (pi / 180.0);
+        final lat1 = p1.lat * (pi / 180.0);
+        final lat2 = p2.lat * (pi / 180.0);
+        final y = sin(dLon) * cos(lat2);
+        final x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon);
+        _vehicleRotation = atan2(y, x);
+      }
       _isSlowingDown = false;
       _isTurningLeft = false;
       _isTurningRight = false;
@@ -5495,7 +5559,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTopHUD(double topPadding) {
-    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    if (!_isPlayingAnimation && !_isLiveNavigating) return const SizedBox.shrink();
 
     final currentPos = _animatedVehiclePosition ?? widget.start.toLatLng();
     final maneuver = _carGuidance.calculateManeuver(
@@ -5506,16 +5570,61 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
 
     IconData turnIcon = Icons.straight_rounded;
-    if (maneuver.type == ManeuverType.turnRight ||
-        maneuver.type == ManeuverType.slightRight ||
-        _isTurningRight) {
-      turnIcon = Icons.turn_right_rounded;
-    } else if (maneuver.type == ManeuverType.turnLeft ||
-        maneuver.type == ManeuverType.slightLeft ||
-        _isTurningLeft) {
-      turnIcon = Icons.turn_left_rounded;
-    } else if (maneuver.type == ManeuverType.destination) {
-      turnIcon = Icons.flag_rounded;
+    switch (maneuver.type) {
+      case ManeuverType.turnRight:
+        turnIcon = Icons.turn_right_rounded;
+        break;
+      case ManeuverType.turnLeft:
+        turnIcon = Icons.turn_left_rounded;
+        break;
+      case ManeuverType.slightRight:
+      case ManeuverType.forkRight:
+        turnIcon = Icons.turn_slight_right_rounded;
+        break;
+      case ManeuverType.slightLeft:
+      case ManeuverType.forkLeft:
+        turnIcon = Icons.turn_slight_left_rounded;
+        break;
+      case ManeuverType.sharpRight:
+        turnIcon = Icons.turn_sharp_right_rounded;
+        break;
+      case ManeuverType.sharpLeft:
+        turnIcon = Icons.turn_sharp_left_rounded;
+        break;
+      case ManeuverType.uTurn:
+        turnIcon = Icons.u_turn_left_rounded;
+        break;
+      case ManeuverType.roundabout:
+        turnIcon = Icons.roundabout_right_rounded;
+        break;
+      case ManeuverType.merge:
+      case ManeuverType.onRamp:
+        turnIcon = Icons.merge_type_rounded;
+        break;
+      case ManeuverType.offRamp:
+        turnIcon = Icons.ramp_right_rounded;
+        break;
+      case ManeuverType.destination:
+        turnIcon = Icons.flag_rounded;
+        break;
+      case ManeuverType.refuel:
+        turnIcon = Icons.local_gas_station_rounded;
+        break;
+      case ManeuverType.toll:
+        turnIcon = Icons.toll_rounded;
+        break;
+      case ManeuverType.waypoint:
+        turnIcon = Icons.place_rounded;
+        break;
+      case ManeuverType.straight:
+      default:
+        if (_isTurningRight) {
+          turnIcon = Icons.turn_right_rounded;
+        } else if (_isTurningLeft) {
+          turnIcon = Icons.turn_left_rounded;
+        } else {
+          turnIcon = Icons.straight_rounded;
+        }
     }
 
     String distanceStr = maneuver.distanceMeters > 1000
@@ -5550,53 +5659,53 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
     return Positioned(
       top: topPadding,
-      left: isDesktop ? 20 : 14,
+      left: isDesktop ? 20 : 12,
       right: isDesktop ? null : 68,
-      width: isDesktop ? 380 : null,
+      width: isDesktop ? 440 : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Pinned Turn Banner (tap/long-press opens developer debug telemetry)
+          // Google Navigation Green Turn Banner
           GestureDetector(
             onLongPress: () {
               setState(() => _showDebugNavOverlay = !_showDebugNavOverlay);
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A1F2E).withOpacity(0.96),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0F5132), Color(0xFF137333)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withOpacity(0.25), width: 1.2),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.55),
-                    blurRadius: 16,
+                    color: Colors.black.withOpacity(0.45),
+                    blurRadius: 18,
                     offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: Row(
                 children: [
-                  // Green vertical accent indicator on left edge
+                  // Maneuver Icon inside circular badge
                   Container(
-                    width: 4,
-                    height: 48,
+                    width: 50,
+                    height: 50,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF10B981),
-                      borderRadius: BorderRadius.circular(2),
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.18),
+                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5),
+                    ),
+                    child: Center(
+                      child: Icon(turnIcon, color: Colors.white, size: 32),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(turnIcon, color: Colors.white, size: 28),
-                  ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 14),
+                  // Turn Distance & Instruction
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5606,8 +5715,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                           distanceStr,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 26,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.5,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -5615,8 +5725,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                           instruction,
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            height: 1.2,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -5624,13 +5735,38 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                         Text(
                           sub,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.55),
-                            fontSize: 11,
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ],
+                    ),
+                  ),
+                  // Quick sound mute toggle
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _navSoundOn = !_navSoundOn;
+                        _voice.muted = !_navSoundOn;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withOpacity(0.15),
+                      ),
+                      child: Icon(
+                        _navSoundOn
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -5779,7 +5915,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildBottomHUD() {
-    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    if (!_isPlayingAnimation && !_isLiveNavigating) return const SizedBox.shrink();
 
     final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
     final double distKm = (_isLiveNavigating && _liveRemainingKm > 0)
@@ -5882,7 +6018,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildStopHighlightCard(double topPadding) {
-    if (!_isPlayingAnimation) return const SizedBox.shrink();
+    if (!_isPlayingAnimation && !_isLiveNavigating) return const SizedBox.shrink();
     if (_activeStopHighlight == null && !_isTollStop)
       return const SizedBox.shrink();
 
@@ -8450,4 +8586,89 @@ class _SpeedGaugePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _SpeedGaugePainter old) =>
       old.speed != speed || old.maxSpeed != maxSpeed;
+}
+
+/// Forward-facing flashlight / heading cone for Google Navigation puck
+class _HeadingBeamClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(size.width * 0.5, size.height);
+    path.lineTo(size.width * 0.15, 0);
+    path.lineTo(size.width * 0.85, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// Authentic 3D Google Navigation Chevron Arrow with illuminated left facet,
+/// shaded right facet, center crease, and crisp white border.
+class _GoogleChevronPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final tip = Offset(w * 0.5, h * 0.12);
+    final leftTip = Offset(w * 0.18, h * 0.86);
+    final notch = Offset(w * 0.5, h * 0.70);
+    final rightTip = Offset(w * 0.82, h * 0.86);
+
+    // Left illuminated facet (#4285F4)
+    final leftFacet = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(leftTip.dx, leftTip.dy)
+      ..lineTo(notch.dx, notch.dy)
+      ..close();
+    canvas.drawPath(
+      leftFacet,
+      Paint()
+        ..color = const Color(0xFF4285F4)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Right shaded facet (#1A73E8)
+    final rightFacet = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(notch.dx, notch.dy)
+      ..lineTo(rightTip.dx, rightTip.dy)
+      ..close();
+    canvas.drawPath(
+      rightFacet,
+      Paint()
+        ..color = const Color(0xFF1A73E8)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Center divider crease
+    canvas.drawLine(
+      tip,
+      notch,
+      Paint()
+        ..color = const Color(0xFF1557B0)
+        ..strokeWidth = 0.8,
+    );
+
+    // Outer white rim
+    final outerPath = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(leftTip.dx, leftTip.dy)
+      ..lineTo(notch.dx, notch.dy)
+      ..lineTo(rightTip.dx, rightTip.dy)
+      ..close();
+    canvas.drawPath(
+      outerPath,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
