@@ -27,11 +27,11 @@ class AppConfig {
   /// Whether a Mapbox token was provided at build time.
   static bool get hasMapboxToken => mapboxToken.isNotEmpty;
 
-  /// Cloudflare Turnstile CAPTCHA site key.
+  /// Cloudflare Turnstile CAPTCHA site key (Public client key).
   /// Can be overridden via `--dart-define=TURNSTILE_SITE_KEY=0x...`
   static const String turnstileSiteKey = String.fromEnvironment(
     'TURNSTILE_SITE_KEY',
-    defaultValue: '0x4AAAAAAFXonRuTJXg5gInXTSaCIqKLRP4',
+    defaultValue: '0x4AAAAAAFXonSLmX7oz3wfc',
   );
 
   static bool get hasTurnstileSiteKey => turnstileSiteKey.isNotEmpty;
