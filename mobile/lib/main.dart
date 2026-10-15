@@ -279,9 +279,11 @@ class _AuthStateWrapperState extends State<AuthStateWrapper> {
           case AuthDestination.dashboard:
             return const HomeScreen();
           case AuthDestination.login:
+            final authParam = kIsWeb ? Uri.base.queryParameters['auth'] : null;
+            // Default new web visitors to sign up unless explicitly opening login (?auth=login)
+            final startInSignUp = authParam == 'signup' || (kIsWeb && authParam != 'login');
             return LoginScreen(
-              startInSignUp:
-                  kIsWeb && Uri.base.queryParameters['auth'] == 'signup',
+              startInSignUp: startInSignUp,
             );
         }
       },

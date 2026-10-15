@@ -109,13 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
       final phone = _phoneController.text.trim();
       final location = _locationController.text.trim();
 
-      if (name.isEmpty ||
-          email.isEmpty ||
-          phone.isEmpty ||
-          password.isEmpty ||
-          location.isEmpty) {
+      if (name.isEmpty || email.isEmpty || password.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please fill in all signup fields')),
+          const SnackBar(
+            content: Text('Please enter your name, email, and password'),
+          ),
         );
         return;
       }
@@ -172,9 +170,9 @@ class _LoginScreenState extends State<LoginScreen> {
             await Supabase.instance.client.from('user_details').insert({
               'user_id': user.id,
               'name': name,
-              'phone': phone,
+              'phone': phone.isNotEmpty ? phone : null,
               'email': email,
-              'location': location,
+              'location': location.isNotEmpty ? location : null,
               'device_access': deviceAccess,
             });
           } catch (error) {
@@ -388,7 +386,83 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 1.45,
                               ),
                             ),
-                            const SizedBox(height: 28),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: 52,
+                              child: OutlinedButton.icon(
+                                onPressed:
+                                    _isLoading ? null : _signInWithGoogle,
+                                icon: Container(
+                                  width: 24,
+                                  height: 24,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: const Text(
+                                    'G',
+                                    style: TextStyle(
+                                      color: Color(0xFF4285F4),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w900,
+                                    ),
+                                  ),
+                                ),
+                                label: Text(
+                                  _isSignUp
+                                      ? 'Sign up with Google'
+                                      : 'Continue with Google',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: Colors.white.withOpacity(0.2),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  backgroundColor: const Color(0xFF060C18)
+                                      .withOpacity(0.55),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 18),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Divider(
+                                    color: Colors.white.withOpacity(0.14),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                  ),
+                                  child: Text(
+                                    _isSignUp
+                                        ? 'OR SIGN UP WITH EMAIL'
+                                        : 'OR SIGN IN WITH EMAIL',
+                                    style: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Divider(
+                                    color: Colors.white.withOpacity(0.14),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 18),
                             if (_isSignUp) ...[
                               _buildTextField(
                                 controller: _nameController,
@@ -408,8 +482,18 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               const SizedBox(height: 16),
                               _buildTextField(
+                                controller: _passwordController,
+                                label: 'Password',
+                                hint: 'Create a password (min 6 chars)',
+                                icon: Icons.lock_outline_rounded,
+                                isPassword: true,
+                                autofillHints: const [AutofillHints.newPassword],
+                                onSubmitted: (_) => _authenticate(),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildTextField(
                                 controller: _phoneController,
-                                label: 'Phone number',
+                                label: 'Phone number (optional)',
                                 hint: '+91 98765 43210',
                                 icon: Icons.phone_outlined,
                                 keyboardType: TextInputType.phone,
@@ -420,14 +504,13 @@ class _LoginScreenState extends State<LoginScreen> {
                               const SizedBox(height: 16),
                               _buildTextField(
                                 controller: _locationController,
-                                label: 'Home base',
-                                hint: 'Coimbatore, India',
+                                label: 'Home base / city (optional)',
+                                hint: 'e.g. Coimbatore, India',
                                 icon: Icons.location_on_outlined,
                                 autofillHints: const [
                                   AutofillHints.addressCity
                                 ],
                               ),
-                              const SizedBox(height: 16),
                             ] else ...[
                               _buildTextField(
                                 controller: _identifierController,
@@ -438,20 +521,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 autofillHints: const [AutofillHints.username],
                               ),
                               const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: _passwordController,
+                                label: 'Password',
+                                hint: 'Enter your password',
+                                icon: Icons.lock_outline_rounded,
+                                isPassword: true,
+                                autofillHints: const [AutofillHints.password],
+                                onSubmitted: (_) => _authenticate(),
+                              ),
                             ],
-                            _buildTextField(
-                              controller: _passwordController,
-                              label: 'Password',
-                              hint: 'Enter your password',
-                              icon: Icons.lock_outline_rounded,
-                              isPassword: true,
-                              autofillHints: [
-                                _isSignUp
-                                    ? AutofillHints.newPassword
-                                    : AutofillHints.password,
-                              ],
-                              onSubmitted: (_) => _authenticate(),
-                            ),
                             if (AppConfig.hasTurnstileSiteKey && _isSignUp) ...[
                               const SizedBox(height: 18),
                               TurnstileCaptcha(
@@ -518,69 +597,6 @@ class _LoginScreenState extends State<LoginScreen> {
                                     : 'New to VoyPlan? Create an account',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 14),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Divider(
-                                    color: Colors.white.withOpacity(0.14),
-                                  ),
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                  ),
-                                  child: Text(
-                                    'OR',
-                                    style: TextStyle(
-                                      color: Color(0xFF94A3B8),
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 1.2,
-                                    ),
-                                  ),
-                                ),
-                                Expanded(
-                                  child: Divider(
-                                    color: Colors.white.withOpacity(0.14),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 18),
-                            SizedBox(
-                              height: 52,
-                              child: OutlinedButton.icon(
-                                onPressed:
-                                    _isLoading ? null : _signInWithGoogle,
-                                icon: const Text(
-                                  'G',
-                                  style: TextStyle(
-                                    color: Color(0xFF4285F4),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                label: const Text(
-                                  'Continue with Google',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: BorderSide(
-                                    color: Colors.white.withOpacity(0.18),
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  backgroundColor: const Color(0xFF060C18)
-                                      .withOpacity(0.55),
                                 ),
                               ),
                             ),
