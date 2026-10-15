@@ -414,7 +414,7 @@ class _LandingScreenState extends State<LandingScreen> {
 
     return Image.asset(
       logoAsset,
-      height: 36,
+      width: 144,
       fit: BoxFit.contain,
       semanticLabel: 'VoyPlan',
     );

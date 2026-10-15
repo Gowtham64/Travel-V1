@@ -626,7 +626,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildBrand() {
     return Image.asset(
       'assets/images/voyplan-logo-dark.png',
-      height: 44,
+      width: 170,
       fit: BoxFit.contain,
       semanticLabel: 'VoyPlan',
     );

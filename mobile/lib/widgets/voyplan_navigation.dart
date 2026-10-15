@@ -130,7 +130,7 @@ class VoyPlanAuthenticatedNavigation extends StatelessWidget {
       builder: (context, constraints) {
         final compact = constraints.maxWidth < 760;
         return SizedBox(
-          height: compact ? 64 : 66,
+          height: compact ? 68 : 72,
           child: Padding(
             padding: EdgeInsets.symmetric(horizontal: compact ? 12 : 18),
             child: Row(
@@ -501,6 +501,9 @@ class _BrandLockup extends StatelessWidget {
         ? 'assets/images/voyplan-logo-dark.png'
         : 'assets/images/voyplan-logo-light.png';
 
+    final logoWidth = compact ? 120.0 : 144.0;
+    final logoHeight = compact ? 51.0 : 61.5;
+
     return Semantics(
       button: true,
       label: 'VoyPlan home',
@@ -508,10 +511,11 @@ class _BrandLockup extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
           child: Image.asset(
             logoAsset,
-            height: compact ? 28 : 34,
+            width: logoWidth,
+            height: logoHeight,
             fit: BoxFit.contain,
             semanticLabel: 'VoyPlan',
           ),

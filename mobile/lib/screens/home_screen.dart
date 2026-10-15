@@ -4239,7 +4239,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         children: [
           Image.asset(
             'assets/images/voyplan-logo-dark.png',
-            height: 32,
+            width: 144,
             fit: BoxFit.contain,
             semanticLabel: 'VoyPlan',
           ),
