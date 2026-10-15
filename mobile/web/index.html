@@ -1181,19 +1181,18 @@
         if (!window.cameraTickCounter) window.cameraTickCounter = 0;
         window.cameraTickCounter++;
 
-        // Steady "chase camera" like Google Maps / the reference clip: fixed tilt,
+        // Steady "chase camera" like Google Maps Navigation: fixed natural tilt,
         // bearing locked to the direction of travel, car framed in the lower third
-        // with the road ahead. A gentle orbit only when parked at a stop.
-        let pitchVal = 66;   // low, cinematic 3D tilt (reference look)
-        let zoomVal = 17.4;  // pulled back so the exaggerated 3D vehicle is framed
-                             // in view rather than engulfing the close camera
+        // with the road ahead clearly visible.
+        let pitchVal = 50;   // Comfortable Google Maps 3D navigation tilt
+        let zoomVal = 15.5;  // Optimal elevation showing upcoming ~500m of road & turns
         let targetBearing = motionDeg;
 
         if (speed === 0.0) {
-          // Slow scenic orbit while stopped at a waypoint/toll/destination.
-          pitchVal = 58;
-          zoomVal = customZoom || 17.4;
-          targetBearing = motionDeg + ((window.cameraTickCounter * 0.35) % 360);
+          // Stable viewing when paused at a step or stop
+          pitchVal = 48;
+          zoomVal = customZoom || 15.5;
+          targetBearing = motionDeg;
         }
 
         // Smooth, shortest-path bearing interpolation to avoid snapping on turns.
@@ -1201,7 +1200,7 @@
         let diff = (targetBearing - currentBearing) % 360;
         if (diff < -180) diff += 360;
         if (diff > 180) diff -= 360;
-        const bearingVal = (currentBearing + diff * 0.14) % 360;
+        const bearingVal = (currentBearing + diff * 0.10) % 360;
 
         // Only follow vehicle camera when not manually exploring
         if (!window.mapboxUserExploring) {
@@ -1217,9 +1216,19 @@
             zoom: zoomVal,
             pitch: pitchVal,
             bearing: bearingVal,
-            padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+            padding: { top: Math.round(h * 0.28), bottom: Math.round(h * 0.12), left: leftPad, right: 0 }
           });
         }
+      }
+    };
+
+    window.resetMapboxUserExploring = function() {
+      window.mapboxUserExploring = false;
+    };
+
+    window.resizeMapbox3D = function() {
+      if (window.currentMapInstance) {
+        try { window.currentMapInstance.resize(); } catch (_) {}
       }
     };
 
@@ -1232,12 +1241,12 @@
         const leftPad = w > 900 ? 300 : 0;
         map.flyTo({
           center: [lng, lat],
-          zoom: 17.2,
-          pitch: 66,
+          zoom: 15.6,
+          pitch: 50,
           bearing: bearingDeg || 0,
-          duration: 1200,
+          duration: 900,
           essential: true,
-          padding: { top: Math.round(h * 0.30), bottom: Math.round(h * 0.14), left: leftPad, right: 0 }
+          padding: { top: Math.round(h * 0.28), bottom: Math.round(h * 0.12), left: leftPad, right: 0 }
         });
       }
     };

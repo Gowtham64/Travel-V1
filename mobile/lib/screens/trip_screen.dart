@@ -135,6 +135,12 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   LatLng? _animatedVehiclePosition;
   double _vehicleRotation = 0.0;
   double _currentSpeedModifier = 1.0;
+  bool _isPreviewPaused = false;
+  double _previewSpeedMultiplier = 1.0;
+  int _previewStepIndex = 0;
+  List<double> _stepDistances = [];
+  double _simulatedDistance = 0.0;
+  double _simulatedTotalDistance = 0.0;
   Timer? _animationTimer;
   Ticker? _ticker;
   bool _isSlowingDown = false;
@@ -983,14 +989,29 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       appBar: appBarWidget,
       body: SafeArea(
         bottom: true,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 6),
-              // 1. "Live navigation · following GPS" status pill (green)
-              _buildStatusPill(),
+        child: Column(
+          children: [
+            // Prominent Hero Map showing the planned route in 3D satellite
+            SizedBox(
+              height: 280,
+              width: double.infinity,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(20),
+                ),
+                child: _buildMapStackWithOverlays(mapWidget,
+                    topPadding: 12.0, rightPadding: 12.0),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24, top: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 6),
+                    // 1. "Live navigation · following GPS" status pill (green)
+                    _buildStatusPill(),
               const SizedBox(height: 8),
               // 2. Circular speedometer (current km/h) with 'D' badge + trip progress block
               _buildOverviewSpeedAndProgress(),
@@ -1037,6 +1058,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
               const SizedBox(height: 16),
             ],
           ),
+        ),
+      ),
+          ],
         ),
       ),
     );
@@ -1206,27 +1230,51 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Primary full-width "Start Live Navigation" button for Overview
+  /// Primary action row: "Preview" + "Start Navigation" for Overview
   Widget _buildStartButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ElevatedButton.icon(
-        onPressed: _startLiveNavigation,
-        icon: const Icon(Icons.navigation_rounded, size: 24),
-        label: const Text(
-          'Start Live Navigation',
-          style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.3),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF10B981),
-          foregroundColor: Colors.white,
-          minimumSize: const Size(double.infinity, 54),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 4,
-          shadowColor: const Color(0xFF10B981).withOpacity(0.4),
-        ),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _startAnimation(preview: true),
+              icon: const Icon(Icons.visibility_rounded, size: 20),
+              label: const Text(
+                'Preview',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: BorderSide(color: Colors.white.withOpacity(0.35), width: 1.5),
+                minimumSize: const Size(0, 52),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: _startLiveNavigation,
+              icon: const Icon(Icons.navigation_rounded, size: 22),
+              label: const Text(
+                'Start Navigation',
+                style: TextStyle(
+                    fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 0.3),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                minimumSize: const Size(0, 52),
+                shape:
+                    RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 4,
+                shadowColor: const Color(0xFF10B981).withOpacity(0.4),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3279,7 +3327,68 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
   /// Drives the route. In [preview] mode it is a fast aerial fly-through of the
   /// whole route — no stopover / toll / arrival pauses — so the user can quickly
-  /// see the journey before committing to the full simulated drive.
+  void _togglePreviewPlayPause() {
+    setState(() {
+      _isPreviewPaused = !_isPreviewPaused;
+    });
+    if (!_isPreviewPaused) {
+      ThreeDMap.resetExploring();
+    }
+  }
+
+  void _cyclePreviewSpeed() {
+    setState(() {
+      if (_previewSpeedMultiplier == 1.0) {
+        _previewSpeedMultiplier = 2.0;
+      } else if (_previewSpeedMultiplier == 2.0) {
+        _previewSpeedMultiplier = 4.0;
+      } else {
+        _previewSpeedMultiplier = 1.0;
+      }
+    });
+  }
+
+  void _jumpToPreviewStep(int stepIdx) {
+    if (_stepDistances.isEmpty) return;
+    final clampedIdx = stepIdx.clamp(0, _stepDistances.length - 1);
+    final targetDist = _stepDistances[clampedIdx];
+    setState(() {
+      _previewStepIndex = clampedIdx;
+      _simulatedDistance = targetDist;
+      if (_simulatedTotalDistance > 0) {
+        _tripProgressPercent =
+            (targetDist / _simulatedTotalDistance).clamp(0.0, 1.0);
+      }
+    });
+    ThreeDMap.resetExploring();
+  }
+
+  void _scrubPreview(double fraction) {
+    if (_simulatedTotalDistance <= 0) return;
+    final targetDist =
+        (fraction * _simulatedTotalDistance).clamp(0.0, _simulatedTotalDistance);
+    setState(() {
+      _simulatedDistance = targetDist;
+      _tripProgressPercent = fraction.clamp(0.0, 1.0);
+      if (_stepDistances.isNotEmpty) {
+        int closestStep = 0;
+        double minDiff = double.infinity;
+        for (int i = 0; i < _stepDistances.length; i++) {
+          final diff = (_stepDistances[i] - targetDist).abs();
+          if (diff < minDiff) {
+            minDiff = diff;
+            closestStep = i;
+          }
+        }
+        _previewStepIndex = closestStep;
+      }
+    });
+    ThreeDMap.resetExploring();
+  }
+
+  /// Drives the route. In [preview] mode it is a comfortable, human-comprehensible
+  /// flight along the route with interactive Stepper controls (Prev Step, Play/Pause,
+  /// Next Step, Speed toggle 1x/2x/4x) matching Google Maps navigation preview.
   void _startAnimation({bool preview = false}) {
     final routePoints =
         _currentPlan.coordinates.map((c) => c.toLatLng()).toList();
@@ -3297,6 +3406,48 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     final totalDistance = cumulativeDistances.last;
     if (totalDistance == 0.0) return;
 
+    // Build key maneuver decision points along route for Step-by-Step preview
+    final List<double> stepDistances = [0.0];
+    for (int i = 1; i < routePoints.length - 1; i++) {
+      final p1 = routePoints[i - 1];
+      final p2 = routePoints[i];
+      final p3 = routePoints[i + 1];
+      final b1 = atan2(p2.longitude - p1.longitude, p2.latitude - p1.latitude);
+      final b2 = atan2(p3.longitude - p2.longitude, p3.latitude - p2.latitude);
+      double diff = (b2 - b1).abs();
+      while (diff > pi) diff = (2 * pi - diff).abs();
+      if (diff > 0.35) {
+        final dist = cumulativeDistances[i];
+        if (dist - stepDistances.last > (totalDistance * 0.03)) {
+          stepDistances.add(dist);
+        }
+      }
+    }
+    for (final fs in _currentPlan.fuel.refuelStops) {
+      final d = fs.distanceFromStartKm != null && fs.distanceFromStartKm! > 0
+          ? (fs.distanceFromStartKm! / _currentPlan.distanceKm) * totalDistance
+          : totalDistance * 0.5;
+      stepDistances.add(d);
+    }
+    for (final toll in (_currentPlan.toll?.tolls ?? [])) {
+      if (toll.distanceAlongRouteKm > 0) {
+        final d = (toll.distanceAlongRouteKm / _currentPlan.distanceKm) *
+            totalDistance;
+        stepDistances.add(d);
+      }
+    }
+    if (!stepDistances.contains(totalDistance)) {
+      stepDistances.add(totalDistance);
+    }
+    stepDistances.sort();
+
+    _simulatedDistance = 0.0;
+    _simulatedTotalDistance = totalDistance;
+    _stepDistances = stepDistances;
+    _previewStepIndex = 0;
+    _isPreviewPaused = false;
+    _previewSpeedMultiplier = 1.0;
+
     setState(() {
       _isPlayingAnimation = true;
       _isPreviewMode = preview;
@@ -3313,10 +3464,13 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
       _isTollStop = false;
       _activeTollPlaza = null;
       _tripProgressPercent = 0.0;
+      _cameraMode = NavCameraMode.follow;
     });
+
+    ThreeDMap.resetExploring();
+    ThreeDMap.resize();
     _pushRouteToCar(); // mirror the route to Android Auto / CarPlay
 
-    double currentDistance = 0.0;
     double currentHeading = 0.0;
     bool isFirstTick = true;
     Duration? lastElapsed;
@@ -3342,7 +3496,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           (elapsed.inMicroseconds - lastElapsed!.inMicroseconds) / 1000000.0;
       lastElapsed = elapsed;
 
-      // Event processing during active stops or tolls
+      // Event processing during active stops or tolls (simulated full drive only)
       if (_pauseTicksRemaining > 0) {
         _pauseTicksRemaining--;
 
@@ -3398,34 +3552,67 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         return;
       }
 
-      if (currentDistance >= totalDistance) {
-        // If we reached the end and haven't triggered arrival popup yet.
-        // Preview mode skips the celebratory pause and just ends the fly-through.
-        if (!_isPreviewMode && !_visitedStops.contains("destination_arrival")) {
-          _visitedStops.add("destination_arrival");
-          setState(() {
-            _activeStopHighlight = PlaceOfInterest(
-              id: 999,
-              name: widget.end.name ?? "Destination",
-              lat: widget.end.lat,
-              lng: widget.end.lng,
-              address: "Welcome! Trip completed successfully.",
-            );
-            _pauseTicksRemaining = 160; // 5.3 seconds celebratory pause
-            _currentSpeedModifier = 0.0;
-            _isSlowingDown = true;
-          });
+      // Check for route completion
+      if (_simulatedDistance >= totalDistance) {
+        if (_isPreviewMode) {
+          // In preview mode, pause cleanly at destination instead of abruptly terminating
+          _isPreviewPaused = true;
+          _simulatedDistance = totalDistance;
+        } else {
+          if (!_visitedStops.contains("destination_arrival")) {
+            _visitedStops.add("destination_arrival");
+            setState(() {
+              _activeStopHighlight = PlaceOfInterest(
+                id: 999,
+                name: widget.end.name ?? "Destination",
+                lat: widget.end.lat,
+                lng: widget.end.lng,
+                address: "Welcome! Trip completed successfully.",
+              );
+              _pauseTicksRemaining = 160; // 5.3 seconds celebratory pause
+              _currentSpeedModifier = 0.0;
+              _isSlowingDown = true;
+            });
+            return;
+          }
+          _stopAnimation();
           return;
         }
-        _stopAnimation();
-        return;
       }
 
-      // Find segment index where currentDistance lies
+      // Advance simulated distance using delta time when not paused
+      if (!_isPreviewPaused) {
+        final double previewDurationSec =
+            (_currentPlan.distanceKm / 4.0).clamp(25.0, 75.0);
+        final double baseSpeed = totalDistance /
+            (_isPreviewMode ? previewDurationSec : 60.0);
+        _simulatedDistance += baseSpeed *
+            (_isPreviewMode ? 1.0 : (_currentSpeedModifier)) *
+            dt *
+            (_isPreviewMode ? _previewSpeedMultiplier : 1.0);
+        if (_simulatedDistance > totalDistance) {
+          _simulatedDistance = totalDistance;
+        }
+      }
+
+      // Sync _previewStepIndex with _simulatedDistance
+      if (_stepDistances.isNotEmpty) {
+        int activeStep = 0;
+        for (int i = 0; i < _stepDistances.length; i++) {
+          if (_simulatedDistance >= _stepDistances[i] - 0.0001) {
+            activeStep = i;
+          }
+        }
+        if (activeStep != _previewStepIndex) {
+          _previewStepIndex = activeStep;
+        }
+      }
+
+      // Find segment index where _simulatedDistance lies
       int segmentIdx = 0;
       for (int i = 0; i < cumulativeDistances.length - 1; i++) {
-        if (currentDistance >= cumulativeDistances[i] &&
-            currentDistance <= cumulativeDistances[i + 1]) {
+        if (_simulatedDistance >= cumulativeDistances[i] &&
+            _simulatedDistance <= cumulativeDistances[i + 1]) {
           segmentIdx = i;
           break;
         }
@@ -3436,7 +3623,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
 
       final segLength =
           cumulativeDistances[segmentIdx + 1] - cumulativeDistances[segmentIdx];
-      final segProgress = currentDistance - cumulativeDistances[segmentIdx];
+      final segProgress = _simulatedDistance - cumulativeDistances[segmentIdx];
       final double t =
           segLength > 0 ? (segProgress / segLength).clamp(0.0, 1.0) : 0.0;
 
@@ -3490,108 +3677,87 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         }
       }
 
-      // Pause length: shorter in preview so the fly-through still stops to show
-      // each stop-point animation (toll, fuel, stopover) without dragging.
-      final int stopPause = _isPreviewMode ? 70 : 120;
-
-      // Look ahead for user stopover waypoints (pause at waypoint). Now shown in
-      // preview too so the journey's stop points are visible during the preview.
-      for (final wp in _currentWaypoints) {
-        final wpLatLng = wp.toLatLng();
-        final dist = _getDistance(currentLatLng, wpLatLng);
-        final stopId = "stop_${wp.lat}_${wp.lng}";
-        if (dist < 0.0025 && !_visitedStops.contains(stopId)) {
-          _visitedStops.add(stopId);
-          setState(() {
-            _activeStopHighlight = PlaceOfInterest(
-              id: DateTime.now().millisecondsSinceEpoch,
-              name: wp.name ?? "Way Point Stop",
-              lat: wp.lat,
-              lng: wp.lng,
-              address: "Scheduled Stopover",
-            );
-            _pauseTicksRemaining = stopPause;
-            _currentSpeedModifier = 0.0;
-            _isSlowingDown = true;
-          });
-          return;
-        }
-      }
-
       final double progressPercent =
-          (currentDistance / totalDistance).clamp(0.0, 1.0);
+          (totalDistance > 0 ? (_simulatedDistance / totalDistance) : 0.0)
+              .clamp(0.0, 1.0);
 
-      // Automatic fuel-station stop for calculated refuel stops along route
-      if (_currentPlan.fuel.refuelStops.isNotEmpty) {
-        for (final fs in _currentPlan.fuel.refuelStops) {
-          final stopId = fs.id.isNotEmpty ? fs.id : "fuel_${fs.lat}_${fs.lng}";
-          final fuelLatLng = LatLng(fs.lat, fs.lng);
-          final dist = _getDistance(currentLatLng, fuelLatLng);
-          if (dist < 0.0035 && !_visitedStops.contains(stopId)) {
+      // Stop handling: only trigger pauses and dive-zooms during full simulated drive, not preview
+      if (!_isPreviewMode) {
+        // Look ahead for user stopover waypoints (pause at waypoint)
+        for (final wp in _currentWaypoints) {
+          final wpLatLng = wp.toLatLng();
+          final dist = _getDistance(currentLatLng, wpLatLng);
+          final stopId = "stop_${wp.lat}_${wp.lng}";
+          if (dist < 0.0025 && !_visitedStops.contains(stopId)) {
             _visitedStops.add(stopId);
-            _currentVehicle = _currentVehicle.copyWith(
-              currentFuelLiters: _currentVehicle.tankCapacityLiters,
-            );
             setState(() {
               _activeStopHighlight = PlaceOfInterest(
                 id: DateTime.now().millisecondsSinceEpoch,
-                name: fs.name,
-                lat: fs.lat,
-                lng: fs.lng,
-                address: fs.refillLiters != null
-                    ? "Designated Fuel Stop (${fs.refillLiters!.toStringAsFixed(1)} L)"
-                    : "Designated Fuel Stop",
+                name: wp.name ?? "Way Point Stop",
+                lat: wp.lat,
+                lng: wp.lng,
+                address: "Scheduled Stopover",
               );
-              _pauseTicksRemaining = stopPause;
+              _pauseTicksRemaining = 120;
               _currentSpeedModifier = 0.0;
               _isSlowingDown = true;
             });
             return;
           }
         }
-      } else if (progressPercent >= 0.49 &&
-          progressPercent <= 0.52 &&
-          !_visitedStops.contains("fuel_stop")) {
-        _visitedStops.add("fuel_stop");
-        setState(() {
-          _activeStopHighlight = PlaceOfInterest(
-            id: DateTime.now().millisecondsSinceEpoch,
-            name: "Highway Fuel Station",
-            lat: currentLatLng.latitude,
-            lng: currentLatLng.longitude,
-            address: "Refuel stop",
-          );
-          _pauseTicksRemaining = stopPause;
-          _currentSpeedModifier = 0.0;
-          _isSlowingDown = true;
-        });
-        return;
-      }
 
-      // Look ahead for actual route-specific Toll Plazas
-      final detectedTolls = _currentPlan.toll?.tolls ?? [];
-      for (final plaza in detectedTolls) {
-        final plazaKey = "toll_${plaza.id}";
-        final plazaDistMeters = plaza.distanceAlongRouteKm * 1000.0;
-        if (!_visitedStops.contains(plazaKey) &&
-            currentDistance >= plazaDistMeters - 200 &&
-            currentDistance <= plazaDistMeters + 350) {
-          _visitedStops.add(plazaKey);
-          setState(() {
-            _activeTollPlaza = plaza;
-            _isTollStop = true;
-            _pauseTicksRemaining = stopPause;
-            _currentSpeedModifier = 0.0;
-            _isSlowingDown = true;
-          });
-          return;
+        // Automatic fuel-station stop for calculated refuel stops along route
+        if (_currentPlan.fuel.refuelStops.isNotEmpty) {
+          for (final fs in _currentPlan.fuel.refuelStops) {
+            final stopId = fs.id.isNotEmpty ? fs.id : "fuel_${fs.lat}_${fs.lng}";
+            final fuelLatLng = LatLng(fs.lat, fs.lng);
+            final dist = _getDistance(currentLatLng, fuelLatLng);
+            if (dist < 0.0035 && !_visitedStops.contains(stopId)) {
+              _visitedStops.add(stopId);
+              _currentVehicle = _currentVehicle.copyWith(
+                currentFuelLiters: _currentVehicle.tankCapacityLiters,
+              );
+              setState(() {
+                _activeStopHighlight = PlaceOfInterest(
+                  id: DateTime.now().millisecondsSinceEpoch,
+                  name: fs.name,
+                  lat: fs.lat,
+                  lng: fs.lng,
+                  address: fs.refillLiters != null
+                      ? "Designated Fuel Stop (${fs.refillLiters!.toStringAsFixed(1)} L)"
+                      : "Designated Fuel Stop",
+                );
+                _pauseTicksRemaining = 120;
+                _currentSpeedModifier = 0.0;
+                _isSlowingDown = true;
+              });
+              return;
+            }
+          }
+        }
+
+        // Look ahead for actual route-specific Toll Plazas
+        final detectedTolls = _currentPlan.toll?.tolls ?? [];
+        for (final plaza in detectedTolls) {
+          final plazaKey = "toll_${plaza.id}";
+          final plazaDistMeters = plaza.distanceAlongRouteKm * 1000.0;
+          final currentDistMeters =
+              progressPercent * _currentPlan.distanceKm * 1000.0;
+          if (!_visitedStops.contains(plazaKey) &&
+              currentDistMeters >= plazaDistMeters - 200 &&
+              currentDistMeters <= plazaDistMeters + 350) {
+            _visitedStops.add(plazaKey);
+            setState(() {
+              _activeTollPlaza = plaza;
+              _isTollStop = true;
+              _pauseTicksRemaining = 120;
+              _currentSpeedModifier = 0.0;
+              _isSlowingDown = true;
+            });
+            return;
+          }
         }
       }
-
-      // Advance simulated distance using delta time. Preview is a relaxed
-      // fly-through (~40s); the full simulated drive takes ~60s.
-      final double baseSpeed = totalDistance / (_isPreviewMode ? 40.0 : 60.0);
-      currentDistance += baseSpeed * speedModifier * dt;
 
       // Camera trails the vehicle with a snappy follow (0.12 lerp) — tight enough
       // to feel like live navigation, loose enough to stay smooth.
@@ -3656,15 +3822,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
           _currentSpeedModifier * 60.0);
 
       // Move and rotate camera smoothly to face the direction of travel (like Google Maps Navigation).
-      // The camera targets a point AHEAD of the vehicle (along the heading) so the car sits in the
-      // lower third of the screen with the road ahead visible — the classic turn-by-turn framing.
       if (_mapStyle != MapStyle.satellite3D) {
         final double dynamicZoom = 16.6 - (speedModifier - 0.45) * (1.2 / 0.55);
         final double zoom = dynamicZoom.clamp(15.4, 17.0);
         final double rotationDeg = -currentHeading * (180 / pi);
 
-        // Look-ahead offset: ~0.24 km in the direction of travel (heading measured
-        // as atan2(dLng, dLat), so 0 = north, increasing clockwise toward east).
         const double lookAheadDeg = 0.0022;
         final double cosLat = cos(lat * pi / 180).clamp(0.2, 1.0);
         final LatLng camTarget = LatLng(
@@ -3708,6 +3870,9 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
     setState(() {
       _isPlayingAnimation = false;
       _isPreviewMode = false;
+      _isPreviewPaused = false;
+      _previewSpeedMultiplier = 1.0;
+      _simulatedDistance = 0.0;
       _isLiveNavigating = false;
       // Restore the map style chosen before live navigation switched to traffic.
       if (_styleBeforeNav != null) {
@@ -4876,8 +5041,11 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
         // Dedicated floating Camera Controls: Route Overview & Re-center
         Positioned(
           right: rightPadding,
-          bottom:
-              isDesktop ? 120 : (MediaQuery.of(context).padding.bottom + 115),
+          bottom: isDesktop
+              ? 120
+              : (_isPlayingAnimation
+                  ? (MediaQuery.of(context).padding.bottom + 115)
+                  : 16),
           child: _buildCameraControls(),
         ),
 
@@ -5917,6 +6085,10 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
   Widget _buildBottomHUD() {
     if (!_isPlayingAnimation && !_isLiveNavigating) return const SizedBox.shrink();
 
+    if (_isPreviewMode) {
+      return _buildPreviewControlBar();
+    }
+
     final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
     final double distKm = (_isLiveNavigating && _liveRemainingKm > 0)
         ? _liveRemainingKm
@@ -6009,6 +6181,336 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                         color: Colors.white, size: 22),
                   ),
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreviewControlBar() {
+    final double remainingFrac = (1.0 - _tripProgressPercent).clamp(0.0, 1.0);
+    final double distKm = _currentPlan.distanceKm * remainingFrac;
+    final int remainingMinutes =
+        (_currentPlan.durationMin * remainingFrac).round();
+    final String etaText = _formatEta(remainingMinutes);
+    final int totalSteps = _stepDistances.isNotEmpty ? _stepDistances.length : 1;
+    final int currentStep = (_previewStepIndex + 1).clamp(1, totalSteps);
+
+    final isDesktop = MediaQuery.of(context).size.width > 900;
+
+    return Positioned(
+      left: isDesktop ? null : 12,
+      right: isDesktop ? null : 12,
+      width: isDesktop ? 480 : null,
+      bottom: isDesktop ? 24 : (MediaQuery.of(context).padding.bottom + 10),
+      child: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 480),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF131722).withOpacity(0.96),
+            borderRadius: BorderRadius.circular(22),
+            border:
+                Border.all(color: Colors.white.withOpacity(0.16), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.65),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 1. Top row: Preview Badge, Step Counter, Speed Toggle, Close Button
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E3A8A).withOpacity(0.7),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: const Color(0xFF3B82F6).withOpacity(0.5)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.visibility_rounded,
+                            color: Color(0xFF60A5FA), size: 13),
+                        SizedBox(width: 4),
+                        Text(
+                          "ROUTE PREVIEW",
+                          style: TextStyle(
+                            color: Color(0xFF93C5FD),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Step $currentStep of $totalSteps",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Speed button
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: _cyclePreviewSpeed,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border:
+                            Border.all(color: Colors.white.withOpacity(0.2)),
+                      ),
+                      child: Text(
+                        "${_previewSpeedMultiplier.toStringAsFixed(0)}x",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // Stop preview
+                  InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: _stopAnimation,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded,
+                          color: Colors.redAccent, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              // 2. Maneuver Stepper row: [ ◀ Prev Step ]  [ Play / Pause ]  [ Next Step ▶ ]
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Prev Step Button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _previewStepIndex > 0
+                          ? () => _jumpToPreviewStep(_previewStepIndex - 1)
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(
+                              _previewStepIndex > 0 ? 0.12 : 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(
+                                _previewStepIndex > 0 ? 0.25 : 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.arrow_back_ios_new_rounded,
+                              size: 13,
+                              color: _previewStepIndex > 0
+                                  ? Colors.white
+                                  : Colors.white30,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              "Prev Step",
+                              style: TextStyle(
+                                color: _previewStepIndex > 0
+                                    ? Colors.white
+                                    : Colors.white30,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Play / Pause Circle
+                  Material(
+                    color: const Color(0xFF10B981),
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    shadowColor: const Color(0xFF10B981).withOpacity(0.4),
+                    child: InkWell(
+                      customBorder: const CircleBorder(),
+                      onTap: _togglePreviewPlayPause,
+                      child: Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Icon(
+                          _isPreviewPaused
+                              ? Icons.play_arrow_rounded
+                              : Icons.pause_rounded,
+                          color: Colors.white,
+                          size: 24,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+
+                  // Next Step Button
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: _previewStepIndex < totalSteps - 1
+                          ? () => _jumpToPreviewStep(_previewStepIndex + 1)
+                          : null,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(
+                              _previewStepIndex < totalSteps - 1 ? 0.12 : 0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(
+                                _previewStepIndex < totalSteps - 1
+                                    ? 0.25
+                                    : 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              "Next Step",
+                              style: TextStyle(
+                                color: _previewStepIndex < totalSteps - 1
+                                    ? Colors.white
+                                    : Colors.white30,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                            Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 13,
+                              color: _previewStepIndex < totalSteps - 1
+                                  ? Colors.white
+                                  : Colors.white30,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // 3. Interactive Route Scrubber Bar
+              Row(
+                children: [
+                  Text(
+                    "${(_tripProgressPercent * _currentPlan.distanceKm).toStringAsFixed(1)} km",
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600),
+                  ),
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 3.5,
+                        activeTrackColor: const Color(0xFF10B981),
+                        inactiveTrackColor: Colors.white12,
+                        thumbColor: Colors.white,
+                        thumbShape:
+                            const RoundSliderThumbShape(enabledThumbRadius: 5),
+                        overlayShape:
+                            const RoundSliderOverlayShape(overlayRadius: 10),
+                      ),
+                      child: Slider(
+                        value: _tripProgressPercent.clamp(0.0, 1.0),
+                        onChanged: (val) {
+                          _scrubPreview(val);
+                        },
+                      ),
+                    ),
+                  ),
+                  Text(
+                    "${_currentPlan.distanceKm.toStringAsFixed(1)} km",
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+
+              // 4. Action Row: ETA + Start Live Navigation Button
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      "${distKm.toStringAsFixed(1)} km remaining · $etaText",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _stopAnimation();
+                      _startLiveNavigation();
+                    },
+                    icon: const Icon(Icons.navigation_rounded, size: 15),
+                    label: const Text(
+                      "Start Navigation",
+                      style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF10B981),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 7),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      elevation: 2,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

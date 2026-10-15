@@ -28,6 +28,8 @@ class ThreeDMap extends StatefulWidget {
   final VoidCallback? onUserExplore;
 
   static void recenter(double lng, double lat, double bearingDeg) {}
+  static void resetExploring() {}
+  static void resize() {}
 
   const ThreeDMap({
     super.key,

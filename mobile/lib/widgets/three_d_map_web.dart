@@ -28,6 +28,18 @@ class ThreeDMap extends StatefulWidget {
     } catch (_) {}
   }
 
+  static void resetExploring() {
+    try {
+      js.context.callMethod('resetMapboxUserExploring', []);
+    } catch (_) {}
+  }
+
+  static void resize() {
+    try {
+      js.context.callMethod('resizeMapbox3D', []);
+    } catch (_) {}
+  }
+
   const ThreeDMap({
     super.key,
     required this.routePoints,
