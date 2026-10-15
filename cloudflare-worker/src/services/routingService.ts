@@ -339,7 +339,10 @@ function getProviderPriority(lat, lng) {
 
 
 async function fetchMapboxRoute(start, end, waypoints, options) {
-  const mapboxKey = process.env.MAPBOX_TOKEN;
+  const mapboxKey =
+    (typeof process !== "undefined" && process.env?.MAPBOX_TOKEN) ||
+    (globalThis as any)?.MAPBOX_TOKEN ||
+    "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ";
   if (!mapboxKey) return null;
   try {
     const routePts = prepareRoutePoints(start, end, waypoints);

@@ -491,33 +491,15 @@
       }
       window.__maps[containerId] = map;
 
+      map.on('error', (e) => {
+        console.warn('[Mapbox] Map error:', e);
+      });
+
       map.on('style.load', () => {
-        // Bright day lighting to match the cinematic reference navigation view.
+        try { map.setFog(null); } catch (e) {}
         try { map.setConfigProperty('basemap', 'lightPreset', 'day'); } catch (e) {}
 
-        // Atmospheric depth: a light sky + horizon haze so the 3D scene reads
-        // with real distance falloff (a subtle but genuine 3D effect).
-        try {
-          map.setFog({
-            'range': [1.0, 12.0],
-            'color': 'rgb(220, 232, 245)',
-            'high-color': 'rgb(150, 190, 235)',
-            'horizon-blend': 0.12,
-            'space-color': 'rgb(190, 215, 240)',
-            'star-intensity': 0.0
-          });
-        } catch (e) {}
-
-        // The Mapbox Standard style already ships 3D buildings + terrain, so the
-        // manual layers below are only needed on classic styles. Guard them so
-        // they degrade gracefully on Standard (where 'composite' isn't exposed).
-        // NOTE: no exaggerated DEM terrain here. The 3D vehicle model is placed
-        // at altitude 0 (sea level); with terrain on, high-elevation cities like
-        // Bangalore (~920m × 1.8 exaggeration) push the ground far above the car,
-        // burying it underground. Flat ground keeps the vehicle on the surface.
-        // (Mapbox Standard still renders 3D buildings without a DEM.)
-        try { map.setTerrain(null); } catch (e) {}
-
+        // 3D buildings layer for non-standard styles
         try {
           const layers = map.getStyle().layers;
           const labelLayerId = layers.find(
@@ -543,25 +525,17 @@
             );
           }
         } catch (e) {}
-        // Navigation symbol is displayed via the map marker
       });
 
       // Add route polyline
       map.on('load', () => {
-        // Gentle intro: ease from the overview down to the route start.
-        if (routePoints.length > 0 && !window.__navIntroDone) {
-          window.__navIntroDone = true;
-          setTimeout(() => {
-            map.flyTo({
-              center: routePoints[0],
-              zoom: 15,
-              pitch: 60,
-              bearing: -18,
-              duration: 3200,
-              essential: true,
-              curve: 1.5
-            });
-          }, 600);
+        // Frame the route points nicely in viewport
+        if (routePoints.length >= 2) {
+          try {
+            const bounds = new mapboxgl.LngLatBounds();
+            routePoints.forEach((p) => bounds.extend(p));
+            map.fitBounds(bounds, { padding: 80, maxZoom: 15 });
+          } catch (_) {}
         }
 
         map.addSource('route', {

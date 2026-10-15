@@ -162,10 +162,10 @@ class _ThreeDMapState extends State<ThreeDMap> {
     });
     final poisJson = jsonEncode(flatPois);
 
-    const accessToken = AppConfig.mapboxToken;
-    // Mapbox Standard: 3D buildings + clean day lighting for the cinematic
-    // turn-by-turn look (matches the reference navigation view).
-    const styleUrl = 'mapbox://styles/mapbox/standard';
+    // Reliable official Mapbox navigation and satellite styles
+    final styleUrl = widget.useSatellite
+        ? 'mapbox://styles/mapbox/satellite-streets-v12'
+        : 'mapbox://styles/mapbox/navigation-day-v1';
 
     // Invoke the JS global helper
     js.context.callMethod('initMapbox3D', [

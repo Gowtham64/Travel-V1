@@ -744,6 +744,7 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     : _mapStyle == MapStyle.traffic2D
                         ? 'https://api.mapbox.com/styles/v1/mapbox/traffic-day-v2/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}'
                         : 'https://api.mapbox.com/styles/v1/mapbox/outdoors-v12/tiles/256/{z}/{x}/{y}?access_token=${AppConfig.mapboxToken}',
+                fallbackUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.travel_app',
                 additionalOptions: const {
                   'accessToken': AppConfig.mapboxToken,

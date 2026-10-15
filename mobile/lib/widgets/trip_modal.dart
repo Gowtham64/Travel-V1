@@ -759,13 +759,28 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         ),
       );
 
+      var resolvedCoords = plan.coordinates;
+      // If server returned straight line or few points, enhance with Mapbox Directions road polyline
+      if (resolvedCoords.length < 25) {
+        try {
+          final roadCoords = await _api.fetchRoadCoordinates(
+            start: _oneWayOrigin!,
+            end: _oneWayDest!,
+            waypoints: stopPoints,
+          );
+          if (roadCoords.length >= 25) {
+            resolvedCoords = roadCoords;
+          }
+        } catch (_) {}
+      }
+
       // Extract route metadata
       _oneWayRoute = RouteInfo(
         distanceMeters: plan.distanceMeters,
         distanceKm: plan.distanceKm,
         durationSeconds: plan.durationSeconds,
         durationMin: plan.durationMin,
-        coordinates: plan.coordinates,
+        coordinates: resolvedCoords,
         geometry: plan.geometry,
         legs: plan.legs,
         steps: plan.steps,
@@ -796,7 +811,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         start: _oneWayOrigin!,
         end: _oneWayDest!,
         vehicleType: _vehicleType,
-        routeCoordinates: plan.coordinates,
+        routeCoordinates: resolvedCoords,
       );
       _estimatedTollCost = tollEst.totalAmount ?? tollEst.fastagTollCost ?? 0.0;
 
@@ -818,20 +833,37 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
       final roadKm = math.max(15.0, straightLineKm * 1.25);
       final durationMins = math.max(20, (roadKm / 55.0 * 60).round());
 
-      final coords = [
-        _oneWayOrigin!,
-        GeoPoint(
-          lat: lat1 + (lat2 - lat1) * 0.35 + 0.04,
-          lng: lon1 + (lon2 - lon1) * 0.35 - 0.03,
-          name: 'Route Corridor Waypoint 1',
-        ),
-        GeoPoint(
-          lat: lat1 + (lat2 - lat1) * 0.70 - 0.03,
-          lng: lon1 + (lon2 - lon1) * 0.70 + 0.04,
-          name: 'Route Corridor Waypoint 2',
-        ),
-        _oneWayDest!,
-      ];
+      List<GeoPoint> coords = [];
+      try {
+        final stopPoints = _addedStops.map((s) {
+          final lat = (s['lat'] as num?)?.toDouble() ?? 0.0;
+          final lng = (s['lng'] as num?)?.toDouble() ?? 0.0;
+          return GeoPoint(
+              lat: lat, lng: lng, name: s['name']?.toString() ?? 'Stop');
+        }).toList();
+        coords = await _api.fetchRoadCoordinates(
+          start: _oneWayOrigin!,
+          end: _oneWayDest!,
+          waypoints: stopPoints,
+        );
+      } catch (_) {}
+
+      if (coords.length < 2) {
+        coords = [
+          _oneWayOrigin!,
+          GeoPoint(
+            lat: lat1 + (lat2 - lat1) * 0.35 + 0.04,
+            lng: lon1 + (lon2 - lon1) * 0.35 - 0.03,
+            name: 'Route Corridor Waypoint 1',
+          ),
+          GeoPoint(
+            lat: lat1 + (lat2 - lat1) * 0.70 - 0.03,
+            lng: lon1 + (lon2 - lon1) * 0.70 + 0.04,
+            name: 'Route Corridor Waypoint 2',
+          ),
+          _oneWayDest!,
+        ];
+      }
 
       _oneWayRoute = RouteInfo(
         distanceMeters: (roadKm * 1000).round(),
@@ -3303,17 +3335,44 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         : [
             if (_oneWayOrigin != null)
               LatLng(_oneWayOrigin!.lat, _oneWayOrigin!.lng),
+            ..._addedStops.map((s) => LatLng(
+                (s['lat'] as num?)?.toDouble() ?? 0.0,
+                (s['lng'] as num?)?.toDouble() ?? 0.0)),
             if (_oneWayDest != null) LatLng(_oneWayDest!.lat, _oneWayDest!.lng),
-          ];
-    final center = mapPoints.isEmpty
-        ? const LatLng(20.5937, 78.9629)
-        : LatLng(
-            mapPoints.map((p) => p.latitude).reduce((a, b) => a + b) /
-                mapPoints.length,
-            mapPoints.map((p) => p.longitude).reduce((a, b) => a + b) /
-                mapPoints.length,
-          );
-    final zoom = points.isNotEmpty ? 6.2 : 4.5;
+          ].where((p) => p.latitude != 0.0 && p.longitude != 0.0).toList();
+
+    double zoom = 6.0;
+    LatLng center = const LatLng(20.5937, 78.9629);
+
+    if (mapPoints.isNotEmpty) {
+      double minLat = 90.0, maxLat = -90.0, minLng = 180.0, maxLng = -180.0;
+      for (final p in mapPoints) {
+        if (p.latitude < minLat) minLat = p.latitude;
+        if (p.latitude > maxLat) maxLat = p.latitude;
+        if (p.longitude < minLng) minLng = p.longitude;
+        if (p.longitude > maxLng) maxLng = p.longitude;
+      }
+      center = LatLng((minLat + maxLat) / 2, (minLng + maxLng) / 2);
+      final latDiff = (maxLat - minLat).abs();
+      final lngDiff = (maxLng - minLng).abs();
+      final maxSpan = math.max(latDiff, lngDiff);
+
+      if (maxSpan > 15.0) {
+        zoom = 4.2;
+      } else if (maxSpan > 8.0) {
+        zoom = 5.2;
+      } else if (maxSpan > 4.0) {
+        zoom = 6.2;
+      } else if (maxSpan > 2.0) {
+        zoom = 7.4;
+      } else if (maxSpan > 1.0) {
+        zoom = 8.6;
+      } else if (maxSpan > 0.4) {
+        zoom = 10.0;
+      } else {
+        zoom = 11.5;
+      }
+    }
 
     return Stack(
       fit: StackFit.expand,
@@ -3329,6 +3388,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+              fallbackUrl: 'https://a.tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.voyplan.travel_app',
             ),
             if (points.length >= 2)
@@ -3336,8 +3396,13 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                 polylines: [
                   Polyline(
                     points: points,
+                    color: const Color(0xFF0F172A),
+                    strokeWidth: 7,
+                  ),
+                  Polyline(
+                    points: points,
                     color: const Color(0xFF00E5B0),
-                    strokeWidth: 5,
+                    strokeWidth: 4.5,
                   ),
                 ],
               ),
@@ -3347,25 +3412,63 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                   if (_oneWayOrigin != null)
                     Marker(
                       point: LatLng(_oneWayOrigin!.lat, _oneWayOrigin!.lng),
-                      width: 32,
-                      height: 32,
+                      width: 34,
+                      height: 34,
                       child: const Icon(Icons.location_on,
-                          color: Color(0xFF00E5B0), size: 30),
+                          color: Color(0xFF00E5B0), size: 32),
                     ),
+                  ..._addedStops.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final s = entry.value;
+                    final lat = (s['lat'] as num?)?.toDouble() ?? 0.0;
+                    final lng = (s['lng'] as num?)?.toDouble() ?? 0.0;
+                    if (lat == 0.0 || lng == 0.0) {
+                      return const Marker(
+                        point: LatLng(0, 0),
+                        width: 0,
+                        height: 0,
+                        child: SizedBox.shrink(),
+                      );
+                    }
+                    return Marker(
+                      point: LatLng(lat, lng),
+                      width: 26,
+                      height: 26,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black45, blurRadius: 4),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${idx + 1}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
                   if (_oneWayDest != null)
                     Marker(
                       point: LatLng(_oneWayDest!.lat, _oneWayDest!.lng),
-                      width: 32,
-                      height: 32,
+                      width: 34,
+                      height: 34,
                       child: const Icon(Icons.location_on,
-                          color: Color(0xFFFF6B6B), size: 30),
+                          color: Color(0xFFFF6B6B), size: 32),
                     ),
                 ],
               ),
           ],
         ),
         IgnorePointer(
-          child: Container(color: Colors.black.withValues(alpha: 0.28)),
+          child: Container(color: Colors.black.withValues(alpha: 0.22)),
         ),
         Positioned(
           top: 12,
@@ -4852,7 +4955,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFFA855F7),
           'icon': Icons.account_balance_rounded,
           'image':
-              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
           'rating': 4.8,
           'detourKm': 1.8,
           'detourMin': 6,
@@ -4872,7 +4975,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFFF59E0B),
           'icon': Icons.restaurant_rounded,
           'image':
-              'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1668236543090-82eba5ee5976?q=80&w=600&auto=format&fit=crop',
           'rating': 4.8,
           'detourKm': 1.2,
           'detourMin': 5,
@@ -4892,7 +4995,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF0284C7),
           'icon': Icons.local_gas_station_rounded,
           'image':
-              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
           'rating': 4.6,
           'detourKm': 0.2,
           'detourMin': 1,
@@ -4932,7 +5035,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF10B981),
           'icon': Icons.forest_rounded,
           'image':
-              'https://images.unsplash.com/photo-1511497584788-87676104235f?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=600&auto=format&fit=crop',
           'rating': 4.7,
           'detourKm': 2.5,
           'detourMin': 8,
@@ -4952,7 +5055,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF8B5CF6),
           'icon': Icons.hotel_rounded,
           'image':
-              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=600&auto=format&fit=crop',
           'rating': 4.8,
           'detourKm': 3.1,
           'detourMin': 9,
@@ -5047,7 +5150,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF0284C7),
           'icon': Icons.local_gas_station_rounded,
           'image':
-              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
           'rating': 4.7,
           'detourKm': 0.1,
           'detourMin': 1,
@@ -5161,7 +5264,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF0284C7),
           'icon': Icons.local_gas_station_rounded,
           'image':
-              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
           'rating': 4.7,
           'detourKm': 0.1,
           'detourMin': 1,
@@ -5181,7 +5284,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFFA855F7),
           'icon': Icons.account_balance_rounded,
           'image':
-              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
           'rating': 4.7,
           'detourKm': 2.1,
           'detourMin': 7,
@@ -5276,7 +5379,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF0284C7),
           'icon': Icons.local_gas_station_rounded,
           'image':
-              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
           'rating': 4.6,
           'detourKm': 0.1,
           'detourMin': 1,
@@ -5454,7 +5557,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
           'categoryColor': const Color(0xFF0284C7),
           'icon': Icons.local_gas_station_rounded,
           'image':
-              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+              'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
           'rating': 4.6,
           'detourKm': 0.1,
           'detourMin': 1,
@@ -5546,7 +5649,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         'categoryColor': const Color(0xFF0284C7),
         'icon': Icons.local_gas_station_rounded,
         'image':
-            'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+            'https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=600&auto=format&fit=crop',
         'rating': 4.7,
         'detourKm': 0.1,
         'detourMin': 1,
@@ -5566,7 +5669,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         'categoryColor': const Color(0xFFA855F7),
         'icon': Icons.account_balance_rounded,
         'image':
-            'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+            'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?q=80&w=600&auto=format&fit=crop',
         'rating': 4.8,
         'detourKm': 2.0,
         'detourMin': 6,

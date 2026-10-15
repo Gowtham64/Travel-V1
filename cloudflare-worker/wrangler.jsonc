@@ -16,7 +16,8 @@
     "APP_VERSION": "2.5.0",
     "ALLOWED_ORIGINS": "https://voyplan.in,https://www.voyplan.in,http://localhost:3000,http://localhost:8080,http://localhost:5000",
     "SUPABASE_URL": "https://dtemayjpttktntooxraa.supabase.co",
-    "SUPABASE_ANON_KEY": "sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh"
+    "SUPABASE_ANON_KEY": "sb_publishable_sGmsHOvBlUiRKXz0ajEErg_vecwGFnh",
+    "MAPBOX_TOKEN": "pk.eyJ1IjoiZ293dGhhbWVjNjQiLCJhIjoiY21yZzhnOG82MGh2dTJ6c2FuM3h6ZXdkayJ9.PmiHwk5A4-eSWu7zLYkSXQ"
   },
   "observability": {
     "enabled": true
