@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui';
@@ -90,6 +91,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   GeoPoint? _fromCoord =
       const GeoPoint(lat: 12.9716, lng: 77.5946, name: 'Bangalore, Karnataka');
   GeoPoint? _toCoord;
+  final FocusNode _originFocusNode = FocusNode();
+  final FocusNode _destFocusNode = FocusNode();
+  Timer? _originDebounce;
+  Timer? _destDebounce;
+  List<Map<String, dynamic>> _originSuggestions = [];
+  List<Map<String, dynamic>> _destSuggestions = [];
+  bool _isSearchingOrigin = false;
+  bool _isSearchingDest = false;
   DateTime _travelDate = DateTime.now().add(const Duration(days: 1));
   int _travelers = 2;
   VehicleModel? _selectedVehicle;
@@ -132,6 +141,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _initDefaultVehicle();
     _loadTrips();
+
+    _originFocusNode.addListener(() {
+      if (!_originFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted && !_originFocusNode.hasFocus) {
+            setState(() => _originSuggestions = []);
+          }
+        });
+      }
+    });
+    _destFocusNode.addListener(() {
+      if (!_destFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (mounted && !_destFocusNode.hasFocus) {
+            setState(() => _destSuggestions = []);
+          }
+        });
+      }
+    });
 
     if (kIsWeb) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -271,6 +299,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _pageScrollController.dispose();
     _fromController.dispose();
     _toController.dispose();
+    _originDebounce?.cancel();
+    _destDebounce?.cancel();
+    _originFocusNode.dispose();
+    _destFocusNode.dispose();
     super.dispose();
   }
 
@@ -625,6 +657,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       final tempCoord = _fromCoord;
       _fromCoord = _toCoord;
       _toCoord = tempCoord;
+
+      _originSuggestions = [];
+      _destSuggestions = [];
+      _isSearchingOrigin = false;
+      _isSearchingDest = false;
     });
   }
 
@@ -1321,11 +1358,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           // Location Fields: FROM - SWAP - TO
           if (isDesktop)
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: _buildLocationInput(isOrigin: true)),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10)
+                      .copyWith(top: 6),
                   child: _swapButton(),
                 ),
                 Expanded(child: _buildLocationInput(isOrigin: false)),
@@ -1435,75 +1473,369 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
+  void _onLocationQueryChanged(String query, {required bool isOrigin}) {
+    if (isOrigin) {
+      _originDebounce?.cancel();
+    } else {
+      _destDebounce?.cancel();
+    }
+
+    final q = query.trim();
+    if (q.length < 2) {
+      setState(() {
+        if (isOrigin) {
+          _originSuggestions = [];
+          _isSearchingOrigin = false;
+        } else {
+          _destSuggestions = [];
+          _isSearchingDest = false;
+        }
+      });
+      return;
+    }
+
+    setState(() {
+      if (isOrigin) {
+        _isSearchingOrigin = true;
+      } else {
+        _isSearchingDest = true;
+      }
+    });
+
+    final timer = Timer(const Duration(milliseconds: 200), () async {
+      try {
+        final results = await _api.autocompletePlaces(q);
+        if (!mounted) return;
+        setState(() {
+          if (isOrigin) {
+            _originSuggestions = results;
+            _isSearchingOrigin = false;
+          } else {
+            _destSuggestions = results;
+            _isSearchingDest = false;
+          }
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() {
+          if (isOrigin) {
+            _isSearchingOrigin = false;
+          } else {
+            _isSearchingDest = false;
+          }
+        });
+      }
+    });
+
+    if (isOrigin) {
+      _originDebounce = timer;
+    } else {
+      _destDebounce = timer;
+    }
+  }
+
+  Future<void> _onSelectSuggestion(Map<String, dynamic> item,
+      {required bool isOrigin}) async {
+    final name = (item['name'] ?? item['title'] ?? '').toString();
+    double lat = (item['lat'] as num?)?.toDouble() ?? 0.0;
+    double lng = (item['lng'] as num?)?.toDouble() ?? 0.0;
+
+    if (lat == 0.0 && lng == 0.0) {
+      try {
+        final geo = await _api.geocode(name);
+        lat = geo.lat;
+        lng = geo.lng;
+      } catch (_) {}
+    }
+
+    final pt = GeoPoint(lat: lat, lng: lng, name: name);
+
+    setState(() {
+      if (isOrigin) {
+        _fromController.text = name;
+        _fromCoord = pt;
+        _originSuggestions = [];
+        _isSearchingOrigin = false;
+      } else {
+        _toController.text = name;
+        _toCoord = pt;
+        _destSuggestions = [];
+        _isSearchingDest = false;
+      }
+    });
+
+    if (isOrigin) {
+      _originFocusNode.unfocus();
+    } else {
+      _destFocusNode.unfocus();
+    }
+  }
+
+  Widget _buildSuggestionsDropdown({required bool isOrigin}) {
+    final suggestions = isOrigin ? _originSuggestions : _destSuggestions;
+    final isLoading = isOrigin ? _isSearchingOrigin : _isSearchingDest;
+
+    if (suggestions.isEmpty && !isLoading) {
+      return const SizedBox.shrink();
+    }
+
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B1728),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.55),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: const Color(0xFF0284C7).withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      constraints: const BoxConstraints(maxHeight: 250),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(13),
+        child: isLoading && suggestions.isEmpty
+            ? const Padding(
+                padding: EdgeInsets.symmetric(vertical: 14),
+                child: Center(
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                ),
+              )
+            : ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                itemCount: suggestions.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+                itemBuilder: (context, index) {
+                  final item = suggestions[index];
+                  final name =
+                      (item['name'] ?? item['title'] ?? '').toString();
+                  final parts = name.split(',');
+                  final primaryName = parts.first.trim();
+                  final secondaryName = parts.length > 1
+                      ? parts.sublist(1).join(',').trim()
+                      : '';
+
+                  return InkWell(
+                    onTap: () =>
+                        _onSelectSuggestion(item, isOrigin: isOrigin),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: isOrigin
+                                  ? const Color(0xFF38BDF8)
+                                      .withValues(alpha: 0.12)
+                                  : const Color(0xFFF43F5E)
+                                      .withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isOrigin
+                                  ? Icons.trip_origin_rounded
+                                  : Icons.location_on_rounded,
+                              size: 15,
+                              color: isOrigin
+                                  ? const Color(0xFF38BDF8)
+                                  : const Color(0xFFF43F5E),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  primaryName,
+                                  style: TextStyle(
+                                    color: colors.onSurface,
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (secondaryName.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      secondaryName,
+                                      style: TextStyle(
+                                        color: colors.onSurface
+                                            .withValues(alpha: 0.55),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.north_west_rounded,
+                            size: 14,
+                            color: colors.onSurface.withValues(alpha: 0.35),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+
   Widget _buildLocationInput({required bool isOrigin}) {
     final colors = Theme.of(context).colorScheme;
     final controller = isOrigin ? _fromController : _toController;
+    final focusNode = isOrigin ? _originFocusNode : _destFocusNode;
     final hint =
         isOrigin ? 'Starting location or city...' : 'Where do you want to go?';
     final icon =
         isOrigin ? Icons.trip_origin_rounded : Icons.location_on_rounded;
     final iconColor =
         isOrigin ? const Color(0xFF38BDF8) : const Color(0xFFF43F5E);
+    final isSearching = isOrigin ? _isSearchingOrigin : _isSearchingDest;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: TextStyle(
-                  color: colors.onSurface,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(
-                  color: colors.onSurface.withValues(alpha: 0.5),
-                  fontSize: 13.5,
-                ),
-                border: InputBorder.none,
-                isDense: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 10),
-              ),
-              onSubmitted: (_) => _planTrip(),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: focusNode.hasFocus
+                  ? const Color(0xFF38BDF8)
+                  : Colors.white.withValues(alpha: 0.12),
+              width: focusNode.hasFocus ? 1.5 : 1.0,
             ),
           ),
-          if (isOrigin) ...[
-            if (_isLocating)
-              const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                    strokeWidth: 2, color: Color(0xFF38BDF8)),
-              )
-            else
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  focusNode: focusNode,
+                  style: TextStyle(
+                      color: colors.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    hintStyle: TextStyle(
+                      color: colors.onSurface.withValues(alpha: 0.5),
+                      fontSize: 13.5,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  onChanged: (val) =>
+                      _onLocationQueryChanged(val, isOrigin: isOrigin),
+                  onSubmitted: (_) {
+                    final suggestions =
+                        isOrigin ? _originSuggestions : _destSuggestions;
+                    if (suggestions.isNotEmpty) {
+                      _onSelectSuggestion(suggestions.first, isOrigin: isOrigin);
+                    } else {
+                      _planTrip();
+                    }
+                  },
+                ),
+              ),
+              if (isSearching)
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF38BDF8),
+                    ),
+                  ),
+                ),
+              if (controller.text.isNotEmpty && !isSearching)
+                IconButton(
+                  tooltip: 'Clear',
+                  icon: Icon(Icons.clear_rounded,
+                      color: colors.onSurface.withValues(alpha: 0.4), size: 16),
+                  onPressed: () {
+                    controller.clear();
+                    _onLocationQueryChanged('', isOrigin: isOrigin);
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints:
+                      const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              if (isOrigin) ...[
+                if (_isLocating)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFF38BDF8)),
+                  )
+                else
+                  IconButton(
+                    tooltip: 'Use current GPS location',
+                    icon: const Icon(Icons.my_location_rounded,
+                        color: Color(0xFF38BDF8), size: 19),
+                    onPressed: _pickCurrentLocation,
+                    padding: EdgeInsets.zero,
+                    constraints:
+                        const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+              ],
               IconButton(
-                tooltip: 'Use current GPS location',
-                icon: const Icon(Icons.my_location_rounded,
-                    color: Color(0xFF38BDF8), size: 19),
-                onPressed: _pickCurrentLocation,
+                tooltip: 'Choose on Map',
+                icon: Icon(Icons.map_outlined,
+                    color: colors.onSurface.withValues(alpha: 0.58), size: 19),
+                onPressed: () => _pickMapLocation(isOrigin),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               ),
-          ],
-          IconButton(
-            tooltip: 'Choose on Map',
-            icon: Icon(Icons.map_outlined,
-                color: colors.onSurface.withValues(alpha: 0.58), size: 19),
-            onPressed: () => _pickMapLocation(isOrigin),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ],
           ),
-        ],
-      ),
+        ),
+        _buildSuggestionsDropdown(isOrigin: isOrigin),
+      ],
     );
   }
 
