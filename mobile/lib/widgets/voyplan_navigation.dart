@@ -86,15 +86,10 @@ class VoyPlanBrandMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox.square(
       dimension: size,
-      child: ClipRect(
-        child: Transform.scale(
-          scale: 1.55,
-          child: Image.asset(
-            'assets/icon/voyplan_foreground.png',
-            fit: BoxFit.contain,
-            semanticLabel: semanticLabel,
-          ),
-        ),
+      child: Image.asset(
+        'assets/images/voyplan-pin.png',
+        fit: BoxFit.contain,
+        semanticLabel: semanticLabel,
       ),
     );
   }
@@ -500,46 +495,25 @@ class _BrandLockup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark ||
+        palette.surface.computeLuminance() < 0.5;
+    final logoAsset = isDark
+        ? 'assets/images/voyplan-logo-dark.png'
+        : 'assets/images/voyplan-logo-light.png';
+
     return Semantics(
       button: true,
       label: 'VoyPlan home',
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 3),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              VoyPlanBrandMark(size: compact ? 31 : 38),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'VoyPlan',
-                    style: TextStyle(
-                      color: palette.primaryText,
-                      fontFamily: 'Playfair Display',
-                      fontSize: compact ? 17 : 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.6,
-                    ),
-                  ),
-                  if (!compact)
-                    Text(
-                      'DISCOVER. DESIGN. DRIVE.',
-                      style: TextStyle(
-                        color: _navigationCyan,
-                        fontSize: 6.8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.95,
-                      ),
-                    ),
-                ],
-              ),
-            ],
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          child: Image.asset(
+            logoAsset,
+            height: compact ? 28 : 34,
+            fit: BoxFit.contain,
+            semanticLabel: 'VoyPlan',
           ),
         ),
       ),

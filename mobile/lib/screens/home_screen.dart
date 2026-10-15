@@ -4237,24 +4237,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       ),
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(
-                width: 28,
-                height: 28,
-                child: const VoyPlanBrandMark(size: 28),
-              ),
-              const SizedBox(width: 8),
-              const Text('VoyPlan',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900)),
-              const SizedBox(width: 8),
-              const Text('•  DISCOVER. DESIGN. DRIVE.',
-                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12)),
-            ],
+          Image.asset(
+            'assets/images/voyplan-logo-dark.png',
+            height: 32,
+            fit: BoxFit.contain,
+            semanticLabel: 'VoyPlan',
           ),
           const SizedBox(height: 10),
           const Text(

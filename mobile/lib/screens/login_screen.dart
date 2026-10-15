@@ -624,44 +624,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildBrand() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          height: 38,
-          width: 38,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF06B6D4), Color(0xFF3B82F6)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            shape: BoxShape.circle,
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x6606B6D4),
-                blurRadius: 14,
-                offset: Offset(0, 5),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.explore_rounded,
-            color: Colors.white,
-            size: 22,
-          ),
-        ),
-        const SizedBox(width: 10),
-        const Text(
-          'VoyPlan',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.3,
-          ),
-        ),
-      ],
+    return Image.asset(
+      'assets/images/voyplan-logo-dark.png',
+      height: 44,
+      fit: BoxFit.contain,
+      semanticLabel: 'VoyPlan',
     );
   }
 
