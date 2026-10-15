@@ -3060,31 +3060,6 @@
             text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
         }
 
-        /* Floating Support / Chat Widget at bottom right */
-        .chat-widget-btn {
-            position: fixed;
-            bottom: 24px;
-            right: 24px;
-            z-index: 99;
-            width: 52px;
-            height: 52px;
-            border-radius: var(--radius-pill);
-            background: #0284c7;
-            border: 2px solid rgba(255, 255, 255, 0.25);
-            color: #ffffff;
-            display: grid;
-            place-items: center;
-            box-shadow: 0 10px 25px rgba(2, 132, 199, 0.5);
-            cursor: pointer;
-            transition: transform 0.2s ease, filter 0.2s ease;
-        }
-
-        .chat-widget-btn:hover {
-            transform: scale(1.08);
-            filter: brightness(1.1);
-        }
-
-        .chat-widget-btn svg { width: 24px; height: 24px; }
 
         /* ════════════════════════════════════════════════════════════════════
            BRAND FOOTER & INFORMATION PAGES
@@ -4462,11 +4437,6 @@
             </div>
         </div>
     </footer>
-
-    <!-- Floating Chat Support Widget -->
-    <div class="chat-widget-btn" id="btnChatWidget" title="Need help? Chat with VoyPlan">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
-    </div>
 
     <!-- Dedicated, history-aware information routes. The footer links retain
          their canonical URLs so direct visits also render the matching page. -->
@@ -6035,10 +6005,6 @@
                 window.location.assign(target);
             }
 
-            // Chat Widget Click
-            document.getElementById('btnChatWidget').addEventListener('click', () => {
-                enterApp(`${window.location.origin}/app/?chat=true`);
-            });
 
             // --- 10. Smooth Scroll-Entrance Motion ---
             if ('IntersectionObserver' in window) {
