@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../services/auth_session.dart';
 import '../services/auth_route.dart';
 import '../widgets/app_design.dart';
+import '../widgets/turnstile_captcha.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool startInSignUp;
@@ -34,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _obscurePassword = true;
   bool _hasCompletedModalLogin = false;
+  String? _captchaToken;
   late final VoidCallback _authStateListener;
 
   final String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
@@ -125,6 +127,19 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
+      if (kIsWeb &&
+          AppConfig.hasTurnstileSiteKey &&
+          (_captchaToken == null || _captchaToken!.isEmpty)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please complete the security verification challenge before continuing.',
+            ),
+          ),
+        );
+        return;
+      }
+
       setState(() => _isLoading = true);
 
       try {
@@ -134,6 +149,7 @@ class _LoginScreenState extends State<LoginScreen> {
           email: email,
           password: password,
           emailRedirectTo: _authRedirectUrl(),
+          captchaToken: _captchaToken,
         );
 
         final user = authResponse.user;
@@ -176,7 +192,10 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             );
             if (needsConfirmation) {
-              setState(() => _isSignUp = false);
+              setState(() {
+                _isSignUp = false;
+                _captchaToken = null;
+              });
             }
           }
         }
@@ -213,6 +232,7 @@ class _LoginScreenState extends State<LoginScreen> {
               .signInWithPassword(
                 phone: identifier,
                 password: password,
+                captchaToken: _captchaToken,
               )
               .timeout(const Duration(seconds: 10));
         } else {
@@ -220,6 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
               .signInWithPassword(
                 email: identifier,
                 password: password,
+                captchaToken: _captchaToken,
               )
               .timeout(const Duration(seconds: 10));
         }
@@ -431,6 +452,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               ],
                               onSubmitted: (_) => _authenticate(),
                             ),
+                            if (AppConfig.hasTurnstileSiteKey && _isSignUp) ...[
+                              const SizedBox(height: 18),
+                              TurnstileCaptcha(
+                                key: const ValueKey('turnstile-signup'),
+                                siteKey: AppConfig.turnstileSiteKey,
+                                onTokenReceived: (token) {
+                                  setState(() => _captchaToken = token);
+                                },
+                              ),
+                            ],
                             const SizedBox(height: 24),
                             SizedBox(
                               height: 52,
@@ -471,7 +502,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               onPressed: _isLoading
                                   ? null
                                   : () => setState(
-                                        () => _isSignUp = !_isSignUp,
+                                        () {
+                                          _isSignUp = !_isSignUp;
+                                          _captchaToken = null;
+                                        },
                                       ),
                               style: TextButton.styleFrom(
                                 foregroundColor: const Color(0xFF38BDF8),

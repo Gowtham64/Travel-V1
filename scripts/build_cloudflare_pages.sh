@@ -46,6 +46,10 @@ if [[ -n "${MAPBOX_TOKEN:-}" ]]; then
   BUILD_ARGS+=("--dart-define=MAPBOX_TOKEN=$MAPBOX_TOKEN")
 fi
 
+if [[ -n "${TURNSTILE_SITE_KEY:-}" ]]; then
+  BUILD_ARGS+=("--dart-define=TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY")
+fi
+
 flutter build web "${BUILD_ARGS[@]}"
 
 # Reorganize mobile/build/web so that:
