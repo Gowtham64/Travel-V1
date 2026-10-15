@@ -162,6 +162,7 @@ class _ThreeDMapState extends State<ThreeDMap> {
     });
     final poisJson = jsonEncode(flatPois);
 
+    const accessToken = AppConfig.mapboxToken;
     // Reliable official Mapbox navigation and satellite styles
     final styleUrl = widget.useSatellite
         ? 'mapbox://styles/mapbox/satellite-streets-v12'
