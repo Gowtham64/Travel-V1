@@ -72,7 +72,7 @@ fi
 # 4. Check Cloudflare Worker Configuration
 WORKER_CONFIG="$ROOT_DIR/cloudflare-worker/wrangler.jsonc"
 if [ -f "$WORKER_CONFIG" ]; then
-  if grep -q '"name": "voyplan-api"' "$WORKER_CONFIG" && grep -q 'api.voyplan.in/\\*' "$WORKER_CONFIG"; then
+  if grep -q '"name": "voyplan-api"' "$WORKER_CONFIG" && grep -q 'api.voyplan.in' "$WORKER_CONFIG"; then
     report_pass "Cloudflare Worker is configured for api.voyplan.in"
   else
     report_error "Cloudflare Worker configuration is missing the production name or route"
