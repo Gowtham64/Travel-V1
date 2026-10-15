@@ -157,49 +157,91 @@
 
   <!-- Cloudflare Turnstile CAPTCHA API -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <div id="cf-turnstile-wrapper" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999999; background:rgba(10,19,36,0.96); border:1px solid rgba(6,182,212,0.4); border-radius:16px; padding:12px 16px; box-shadow:0 16px 48px rgba(0,0,0,0.85); backdrop-filter:blur(12px); font-family:'Plus Jakarta Sans',sans-serif;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; font-size:12px; font-weight:600; color:#94a3b8;">
+      <span style="display:flex; align-items:center; gap:6px;">
+        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#06b6d4;"></span>
+        Cloudflare Turnstile Verification
+      </span>
+      <span id="cf-turnstile-status" style="color:#06b6d4; font-size:11px;">Verifying...</span>
+    </div>
+    <div id="cf-turnstile-target" style="min-width:300px; min-height:65px; display:flex; align-items:center; justify-content:center;"></div>
+  </div>
   <script>
     window.cfTurnstileWidgetId = null;
-    window.renderCfTurnstile = function(containerId, siteKey, callbackName) {
-      function doRender() {
+    window.initCfTurnstile = function(siteKey, callbackName) {
+      var wrapper = document.getElementById('cf-turnstile-wrapper');
+      var target = document.getElementById('cf-turnstile-target');
+      var status = document.getElementById('cf-turnstile-status');
+      if (wrapper) wrapper.style.display = 'block';
+      if (status) {
+        status.textContent = 'Verifying...';
+        status.style.color = '#06b6d4';
+      }
+
+      var attempts = 0;
+      function render() {
+        attempts++;
         if (typeof turnstile === 'undefined') {
-          setTimeout(doRender, 200);
+          if (attempts < 60) setTimeout(render, 150);
           return;
         }
-        var container = document.getElementById(containerId);
-        if (!container) return;
+        if (!target) return;
         try {
           if (window.cfTurnstileWidgetId !== null) {
             try { turnstile.remove(window.cfTurnstileWidgetId); } catch (_) {}
             window.cfTurnstileWidgetId = null;
           }
-          window.cfTurnstileWidgetId = turnstile.render('#' + containerId, {
+          target.innerHTML = '';
+          window.cfTurnstileWidgetId = turnstile.render('#cf-turnstile-target', {
             sitekey: siteKey,
             theme: 'dark',
             size: 'normal',
             callback: function(token) {
+              if (status) {
+                status.textContent = 'Verified ✓';
+                status.style.color = '#10b981';
+              }
               if (typeof window[callbackName] === 'function') {
                 window[callbackName](token);
               }
+              // Once verified in managed mode, auto-hide the floating card after 1.5s
+              setTimeout(function() {
+                if (wrapper && status && status.textContent.indexOf('Verified') !== -1) {
+                  wrapper.style.display = 'none';
+                }
+              }, 1500);
             },
-            'error-callback': function() {
-              console.warn('Turnstile challenge encountered an error');
+            'error-callback': function(err) {
+              if (status) {
+                status.textContent = 'Verification error';
+                status.style.color = '#ef4444';
+              }
+              console.warn('Turnstile challenge error:', err);
             },
             'expired-callback': function() {
+              if (status) {
+                status.textContent = 'Expired';
+                status.style.color = '#f59e0b';
+              }
               if (typeof window[callbackName] === 'function') {
                 window[callbackName]('');
               }
             }
           });
         } catch (e) {
-          console.warn('Turnstile render warning:', e);
+          console.warn('Turnstile render error:', e);
         }
       }
-      doRender();
+      render();
     };
 
-    window.resetCfTurnstile = function() {
+    window.hideCfTurnstile = function() {
+      var wrapper = document.getElementById('cf-turnstile-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
       if (typeof turnstile !== 'undefined' && window.cfTurnstileWidgetId !== null) {
-        try { turnstile.reset(window.cfTurnstileWidgetId); } catch (_) {}
+        try { turnstile.remove(window.cfTurnstileWidgetId); } catch (_) {}
+        window.cfTurnstileWidgetId = null;
       }
     };
   </script>

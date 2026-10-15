@@ -531,10 +531,10 @@ class _LoginScreenState extends State<LoginScreen> {
                                 onSubmitted: (_) => _authenticate(),
                               ),
                             ],
-                            if (AppConfig.hasTurnstileSiteKey && _isSignUp) ...[
+                            if (AppConfig.hasTurnstileSiteKey) ...[
                               const SizedBox(height: 18),
                               TurnstileCaptcha(
-                                key: const ValueKey('turnstile-signup'),
+                                key: ValueKey('turnstile-$_isSignUp'),
                                 siteKey: AppConfig.turnstileSiteKey,
                                 onTokenReceived: (token) {
                                   setState(() => _captchaToken = token);
