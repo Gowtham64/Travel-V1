@@ -48,42 +48,11 @@ Future<void> showVoyPlanTripModal(
   int? initialDays,
   int? initialTravelers,
 }) {
-  final isDesktopOrTablet = MediaQuery.of(context).size.width >= 700;
-
-  if (isDesktopOrTablet) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1140, maxHeight: 880),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(24),
-            child: VoyPlanTripModal(
-              initialMode: initialMode,
-              initialOrigin: initialOrigin,
-              initialDestination: initialDestination,
-              initialOriginCoord: initialOriginCoord,
-              initialDestCoord: initialDestCoord,
-              initialDays: initialDays,
-              initialTravelers: initialTravelers,
-              isModalDialog: true,
-            ),
-          ),
-        ),
-      ),
-    );
-  } else {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => FractionallySizedBox(
-        heightFactor: 0.94,
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+  return Navigator.of(context).push<void>(
+    MaterialPageRoute<void>(
+      builder: (ctx) => Scaffold(
+        backgroundColor: const Color(0xFF080E18),
+        body: SafeArea(
           child: VoyPlanTripModal(
             initialMode: initialMode,
             initialOrigin: initialOrigin,
@@ -96,8 +65,8 @@ Future<void> showVoyPlanTripModal(
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }
 
 /// The Master Trip Modal for VoyPlan:
@@ -1602,7 +1571,9 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
       decoration: BoxDecoration(
         color: const Color(0xFF080E18),
         borderRadius: BorderRadius.circular(widget.isModalDialog ? 24 : 0),
-        border: Border.all(color: const Color(0xFF1B2433)),
+        border: widget.isModalDialog
+            ? Border.all(color: const Color(0xFF1B2433))
+            : null,
       ),
       child: Column(
         children: [
@@ -1618,16 +1589,16 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 64,
+                            flex: 62,
                             child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(24, 0, 16, 24),
+                              padding: const EdgeInsets.fromLTRB(28, 0, 16, 28),
                               child: _buildLeftColumnContent(),
                             ),
                           ),
                           Expanded(
-                            flex: 36,
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(8, 0, 24, 24),
+                            flex: 38,
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 28, 28),
                               child: _buildRightColumnContent(),
                             ),
                           ),
@@ -1687,6 +1658,28 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             : null,
         child: Row(
           children: [
+            Tooltip(
+              message: 'Back',
+              child: InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF141C2A),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF243044)),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 14),
             Container(
               width: 38,
               height: 38,
@@ -1747,6 +1740,7 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
             IconButton(
               icon: const Icon(Icons.close_rounded,
                   color: Colors.white70, size: 22),
+              tooltip: 'Close',
               onPressed: () => Navigator.pop(context),
             ),
           ],
@@ -2202,47 +2196,98 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
               Row(
                 children: [
                   Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        setState(() {
-                          _oneWayTravelers = (_oneWayTravelers % 6) + 1;
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF141C2A),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: const Color(0xFF243044)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.people_alt_outlined,
-                                color: Color(0xFF8B97A7), size: 18),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text('Travelers',
-                                      style: TextStyle(
-                                          color: Color(0xFF8B97A7),
-                                          fontSize: 10)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                      '$_oneWayTravelers Traveler${_oneWayTravelers > 1 ? 's' : ''}',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w700)),
-                                ],
-                              ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141C2A),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF243044)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.people_alt_outlined,
+                              color: Color(0xFF8B97A7), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('Travelers',
+                                    style: TextStyle(
+                                        color: Color(0xFF8B97A7),
+                                        fontSize: 10)),
+                                const SizedBox(height: 2),
+                                Text(
+                                    '$_oneWayTravelers ${_oneWayTravelers > 1 ? 'Travelers' : 'Traveler'}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w700),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis),
+                              ],
                             ),
-                            const Icon(Icons.keyboard_arrow_down_rounded,
-                                color: Color(0xFF8B97A7), size: 18),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 4),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0A101C),
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: const Color(0xFF243044)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: _oneWayTravelers > 1
+                                      ? () {
+                                          setState(() => _oneWayTravelers--);
+                                          _calculateOneWayRoute();
+                                        }
+                                      : null,
+                                  borderRadius: const BorderRadius.horizontal(
+                                      left: Radius.circular(8)),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(5),
+                                    child: Icon(
+                                      Icons.remove_rounded,
+                                      size: 16,
+                                      color: _oneWayTravelers > 1
+                                          ? Colors.white
+                                          : const Color(0xFF475569),
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  width: 1,
+                                  height: 16,
+                                  color: const Color(0xFF243044),
+                                ),
+                                InkWell(
+                                  onTap: _oneWayTravelers < 12
+                                      ? () {
+                                          setState(() => _oneWayTravelers++);
+                                          _calculateOneWayRoute();
+                                        }
+                                      : null,
+                                  borderRadius: const BorderRadius.horizontal(
+                                      right: Radius.circular(8)),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(5),
+                                    child: Icon(
+                                      Icons.add_rounded,
+                                      size: 16,
+                                      color: Color(0xFF00E5B0),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -4752,130 +4797,810 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
     double interpLng(double fraction) =>
         startLng + (endLng - startLng) * fraction;
 
+    final destLower =
+        ('${_oneWayDestCtrl.text} ${_oneWayDest?.name ?? ''}').toLowerCase();
+
+    // 1. Goa & Coastal North Karnataka Corridor (NH48 / Hubballi / Anmod Ghat)
+    final isGoaCorridor = destLower.contains('goa') ||
+        destLower.contains('panaji') ||
+        destLower.contains('panjim') ||
+        destLower.contains('madgaon') ||
+        destLower.contains('margao') ||
+        destLower.contains('vasco') ||
+        destLower.contains('calangute') ||
+        destLower.contains('baga') ||
+        destLower.contains('anjuna') ||
+        destLower.contains('candolim') ||
+        destLower.contains('morjim') ||
+        destLower.contains('arambol') ||
+        destLower.contains('karwar') ||
+        destLower.contains('gokarna') ||
+        destLower.contains('hubballi') ||
+        destLower.contains('hubli') ||
+        destLower.contains('dharwad') ||
+        destLower.contains('belagavi') ||
+        destLower.contains('belgaum') ||
+        (endLat >= 14.5 && endLat <= 16.0 && endLng >= 73.5 && endLng <= 74.8);
+
+    if (isGoaCorridor) {
+      return [
+        {
+          'id': 'rec_goa_1',
+          'name': 'Tumakuru Thatte Idli Highway Hub',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 0.4,
+          'detourMin': 2,
+          'fromRoute': 'NH48 highway corridor (70 km from BLR)',
+          'openingHours': '06:30 AM - 11:30 PM • Open Now',
+          'description':
+              'Famous morning highway stop for soft thatte idlis with dollops of butter, benne khara bath, and filter coffee.',
+          'lat': interpLat(0.12),
+          'lng': interpLng(0.12),
+          'stayDuration': 30,
+        },
+        {
+          'id': 'rec_goa_2',
+          'name': 'Chitradurga Kallina Kote (Stone Fort)',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.account_balance_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 1.8,
+          'detourMin': 6,
+          'fromRoute': '1.4 km from NH48 expressway',
+          'openingHours': '06:00 AM - 05:30 PM • Open Now',
+          'description':
+              'Legendary 17th-century fortification with 7 concentric defensive stone walls, 38 gateways, and ancient rainwater tanks.',
+          'lat': interpLat(0.35),
+          'lng': interpLng(0.35),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_goa_3',
+          'name': 'Davanagere Sri Guru Kottureshwara Benne Dosa',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 1.2,
+          'detourMin': 5,
+          'fromRoute': 'Midway food corridor off NH48',
+          'openingHours': '07:30 AM - 10:30 PM • Open Now',
+          'description':
+              'World-famous authentic Davanagere wood-fired Benne (Butter) Dosa served with spiced aloo palya and coconut chutney.',
+          'lat': interpLat(0.48),
+          'lng': interpLng(0.48),
+          'stayDuration': 40,
+        },
+        {
+          'id': 'rec_goa_4',
+          'name': 'Hubballi Express Plaza & Dharwad Peda Hub',
+          'category': 'Travel Utility',
+          'categoryTag': 'UTILITY',
+          'categoryColor': const Color(0xFF0284C7),
+          'icon': Icons.local_gas_station_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 0.2,
+          'detourMin': 1,
+          'fromRoute': 'Direct on bypass service lane',
+          'openingHours': 'Open 24 Hours • Verified',
+          'description':
+              '24/7 high-speed fuel, EV supercharging, spotless washrooms, food court, and authentic GI-tagged Dharwad Peda.',
+          'lat': interpLat(0.65),
+          'lng': interpLng(0.65),
+          'stayDuration': 25,
+        },
+        {
+          'id': 'rec_goa_5',
+          'name': 'Anmod Ghat & Dudhsagar Valley Viewpoint',
+          'category': 'Nature & Views',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.landscape_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.9,
+          'detourKm': 0.0,
+          'detourMin': 0,
+          'fromRoute': 'Scenic mountain pass on Goa border',
+          'openingHours': 'Open 24 Hours • Daylight Best',
+          'description':
+              'Breathtaking Western Ghats mountain pass through dense mist, waterfall views, and deep valleys entering Goa.',
+          'lat': interpLat(0.85),
+          'lng': interpLng(0.85),
+          'stayDuration': 30,
+        },
+        {
+          'id': 'rec_goa_6',
+          'name': 'Mollem National Park & Dudhsagar Gateway',
+          'category': 'Nature & Views',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.forest_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1511497584788-87676104235f?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 2.5,
+          'detourMin': 8,
+          'fromRoute': 'Goa border eco sanctuary',
+          'openingHours': '08:30 AM - 05:00 PM • Open Now',
+          'description':
+              'Lush 240 sq km protected tropical rainforest sanctuary, rich wildlife, and starting point for Dudhsagar waterfall jeeps.',
+          'lat': interpLat(0.92),
+          'lng': interpLng(0.92),
+          'stayDuration': 50,
+        },
+        {
+          'id': 'rec_goa_7',
+          'name': 'Goa Foothills Spice Plantation & Eco Stay',
+          'category': 'Stays & Resorts',
+          'categoryTag': 'STAY',
+          'categoryColor': const Color(0xFF8B5CF6),
+          'icon': Icons.hotel_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 3.1,
+          'detourMin': 9,
+          'fromRoute': 'Foothills corridor near Ponda/Mollem',
+          'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
+          'description':
+              'Serene plantation retreat surrounded by vanilla, cardamom, and betel nut trees, featuring traditional Goan hospitality.',
+          'lat': interpLat(0.96),
+          'lng': interpLng(0.96),
+          'stayDuration': 60,
+        },
+      ];
+    }
+
+    // 2. Chennai & Pondicherry Corridor
+    final isChennaiCorridor = destLower.contains('chennai') ||
+        destLower.contains('pondicherry') ||
+        destLower.contains('puducherry') ||
+        destLower.contains('vellore') ||
+        destLower.contains('kanchipuram') ||
+        destLower.contains('hosur') ||
+        destLower.contains('krishnagiri') ||
+        (endLat >= 11.8 && endLat <= 13.5 && endLng >= 78.5 && endLng <= 80.5);
+
+    if (isChennaiCorridor) {
+      return [
+        {
+          'id': 'rec_chn_1',
+          'name': 'Hosur Highway Food Court & Saravana Bhavan',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 0.2,
+          'detourMin': 1,
+          'fromRoute': 'NH44 Expressway Corridor',
+          'openingHours': '06:00 AM - 11:00 PM • Open Now',
+          'description':
+              'South Indian vegetarian specialties, piping hot ghee roast dosas, and filter coffee.',
+          'lat': interpLat(0.18),
+          'lng': interpLng(0.18),
+          'stayDuration': 30,
+        },
+        {
+          'id': 'rec_chn_2',
+          'name': 'Krishnagiri Dam & Reservoir Park',
+          'category': 'Nature & Views',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.water_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.5,
+          'detourKm': 2.2,
+          'detourMin': 7,
+          'fromRoute': 'Scenic lake detour off NH44',
+          'openingHours': '08:00 AM - 05:30 PM • Open Now',
+          'description':
+              'Lush floral gardens, gentle breeze, and panoramic dam views on the Ponnaiyar River.',
+          'lat': interpLat(0.35),
+          'lng': interpLng(0.35),
+          'stayDuration': 45,
+        },
+        {
+          'id': 'rec_chn_3',
+          'name': 'Vellore Sri Lakshmi Narayani Golden Temple',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.temple_hindu_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.9,
+          'detourKm': 2.8,
+          'detourMin': 9,
+          'fromRoute': '2.5 km from bypass',
+          'openingHours': '07:00 AM - 08:00 PM • Open Now',
+          'description':
+              'Architectural wonder gilded with pure gold leaf, peaceful star path, and spiritual garden.',
+          'lat': interpLat(0.58),
+          'lng': interpLng(0.58),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_chn_4',
+          'name': 'Shell NH48 24/7 Expressway Fuel & EV Plaza',
+          'category': 'Travel Utility',
+          'categoryTag': 'UTILITY',
+          'categoryColor': const Color(0xFF0284C7),
+          'icon': Icons.local_gas_station_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 0.1,
+          'detourMin': 1,
+          'fromRoute': 'Expressway service corridor',
+          'openingHours': 'Open 24 Hours • Verified',
+          'description':
+              'Ultra-fast DC EV chargers, spotless washrooms, Costa Coffee, and high-octane fuels.',
+          'lat': interpLat(0.45),
+          'lng': interpLng(0.45),
+          'stayDuration': 20,
+        },
+        {
+          'id': 'rec_chn_5',
+          'name': 'Kanchipuram Ancient Heritage Temple Enclave',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.account_balance_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 3.4,
+          'detourMin': 10,
+          'fromRoute': 'Heritage city arterial road',
+          'openingHours': '06:00 AM - 08:30 PM • Open Now',
+          'description':
+              'Famous city of 1,000 temples with centuries-old Dravidian sandstone carvings and silk looms.',
+          'lat': interpLat(0.78),
+          'lng': interpLng(0.78),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_chn_6',
+          'name': 'Coastal Palms Beach Resort & Spa',
+          'category': 'Stays & Resorts',
+          'categoryTag': 'STAY',
+          'categoryColor': const Color(0xFF8B5CF6),
+          'icon': Icons.hotel_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 2.0,
+          'detourMin': 6,
+          'fromRoute': 'East Coast highway approach',
+          'openingHours': 'Check-in: 02:00 PM • 24/7 Front Desk',
+          'description':
+              'Coastal retreat overlooking the Bay of Bengal with private beach access and wellness spa.',
+          'lat': interpLat(0.96),
+          'lng': interpLng(0.96),
+          'stayDuration': 60,
+        },
+      ];
+    }
+
+    // 3. Hyderabad & Kurnool Corridor (NH44 North)
+    final isHydCorridor = destLower.contains('hyderabad') ||
+        destLower.contains('secunderabad') ||
+        destLower.contains('kurnool') ||
+        destLower.contains('anantapur') ||
+        destLower.contains('lepakshi') ||
+        destLower.contains('shamshabad') ||
+        (endLat >= 13.8 && endLat <= 17.6 && endLng >= 77.2 && endLng <= 78.8);
+
+    if (isHydCorridor) {
+      return [
+        {
+          'id': 'rec_hyd_1',
+          'name': 'Nandi Hills Foothills Breakfast & Café',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 1.0,
+          'detourMin': 4,
+          'fromRoute': 'NH44 Airport Corridor',
+          'openingHours': '06:00 AM - 11:00 PM • Open Now',
+          'description':
+              'Scenic highway garden restaurant serving fresh idlis, dosas, and brewed espresso coffee.',
+          'lat': interpLat(0.15),
+          'lng': interpLng(0.15),
+          'stayDuration': 30,
+        },
+        {
+          'id': 'rec_hyd_2',
+          'name': 'Lepakshi Hanging Pillar & Monolithic Nandi',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.temple_hindu_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.9,
+          'detourKm': 5.2,
+          'detourMin': 12,
+          'fromRoute': 'Heritage detour off NH44',
+          'openingHours': '06:00 AM - 06:00 PM • Open Now',
+          'description':
+              'World-famous Vijayanagara architectural marvel with gravity-defying hanging pillar and colossal granite Nandi.',
+          'lat': interpLat(0.30),
+          'lng': interpLng(0.30),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_hyd_3',
+          'name': 'NH44 Expressway Oasis Food Mall & EV Supercharger',
+          'category': 'Travel Utility',
+          'categoryTag': 'UTILITY',
+          'categoryColor': const Color(0xFF0284C7),
+          'icon': Icons.local_gas_station_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 0.1,
+          'detourMin': 1,
+          'fromRoute': 'Direct on highway service lane',
+          'openingHours': 'Open 24 Hours • Verified',
+          'description':
+              'State-of-the-art highway plaza with multi-cuisine dining, fast EV chargers, and pristine restrooms.',
+          'lat': interpLat(0.48),
+          'lng': interpLng(0.48),
+          'stayDuration': 25,
+        },
+        {
+          'id': 'rec_hyd_4',
+          'name': 'Kurnool Konda Reddy Buruju Historic Fort',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.account_balance_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 2.1,
+          'detourMin': 7,
+          'fromRoute': '1.8 km from city bypass',
+          'openingHours': '08:00 AM - 06:00 PM • Open Now',
+          'description':
+              'Iconic 12th-century bastion with underground escape tunnels and panoramic views of the Tungabhadra river.',
+          'lat': interpLat(0.68),
+          'lng': interpLng(0.68),
+          'stayDuration': 50,
+        },
+        {
+          'id': 'rec_hyd_5',
+          'name': 'Royal Heritage Fort Resort & Retreat',
+          'category': 'Stays & Resorts',
+          'categoryTag': 'STAY',
+          'categoryColor': const Color(0xFF8B5CF6),
+          'icon': Icons.hotel_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 3.0,
+          'detourMin': 9,
+          'fromRoute': 'North highway corridor',
+          'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
+          'description':
+              'Palatial countryside stay offering regal suites, swimming pool, and authentic Nizami delicacies.',
+          'lat': interpLat(0.92),
+          'lng': interpLng(0.92),
+          'stayDuration': 60,
+        },
+      ];
+    }
+
+    // 4. Mumbai & Pune Corridor (Western Highway)
+    final isMumCorridor = destLower.contains('mumbai') ||
+        destLower.contains('pune') ||
+        destLower.contains('kolhapur') ||
+        destLower.contains('satara') ||
+        destLower.contains('lonavala') ||
+        destLower.contains('khandala') ||
+        destLower.contains('navi mumbai') ||
+        (endLat >= 18.0 && endLat <= 19.5 && endLng >= 72.5 && endLng <= 74.2);
+
+    if (isMumCorridor) {
+      return [
+        {
+          'id': 'rec_mum_1',
+          'name': 'Kolhapur Mahalaxmi Temple & Misal Pav Hub',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 2.0,
+          'detourMin': 6,
+          'fromRoute': 'NH48 Kolhapur bypass',
+          'openingHours': '06:00 AM - 10:30 PM • Open Now',
+          'description':
+              'Fiery authentic Kolhapuri Misal Pav and historic Mahalaxmi Shaktipeeth temple visit.',
+          'lat': interpLat(0.40),
+          'lng': interpLng(0.40),
+          'stayDuration': 45,
+        },
+        {
+          'id': 'rec_mum_2',
+          'name': 'Satara Kaas Valley of Flowers Viewpoint',
+          'category': 'Nature & Views',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.landscape_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 4.5,
+          'detourMin': 12,
+          'fromRoute': 'Scenic plateau road',
+          'openingHours': '08:00 AM - 06:00 PM • Open Now',
+          'description':
+              'UNESCO World Natural Heritage volcanic plateau with seasonal wild blossoms and misty lakes.',
+          'lat': interpLat(0.58),
+          'lng': interpLng(0.58),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_mum_3',
+          'name': 'Shell Expressway 24/7 Supercharger & Rest Stop',
+          'category': 'Travel Utility',
+          'categoryTag': 'UTILITY',
+          'categoryColor': const Color(0xFF0284C7),
+          'icon': Icons.local_gas_station_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 0.1,
+          'detourMin': 1,
+          'fromRoute': 'Expressway toll plaza service zone',
+          'openingHours': 'Open 24 Hours • Verified',
+          'description':
+              'Comprehensive rest stop with high-speed EV chargers, cafes, tire check, and modern conveniences.',
+          'lat': interpLat(0.50),
+          'lng': interpLng(0.50),
+          'stayDuration': 20,
+        },
+        {
+          'id': 'rec_mum_4',
+          'name': 'Lonavala Tiger Point & Expressway Food Mall',
+          'category': 'Nature & Views',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.landscape_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1511497584788-87676104235f?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 2.5,
+          'detourMin': 8,
+          'fromRoute': 'Mumbai-Pune Expressway Pass',
+          'openingHours': 'Open 24 Hours • Daylight Best',
+          'description':
+              'Cliff-top vantage point offering sensational Sahyadri mountain vistas, hot sweet corn, and chikki stores.',
+          'lat': interpLat(0.85),
+          'lng': interpLng(0.85),
+          'stayDuration': 45,
+        },
+        {
+          'id': 'rec_mum_5',
+          'name': 'Pawna Lake Scenic Camping & Resort',
+          'category': 'Stays & Resorts',
+          'categoryTag': 'STAY',
+          'categoryColor': const Color(0xFF8B5CF6),
+          'icon': Icons.hotel_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 3.8,
+          'detourMin': 10,
+          'fromRoute': 'Lonavala-Kamshet corridor',
+          'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
+          'description':
+              'Waterfront cottages with sunset views over the reservoir, bonfires, and kayak rentals.',
+          'lat': interpLat(0.88),
+          'lng': interpLng(0.88),
+          'stayDuration': 60,
+        },
+      ];
+    }
+
+    // 5. Mysuru, Ooty & Coorg Corridor (South-West Expressway)
+    final isMysoreCorridor = destLower.contains('mysore') ||
+        destLower.contains('mysuru') ||
+        destLower.contains('ooty') ||
+        destLower.contains('udhagamandalam') ||
+        destLower.contains('coorg') ||
+        destLower.contains('madikeri') ||
+        destLower.contains('wayanad') ||
+        destLower.contains('bandipur') ||
+        destLower.contains('kabini') ||
+        destLower.contains('srirangapatna') ||
+        (endLat >= 11.2 && endLat <= 12.6 && endLng >= 75.5 && endLng <= 77.0);
+
+    if (isMysoreCorridor) {
+      return [
+        {
+          'id': 'rec_mys_1',
+          'name': 'Ramanagara Hill Viewpoint',
+          'category': 'Viewpoint',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.landscape_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.7,
+          'detourKm': 2.1,
+          'detourMin': 7,
+          'fromRoute': '1.8 km from corridor',
+          'openingHours': '06:00 AM - 06:30 PM • Open Now',
+          'description':
+              'Panoramic rocky hills famous for climbing, historic temple steps, and breathtaking sunrise views.',
+          'lat': interpLat(0.20),
+          'lng': interpLng(0.20),
+          'stayDuration': 45,
+        },
+        {
+          'id': 'rec_mys_2',
+          'name': 'Kamat Lokaruchi Highway Restaurant',
+          'category': 'Food & Dining',
+          'categoryTag': 'FOOD',
+          'categoryColor': const Color(0xFFF59E0B),
+          'icon': Icons.restaurant_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.5,
+          'detourKm': 0.3,
+          'detourMin': 2,
+          'fromRoute': 'Direct highway corridor',
+          'openingHours': '06:30 AM - 11:00 PM • Open Now',
+          'description':
+              'Authentic Karnataka highway dining with hot maddur vada, jolada rotti meals, and filter coffee.',
+          'lat': interpLat(0.35),
+          'lng': interpLng(0.35),
+          'stayDuration': 40,
+        },
+        {
+          'id': 'rec_mys_3',
+          'name': 'Srirangapatna Ranganathaswamy Temple',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.temple_hindu_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 1.4,
+          'detourMin': 5,
+          'fromRoute': '1.2 km from highway',
+          'openingHours': '06:00 AM - 08:30 PM • Open Now',
+          'description':
+              'Ancient 9th-century island fortress temple on the Kaveri river with magnificent Hoysala architecture.',
+          'lat': interpLat(0.55),
+          'lng': interpLng(0.55),
+          'stayDuration': 50,
+        },
+        {
+          'id': 'rec_mys_4',
+          'name': 'Mysore Palace & Gardens',
+          'category': 'Culture & Heritage',
+          'categoryTag': 'CULTURE',
+          'categoryColor': const Color(0xFFA855F7),
+          'icon': Icons.account_balance_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.9,
+          'detourKm': 3.2,
+          'detourMin': 11,
+          'fromRoute': '2.8 km from ring road',
+          'openingHours': '10:00 AM - 05:30 PM • Open Now',
+          'description':
+              'World-renowned royal palace with opulent Durbar halls, courtyards, and grand heritage museum.',
+          'lat': interpLat(0.68),
+          'lng': interpLng(0.68),
+          'stayDuration': 75,
+        },
+        {
+          'id': 'rec_mys_5',
+          'name': 'Kaveri River Nisargadhama Island Park',
+          'category': 'Nature & Park',
+          'categoryTag': 'NATURE',
+          'categoryColor': const Color(0xFF10B981),
+          'icon': Icons.water_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 1.8,
+          'detourMin': 6,
+          'fromRoute': '1.5 km from corridor',
+          'openingHours': '09:00 AM - 06:00 PM • Open Now',
+          'description':
+              '64-acre ecological island park surrounded by Kaveri river with hanging bridge, deer park, and bamboo groves.',
+          'lat': interpLat(0.85),
+          'lng': interpLng(0.85),
+          'stayDuration': 60,
+        },
+        {
+          'id': 'rec_mys_6',
+          'name': 'Shell Expressway Fuel & Restroom Hub',
+          'category': 'Travel Utility',
+          'categoryTag': 'UTILITY',
+          'categoryColor': const Color(0xFF0284C7),
+          'icon': Icons.local_gas_station_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.6,
+          'detourKm': 0.1,
+          'detourMin': 1,
+          'fromRoute': 'On expressway service lane',
+          'openingHours': 'Open 24 Hours • Verified',
+          'description':
+              '24/7 premium fuel, high-speed EV chargers, spotless restrooms, ATM, and convenience café.',
+          'lat': interpLat(0.40),
+          'lng': interpLng(0.40),
+          'stayDuration': 15,
+        },
+        {
+          'id': 'rec_mys_7',
+          'name': 'Coorg Plantation Heritage Homestay',
+          'category': 'Stays & Resorts',
+          'categoryTag': 'STAY',
+          'categoryColor': const Color(0xFF8B5CF6),
+          'icon': Icons.hotel_rounded,
+          'image':
+              'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
+          'rating': 4.8,
+          'detourKm': 2.6,
+          'detourMin': 9,
+          'fromRoute': '2.4 km from destination road',
+          'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
+          'description':
+              'Serene coffee estate stay surrounded by misty hills, homemade Kodava meals, and bonfire trails.',
+          'lat': interpLat(0.95),
+          'lng': interpLng(0.95),
+          'stayDuration': 60,
+        },
+      ];
+    }
+
+    // 6. General / Dynamic Corridor Fallback (for any other destination in India/World)
+    final destClean = _oneWayDestCtrl.text.split(',').first.trim().isNotEmpty
+        ? _oneWayDestCtrl.text.split(',').first.trim()
+        : 'Destination';
+    final origClean = _oneWayOriginCtrl.text.split(',').first.trim().isNotEmpty
+        ? _oneWayOriginCtrl.text.split(',').first.trim()
+        : 'Origin';
+
     return [
       {
-        'id': 'rec_1',
-        'name': 'Ramanagara Hill Viewpoint',
-        'category': 'Viewpoint',
-        'categoryTag': 'NATURE',
-        'categoryColor': const Color(0xFF10B981),
-        'icon': Icons.landscape_rounded,
-        'image':
-            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.7,
-        'detourKm': 2.1,
-        'detourMin': 7,
-        'fromRoute': '1.8 km from corridor',
-        'openingHours': '06:00 AM - 06:30 PM • Open Now',
-        'description':
-            'Panoramic rocky hills famous for climbing, historic temple steps, and breathtaking sunrise views.',
-        'lat': interpLat(0.20),
-        'lng': interpLng(0.20),
-        'stayDuration': 45,
-      },
-      {
-        'id': 'rec_2',
-        'name': 'Kamat Lokaruchi Highway Restaurant',
+        'id': 'rec_gen_1',
+        'name': '$origClean Highway Breakfast & Dining Oasis',
         'category': 'Food & Dining',
         'categoryTag': 'FOOD',
         'categoryColor': const Color(0xFFF59E0B),
         'icon': Icons.restaurant_rounded,
         'image':
             'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.5,
+        'rating': 4.6,
         'detourKm': 0.3,
         'detourMin': 2,
-        'fromRoute': 'Direct highway corridor',
+        'fromRoute': 'Direct on corridor highway',
         'openingHours': '06:30 AM - 11:00 PM • Open Now',
         'description':
-            'Authentic Karnataka highway dining with hot maddur vada, jolada rotti meals, and filter coffee.',
-        'lat': interpLat(0.35),
-        'lng': interpLng(0.35),
-        'stayDuration': 40,
+            'Popular highway stop for fresh breakfast, regional specialties, snacks, and hot beverages.',
+        'lat': interpLat(0.18),
+        'lng': interpLng(0.18),
+        'stayDuration': 35,
       },
       {
-        'id': 'rec_3',
-        'name': 'Srirangapatna Ranganathaswamy Temple',
-        'category': 'Culture & Heritage',
-        'categoryTag': 'CULTURE',
-        'categoryColor': const Color(0xFFA855F7),
-        'icon': Icons.temple_hindu_rounded,
-        'image':
-            'https://images.unsplash.com/photo-1599661046289-e31897846e41?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.8,
-        'detourKm': 1.4,
-        'detourMin': 5,
-        'fromRoute': '1.2 km from highway',
-        'openingHours': '06:00 AM - 08:30 PM • Open Now',
-        'description':
-            'Ancient 9th-century island fortress temple on the Kaveri river with magnificent Hoysala architecture.',
-        'lat': interpLat(0.55),
-        'lng': interpLng(0.55),
-        'stayDuration': 50,
-      },
-      {
-        'id': 'rec_4',
-        'name': 'Mysore Palace & Gardens',
-        'category': 'Culture & Heritage',
-        'categoryTag': 'CULTURE',
-        'categoryColor': const Color(0xFFA855F7),
-        'icon': Icons.account_balance_rounded,
-        'image':
-            'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.9,
-        'detourKm': 3.2,
-        'detourMin': 11,
-        'fromRoute': '2.8 km from ring road',
-        'openingHours': '10:00 AM - 05:30 PM • Open Now',
-        'description':
-            'World-renowned royal palace with opulent Durbar halls, courtyards, and grand heritage museum.',
-        'lat': interpLat(0.68),
-        'lng': interpLng(0.68),
-        'stayDuration': 75,
-      },
-      {
-        'id': 'rec_5',
-        'name': 'Kaveri River Nisargadhama Island Park',
-        'category': 'Nature & Park',
+        'id': 'rec_gen_2',
+        'name': 'Mid-Corridor Scenic Valley & Viewpoint',
+        'category': 'Nature & Views',
         'categoryTag': 'NATURE',
         'categoryColor': const Color(0xFF10B981),
-        'icon': Icons.water_rounded,
+        'icon': Icons.landscape_rounded,
         'image':
-            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.6,
-        'detourKm': 1.8,
-        'detourMin': 6,
-        'fromRoute': '1.5 km from corridor',
-        'openingHours': '09:00 AM - 06:00 PM • Open Now',
+            'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.7,
+        'detourKm': 1.6,
+        'detourMin': 5,
+        'fromRoute': 'Scenic ridge overlooking the route',
+        'openingHours': 'Open 24 Hours • Daylight Best',
         'description':
-            '64-acre ecological island park surrounded by Kaveri river with hanging bridge, deer park, and bamboo groves.',
-        'lat': interpLat(0.85),
-        'lng': interpLng(0.85),
-        'stayDuration': 60,
+            'Picturesque vantage point with sweeping open landscape views, photo spots, and cool breeze.',
+        'lat': interpLat(0.38),
+        'lng': interpLng(0.38),
+        'stayDuration': 30,
       },
       {
-        'id': 'rec_6',
-        'name': 'Shell Expressway Fuel & Restroom Hub',
+        'id': 'rec_gen_3',
+        'name': 'Expressway 24/7 Mega Fuel & EV Charging Plaza',
         'category': 'Travel Utility',
         'categoryTag': 'UTILITY',
         'categoryColor': const Color(0xFF0284C7),
         'icon': Icons.local_gas_station_rounded,
         'image':
             'https://images.unsplash.com/photo-1545454675-3531b543be5d?q=80&w=600&auto=format&fit=crop',
-        'rating': 4.6,
+        'rating': 4.7,
         'detourKm': 0.1,
         'detourMin': 1,
-        'fromRoute': 'On expressway service lane',
+        'fromRoute': 'On highway service lane',
         'openingHours': 'Open 24 Hours • Verified',
         'description':
-            '24/7 premium fuel, high-speed EV chargers, spotless restrooms, ATM, and convenience café.',
-        'lat': interpLat(0.40),
-        'lng': interpLng(0.40),
-        'stayDuration': 15,
+            '24/7 high-speed fuel, EV fast chargers, clean restrooms, convenience market, and coffee lounge.',
+        'lat': interpLat(0.52),
+        'lng': interpLng(0.52),
+        'stayDuration': 20,
       },
       {
-        'id': 'rec_7',
-        'name': 'Coorg Plantation Heritage Homestay',
+        'id': 'rec_gen_4',
+        'name': 'Historic Heritage Landmark & Temple',
+        'category': 'Culture & Heritage',
+        'categoryTag': 'CULTURE',
+        'categoryColor': const Color(0xFFA855F7),
+        'icon': Icons.account_balance_rounded,
+        'image':
+            'https://images.unsplash.com/photo-1590766940554-634a7ed41450?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.8,
+        'detourKm': 2.0,
+        'detourMin': 6,
+        'fromRoute': '1.5 km from bypass',
+        'openingHours': '06:00 AM - 07:00 PM • Open Now',
+        'description':
+            'Historic architectural landmark celebrating regional culture, stone carvings, and tranquil grounds.',
+        'lat': interpLat(0.68),
+        'lng': interpLng(0.68),
+        'stayDuration': 45,
+      },
+      {
+        'id': 'rec_gen_5',
+        'name': '$destClean Foothills Scenic Viewpoint & Park',
+        'category': 'Nature & Views',
+        'categoryTag': 'NATURE',
+        'categoryColor': const Color(0xFF10B981),
+        'icon': Icons.forest_rounded,
+        'image':
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600&auto=format&fit=crop',
+        'rating': 4.6,
+        'detourKm': 1.8,
+        'detourMin': 6,
+        'fromRoute': 'Pre-arrival scenic detour',
+        'openingHours': '08:00 AM - 06:00 PM • Open Now',
+        'description':
+            'Peaceful nature park and scenic viewpoint as you approach your final destination.',
+        'lat': interpLat(0.85),
+        'lng': interpLng(0.85),
+        'stayDuration': 40,
+      },
+      {
+        'id': 'rec_gen_6',
+        'name': '$destClean Gateway Heritage Resort & Stay',
         'category': 'Stays & Resorts',
         'categoryTag': 'STAY',
         'categoryColor': const Color(0xFF8B5CF6),
@@ -4883,14 +5608,14 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
         'image':
             'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600&auto=format&fit=crop',
         'rating': 4.8,
-        'detourKm': 2.6,
-        'detourMin': 9,
-        'fromRoute': '2.4 km from destination road',
+        'detourKm': 2.5,
+        'detourMin': 8,
+        'fromRoute': 'Near destination entrance',
         'openingHours': 'Check-in: 01:00 PM • 24/7 Front Desk',
         'description':
-            'Serene coffee estate stay surrounded by misty hills, homemade Kodava meals, and bonfire trails.',
-        'lat': interpLat(0.95),
-        'lng': interpLng(0.95),
+            'Relaxing stay surrounded by nature with modern amenities, fine dining, and parking.',
+        'lat': interpLat(0.93),
+        'lng': interpLng(0.93),
         'stayDuration': 60,
       },
     ];
