@@ -27,12 +27,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           # JDK 21: the maplibre_gl plugin's Android code targets Java 21
           # (AGP 8.11 / Gradle 8.14 both support running on JDK 21).
           java-version: '21'
+
+      - name: Select pre-installed Android NDK
+        run: |
+          # Use pre-installed NDK from GitHub Actions runner (e.g. 27.3.13750724)
+          # to avoid flaky 1.2GB CI runtime downloads of NDK 28
+          if [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
+            INSTALLED_NDK=$(basename "$ANDROID_NDK_HOME")
+          elif [ -n "$ANDROID_HOME" ] && [ -d "$ANDROID_HOME/ndk" ]; then
+            INSTALLED_NDK=$(ls -1 "$ANDROID_HOME/ndk" 2>/dev/null | sort -V | tail -n 1)
+          elif [ -d "/usr/local/lib/android/sdk/ndk" ]; then
+            INSTALLED_NDK=$(ls -1 "/usr/local/lib/android/sdk/ndk" 2>/dev/null | sort -V | tail -n 1)
+          fi
+          if [ -n "$INSTALLED_NDK" ]; then
+            echo "Using pre-installed Android NDK: $INSTALLED_NDK"
+            echo "ANDROID_NDK_VERSION=$INSTALLED_NDK" >> $GITHUB_ENV
+          fi
 
       - uses: subosito/flutter-action@v2
         with:
@@ -76,7 +92,7 @@ jobs:
       # Build for the SIMULATOR: verifies the iOS app compiles with zero Apple
       # account / signing team (a device build demands a Development Team even
       # with --no-codesign). Real device signing/distribution is Phase 5.
-      - run: flutter build ios --debug --simulator
+      - run: flutter build ios --debug --simulator --no-codesign
 
       - name: Package simulator .app
         run: |

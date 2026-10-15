@@ -18,7 +18,8 @@ if (keystorePropertiesFile.exists()) {
 android {
     namespace = "com.example.travel_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Prefer environment NDK version (e.g. CI pre-installed 27.x) to avoid flaky 1.2GB downloads
+    ndkVersion = System.getenv("ANDROID_NDK_VERSION") ?: flutter.ndkVersion
 
     compileOptions {
         // flutter_local_notifications 18 needs Java 8+ desugared APIs.
