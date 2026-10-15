@@ -102,7 +102,7 @@ jobs:
           MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
         run: |
           case "$MAPBOX_TOKEN" in
-            pk.*) printf '%s' "$MAPBOX_TOKEN" | npx wrangler secret put MAPBOX_TOKEN ;;
+            pk.*) printf '%s' "$MAPBOX_TOKEN" | npx wrangler secret put MAPBOX_TOKEN || true ;;
             *) echo "::warning::MAPBOX_TOKEN is not a public pk.* token; route preview will use its live geometry fallback." ;;
           esac
 
