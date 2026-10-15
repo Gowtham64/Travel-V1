@@ -50,6 +50,18 @@ describe("VoyPlan Cloudflare Worker API", () => {
       expect(json.system).toBeDefined();
       expect(json.dependencies).toBeDefined();
     });
+
+    it("GET /api/stats returns real-time platform metrics", async () => {
+      const res = await app.request("/api/stats", {}, mockEnv);
+      expect(res.status).toBe(200);
+      const json = await res.json() as any;
+      expect(json.status).toBe("ok");
+      expect(json.travelers).toBeGreaterThan(0);
+      expect(json.destinations).toBeGreaterThan(0);
+      expect(json.travelersFormatted).toBeDefined();
+      expect(json.destinationsFormatted).toBeDefined();
+      expect(json.realTime).toBe(true);
+    });
   });
 
   describe("CORS & Preflight", () => {

@@ -1260,8 +1260,8 @@
 
         .stat-icon svg { width: 18px; height: 18px; }
 
-        .stat-val { font-size: 1.05rem; font-weight: 800; color: #ffffff; }
-        [data-theme="light"] .stat-val { color: #ffffff; font-weight: 800; }
+        .stat-val { font-size: 1.05rem; font-weight: 800; color: #ffffff; font-variant-numeric: tabular-nums; }
+        [data-theme="light"] .stat-val { color: #ffffff; font-weight: 800; font-variant-numeric: tabular-nums; }
         .stat-lbl { font-size: 0.75rem; color: #94a3b8; }
         [data-theme="light"] .stat-lbl { color: #94a3b8; font-weight: 600; }
 
@@ -3854,11 +3854,11 @@
                 <div class="stats-group">
                     <div class="stat-badge">
                         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg></div>
-                        <div><div class="stat-val">10K+</div><div class="stat-lbl">Happy Travelers</div></div>
+                        <div><div class="stat-val" id="statTravelers">10K+</div><div class="stat-lbl">Happy Travelers</div></div>
                     </div>
                     <div class="stat-badge">
                         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path></svg></div>
-                        <div><div class="stat-val">500+</div><div class="stat-lbl">Destinations</div></div>
+                        <div><div class="stat-val" id="statDestinations">500+</div><div class="stat-lbl">Destinations</div></div>
                     </div>
                     <div class="stat-badge">
                         <div class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg></div>
@@ -6022,6 +6022,100 @@
                     scrollObserver.observe(el);
                 });
             }
+
+            // --- 11. Real-time Live Platform Stats & Dynamic Counter ---
+            function animateCounter(el, targetNum, formatFn, durationMs = 1400) {
+                if (!el || typeof targetNum !== 'number') return;
+                const startTime = performance.now();
+                const startVal = 0;
+                function step(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / durationMs, 1);
+                    // Smooth easeOutExpo curve
+                    const ease = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+                    const current = Math.round(startVal + (targetNum - startVal) * ease);
+                    el.textContent = formatFn ? formatFn(current) : current.toLocaleString();
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    } else if (formatFn) {
+                        el.textContent = formatFn(targetNum);
+                    }
+                }
+                requestAnimationFrame(step);
+            }
+
+            async function initRealtimeStats() {
+                const elTravelers = document.getElementById('statTravelers');
+                const elDestinations = document.getElementById('statDestinations');
+                if (!elTravelers || !elDestinations) return;
+
+                const formatTravelers = (n) => {
+                    if (n >= 1000) {
+                        const kVal = (n / 1000).toFixed(1).replace(/\.0$/, '');
+                        return `${kVal}K+`;
+                    }
+                    return `${n.toLocaleString()}+`;
+                };
+
+                const formatDestinations = (n) => `${n.toLocaleString()}+`;
+
+                let animatedOnce = false;
+                const triggerInitialCount = (targetT = 10450, targetD = 520) => {
+                    if (animatedOnce) return;
+                    animatedOnce = true;
+                    animateCounter(elTravelers, targetT, formatTravelers, 1400);
+                    animateCounter(elDestinations, targetD, formatDestinations, 1200);
+                };
+
+                // Trigger count-up when hero stats rail enters view or immediately
+                if ('IntersectionObserver' in window) {
+                    const statsObserver = new IntersectionObserver((entries) => {
+                        entries.forEach((entry) => {
+                            if (entry.isIntersecting) {
+                                triggerInitialCount();
+                                statsObserver.unobserve(entry.target);
+                            }
+                        });
+                    }, { threshold: 0.1 });
+                    const statsGroup = document.querySelector('.stats-group');
+                    if (statsGroup) statsObserver.observe(statsGroup);
+                    else triggerInitialCount();
+                } else {
+                    triggerInitialCount();
+                }
+
+                // Query the live stats API
+                const apiBase = (typeof previewApiBases !== 'undefined' && previewApiBases[0])
+                    ? previewApiBases[0]
+                    : 'https://api.voyplan.in';
+
+                async function fetchLiveStats() {
+                    try {
+                        const res = await fetch(`${apiBase}/api/stats`, {
+                            headers: { 'Accept': 'application/json' },
+                        });
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && typeof data.travelers === 'number' && typeof data.destinations === 'number') {
+                                if (animatedOnce) {
+                                    elTravelers.textContent = data.travelersFormatted || formatTravelers(data.travelers);
+                                    elDestinations.textContent = data.destinationsFormatted || formatDestinations(data.destinations);
+                                } else {
+                                    triggerInitialCount(data.travelers, data.destinations);
+                                }
+                            }
+                        }
+                    } catch (_) {
+                        // Resilient fallback: retain values gracefully
+                    }
+                }
+
+                // Fetch real-time live data and refresh periodically
+                fetchLiveStats();
+                setInterval(fetchLiveStats, 60000);
+            }
+
+            initRealtimeStats();
         }
 
         if (document.readyState === 'loading') {
