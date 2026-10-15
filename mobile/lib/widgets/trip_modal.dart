@@ -888,17 +888,21 @@ class _VoyPlanTripModalState extends State<VoyPlanTripModal>
 
       // Fallback fuel stop calculation
       if (_estimatedRangeKm < (roadKm * 1.15)) {
+        final refillNeededLiters =
+            math.max(10.0, _tankCapacity - _currentFuel);
+        final cost = refillNeededLiters * _fuelPricePerUnit;
         _fuelStops = [
           RefuelStop(
-            name: 'Highway Petroleum & Food Plaza',
-            brand: 'IndianOil',
-            distanceFromStartKm: roadKm * 0.48,
-            coordinate: coords[1],
-            suggestedLiters: (_tankCapacity * 0.8).clamp(10.0, _tankCapacity),
-            costEstimate:
-                (_tankCapacity * 0.8).clamp(10.0, _tankCapacity) * 102.0,
-            hasRestroom: true,
-            hasFood: true,
+            lat: coords[1].lat,
+            lng: coords[1].lng,
+            name: _fuelType == 'ev'
+                ? 'EV Supercharger (Recommended)'
+                : 'IndianOil Highway Station (Recommended)',
+            distanceFromStartKm: (roadKm * 0.48).roundToDouble(),
+            refillLiters: refillNeededLiters,
+            estimatedCost: cost,
+            pricePerUnit: _fuelPricePerUnit,
+            fuelOnArrivalLiters: 5.0,
           ),
         ];
       }
