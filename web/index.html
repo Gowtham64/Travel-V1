@@ -13,7 +13,7 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <!-- Synchronous Render-Blocking Theme Initializer (Prevents Theme Flash) -->
+    <!-- Synchronous Render-Blocking Theme & Time-of-Day Indian Highway Initializer -->
     <script>
         (function () {
             try {
@@ -24,8 +24,26 @@
                 var meta = document.querySelector('meta[name="theme-color"]');
                 if (meta) meta.setAttribute('content', '#060c18');
 
-                // High-priority preload only active hero background to save 4MB+ initial network tax
-                var activeHeroImg = theme === 'light' ? 'images/hero_day_roadtrip.jpg?v=4' : 'images/hero_night_roadtrip.jpg?v=4';
+                // Dynamic time-of-day Indian highway selection
+                var now = new Date();
+                var h = now.getHours();
+                var m = now.getMinutes();
+
+                var dayImg = 'images/hero_india_day.jpg?v=5';
+                var nightImg = 'images/hero_india_night.jpg?v=5';
+
+                if (h >= 5 && h < 8) {
+                    dayImg = 'images/hero_india_morning.jpg?v=5';
+                } else if (h >= 17 && (h < 19 || (h === 19 && m < 30))) {
+                    dayImg = 'images/hero_india_sunset.jpg?v=5';
+                    nightImg = 'images/hero_india_sunset.jpg?v=5';
+                }
+
+                window._voyplanDayImg = dayImg;
+                window._voyplanNightImg = nightImg;
+                var activeHeroImg = theme === 'light' ? dayImg : nightImg;
+                window._voyplanActiveHeroImg = activeHeroImg;
+
                 var preloadLink = document.createElement('link');
                 preloadLink.rel = 'preload';
                 preloadLink.as = 'image';
@@ -38,10 +56,6 @@
 
     <meta name="description"
         content="AI-powered road trips with real routes, fuel costs, scenic stops and live navigation — all in one place.">
-
-    <!-- Preload active theme hero backdrop with media-query gating for static pre-parsers -->
-    <link rel="preload" as="image" href="images/hero_day_roadtrip.jpg?v=4" media="(prefers-color-scheme: light)">
-    <link rel="preload" as="image" href="images/hero_night_roadtrip.jpg?v=4" media="(prefers-color-scheme: dark)">
 
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -463,12 +477,12 @@
         }
 
         .hero-backdrop-day {
-            background-image: url('images/hero_day_roadtrip.jpg?v=4');
+            background-image: url('images/hero_india_day.jpg?v=5');
             opacity: 0;
         }
 
         .hero-backdrop-night {
-            background-image: url('images/hero_night_roadtrip.jpg?v=4');
+            background-image: url('images/hero_india_night.jpg?v=5');
             opacity: 1;
         }
 
@@ -4845,8 +4859,12 @@
                     };
                     test.src = url;
                 };
-                verifyImg('images/hero_day_roadtrip.jpg?v=4', heroBackdropDay, 'day');
-                verifyImg('images/hero_night_roadtrip.jpg?v=4', heroBackdropNight, 'night');
+                const dayUrl = window._voyplanDayImg || 'images/hero_india_day.jpg?v=5';
+                const nightUrl = window._voyplanNightImg || 'images/hero_india_night.jpg?v=5';
+                heroBackdropDay.style.backgroundImage = `url('${dayUrl}')`;
+                heroBackdropNight.style.backgroundImage = `url('${nightUrl}')`;
+                verifyImg(dayUrl, heroBackdropDay, 'day');
+                verifyImg(nightUrl, heroBackdropNight, 'night');
             }
 
             // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)

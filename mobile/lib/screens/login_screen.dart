@@ -39,7 +39,20 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _captchaToken;
   late final VoidCallback _authStateListener;
 
-  final String _bgUrl = 'assets/images/hero_night_roadtrip.jpg';
+  String get _bgUrl {
+    final now = DateTime.now();
+    final h = now.hour;
+    final m = now.minute;
+    if (h >= 5 && h < 8) {
+      return 'assets/images/hero_india_morning.jpg';
+    } else if (h >= 8 && h < 17) {
+      return 'assets/images/hero_india_day.jpg';
+    } else if (h >= 17 && (h < 19 || (h == 19 && m < 30))) {
+      return 'assets/images/hero_india_sunset.jpg';
+    } else {
+      return 'assets/images/hero_india_night.jpg';
+    }
+  }
 
   @override
   void initState() {
