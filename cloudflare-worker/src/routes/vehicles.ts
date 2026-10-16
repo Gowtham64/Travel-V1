@@ -295,7 +295,9 @@ function returnFallbackSvg(c: any, kind: string) {
 vehicles.get('/image', async (c) => {
   const brand = String(c.req.query('brand') || '').trim();
   const model = String(c.req.query('model') || '').trim();
-  const kind = String(c.req.query('type') || '').toLowerCase() === 'motorcycle' ? 'Bikes' : 'Cars';
+  const rawType = String(c.req.query('type') || '').toLowerCase();
+  const isBike = rawType === 'motorcycle' || rawType === 'bike' || rawType === 'bikes' || rawType === 'scooter' || rawType === 'two_wheeler';
+  const kind = isBike ? 'Bikes' : 'Cars';
 
   if (!brand || !model) {
     return c.json({ error: 'brand and model are required' }, 400);
@@ -308,6 +310,10 @@ vehicles.get('/image', async (c) => {
   const lookupKeys = [
     `${kind.toLowerCase()}:${brand.toLowerCase()}:${model.toLowerCase()}`,
     `${kind.toLowerCase()}:${brand.toLowerCase()}:${baseModel.toLowerCase()}`,
+    `bikes:${brand.toLowerCase()}:${model.toLowerCase()}`,
+    `bikes:${brand.toLowerCase()}:${baseModel.toLowerCase()}`,
+    `cars:${brand.toLowerCase()}:${model.toLowerCase()}`,
+    `cars:${brand.toLowerCase()}:${baseModel.toLowerCase()}`,
   ];
 
   for (const lookupKey of lookupKeys) {
