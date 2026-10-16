@@ -739,6 +739,73 @@
             align-items: center;
         }
 
+        .weather-gps-btn {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.45rem 0.65rem;
+            border-radius: 8px;
+            font-size: 0.74rem;
+            font-weight: 750;
+            color: #38bdf8;
+            background: rgba(6, 182, 212, 0.14);
+            border: 1px solid rgba(6, 182, 212, 0.35);
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.15s ease;
+            width: 100%;
+            font-family: inherit;
+            margin-bottom: 0.35rem;
+        }
+        .weather-gps-btn:hover {
+            background: rgba(6, 182, 212, 0.25);
+            border-color: rgba(6, 182, 212, 0.65);
+            color: #f0f9ff;
+        }
+        .weather-city-box {
+            display: flex;
+            gap: 0.35rem;
+            margin-bottom: 0.35rem;
+            padding: 0 0.15rem;
+        }
+        .weather-city-box input {
+            flex: 1;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.28);
+            border-radius: 8px;
+            padding: 0.36rem 0.6rem;
+            font-size: 0.74rem;
+            color: #f8fafc;
+            font-family: inherit;
+            outline: none;
+            min-width: 0;
+        }
+        .weather-city-box input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+        }
+        .weather-city-box button {
+            background: #0284c7;
+            border: none;
+            border-radius: 8px;
+            padding: 0.36rem 0.75rem;
+            font-size: 0.72rem;
+            font-weight: 750;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.15s ease;
+            flex-shrink: 0;
+            font-family: inherit;
+        }
+        .weather-city-box button:hover {
+            background: #0369a1;
+        }
+        .weather-menu-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 0.35rem 0.2rem 0.35rem;
+        }
+
         .weather-menu-item {
             display: flex;
             align-items: center;
@@ -4128,12 +4195,28 @@
                         </div>
                         <div class="weather-dropdown-menu" id="weatherDropdownMenu" role="menu" aria-label="Select weather effect">
                             <div class="weather-menu-header">
-                                <span>Weather Effect</span>
+                                <span>Your Location</span>
                                 <span style="color:#38bdf8;font-size:0.6rem;">Real-Time</span>
+                            </div>
+                            <button type="button" class="weather-gps-btn" id="btnWeatherUseGps" title="Detect precise city using browser GPS">
+                                <span class="w-icon">🎯</span>
+                                <span id="weatherGpsLabel">Detect Exact GPS Location</span>
+                                <span class="w-tag" id="weatherGpsTag">GPS</span>
+                            </button>
+                            <div class="weather-city-box">
+                                <input type="text" id="weatherCitySearchInput" placeholder="Or enter city (e.g. Pune, Chennai)..." aria-label="Search city weather">
+                                <button type="button" id="btnWeatherCitySearch" title="Apply city weather">Set</button>
+                            </div>
+
+                            <div class="weather-menu-divider"></div>
+
+                            <div class="weather-menu-header">
+                                <span>Atmospheric Effects</span>
+                                <span style="color:#94a3b8;font-size:0.6rem;">Preview</span>
                             </div>
                             <button type="button" class="weather-menu-item is-selected" data-weather-mode="auto" role="menuitem">
                                 <span class="w-icon">📍</span>
-                                <span>Live Real-Time Weather</span>
+                                <span>Live Location Weather</span>
                                 <span class="w-tag" id="weatherLiveTag">Auto</span>
                             </button>
                             <button type="button" class="weather-menu-item" data-weather-mode="rain" role="menuitem">
@@ -5663,7 +5746,96 @@
             let liveWeatherResult = null;
             let currentSelectedWeatherMode = 'auto';
 
+            async function reverseGeocodeCoords(lat, lng) {
+                // 1. Try VoyPlan's reverse geocode endpoint (uses Mapbox with token on server)
+                try {
+                    const res = await fetch(`/api/trip/reverse-geocode?lat=${lat}&lng=${lng}`).then(r => r.json());
+                    if (res && res.address) {
+                        const parts = res.address.split(',');
+                        let name = parts[0].trim();
+                        if (/\d/.test(name) && parts[1]) name = parts[1].trim();
+                        if (name) return name;
+                    }
+                } catch (_) {}
+
+                // 2. Try Nominatim reverse geocode fallback
+                try {
+                    const nomUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`;
+                    const nomRes = await fetch(nomUrl).then(r => r.json());
+                    const addr = nomRes.address || {};
+                    const name = addr.city || addr.town || addr.municipality || addr.village || addr.suburb || addr.state_district;
+                    if (name) return name;
+                } catch (_) {}
+
+                // 3. Try BigDataCloud reverse geocode fallback
+                try {
+                    const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
+                    const bdcRes = await fetch(bdcUrl).then(r => r.json());
+                    const name = bdcRes.city || bdcRes.locality || bdcRes.principalSubdivision;
+                    if (name) return name;
+                } catch (_) {}
+
+                return 'Your Location';
+            }
+
+            async function fetchWeatherForCoordinates(lat, lng, cityName, saveAsCustom = false) {
+                try {
+                    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=temperature_2m,weather_code,is_day,precipitation,wind_speed_10m`;
+                    const weatherRes = await fetch(weatherUrl).then(r => r.json());
+                    const current = weatherRes.current || {};
+                    const temp = current.temperature_2m != null ? Math.round(current.temperature_2m) : 25;
+                    const code = current.weather_code ?? 0;
+                    const isDay = current.is_day ?? 1;
+
+                    const interpretation = interpretWmoCode(code, temp, isDay);
+                    liveWeatherResult = {
+                        city: cityName,
+                        lat,
+                        lng,
+                        temp,
+                        code,
+                        mode: interpretation.mode,
+                        label: interpretation.label,
+                        icon: interpretation.icon,
+                        timestamp: Date.now()
+                    };
+
+                    try {
+                        localStorage.setItem('voyplan_live_weather', JSON.stringify(liveWeatherResult));
+                        if (saveAsCustom) {
+                            localStorage.setItem('voyplan_saved_location', JSON.stringify({ lat, lng, city: cityName }));
+                        }
+                    } catch (_) {}
+
+                    applyWeatherResult(liveWeatherResult);
+                    return liveWeatherResult;
+                } catch (err) {
+                    const fallback = {
+                        city: cityName,
+                        temp: 26,
+                        mode: 'sunny',
+                        label: 'Clear Sky',
+                        icon: '☀️'
+                    };
+                    applyWeatherResult(fallback);
+                    return fallback;
+                }
+            }
+
             async function fetchRealTimeLocationWeather() {
+                // Check if user previously saved their custom/GPS location
+                try {
+                    const saved = localStorage.getItem('voyplan_saved_location');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        if (parsed.lat && parsed.lng && parsed.city) {
+                            await fetchWeatherForCoordinates(parsed.lat, parsed.lng, parsed.city, false);
+                            return;
+                        }
+                    }
+                } catch (_) {}
+
+                // Check 15-minute live weather cache
                 try {
                     const cached = localStorage.getItem('voyplan_live_weather');
                     if (cached) {
@@ -5677,6 +5849,26 @@
 
                 let lat = 12.9716, lng = 77.5946, city = 'Bengaluru';
 
+                // Check if browser already granted geolocation permission
+                if ('permissions' in navigator) {
+                    try {
+                        const perm = await navigator.permissions.query({ name: 'geolocation' });
+                        if (perm.state === 'granted') {
+                            const gotPos = await new Promise((resolve) => {
+                                navigator.geolocation.getCurrentPosition(resolve, () => resolve(null), { timeout: 4000 });
+                            });
+                            if (gotPos) {
+                                lat = gotPos.coords.latitude;
+                                lng = gotPos.coords.longitude;
+                                city = await reverseGeocodeCoords(lat, lng);
+                                await fetchWeatherForCoordinates(lat, lng, city, true);
+                                return;
+                            }
+                        }
+                    } catch (_) {}
+                }
+
+                // Fallback to IP geolocation
                 try {
                     const geoRes = await Promise.race([
                         fetch('https://get.geojs.io/v1/ip/geo.json').then(r => r.json()),
@@ -5692,39 +5884,7 @@
                     if (originVal) city = originVal.split(',')[0].trim();
                 }
 
-                try {
-                    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(4)}&longitude=${lng.toFixed(4)}&current=temperature_2m,weather_code,is_day,precipitation,wind_speed_10m`;
-                    const weatherRes = await fetch(weatherUrl).then(r => r.json());
-                    const current = weatherRes.current || {};
-                    const temp = current.temperature_2m != null ? Math.round(current.temperature_2m) : 25;
-                    const code = current.weather_code ?? 0;
-                    const isDay = current.is_day ?? 1;
-
-                    const interpretation = interpretWmoCode(code, temp, isDay);
-                    liveWeatherResult = {
-                        city,
-                        temp,
-                        code,
-                        mode: interpretation.mode,
-                        label: interpretation.label,
-                        icon: interpretation.icon,
-                        timestamp: Date.now()
-                    };
-
-                    try {
-                        localStorage.setItem('voyplan_live_weather', JSON.stringify(liveWeatherResult));
-                    } catch (_) {}
-
-                    applyWeatherResult(liveWeatherResult);
-                } catch (err) {
-                    applyWeatherResult({
-                        city,
-                        temp: 24,
-                        mode: 'sunny',
-                        label: 'Clear Highway',
-                        icon: '☀️'
-                    });
-                }
+                await fetchWeatherForCoordinates(lat, lng, city, false);
             }
 
             function applyWeatherResult(data) {
@@ -5744,6 +5904,120 @@
                     }
                     weatherAtmosphere.setMode(data.mode);
                 }
+            }
+
+            async function triggerGpsLocation(targetInput) {
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by your browser. Please search your city in the dropdown instead.');
+                    return;
+                }
+                const gpsLabel = document.getElementById('weatherGpsLabel');
+                const gpsTag = document.getElementById('weatherGpsTag');
+                if (gpsLabel) gpsLabel.textContent = 'Acquiring GPS location…';
+                if (gpsTag) gpsTag.textContent = 'Locating…';
+
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        const lat = pos.coords.latitude;
+                        const lng = pos.coords.longitude;
+                        if (gpsLabel) gpsLabel.textContent = 'Resolving city name…';
+                        const cityName = await reverseGeocodeCoords(lat, lng);
+                        await fetchWeatherForCoordinates(lat, lng, cityName, true);
+
+                        if (targetInput) {
+                            targetInput.value = cityName;
+                        } else if (originInput) {
+                            originInput.value = cityName;
+                        }
+
+                        if (gpsLabel) gpsLabel.textContent = `📍 ${cityName} (Exact GPS)`;
+                        if (gpsTag) gpsTag.textContent = 'Active';
+
+                        if (weatherDropdownMenu) {
+                            setTimeout(() => {
+                                weatherDropdownMenu.classList.remove('is-open');
+                                heroWeatherPill?.setAttribute('aria-expanded', 'false');
+                            }, 500);
+                        }
+                    },
+                    (err) => {
+                        if (gpsLabel) gpsLabel.textContent = 'Detect Exact GPS Location';
+                        if (gpsTag) gpsTag.textContent = 'GPS';
+                        alert('Could not access GPS location. Please allow location access in your browser or type your city in the search box.');
+                    },
+                    { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+                );
+            }
+
+            async function searchAndSetCity(query) {
+                if (!query || !query.trim()) return;
+                const searchBtn = document.getElementById('btnWeatherCitySearch');
+                if (searchBtn) searchBtn.textContent = '…';
+
+                const q = query.trim();
+                let foundLat = null, foundLng = null, foundName = q;
+
+                // 1. Try Open-Meteo Geocoding
+                try {
+                    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=1&language=en&format=json`;
+                    const geoRes = await fetch(geoUrl).then(r => r.json());
+                    if (geoRes && geoRes.results && geoRes.results.length > 0) {
+                        const top = geoRes.results[0];
+                        foundLat = top.latitude;
+                        foundLng = top.longitude;
+                        foundName = top.name || q;
+                    }
+                } catch (_) {}
+
+                // 2. Try Nominatim Geocoding fallback
+                if (foundLat == null) {
+                    try {
+                        const nomUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`;
+                        const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'en' } }).then(r => r.json());
+                        if (nomRes && nomRes.length > 0) {
+                            foundLat = parseFloat(nomRes[0].lat);
+                            foundLng = parseFloat(nomRes[0].lon);
+                            foundName = nomRes[0].display_name.split(',')[0].trim();
+                        }
+                    } catch (_) {}
+                }
+
+                if (searchBtn) searchBtn.textContent = 'Set';
+
+                if (foundLat != null && foundLng != null) {
+                    await fetchWeatherForCoordinates(foundLat, foundLng, foundName, true);
+                    if (originInput) originInput.value = foundName;
+                    if (weatherDropdownMenu) {
+                        weatherDropdownMenu.classList.remove('is-open');
+                        heroWeatherPill?.setAttribute('aria-expanded', 'false');
+                    }
+                } else {
+                    alert(`Could not find coordinates for "${q}". Please check the spelling.`);
+                }
+            }
+
+            const btnWeatherUseGps = document.getElementById('btnWeatherUseGps');
+            if (btnWeatherUseGps) {
+                btnWeatherUseGps.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    triggerGpsLocation(originInput);
+                });
+            }
+
+            const weatherCitySearchInput = document.getElementById('weatherCitySearchInput');
+            const btnWeatherCitySearch = document.getElementById('btnWeatherCitySearch');
+            if (btnWeatherCitySearch && weatherCitySearchInput) {
+                btnWeatherCitySearch.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    searchAndSetCity(weatherCitySearchInput.value);
+                });
+                weatherCitySearchInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        searchAndSetCity(weatherCitySearchInput.value);
+                    }
+                });
+                weatherCitySearchInput.addEventListener('click', (e) => e.stopPropagation());
             }
 
             if (heroWeatherPill && weatherDropdownMenu) {
@@ -5835,19 +6109,7 @@
             const useLocBtn = document.getElementById('btnUseLocation');
             if (useLocBtn && originInput) {
                 useLocBtn.addEventListener('click', () => {
-                    if (navigator.geolocation) {
-                        useLocBtn.textContent = 'Locating…';
-                        navigator.geolocation.getCurrentPosition(
-                            (pos) => {
-                                originInput.value = `Lat ${pos.coords.latitude.toFixed(3)}, Lng ${pos.coords.longitude.toFixed(3)}`;
-                                useLocBtn.textContent = 'Current GPS';
-                            },
-                            () => {
-                                originInput.value = 'Bengaluru';
-                                useLocBtn.textContent = 'Use my location';
-                            }
-                        );
-                    }
+                    triggerGpsLocation(originInput);
                 });
             }
 
