@@ -13,46 +13,34 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
-    <!-- Synchronous Render-Blocking Theme & Time-of-Day Indian Highway Initializer -->
+    <!-- Synchronous Render-Blocking Theme & Hero Initializer -->
     <script>
         (function () {
             try {
                 var savedTheme = localStorage.getItem('voyplan_theme') || localStorage.getItem('flutter.voyplan.theme_mode');
                 var prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
-                var theme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : (prefersLight ? 'light' : 'dark');
-                document.documentElement.setAttribute('data-theme', theme);
-                var meta = document.querySelector('meta[name="theme-color"]');
-                if (meta) meta.setAttribute('content', '#060c18');
-
-                // Dynamic time-of-day Indian highway selection
                 var now = new Date();
                 var h = now.getHours();
-                var m = now.getMinutes();
+                var isDayHours = h >= 6 && h < 18;
+                var theme = (savedTheme === 'light' || savedTheme === 'dark') ? savedTheme : (isDayHours ? 'light' : 'dark');
+                document.documentElement.setAttribute('data-theme', theme);
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) meta.setAttribute('content', theme === 'dark' ? '#060c18' : '#0a1728');
 
-                var heroImg = 'images/hero_india_day.jpg?v=6';
-                if (h >= 5 && h < 8) {
-                    heroImg = 'images/hero_india_morning.jpg?v=6'; // 5 AM - 8 AM: Western Ghats sunrise
-                } else if (h >= 8 && h < 17) {
-                    heroImg = 'images/hero_india_day.jpg?v=6';     // 8 AM - 5 PM: Bright sunny expressway
-                } else if (h >= 17 && (h < 19 || (h === 19 && m < 30))) {
-                    heroImg = 'images/hero_india_sunset.jpg?v=6';  // 5 PM - 7:30 PM: Golden twilight
-                } else {
-                    heroImg = 'images/hero_india_night.jpg?v=6';   // 7:30 PM - 5 AM: Starry night
-                }
+                // Preload day and night hero images
+                var preloadDay = document.createElement('link');
+                preloadDay.rel = 'preload';
+                preloadDay.as = 'image';
+                preloadDay.href = 'images/hero_india_day.jpg?v=7';
+                preloadDay.fetchPriority = theme === 'light' ? 'high' : 'auto';
+                document.head.appendChild(preloadDay);
 
-                window._voyplanHeroImg = heroImg;
-
-                var preloadLink = document.createElement('link');
-                preloadLink.rel = 'preload';
-                preloadLink.as = 'image';
-                preloadLink.href = heroImg;
-                preloadLink.fetchPriority = 'high';
-                document.head.appendChild(preloadLink);
-
-                // Inject instant CSS override so the correct background renders without waiting for scripts
-                var style = document.createElement('style');
-                style.textContent = '.hero-backdrop-day, .hero-backdrop-night { background-image: url("' + heroImg + '") !important; opacity: 1 !important; }';
-                document.head.appendChild(style);
+                var preloadNight = document.createElement('link');
+                preloadNight.rel = 'preload';
+                preloadNight.as = 'image';
+                preloadNight.href = 'images/hero_india_night.jpg?v=7';
+                preloadNight.fetchPriority = theme === 'dark' ? 'high' : 'auto';
+                document.head.appendChild(preloadNight);
             } catch (_) {}
         })();
     </script>
@@ -472,24 +460,39 @@
             background-repeat: no-repeat;
             transform: translate3d(0, 0, 0) scale(1.02);
             animation: heroCinematicMotion 28s ease-in-out infinite alternate;
-            transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+            transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.8s cubic-bezier(0.16, 1, 0.3, 1);
             will-change: transform, opacity;
             z-index: 1;
             image-rendering: -webkit-optimize-contrast;
             image-rendering: high-quality;
         }
 
-        .hero-backdrop-day,
-        .hero-backdrop-night {
-            background-image: url('images/hero_india_day.jpg?v=6');
-            opacity: 1;
+        .hero-backdrop-day {
+            background-image: url('images/hero_india_day.jpg?v=7');
+            z-index: 1;
         }
 
-        [data-theme="light"] .hero-backdrop-day,
-        [data-theme="light"] .hero-backdrop-night,
-        [data-theme="dark"] .hero-backdrop-day,
+        .hero-backdrop-night {
+            background-image: url('images/hero_india_night.jpg?v=7');
+            z-index: 2;
+        }
+
+        [data-theme="light"] .hero-backdrop-day {
+            opacity: 1;
+            visibility: visible;
+        }
+        [data-theme="light"] .hero-backdrop-night {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        [data-theme="dark"] .hero-backdrop-day {
+            opacity: 0;
+            visibility: hidden;
+        }
         [data-theme="dark"] .hero-backdrop-night {
             opacity: 1;
+            visibility: visible;
         }
 
         /* Graceful error / offline fallback handling */
@@ -5103,8 +5106,25 @@
                 const label = theme === 'dark' ? 'Switch to Day drive (Light mode)' : 'Switch to Night drive (Dark mode)';
                 themeBtn.setAttribute('aria-label', label);
                 themeBtn.title = label;
-                themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#f8fafc');
+                themeColorMeta?.setAttribute('content', theme === 'dark' ? '#060c18' : '#0a1728');
                 updateThemeIcon(theme);
+
+                const dayBackdrop = document.getElementById('heroBackdropDay');
+                const nightBackdrop = document.getElementById('heroBackdropNight');
+                if (dayBackdrop && nightBackdrop) {
+                    if (theme === 'light') {
+                        dayBackdrop.style.opacity = '1';
+                        dayBackdrop.style.visibility = 'visible';
+                        nightBackdrop.style.opacity = '0';
+                        nightBackdrop.style.visibility = 'hidden';
+                    } else {
+                        dayBackdrop.style.opacity = '0';
+                        dayBackdrop.style.visibility = 'hidden';
+                        nightBackdrop.style.opacity = '1';
+                        nightBackdrop.style.visibility = 'visible';
+                    }
+                }
+
                 if (persist) {
                     localStorage.setItem('voyplan_theme', theme);
                     localStorage.setItem('flutter.voyplan.theme_mode', theme);
@@ -5264,11 +5284,12 @@
                     };
                     test.src = url;
                 };
-                const heroUrl = window._voyplanHeroImg || 'images/hero_india_day.jpg?v=6';
-                if (heroBackdropDay) heroBackdropDay.style.backgroundImage = `url('${heroUrl}')`;
-                if (heroBackdropNight) heroBackdropNight.style.backgroundImage = `url('${heroUrl}')`;
-                verifyImg(heroUrl, heroBackdropDay, 'day');
-                verifyImg(heroUrl, heroBackdropNight, 'night');
+                const dayUrl = 'images/hero_india_day.jpg?v=7';
+                const nightUrl = 'images/hero_india_night.jpg?v=7';
+                heroBackdropDay.style.backgroundImage = `url('${dayUrl}')`;
+                heroBackdropNight.style.backgroundImage = `url('${nightUrl}')`;
+                verifyImg(dayUrl, heroBackdropDay, 'day');
+                verifyImg(nightUrl, heroBackdropNight, 'night');
             }
 
             // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)
