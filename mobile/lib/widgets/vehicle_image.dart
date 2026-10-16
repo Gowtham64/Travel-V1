@@ -28,6 +28,10 @@ class VehicleImage extends StatelessWidget {
       final image = Image.network(
         urls[index],
         fit: fit,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) return child;
+          return fallback;
+        },
         errorBuilder: (_, __, ___) => load(index + 1),
       );
 
