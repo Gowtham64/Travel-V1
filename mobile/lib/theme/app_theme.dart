@@ -220,15 +220,15 @@ class Voy {
     );
   }
 
-  /// Bright dashboard variant that preserves VoyPlan's cyan, gold, and violet
-  /// accents while providing a true light Material surface hierarchy.
+  /// Bright dashboard variant that provides a true luminous Day theme with
+  /// crisp white surfaces, charcoal typography, and vibrant travel accents.
   static ThemeData light(TextTheme textTheme) {
-    const page = Color(0xFF060E1A);
-    const lightSurface = Color(0xFF0A1728);
-    const lightSurface2 = Color(0xFF10223A);
-    const lightInk = Color(0xFFFFFFFF);
-    const lightSub = Color(0xFF94A3B8);
-    const lightOutline = Color(0xFF1E334F);
+    const page = Color(0xFFF8FAFC);
+    const lightSurface = Color(0xFFFFFFFF);
+    const lightSurface2 = Color(0xFFF1F5F9);
+    const lightInk = Color(0xFF0F172A);
+    const lightSub = Color(0xFF475569);
+    const lightOutline = Color(0xFFCBD5E1);
     const scheme = ColorScheme(
       brightness: Brightness.light,
       primary: Color(0xFF0284C7),

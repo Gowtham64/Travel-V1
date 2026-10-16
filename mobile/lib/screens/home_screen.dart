@@ -665,36 +665,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   String get _heroBackgroundAsset {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final phase = _timePhase;
-    if (_isIndiaRegion) {
-      switch (phase) {
-        case TimeOfDayPhase.lateNight:
-          return 'assets/images/hero_india_night.jpg';
-        case TimeOfDayPhase.dawn:
-          return 'assets/images/hero_india_morning.jpg';
-        case TimeOfDayPhase.morning:
-          return 'assets/images/hero_india_morning.jpg';
-        case TimeOfDayPhase.afternoon:
-          return 'assets/images/hero_india_sunset.jpg';
-        case TimeOfDayPhase.sunset:
-          return 'assets/images/hero_india_sunset.jpg';
-        case TimeOfDayPhase.evening:
-          return 'assets/images/hero_india_night.jpg';
+
+    if (!isDark) {
+      // DAY MODE (Light Theme)
+      if (_isIndiaRegion) {
+        switch (phase) {
+          case TimeOfDayPhase.dawn:
+            return 'assets/images/hero_india_morning.jpg';
+          case TimeOfDayPhase.sunset:
+            return 'assets/images/hero_india_sunset.jpg';
+          default:
+            return 'assets/images/hero_india_day.jpg';
+        }
+      } else {
+        switch (phase) {
+          case TimeOfDayPhase.dawn:
+            return 'assets/images/hero_day_roadtrip.jpg';
+          case TimeOfDayPhase.sunset:
+            return 'assets/images/hero_3d_landscape.jpg';
+          default:
+            return 'assets/images/route_preview_scenic.jpg';
+        }
       }
     } else {
-      switch (phase) {
-        case TimeOfDayPhase.lateNight:
-          return 'assets/images/hero_night_roadtrip.jpg';
-        case TimeOfDayPhase.dawn:
-          return 'assets/images/hero_day_roadtrip.jpg';
-        case TimeOfDayPhase.morning:
-          return 'assets/images/route_preview_scenic.jpg';
-        case TimeOfDayPhase.afternoon:
-          return 'assets/images/dashboard_alpine_day.jpg';
-        case TimeOfDayPhase.sunset:
-          return 'assets/images/hero_3d_landscape.jpg';
-        case TimeOfDayPhase.evening:
-          return 'assets/images/hero_night_roadtrip.jpg';
+      // NIGHT MODE (Dark Theme)
+      if (_isIndiaRegion) {
+        switch (phase) {
+          case TimeOfDayPhase.sunset:
+            return 'assets/images/hero_india_sunset.jpg';
+          case TimeOfDayPhase.dawn:
+            return 'assets/images/hero_india_morning.jpg';
+          default:
+            return 'assets/images/hero_india_night.jpg';
+        }
+      } else {
+        switch (phase) {
+          case TimeOfDayPhase.sunset:
+            return 'assets/images/hero_3d_landscape.jpg';
+          case TimeOfDayPhase.dawn:
+            return 'assets/images/hero_day_roadtrip.jpg';
+          default:
+            return 'assets/images/hero_night_roadtrip.jpg';
+        }
       }
     }
   }
@@ -1280,18 +1294,28 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF132238), Color(0xFF08101E)],
-        ),
+        gradient: isDarkTheme
+            ? const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFF132238), Color(0xFF08101E)],
+              )
+            : const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFFFFFF), Color(0xFFF1F5F9)],
+              ),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: isDarkTheme
+              ? Colors.white.withValues(alpha: 0.12)
+              : const Color(0xFFCBD5E1),
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.28),
+            color: isDarkTheme
+                ? Colors.black.withValues(alpha: 0.28)
+                : const Color(0x140F172A),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -1300,10 +1324,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '“Not all who\nwander are lost.”',
             style: TextStyle(
-              color: Colors.white,
+              color: isDarkTheme ? Colors.white : const Color(0xFF0F172A),
               fontSize: 17,
               height: 1.15,
               fontWeight: FontWeight.w900,
@@ -1311,15 +1335,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(height: 18),
-          const Row(
+          Row(
             children: [
-              Icon(Icons.explore_rounded,
+              const Icon(Icons.explore_rounded,
                   color: Color(0xFF38BDF8), size: 16),
-              SizedBox(width: 6),
+              const SizedBox(width: 6),
               Text(
                 'VoyPlan',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: isDarkTheme ? Colors.white : const Color(0xFF0F172A),
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 0.5,
@@ -1341,9 +1365,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Solid obsidian canvas foundation to prevent white flashes
+        // Solid canvas foundation to prevent flashes
         Container(
-          color: isDark ? const Color(0xFF030712) : const Color(0xFF060E1A),
+          color: isDark ? const Color(0xFF030712) : const Color(0xFFF8FAFC),
         ),
 
         // Full-screen scenic roadtrip landscape across the COMPLETE page
@@ -1362,13 +1386,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               duration: const Duration(milliseconds: 900),
               switchInCurve: Curves.easeInOut,
               switchOutCurve: Curves.easeInOut,
+              layoutBuilder: (currentChild, previousChildren) => Stack(
+                fit: StackFit.expand,
+                alignment: Alignment.center,
+                children: <Widget>[
+                  ...previousChildren,
+                  if (currentChild != null) currentChild,
+                ],
+              ),
               child: Image.asset(
                 bgAsset,
                 key: ValueKey(bgAsset),
+                width: double.infinity,
+                height: double.infinity,
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
                 errorBuilder: (_, __, ___) => Image.asset(
-                  'assets/images/dashboard_alpine_night.jpg',
+                  isDark
+                      ? 'assets/images/dashboard_alpine_night.jpg'
+                      : 'assets/images/hero_india_day.jpg',
+                  width: double.infinity,
+                  height: double.infinity,
                   fit: BoxFit.cover,
                   alignment: Alignment.center,
                 ),
@@ -1378,7 +1416,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
 
         // Complete-page smooth atmospheric gradient scrim
-        // Softly darkens from top to bottom so content is effortlessly legible,
+        // Softly blends from top to bottom so content is effortlessly legible,
         // while the scenic roadtrip landscape remains seamlessly blended everywhere with ZERO cutoff lines!
         Positioned.fill(
           child: Container(
@@ -1386,37 +1424,45 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  const Color(0xFF060C18).withValues(alpha: 0.45),
-                  const Color(0xFF060C18).withValues(alpha: 0.58),
-                  const Color(0xFF060C18).withValues(alpha: 0.74),
-                  const Color(0xFF060C18).withValues(alpha: 0.88),
-                ],
+                colors: isDark
+                    ? [
+                        const Color(0xFF060C18).withValues(alpha: 0.40),
+                        const Color(0xFF060C18).withValues(alpha: 0.58),
+                        const Color(0xFF060C18).withValues(alpha: 0.74),
+                        const Color(0xFF060C18).withValues(alpha: 0.88),
+                      ]
+                    : [
+                        const Color(0xFFFFFFFF).withValues(alpha: 0.12),
+                        const Color(0xFFF8FAFC).withValues(alpha: 0.38),
+                        const Color(0xFFF8FAFC).withValues(alpha: 0.70),
+                        const Color(0xFFF8FAFC).withValues(alpha: 0.94),
+                      ],
                 stops: const [0.0, 0.35, 0.70, 1.0],
               ),
             ),
           ),
         ),
 
-        // Subtle edge vignette to focus attention inward
-        Positioned.fill(
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.35,
-                colors: [
-                  Colors.transparent,
-                  const Color(0xFF030712).withValues(alpha: 0.55),
-                ],
-                stops: const [0.60, 1.0],
+        // Subtle edge vignette to focus attention inward (in dark mode only)
+        if (isDark)
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 1.35,
+                  colors: [
+                    Colors.transparent,
+                    const Color(0xFF030712).withValues(alpha: 0.55),
+                  ],
+                  stops: const [0.60, 1.0],
+                ),
               ),
             ),
           ),
-        ),
 
         // Ambient aurora orbs softly glowing on top
-        _aurora(),
+        if (isDark) _aurora(),
       ],
     );
   }
@@ -1484,19 +1530,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             color: color ??
                 (isDark
                     ? const Color(0xFF111827).withValues(alpha: 0.65)
-                    : const Color(0xFF0F1A2E).withValues(alpha: 0.80)),
+                    : Colors.white.withValues(alpha: 0.92)),
             borderRadius: BorderRadius.circular(radius),
             border: border ??
                 Border.all(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.09)
-                      : Colors.white.withValues(alpha: 0.12),
+                      : const Color(0xFFE2E8F0),
                 ),
             boxShadow: [
               BoxShadow(
                 color: isDark
                     ? Colors.black.withValues(alpha: 0.35)
-                    : Colors.black.withValues(alpha: 0.30),
+                    : const Color(0x120F172A),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -1512,8 +1558,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 3. HERO SECTION WITH EMBEDDED TRIP PLANNER
   // ==========================================================================
   Widget _buildHeroSection({required bool isDesktop, required bool isTablet}) {
-    final heroInk = Colors.white;
-    final heroSub = const Color(0xFFCBD5E1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final heroInk = isDark ? Colors.white : const Color(0xFF0F172A);
+    final heroSub = isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155);
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: isDesktop ? 16 : 8,
@@ -1532,14 +1579,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
-                color: const Color(0xFF0A1324).withValues(alpha: 0.78),
+                color: isDark
+                    ? const Color(0xFF0A1324).withValues(alpha: 0.78)
+                    : Colors.white.withValues(alpha: 0.92),
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.14)
+                      : const Color(0xFFCBD5E1),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.25),
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.25)
+                        : const Color(0x140F172A),
                     blurRadius: 12,
                     offset: const Offset(0, 3),
                   ),
@@ -1552,8 +1605,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   const SizedBox(width: 8),
                   Text(
                     '$_greeting, $_userName',
-                    style: const TextStyle(
-                        color: Colors.white,
+                    style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700),
                   ),
@@ -1565,7 +1618,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                         width: 3.5,
                         height: 3.5,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.45),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.45)
+                              : const Color(0xFF94A3B8),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -1576,7 +1631,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     Text(
                       _detectedRegion!,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.88),
+                        color: isDark
+                            ? Colors.white.withValues(alpha: 0.88)
+                            : const Color(0xFF334155),
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1597,13 +1654,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               fontWeight: FontWeight.w900,
               letterSpacing: -1.0,
               height: 1.15,
-              shadows: const [
-                Shadow(
-                  color: Colors.black87,
-                  blurRadius: 20,
-                  offset: Offset(0, 3),
-                ),
-              ],
+              shadows: isDark
+                  ? const [
+                      Shadow(
+                        color: Colors.black87,
+                        blurRadius: 20,
+                        offset: Offset(0, 3),
+                      ),
+                    ]
+                  : const [
+                      Shadow(
+                        color: Color(0x28000000),
+                        blurRadius: 8,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
             ),
           ),
           const SizedBox(height: 10),
@@ -1617,13 +1682,21 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 color: heroSub.withValues(alpha: 0.95),
                 fontSize: isDesktop ? 15 : 13.5,
                 height: 1.45,
-                shadows: const [
-                  Shadow(
-                    color: Colors.black54,
-                    blurRadius: 12,
-                    offset: Offset(0, 2),
-                  ),
-                ],
+                shadows: isDark
+                    ? const [
+                        Shadow(
+                          color: Colors.black54,
+                          blurRadius: 12,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : const [
+                        Shadow(
+                          color: Color(0x20000000),
+                          blurRadius: 6,
+                          offset: Offset(0, 1),
+                        ),
+                      ],
               ),
             ),
           ),
@@ -1643,11 +1716,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   Widget _buildEmbeddedTripPlanner(
       {required bool isDesktop, required bool isTablet}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return _glass(
       radius: 22,
-      color: const Color(0xFF0A1324).withValues(alpha: 0.88),
+      color: isDark
+          ? const Color(0xFF0A1324).withValues(alpha: 0.88)
+          : Colors.white.withValues(alpha: 0.95),
       border: Border.all(
-        color: Colors.white.withValues(alpha: 0.14),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.14)
+            : const Color(0xFFE2E8F0),
       ),
       padding: EdgeInsets.all(isDesktop ? 22 : 16),
       child: Column(
@@ -1726,6 +1804,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _tripTypeButton(String title, String mode, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final selected = _tripType == mode;
     final colors = Theme.of(context).colorScheme;
     return MouseRegion(
@@ -1747,12 +1826,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
                   )
                 : null,
-            color: selected ? null : const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+            color: selected
+                ? null
+                : (isDark
+                    ? const Color(0xFF0F1A2E).withValues(alpha: 0.65)
+                    : const Color(0xFFF1F5F9)),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: selected
                   ? const Color(0xFF38BDF8)
-                  : Colors.white.withValues(alpha: 0.12),
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : const Color(0xFFCBD5E1)),
             ),
             boxShadow: selected
                 ? [
@@ -1768,12 +1853,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             children: [
               Icon(icon,
                   size: 14,
-                  color: selected ? Colors.white : const Color(0xFF94A3B8)),
+                  color: selected
+                      ? Colors.white
+                      : (isDark
+                          ? const Color(0xFF94A3B8)
+                          : const Color(0xFF475569))),
               const SizedBox(width: 6),
               Text(
                 title,
                 style: TextStyle(
-                  color: selected ? Colors.white : colors.onSurface,
+                  color: selected
+                      ? Colors.white
+                      : (isDark ? colors.onSurface : const Color(0xFF0F172A)),
                   fontSize: 12.5,
                   fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 ),
@@ -1900,12 +1991,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return const SizedBox.shrink();
     }
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(top: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF0B1728),
+        color: isDark ? const Color(0xFF0B1728) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: const Color(0xFF38BDF8).withValues(alpha: 0.35),
@@ -1913,7 +2005,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.55)
+                : const Color(0x180F172A),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -1948,7 +2042,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 separatorBuilder: (_, __) => Divider(
                   height: 1,
                   thickness: 1,
-                  color: Colors.white.withValues(alpha: 0.06),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.06)
+                      : const Color(0xFFE2E8F0),
                 ),
                 itemBuilder: (context, index) {
                   final item = suggestions[index];
@@ -2038,6 +2134,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildLocationInput({required bool isOrigin}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
     final controller = isOrigin ? _fromController : _toController;
     final focusNode = isOrigin ? _originFocusNode : _destFocusNode;
@@ -2055,12 +2152,16 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+            color: isDark
+                ? const Color(0xFF0F1A2E).withValues(alpha: 0.65)
+                : const Color(0xFFF1F5F9),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: focusNode.hasFocus
                   ? const Color(0xFF38BDF8)
-                  : Colors.white.withValues(alpha: 0.12),
+                  : (isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : const Color(0xFFCBD5E1)),
               width: focusNode.hasFocus ? 1.5 : 1.0,
             ),
           ),
@@ -2189,6 +2290,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildDateSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
     return InkWell(
       onTap: _selectDate,
@@ -2196,9 +2298,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+          color: isDark
+              ? const Color(0xFF0F1A2E).withValues(alpha: 0.65)
+              : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : const Color(0xFFCBD5E1)),
         ),
         child: Row(
           children: [
@@ -2230,13 +2337,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildTravelersSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+        color: isDark
+            ? const Color(0xFF0F1A2E).withValues(alpha: 0.65)
+            : const Color(0xFFF1F5F9),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.12)
+                : const Color(0xFFCBD5E1)),
       ),
       child: Row(
         children: [
@@ -2284,6 +2397,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildVehicleSelector() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = Theme.of(context).colorScheme;
     final isBike = _selectedVehicle?.type == 'motorcycle';
     final isEv = _selectedVehicle?.fuelType == 'ev';
@@ -2298,9 +2412,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
-          color: const Color(0xFF0F1A2E).withValues(alpha: 0.65),
+          color: isDark
+              ? const Color(0xFF0F1A2E).withValues(alpha: 0.65)
+              : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.12)
+                  : const Color(0xFFCBD5E1)),
         ),
         child: Row(
           children: [
@@ -2394,13 +2513,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildPopularDestinationsBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text(
+        Text(
           'Popular:',
           style: TextStyle(
-              color: Colors.white70,
+              color: isDark ? Colors.white70 : const Color(0xFF475569),
               fontSize: 12,
               fontWeight: FontWeight.w700),
         ),
@@ -2423,11 +2543,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0A1324).withValues(alpha: 0.75),
+                        color: isDark
+                            ? const Color(0xFF0A1324).withValues(alpha: 0.75)
+                            : Colors.white.withValues(alpha: 0.90),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.14),
+                          color: isDark
+                              ? Colors.white.withValues(alpha: 0.14)
+                              : const Color(0xFFCBD5E1),
                         ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: isDark
+                                ? Colors.black.withValues(alpha: 0.20)
+                                : const Color(0x100F172A),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2437,8 +2570,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           const SizedBox(width: 4),
                           Text(
                             dest,
-                            style: const TextStyle(
-                                color: Colors.white,
+                            style: TextStyle(
+                                color: isDark ? Colors.white : const Color(0xFF0F172A),
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600),
                           ),
@@ -2578,6 +2711,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 5. AI TRAVEL PLANNER CARD
   // ==========================================================================
   Widget _buildAIPlannerCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedBuilder(
       animation: _aiPulse,
       builder: (ctx, child) {
@@ -2608,7 +2742,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       },
       child: _glass(
         radius: 21,
-        color: const Color(0xFF101426).withValues(alpha: 0.9),
+        color: isDark
+            ? const Color(0xFF101426).withValues(alpha: 0.9)
+            : Colors.white.withValues(alpha: 0.95),
         padding: const EdgeInsets.all(22),
         child: Row(
           children: [
@@ -2643,10 +2779,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 children: [
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         'Let AI plan your next adventure',
                         style: TextStyle(
-                            color: Colors.white,
+                            color: isDark ? Colors.white : const Color(0xFF0F172A),
                             fontSize: 17,
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.3),
@@ -2669,10 +2805,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Smart routes, meaningful stops, fuel planning, toll estimates and personalized itineraries — all in one trip.',
                     style: TextStyle(
-                        color: Color(0xFF94A3B8), fontSize: 12.5, height: 1.35),
+                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                        fontSize: 12.5,
+                        height: 1.35),
                   ),
                 ],
               ),
@@ -4882,16 +5020,22 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // 12. FOOTER
   // ==========================================================================
   Widget _buildAppFooter() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 24),
       decoration: BoxDecoration(
         border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+            top: BorderSide(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : const Color(0xFFE2E8F0))),
       ),
       child: Column(
         children: [
           Image.asset(
-            'assets/images/voyplan-logo-dark.png',
+            isDark
+                ? 'assets/images/voyplan-logo-dark.png'
+                : 'assets/images/voyplan-logo-light.png',
             width: 144,
             fit: BoxFit.contain,
             semanticLabel: 'VoyPlan',
@@ -5612,7 +5756,10 @@ class _QuickActionTileState extends State<_QuickActionTile> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseBg = isDark
         ? const Color(0xFF0A1324).withValues(alpha: 0.74)
-        : const Color(0xFF0F1A2E).withValues(alpha: 0.85);
+        : Colors.white.withValues(alpha: 0.92);
+    final hoverBg = isDark
+        ? const Color(0xFF0E1A33).withValues(alpha: 0.88)
+        : Colors.white;
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
@@ -5638,21 +5785,23 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOutCubic,
                 decoration: BoxDecoration(
-                  color: _isHovered
-                      ? const Color(0xFF0E1A33).withValues(alpha: 0.88)
-                      : baseBg,
+                  color: _isHovered ? hoverBg : baseBg,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: _isHovered
                         ? widget.color.withValues(alpha: 0.55)
-                        : Colors.white.withValues(alpha: 0.11),
+                        : (isDark
+                            ? Colors.white.withValues(alpha: 0.11)
+                            : const Color(0xFFCBD5E1)),
                     width: _isHovered ? 1.4 : 1.0,
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: _isHovered
                           ? widget.color.withValues(alpha: 0.28)
-                          : Colors.black.withValues(alpha: 0.35),
+                          : (isDark
+                              ? Colors.black.withValues(alpha: 0.35)
+                              : const Color(0x120F172A)),
                       blurRadius: _isHovered ? 20 : 12,
                       offset:
                           _isHovered ? const Offset(0, 6) : const Offset(0, 4),
@@ -5675,6 +5824,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
   }
 
   Widget _buildWideLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
@@ -5690,8 +5840,10 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                   widget.title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFF8FAFC),
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFFF8FAFC)
+                        : const Color(0xFF0F172A),
                     fontSize: 13.5,
                     fontWeight: FontWeight.w800,
                     letterSpacing: -0.2,
@@ -5702,8 +5854,10 @@ class _QuickActionTileState extends State<_QuickActionTile> {
                   widget.desc,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF94A3B8),
+                  style: TextStyle(
+                    color: isDark
+                        ? const Color(0xFF94A3B8)
+                        : const Color(0xFF475569),
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
@@ -5719,6 +5873,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
   }
 
   Widget _buildCompactLayout() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
       child: Column(
@@ -5737,8 +5892,10 @@ class _QuickActionTileState extends State<_QuickActionTile> {
             widget.title,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFFF8FAFC),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFFF8FAFC)
+                  : const Color(0xFF0F172A),
               fontSize: 13,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.2,
@@ -5749,8 +5906,10 @@ class _QuickActionTileState extends State<_QuickActionTile> {
             widget.desc,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
+            style: TextStyle(
+              color: isDark
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF475569),
               fontSize: 10.5,
               fontWeight: FontWeight.w500,
             ),
@@ -5796,6 +5955,7 @@ class _QuickActionTileState extends State<_QuickActionTile> {
   }
 
   Widget _buildChevron({required double size, required double iconSize}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
       width: size,
@@ -5803,12 +5963,16 @@ class _QuickActionTileState extends State<_QuickActionTile> {
       decoration: BoxDecoration(
         color: _isHovered
             ? widget.color.withValues(alpha: 0.22)
-            : Colors.white.withValues(alpha: 0.05),
+            : (isDark
+                ? Colors.white.withValues(alpha: 0.05)
+                : const Color(0xFFF1F5F9)),
         shape: BoxShape.circle,
         border: Border.all(
           color: _isHovered
               ? widget.color.withValues(alpha: 0.45)
-              : Colors.white.withValues(alpha: 0.10),
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.10)
+                  : const Color(0xFFE2E8F0)),
           width: 1,
         ),
       ),
@@ -5819,8 +5983,11 @@ class _QuickActionTileState extends State<_QuickActionTile> {
           child: Icon(
             Icons.arrow_forward_rounded,
             size: iconSize,
-            color:
-                _isHovered ? Colors.white : Colors.white.withValues(alpha: 0.50),
+            color: _isHovered
+                ? (isDark ? Colors.white : widget.color)
+                : (isDark
+                    ? Colors.white.withValues(alpha: 0.50)
+                    : const Color(0xFF64748B)),
           ),
         ),
       ),
