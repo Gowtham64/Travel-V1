@@ -35,6 +35,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _obscurePassword = true;
   bool _hasCompletedModalLogin = false;
+  bool _showOptionalDetails = false;
   String? _captchaToken;
   late final VoidCallback _authStateListener;
 
@@ -128,11 +129,18 @@ class _LoginScreenState extends State<LoginScreen> {
       if (kIsWeb &&
           AppConfig.hasTurnstileSiteKey &&
           (_captchaToken == null || _captchaToken!.isEmpty)) {
+        TurnstileCaptcha.focusChallenge();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Please complete the security verification challenge before continuing.',
+          SnackBar(
+            content: const Text(
+              'Please complete the security check to continue, or sign in with Google.',
             ),
+            action: SnackBarAction(
+              label: 'Use Google',
+              textColor: const Color(0xFF38BDF8),
+              onPressed: _signInWithGoogle,
+            ),
+            duration: const Duration(seconds: 7),
           ),
         );
         return;
@@ -409,15 +417,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                     ),
                                   ),
                                 ),
-                                label: Text(
-                                  _isSignUp
-                                      ? 'Sign up with Google'
-                                      : 'Continue with Google',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                label: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _isSignUp
+                                          ? 'Sign up with Google'
+                                          : 'Continue with Google',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF10B981)
+                                            .withOpacity(0.18),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: const Color(0xFF10B981)
+                                              .withOpacity(0.4),
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        '1-Click',
+                                        style: TextStyle(
+                                          color: Color(0xFF34D399),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 style: OutlinedButton.styleFrom(
                                   side: BorderSide(
@@ -490,27 +527,59 @@ class _LoginScreenState extends State<LoginScreen> {
                                 autofillHints: const [AutofillHints.newPassword],
                                 onSubmitted: (_) => _authenticate(),
                               ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _phoneController,
-                                label: 'Phone number (optional)',
-                                hint: '+91 98765 43210',
-                                icon: Icons.phone_outlined,
-                                keyboardType: TextInputType.phone,
-                                autofillHints: const [
-                                  AutofillHints.telephoneNumber
-                                ],
+                              const SizedBox(height: 12),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: TextButton.icon(
+                                  onPressed: () {
+                                    setState(() => _showOptionalDetails =
+                                        !_showOptionalDetails);
+                                  },
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 4, vertical: 6),
+                                    foregroundColor: const Color(0xFF38BDF8),
+                                  ),
+                                  icon: Icon(
+                                    _showOptionalDetails
+                                        ? Icons.expand_less_rounded
+                                        : Icons.add_circle_outline_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    _showOptionalDetails
+                                        ? 'Hide optional profile fields'
+                                        : 'Add phone & home city (optional)',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: _locationController,
-                                label: 'Home base / city (optional)',
-                                hint: 'e.g. Coimbatore, India',
-                                icon: Icons.location_on_outlined,
-                                autofillHints: const [
-                                  AutofillHints.addressCity
-                                ],
-                              ),
+                              if (_showOptionalDetails) ...[
+                                const SizedBox(height: 10),
+                                _buildTextField(
+                                  controller: _phoneController,
+                                  label: 'Phone number (optional)',
+                                  hint: '+91 98765 43210',
+                                  icon: Icons.phone_outlined,
+                                  keyboardType: TextInputType.phone,
+                                  autofillHints: const [
+                                    AutofillHints.telephoneNumber
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                _buildTextField(
+                                  controller: _locationController,
+                                  label: 'Home base / city (optional)',
+                                  hint: 'e.g. Coimbatore, India',
+                                  icon: Icons.location_on_outlined,
+                                  autofillHints: const [
+                                    AutofillHints.addressCity
+                                  ],
+                                ),
+                              ],
                             ] else ...[
                               _buildTextField(
                                 controller: _identifierController,
@@ -538,6 +607,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                 siteKey: AppConfig.turnstileSiteKey,
                                 onTokenReceived: (token) {
                                   setState(() => _captchaToken = token);
+                                },
+                                onError: (err) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          '$err. You can continue with Google instead.',
+                                        ),
+                                        action: SnackBarAction(
+                                          label: 'Use Google',
+                                          textColor: const Color(0xFF38BDF8),
+                                          onPressed: _signInWithGoogle,
+                                        ),
+                                        duration: const Duration(seconds: 8),
+                                      ),
+                                    );
+                                  }
                                 },
                               ),
                             ],

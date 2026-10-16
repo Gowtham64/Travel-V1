@@ -157,23 +157,86 @@
 
   <!-- Cloudflare Turnstile CAPTCHA API -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
-  <div id="cf-turnstile-wrapper" style="display:none; position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999999; background:rgba(10,19,36,0.96); border:1px solid rgba(6,182,212,0.4); border-radius:16px; padding:12px 16px; box-shadow:0 16px 48px rgba(0,0,0,0.85); backdrop-filter:blur(12px); font-family:'Plus Jakarta Sans',sans-serif;">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:8px; font-size:12px; font-weight:600; color:#94a3b8;">
-      <span style="display:flex; align-items:center; gap:6px;">
-        <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#06b6d4;"></span>
-        Cloudflare Turnstile Verification
-      </span>
-      <span id="cf-turnstile-status" style="color:#06b6d4; font-size:11px;">Verifying...</span>
+  <style>
+    #cf-turnstile-wrapper {
+      display: none;
+      position: fixed;
+      bottom: max(20px, env(safe-area-inset-bottom, 20px));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 9999999;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    #cf-turnstile-wrapper.is-modal {
+      inset: 0 !important;
+      left: 0 !important;
+      bottom: 0 !important;
+      transform: none !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      background: rgba(3, 7, 18, 0.82) !important;
+      backdrop-filter: blur(8px) !important;
+      -webkit-backdrop-filter: blur(8px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 16px !important;
+      box-sizing: border-box !important;
+    }
+    .cf-turnstile-box {
+      background: rgba(10, 19, 36, 0.98);
+      border: 1px solid rgba(6, 182, 212, 0.45);
+      border-radius: 18px;
+      padding: 16px 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.92), 0 0 0 1px rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(14px);
+      max-width: 360px;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
+    }
+    #cf-turnstile-wrapper.is-modal .cf-turnstile-box {
+      border-color: rgba(6, 182, 212, 0.7);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.95), 0 0 30px rgba(6, 182, 212, 0.25);
+    }
+  </style>
+  <div id="cf-turnstile-wrapper">
+    <div class="cf-turnstile-box">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+        <span style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#e2e8f0; letter-spacing:-0.2px;">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#06b6d4; box-shadow:0 0 8px #06b6d4;"></span>
+          Security Verification
+        </span>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span id="cf-turnstile-status" style="color:#06b6d4; font-size:11px; font-weight:600;">Verifying...</span>
+          <button type="button" onclick="window.hideCfTurnstile()" style="background:rgba(255,255,255,0.08); border:none; color:#94a3b8; font-size:14px; cursor:pointer; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; line-height:1;" title="Dismiss challenge">✕</button>
+        </div>
+      </div>
+      <div id="cf-turnstile-target" style="min-width:300px; min-height:65px; display:flex; align-items:center; justify-content:center;"></div>
+      <div id="cf-turnstile-adblock-msg" style="display:none; margin-top:10px; padding:10px 12px; border-radius:10px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); font-size:11.5px; color:#fbbf24; text-align:left; line-height:1.4;">
+        ⚠️ <strong>Security check blocked</strong> by browser shield or ad-blocker. Please allow scripts for <code>voyplan.in</code> or tap <strong>Continue with Google</strong>.
+      </div>
     </div>
-    <div id="cf-turnstile-target" style="min-width:300px; min-height:65px; display:flex; align-items:center; justify-content:center;"></div>
   </div>
   <script>
     window.cfTurnstileWidgetId = null;
-    window.initCfTurnstile = function(siteKey, callbackName) {
+    window._cfCurrentSiteKey = null;
+    window._cfCurrentCallbackName = null;
+    window._cfCurrentErrorCallback = null;
+
+    window.initCfTurnstile = function(siteKey, callbackName, errorCallbackName) {
+      window._cfCurrentSiteKey = siteKey;
+      window._cfCurrentCallbackName = callbackName;
+      window._cfCurrentErrorCallback = errorCallbackName;
+
       var wrapper = document.getElementById('cf-turnstile-wrapper');
       var target = document.getElementById('cf-turnstile-target');
       var status = document.getElementById('cf-turnstile-status');
+      var adblockMsg = document.getElementById('cf-turnstile-adblock-msg');
+
       if (wrapper) wrapper.style.display = 'block';
+      if (adblockMsg) adblockMsg.style.display = 'none';
       if (status) {
         status.textContent = 'Verifying...';
         status.style.color = '#06b6d4';
@@ -183,7 +246,19 @@
       function render() {
         attempts++;
         if (typeof turnstile === 'undefined') {
-          if (attempts < 60) setTimeout(render, 150);
+          if (attempts < 25) {
+            setTimeout(render, 150);
+          } else {
+            // Ad-blocker or network blocked challenges.cloudflare.com
+            if (status) {
+              status.textContent = 'Blocked by shield';
+              status.style.color = '#f59e0b';
+            }
+            if (adblockMsg) adblockMsg.style.display = 'block';
+            if (typeof window[errorCallbackName] === 'function') {
+              window[errorCallbackName]('ADBLOCK_BLOCKED');
+            }
+          }
           return;
         }
         if (!target) return;
@@ -202,22 +277,28 @@
                 status.textContent = 'Verified ✓';
                 status.style.color = '#10b981';
               }
+              if (adblockMsg) adblockMsg.style.display = 'none';
               if (typeof window[callbackName] === 'function') {
                 window[callbackName](token);
               }
-              // Once verified in managed mode, auto-hide the floating card after 1.5s
+              // Once verified in managed mode, auto-hide the challenge card smoothly
               setTimeout(function() {
                 if (wrapper && status && status.textContent.indexOf('Verified') !== -1) {
+                  wrapper.classList.remove('is-modal');
                   wrapper.style.display = 'none';
                 }
-              }, 1500);
+              }, 800);
             },
             'error-callback': function(err) {
               if (status) {
                 status.textContent = 'Verification error';
                 status.style.color = '#ef4444';
               }
+              if (adblockMsg) adblockMsg.style.display = 'block';
               console.warn('Turnstile challenge error:', err);
+              if (typeof window[errorCallbackName] === 'function') {
+                window[errorCallbackName]('ERROR');
+              }
             },
             'expired-callback': function() {
               if (status) {
@@ -231,17 +312,27 @@
           });
         } catch (e) {
           console.warn('Turnstile render error:', e);
+          if (typeof window[errorCallbackName] === 'function') {
+            window[errorCallbackName]('RENDER_ERROR');
+          }
         }
       }
       render();
     };
 
+    window.focusCfTurnstile = function() {
+      var wrapper = document.getElementById('cf-turnstile-wrapper');
+      if (wrapper) {
+        wrapper.style.display = 'flex';
+        wrapper.classList.add('is-modal');
+      }
+    };
+
     window.hideCfTurnstile = function() {
       var wrapper = document.getElementById('cf-turnstile-wrapper');
-      if (wrapper) wrapper.style.display = 'none';
-      if (typeof turnstile !== 'undefined' && window.cfTurnstileWidgetId !== null) {
-        try { turnstile.remove(window.cfTurnstileWidgetId); } catch (_) {}
-        window.cfTurnstileWidgetId = null;
+      if (wrapper) {
+        wrapper.classList.remove('is-modal');
+        wrapper.style.display = 'none';
       }
     };
   </script>

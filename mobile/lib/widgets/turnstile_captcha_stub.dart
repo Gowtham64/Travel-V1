@@ -6,12 +6,17 @@ import 'package:flutter/material.dart';
 class TurnstileCaptcha extends StatefulWidget {
   final String siteKey;
   final ValueChanged<String> onTokenReceived;
+  final ValueChanged<String>? onError;
 
   const TurnstileCaptcha({
     super.key,
     required this.siteKey,
     required this.onTokenReceived,
+    this.onError,
   });
+
+  /// Focuses or opens the security challenge on platforms that support it.
+  static void focusChallenge() {}
 
   @override
   State<TurnstileCaptcha> createState() => _TurnstileCaptchaState();

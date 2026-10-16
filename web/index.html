@@ -1994,6 +1994,103 @@
             padding-bottom: 0.2rem;
         }
 
+        .rp-conversion-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+            margin: 0.8rem 0 1.25rem;
+            padding: 1.1rem 1.4rem;
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.16) 0%, rgba(59, 130, 246, 0.14) 50%, rgba(99, 102, 241, 0.18) 100%);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            border-radius: 16px;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35), 0 0 24px rgba(6, 182, 212, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .rp-cb-left {
+            display: flex;
+            align-items: center;
+            gap: 1.1rem;
+        }
+        .rp-cb-icon {
+            width: 44px;
+            height: 44px;
+            flex-shrink: 0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            box-shadow: 0 6px 18px rgba(6, 182, 212, 0.45);
+        }
+        .rp-cb-icon svg { width: 22px; height: 22px; }
+        .rp-cb-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin: 0 0 0.2rem;
+            letter-spacing: -0.2px;
+        }
+        .rp-cb-sub {
+            font-size: 0.84rem;
+            color: #cbd5e1;
+            margin: 0;
+            line-height: 1.35;
+        }
+        .rp-cb-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.35rem;
+            flex-shrink: 0;
+        }
+        .rp-cb-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.4rem;
+            border-radius: 12px;
+            background: linear-gradient(95deg, #06b6d4 0%, #3b82f6 60%, #6366f1 100%);
+            color: #ffffff;
+            font-size: 0.92rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 8px 24px rgba(6, 182, 212, 0.35);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .rp-cb-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 28px rgba(6, 182, 212, 0.5);
+        }
+        .rp-cb-badge {
+            font-size: 0.74rem;
+            color: #38bdf8;
+            font-weight: 600;
+        }
+        @media (max-width: 820px) {
+            .rp-conversion-banner {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: left;
+                padding: 1.1rem;
+            }
+            .rp-cb-right {
+                align-items: stretch;
+                margin-top: 0.4rem;
+            }
+            .rp-cb-btn {
+                justify-content: center;
+                width: 100%;
+            }
+            .rp-cb-badge {
+                text-align: center;
+            }
+        }
+
         .rp-metric {
             position: relative;
             display: grid;
@@ -3904,6 +4001,24 @@
                         <article class="rp-metric" data-rp-tone="budget"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v14H6.5A2.5 2.5 0 0 1 4 16.5z"></path><path d="M4 7.5A2.5 2.5 0 0 1 6.5 10H19M15 14h2"></path></svg></span><div class="rp-metric-value" id="rpTotal">—</div><span class="rp-metric-label">Total budget</span><span class="rp-metric-note" id="rpTotalNote"></span></article>
                     </div>
 
+                    <div class="rp-conversion-banner" id="rpConversionBanner">
+                        <div class="rp-cb-left">
+                            <div class="rp-cb-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                            </div>
+                            <div>
+                                <h3 class="rp-cb-title">Save this route & launch live 3D navigation</h3>
+                                <p class="rp-cb-sub">Create your free account in seconds to save itineraries, customize pit stops, and follow live GPS navigation.</p>
+                            </div>
+                        </div>
+                        <div class="rp-cb-right">
+                            <button type="button" class="rp-cb-btn" id="btnSaveTripSignup">
+                                Save Trip & Create Free Account &rarr;
+                            </button>
+                            <span class="rp-cb-badge">Free forever • 1-click Google Sign-in</span>
+                        </div>
+                    </div>
+
                     <div class="rp-main">
                         <article class="rp-map-card" aria-label="Interactive route map">
                             <div class="rp-map-bar">
@@ -4817,14 +4932,17 @@
             }
 
             // --- 7. Primary Plan Trip Action -> /app/ hand-off ---
-            function launchAppWithTrip(destName) {
+            function launchAppWithTrip(destName, promptAuth = false) {
                 const origin = encodeURIComponent(originInput.value.trim() || 'Bengaluru');
                 const dest = encodeURIComponent(destName || destInput.value.trim() || 'Coorg');
                 const date = encodeURIComponent(document.getElementById('inputDate').value);
                 const vehicle = encodeURIComponent(document.getElementById('selectVehicle').value);
                 const travelers = encodeURIComponent(document.getElementById('selectTravelers').value);
 
-                const appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
+                let appUrl = `${window.location.origin}/app/?mode=${activeTripMode}&from=${origin}&to=${dest}&date=${date}&vehicle=${vehicle}&travelers=${travelers}`;
+                if (promptAuth) {
+                    appUrl += '&auth=signup';
+                }
                 enterApp(appUrl);
             }
 
@@ -5839,6 +5957,10 @@
             // Immediately render default preview (Bengaluru → Coorg) with verified stops & Mapbox geometry
             showPreview(DEFAULT_PREVIEW_DATA);
             document.getElementById('btnCtaPlan').addEventListener('click', () => launchAppWithTrip());
+            const btnSaveTripSignup = document.getElementById('btnSaveTripSignup');
+            if (btnSaveTripSignup) {
+                btnSaveTripSignup.addEventListener('click', () => launchAppWithTrip(null, true));
+            }
             document.getElementById('btnCtaExplore').addEventListener('click', () =>
                 enterApp(`${window.location.origin}/app/?explore=true`));
             document.getElementById('btnTryAi').addEventListener('click', () =>
