@@ -41,6 +41,16 @@ import 'map_location_picker_screen.dart';
 import 'smart_itinerary_screen.dart';
 import '../widgets/voyplan_navigation.dart';
 
+/// Contextual time-of-day phases for roadtrip greeting & scenery adaptation
+enum TimeOfDayPhase {
+  lateNight, // 00:00 - 04:59
+  dawn,      // 05:00 - 07:59
+  morning,   // 08:00 - 11:59
+  afternoon, // 12:00 - 16:59
+  sunset,    // 17:00 - 19:29
+  evening,   // 19:30 - 23:59
+}
+
 /// VoyPlan Redesigned Dashboard — Modern Travel Super App UI/UX
 ///
 /// Features:
@@ -106,6 +116,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   VoyPlanNavigationItem _activeNavigation = VoyPlanNavigationItem.home;
 
+  // Dynamic Time of Day & Region Adaptation
+  String? _detectedRegion;
+  bool _isIndiaRegion = true;
+  String? _cachedDisplayName;
+  Timer? _timeRefreshTimer;
+
   // Animation Controllers
   late final AnimationController _entrance;
   late final AnimationController _ambient;
@@ -141,6 +157,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
     _initDefaultVehicle();
     _loadTrips();
+    _initTimeAndRegion();
+
+    // Periodic check every 5 minutes to keep time phase, greeting, and scenery updated
+    _timeRefreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (mounted) setState(() {});
+    });
 
     _originFocusNode.addListener(() {
       if (!_originFocusNode.hasFocus) {
@@ -293,6 +315,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _timeRefreshTimer?.cancel();
     _entrance.dispose();
     _ambient.dispose();
     _aiPulse.dispose();
@@ -399,17 +422,133 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _initTimeAndRegion() async {
+    // 1. Initial deduction from timezone & system locale
+    final now = DateTime.now();
+    final offset = now.timeZoneOffset;
+    final tzName = now.timeZoneName.toUpperCase();
+    final isIndiaTz = (offset.inHours == 5 && offset.inMinutes.remainder(60).abs() == 30) ||
+        tzName.contains('IST') ||
+        tzName.contains('KOLKATA') ||
+        tzName.contains('CALCUTTA');
+
+    final locale = WidgetsBinding.instance.platformDispatcher.locale;
+    final country = locale.countryCode?.toUpperCase();
+    final isIndiaLocale = country == 'IN' || isIndiaTz;
+
+    if (mounted) {
+      setState(() {
+        _isIndiaRegion = isIndiaLocale;
+        _detectedRegion ??= isIndiaLocale ? 'India' : (country ?? 'Global');
+      });
+    }
+
+    // 2. Fetch cached profile display_name
+    try {
+      final p = await _api.getProfile();
+      final name = (p['display_name'] ?? p['name'])?.toString();
+      if (name != null && name.trim().isNotEmpty && mounted) {
+        setState(() => _cachedDisplayName = name.trim());
+      }
+    } catch (_) {}
+
+    // 3. Non-blocking location check if permission is already granted
+    try {
+      final perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.always || perm == LocationPermission.whileInUse) {
+        Position? pos = await Geolocator.getLastKnownPosition();
+        pos ??= await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.medium,
+            timeLimit: Duration(seconds: 4),
+          ),
+        );
+        if (pos != null && mounted) {
+          final inIndiaCoords = pos.latitude >= 6.0 &&
+              pos.latitude <= 38.0 &&
+              pos.longitude >= 68.0 &&
+              pos.longitude <= 98.0;
+
+          final address = await _api.reverseGeocode(pos.latitude, pos.longitude);
+          if (address != null && address.trim().isNotEmpty && mounted) {
+            final cleanRegion = _extractRegionFromAddress(address);
+            if (mounted) {
+              setState(() {
+                _detectedRegion = cleanRegion;
+                _isIndiaRegion = inIndiaCoords || address.toLowerCase().contains('india');
+              });
+            }
+          } else if (mounted) {
+            setState(() {
+              _isIndiaRegion = inIndiaCoords;
+            });
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  String _extractRegionFromAddress(String address) {
+    final parts = address
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return 'India';
+    final country = parts.last;
+    String city = '';
+    for (int i = parts.length - 2; i >= 0; i--) {
+      final p = parts[i].replaceAll(RegExp(r'\d+'), '').trim();
+      if (p.isNotEmpty && p.length > 2) {
+        city = p;
+        break;
+      }
+    }
+    if (city.isNotEmpty && city.toLowerCase() != country.toLowerCase()) {
+      return '$city, $country';
+    }
+    return country;
+  }
+
   String get _userName {
     try {
+      if (_cachedDisplayName != null && _cachedDisplayName!.trim().isNotEmpty) {
+        return _cleanName(_cachedDisplayName!);
+      }
+      final metadata = AuthSession.instance.user?.userMetadata;
+      final metaName = (metadata?['display_name'] ??
+              metadata?['full_name'] ??
+              metadata?['name'] ??
+              metadata?['given_name'])
+          ?.toString();
+      if (metaName != null && metaName.trim().isNotEmpty) {
+        return _cleanName(metaName);
+      }
       final email = AuthSession.instance.user?.email;
       if (email == null || email.isEmpty) return 'Traveller';
-      final name = email.split('@').first.replaceAll(RegExp(r'[._]'), ' ');
-      return name.isEmpty
-          ? 'Traveller'
-          : name[0].toUpperCase() + name.substring(1);
+      final name = email.split('@').first;
+      return _cleanName(name);
     } catch (_) {
       return 'Traveller';
     }
+  }
+
+  static String _cleanName(String raw) {
+    var s = raw.replaceAll(RegExp(r'[._\-]'), ' ').trim();
+    // Strip trailing digits e.g. 64 -> gowthampec
+    s = s.replaceAll(RegExp(r'\d+'), '').trim();
+    // Strip common campus / org / roll suffixes if appended to a username, e.g. "pec", "bits", "iit", "edu"
+    final lower = s.toLowerCase();
+    for (final suffix in ['pec', 'bits', 'iit', 'nit', 'mit', 'edu', 'app']) {
+      if (lower.endsWith(suffix) && s.length > suffix.length + 2) {
+        s = s.substring(0, s.length - suffix.length).trim();
+        break;
+      }
+    }
+    if (s.isEmpty) s = raw;
+    final token =
+        s.split(' ').firstWhere((e) => e.isNotEmpty, orElse: () => 'Traveller');
+    return token[0].toUpperCase() + token.substring(1).toLowerCase();
   }
 
   String get _userEmail =>
@@ -428,11 +567,136 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return uri.toString();
   }
 
+  TimeOfDayPhase get _timePhase {
+    final now = DateTime.now();
+    final h = now.hour;
+    final m = now.minute;
+    if (h < 5) return TimeOfDayPhase.lateNight;
+    if (h < 8) return TimeOfDayPhase.dawn;
+    if (h < 12) return TimeOfDayPhase.morning;
+    if (h < 17) return TimeOfDayPhase.afternoon;
+    if (h < 19 || (h == 19 && m < 30)) return TimeOfDayPhase.sunset;
+    return TimeOfDayPhase.evening;
+  }
+
   String get _greeting {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+    switch (_timePhase) {
+      case TimeOfDayPhase.lateNight:
+        return 'Late-night journey';
+      case TimeOfDayPhase.dawn:
+        return 'Good early morning';
+      case TimeOfDayPhase.morning:
+        return 'Good morning';
+      case TimeOfDayPhase.afternoon:
+        return 'Good afternoon';
+      case TimeOfDayPhase.sunset:
+        return 'Golden hour';
+      case TimeOfDayPhase.evening:
+        return 'Good evening';
+    }
+  }
+
+  IconData get _greetingIcon {
+    switch (_timePhase) {
+      case TimeOfDayPhase.lateNight:
+        return Icons.nightlight_round;
+      case TimeOfDayPhase.dawn:
+        return Icons.wb_twilight_rounded;
+      case TimeOfDayPhase.morning:
+        return Icons.wb_sunny_rounded;
+      case TimeOfDayPhase.afternoon:
+        return Icons.light_mode_rounded;
+      case TimeOfDayPhase.sunset:
+        return Icons.wb_twilight_rounded;
+      case TimeOfDayPhase.evening:
+        return Icons.dark_mode_rounded;
+    }
+  }
+
+  Color get _greetingIconColor {
+    switch (_timePhase) {
+      case TimeOfDayPhase.lateNight:
+        return const Color(0xFF67E8F9); // glowing soft cyan / moon
+      case TimeOfDayPhase.dawn:
+        return const Color(0xFFFBBF24); // golden sunrise amber
+      case TimeOfDayPhase.morning:
+        return const Color(0xFFF59E0B); // radiant morning gold
+      case TimeOfDayPhase.afternoon:
+        return const Color(0xFF38BDF8); // sky daylight blue
+      case TimeOfDayPhase.sunset:
+        return const Color(0xFFFB923C); // warm sunset orange
+      case TimeOfDayPhase.evening:
+        return const Color(0xFFA78BFA); // twilight violet
+    }
+  }
+
+  String get _heroTitle {
+    switch (_timePhase) {
+      case TimeOfDayPhase.lateNight:
+        return 'Quiet roads.\nMidnight journeys.';
+      case TimeOfDayPhase.dawn:
+        return 'Golden sunrise.\nNew horizons ahead.';
+      case TimeOfDayPhase.morning:
+        return 'Fresh morning.\nEndless adventures.';
+      case TimeOfDayPhase.afternoon:
+        return 'Open skies.\nClear roads ahead.';
+      case TimeOfDayPhase.sunset:
+        return 'Golden hour glow.\nChasing horizons.';
+      case TimeOfDayPhase.evening:
+        return 'Trips made simpler.\nJourneys made brighter.';
+    }
+  }
+
+  String get _heroSubtitle {
+    switch (_timePhase) {
+      case TimeOfDayPhase.lateNight:
+        return 'Starry night skies, tranquil highways, 24/7 fuel stops, and late-night roadtrip routes planned with ease.';
+      case TimeOfDayPhase.dawn:
+        return 'Catch the sunrise over the hills. Real-time routes, scenic detours, and fresh morning itineraries.';
+      case TimeOfDayPhase.morning:
+        return 'Plan road trips with real routes, tolls, fuel cost, AI itinerary and everything you need for a smooth journey.';
+      case TimeOfDayPhase.afternoon:
+        return 'Cruise sunlit highways with optimal pit stops, verified fuel stations, and seamless navigation.';
+      case TimeOfDayPhase.sunset:
+        return 'Catch the dusk sky on scenic routes. Fast toll estimates, golden hour viewpoints, and evening stays.';
+      case TimeOfDayPhase.evening:
+        return 'Plan tomorrow’s great adventure with live routes, tolls, fuel cost, and AI itinerary co-pilot.';
+    }
+  }
+
+  String get _heroBackgroundAsset {
+    final phase = _timePhase;
+    if (_isIndiaRegion) {
+      switch (phase) {
+        case TimeOfDayPhase.lateNight:
+          return 'assets/images/hero_india_night.jpg';
+        case TimeOfDayPhase.dawn:
+          return 'assets/images/hero_india_morning.jpg';
+        case TimeOfDayPhase.morning:
+          return 'assets/images/hero_india_morning.jpg';
+        case TimeOfDayPhase.afternoon:
+          return 'assets/images/hero_india_sunset.jpg';
+        case TimeOfDayPhase.sunset:
+          return 'assets/images/hero_india_sunset.jpg';
+        case TimeOfDayPhase.evening:
+          return 'assets/images/hero_india_night.jpg';
+      }
+    } else {
+      switch (phase) {
+        case TimeOfDayPhase.lateNight:
+          return 'assets/images/hero_night_roadtrip.jpg';
+        case TimeOfDayPhase.dawn:
+          return 'assets/images/hero_day_roadtrip.jpg';
+        case TimeOfDayPhase.morning:
+          return 'assets/images/route_preview_scenic.jpg';
+        case TimeOfDayPhase.afternoon:
+          return 'assets/images/dashboard_alpine_day.jpg';
+        case TimeOfDayPhase.sunset:
+          return 'assets/images/hero_3d_landscape.jpg';
+        case TimeOfDayPhase.evening:
+          return 'assets/images/hero_night_roadtrip.jpg';
+      }
+    }
   }
 
   // Master Trip Modal Entry Point
@@ -619,6 +883,27 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       _fromCoord = GeoPoint(
           lat: pos.latitude, lng: pos.longitude, name: 'Current Location');
       _fromController.text = 'My Current Location';
+
+      final inIndiaCoords = pos.latitude >= 6.0 &&
+          pos.latitude <= 38.0 &&
+          pos.longitude >= 68.0 &&
+          pos.longitude <= 98.0;
+
+      final addr = await _api.reverseGeocode(pos.latitude, pos.longitude);
+      if (addr != null && addr.trim().isNotEmpty) {
+        final clean = _extractRegionFromAddress(addr);
+        if (mounted) {
+          setState(() {
+            _detectedRegion = clean;
+            _isIndiaRegion =
+                inIndiaCoords || addr.toLowerCase().contains('india');
+          });
+        }
+      } else if (mounted) {
+        setState(() {
+          _isIndiaRegion = inIndiaCoords;
+        });
+      }
     } catch (_) {
       _fromController.text = 'Current Location';
     } finally {
@@ -1051,9 +1336,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   // ==========================================================================
   Widget _buildDashboardBackground() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgAsset = isDark
-        ? 'assets/images/dashboard_alpine_night.jpg'
-        : 'assets/images/dashboard_alpine_day.jpg';
+    final bgAsset = _heroBackgroundAsset;
 
     return Stack(
       fit: StackFit.expand,
@@ -1070,26 +1353,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             builder: (context, child) {
               final t = _ambient.value;
               return Transform.scale(
-                scale: 1.03 + 0.03 * math.sin(t * 2 * math.pi),
+                scale: 1.03 + 0.02 * math.sin(t * 2 * math.pi),
                 alignment: Alignment.center,
                 child: child,
               );
             },
-            child: Image.asset(
-              bgAsset,
-              fit: BoxFit.cover,
-              alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Color(0xFF0F172A),
-                      Color(0xFF1E1B4B),
-                      Color(0xFF090D16)
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 900),
+              switchInCurve: Curves.easeInOut,
+              switchOutCurve: Curves.easeInOut,
+              child: Image.asset(
+                bgAsset,
+                key: ValueKey(bgAsset),
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) => Image.asset(
+                  'assets/images/dashboard_alpine_night.jpg',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.center,
                 ),
               ),
             ),
@@ -1106,10 +1387,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF060C18).withValues(alpha: 0.50),
-                  const Color(0xFF060C18).withValues(alpha: 0.60),
-                  const Color(0xFF060C18).withValues(alpha: 0.75),
-                  const Color(0xFF060C18).withValues(alpha: 0.85),
+                  const Color(0xFF060C18).withValues(alpha: 0.45),
+                  const Color(0xFF060C18).withValues(alpha: 0.58),
+                  const Color(0xFF060C18).withValues(alpha: 0.74),
+                  const Color(0xFF060C18).withValues(alpha: 0.88),
                 ],
                 stops: const [0.0, 0.35, 0.70, 1.0],
               ),
@@ -1242,43 +1523,74 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Top Greeting Pill
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF0A1324).withValues(alpha: 0.78),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.14),
+          InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              _pickCurrentLocation();
+            },
+            borderRadius: BorderRadius.circular(20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0A1324).withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.14),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 12,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.waving_hand_rounded,
-                    color: Color(0xFFFBBF24), size: 14),
-                const SizedBox(width: 8),
-                Text(
-                  '$_greeting, $_userName',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700),
-                ),
-              ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_greetingIcon, color: _greetingIconColor, size: 14),
+                  const SizedBox(width: 8),
+                  Text(
+                    '$_greeting, $_userName',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700),
+                  ),
+                  if (_detectedRegion != null &&
+                      _detectedRegion!.isNotEmpty) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Container(
+                        width: 3.5,
+                        height: 3.5,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.45),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.location_on_rounded,
+                        color: Color(0xFF38BDF8), size: 13),
+                    const SizedBox(width: 4),
+                    Text(
+                      _detectedRegion!,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.88),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 16),
 
           // Large Headline
           Text(
-            'Trips made simpler.\nJourneys made brighter.',
+            _heroTitle,
             style: TextStyle(
               color: heroInk,
               fontSize: isDesktop ? 38 : (isTablet ? 32 : 26),
@@ -1300,7 +1612,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 680),
             child: Text(
-              'Plan road trips with real routes, tolls, fuel cost, AI itinerary and everything you need for a smooth journey.',
+              _heroSubtitle,
               style: TextStyle(
                 color: heroSub.withValues(alpha: 0.95),
                 fontSize: isDesktop ? 15 : 13.5,
@@ -1556,6 +1868,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         _fromCoord = pt;
         _originSuggestions = [];
         _isSearchingOrigin = false;
+        final clean = _extractRegionFromAddress(name);
+        if (clean.isNotEmpty) {
+          _detectedRegion = clean;
+          _isIndiaRegion = name.toLowerCase().contains('india') ||
+              (pt.lat >= 6.0 &&
+                  pt.lat <= 38.0 &&
+                  pt.lng >= 68.0 &&
+                  pt.lng <= 98.0);
+        }
       } else {
         _toController.text = name;
         _toCoord = pt;
