@@ -2277,19 +2277,38 @@
             padding: 0.5rem;
             border: 1px solid rgba(79, 175, 255, 0.25);
             border-radius: 0.75rem;
-            background: rgba(2, 20, 39, 0.82);
+            background: rgba(2, 20, 39, 0.85);
             backdrop-filter: blur(0.6rem);
-            box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.22);
+            -webkit-backdrop-filter: blur(0.6rem);
+            box-shadow: 0 0.8rem 1.8rem rgba(0, 0, 0, 0.25);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .rp-map-overlay[hidden] { display: none; }
-        .rp-map-overlay-title { display: block; padding: 0.18rem 0.28rem 0.38rem; color: #dbeaff; font-size: 0.68rem; font-weight: 780; letter-spacing: 0.025em; }
+        .rp-map-overlay-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            background: transparent;
+            border: none;
+            padding: 0.18rem 0.28rem 0.38rem;
+            margin: 0;
+            color: inherit;
+            cursor: pointer;
+            text-align: left;
+            font: inherit;
+        }
+        .rp-map-overlay-title { display: block; color: #dbeaff; font-size: 0.68rem; font-weight: 780; letter-spacing: 0.025em; }
+        .rp-map-overlay-badge { display: none; font-size: 0.65rem; color: #38bdf8; font-weight: 600; }
+        .rp-map-overlay-chevron { display: none; font-size: 0.75rem; color: #94a3b8; }
         .rp-map-overlay-list { display: grid; gap: 0.18rem; margin: 0; padding: 0; list-style: none; }
         .rp-map-overlay-list li { display: flex; align-items: center; gap: 0.45rem; padding: 0.28rem; color: #e8f3ff; font-size: 0.67rem; font-weight: 650; }
         .rp-map-overlay-list i { display: grid; width: 1.22rem; height: 1.22rem; place-items: center; border-radius: 0.35rem; color: #bfe7ff; background: rgba(18, 128, 212, 0.25); font-style: normal; font-size: 0.75rem; }
         .rp-map-overlay-list li[data-kind="fuel"] i { color: #43e6bf; background: rgba(0, 152, 115, 0.28); }
         .rp-map-overlay-list li[data-kind="toll"] i { color: #be94ff; background: rgba(112, 67, 218, 0.3); }
         .rp-map-overlay-list li[data-kind="food"] i { color: #ffc557; background: rgba(157, 100, 8, 0.27); }
+        .rp-summary-hint { display: none; }
 
         .rp-map-legend {
             display: flex;
@@ -2446,10 +2465,47 @@
             section.route-preview { padding: 2.6rem 0 1.2rem; }
             section.destinations { padding: 1.2rem 0 3.5rem; }
             .rp-head { align-items: flex-start; flex-direction: column; margin-bottom: 0.9rem; }
-            .rp-summary { grid-template-columns: repeat(6, minmax(8rem, 1fr)); }
+            .rp-summary {
+                grid-template-columns: repeat(6, minmax(7.8rem, 1fr));
+                gap: 0.55rem;
+                padding: 0.2rem 0.2rem 0.6rem;
+                scroll-snap-type: x mandatory;
+                -webkit-overflow-scrolling: touch;
+            }
+            .rp-summary .rp-metric {
+                scroll-snap-align: start;
+            }
+            .rp-summary-hint {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 0.35rem;
+                font-size: 0.68rem;
+                color: #7dd3fc;
+                margin: -0.4rem 0 0.8rem;
+                padding-right: 0.35rem;
+                letter-spacing: 0.02em;
+            }
             .rp-map-shell,
             .rp-map { min-height: 18.5rem; height: 18.5rem; }
-            .rp-map-overlay { top: 0.65rem; right: 0.65rem; transform: scale(0.86); transform-origin: top right; }
+            .rp-map-overlay {
+                top: 0.65rem;
+                right: 0.65rem;
+                width: auto;
+                max-width: calc(100% - 1.3rem);
+                padding: 0.35rem 0.6rem;
+                transform: none;
+                border-radius: 0.75rem;
+            }
+            .rp-map-overlay-badge { display: inline-block; margin-left: 0.4rem; }
+            .rp-map-overlay-chevron { display: inline-block; margin-left: 0.35rem; }
+            .rp-map-overlay.is-collapsed {
+                padding: 0.28rem 0.65rem;
+                border-radius: 999px;
+            }
+            .rp-map-overlay.is-collapsed .rp-map-overlay-list {
+                display: none;
+            }
         }
 
         /* ════════════════════════════════════════════════════════════════════
@@ -4005,8 +4061,8 @@
                         <article class="rp-metric" data-rp-tone="fuel"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 21V5h9v16"></path><path d="M8 8h3"></path><path d="M14 9h2l2 2v6a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2v-7l-2.2-2.2"></path><path d="M8 21h8"></path></svg></span><div class="rp-metric-value" id="rpFuel">—</div><span class="rp-metric-label">Fuel cost</span><span class="rp-metric-note" id="rpFuelNote"></span></article>
                         <article class="rp-metric" data-rp-tone="toll"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"></path><path d="M8 9h8M8 13h4M13 17h3"></path></svg></span><div class="rp-metric-value" id="rpTolls">—</div><span class="rp-metric-label">Toll estimate</span><span class="rp-metric-note" id="rpTollsNote"></span></article>
                         <article class="rp-metric" data-rp-tone="food"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v8M4 3v4a3 3 0 0 0 6 0V3M7 11v10M16 3v18M16 3c3 1 4 4 4 7h-4"></path></svg></span><div class="rp-metric-value" id="rpFood">—</div><span class="rp-metric-label">Food estimate</span><span class="rp-metric-note" id="rpFoodNote"></span></article>
-                        <article class="rp-metric" data-rp-tone="budget"><span class="rp-metric-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H19v14H6.5A2.5 2.5 0 0 1 4 16.5z"></path><path d="M4 7.5A2.5 2.5 0 0 1 6.5 10H19M15 14h2"></path></svg></span><div class="rp-metric-value" id="rpTotal">—</div><span class="rp-metric-label">Total budget</span><span class="rp-metric-note" id="rpTotalNote"></span></article>
                     </div>
+                    <div class="rp-summary-hint" aria-hidden="true"><span>Scroll for tolls & budget &rarr;</span></div>
 
                     <div class="rp-conversion-banner" id="rpConversionBanner">
                         <div class="rp-cb-left">
@@ -5383,6 +5439,7 @@
                 return compact.length > 18 ? `${compact.slice(0, 17)}…` : compact;
             }
 
+            let mapOverlayCollapsed = window.innerWidth <= 680;
             function renderMapOverlay() {
                 if (!currentPreview || !previewMapOverlay) return;
                 const allPlaces = allPreviewPlaces();
@@ -5398,9 +5455,34 @@
                     { kind: 'food', icon: '⌘', text: `${(groups.restaurant || []).length} food stops` },
                     { kind: 'place', icon: '◒', text: `${(groups.viewpoint || []).length} viewpoints` },
                 ];
+
+                const toggle = document.createElement('button');
+                toggle.className = 'rp-map-overlay-toggle';
+                toggle.type = 'button';
+                toggle.setAttribute('aria-expanded', String(!mapOverlayCollapsed));
+                toggle.setAttribute('aria-label', 'Toggle route stop summary');
+
                 const title = document.createElement('strong');
                 title.className = 'rp-map-overlay-title';
                 title.textContent = 'ROUTE SUMMARY';
+
+                const badge = document.createElement('span');
+                badge.className = 'rp-map-overlay-badge';
+                badge.textContent = `(${fuelStops} fuel · ${Number.isFinite(tollCount) ? tollCount : 0} tolls)`;
+
+                const chevron = document.createElement('span');
+                chevron.className = 'rp-map-overlay-chevron';
+                chevron.textContent = mapOverlayCollapsed ? '▾' : '▴';
+
+                toggle.append(title, badge, chevron);
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    mapOverlayCollapsed = !mapOverlayCollapsed;
+                    previewMapOverlay.classList.toggle('is-collapsed', mapOverlayCollapsed);
+                    chevron.textContent = mapOverlayCollapsed ? '▾' : '▴';
+                    toggle.setAttribute('aria-expanded', String(!mapOverlayCollapsed));
+                });
+
                 const list = document.createElement('ul');
                 list.className = 'rp-map-overlay-list';
                 rows.forEach((row) => {
@@ -5413,7 +5495,8 @@
                     item.append(icon, text);
                     list.appendChild(item);
                 });
-                previewMapOverlay.replaceChildren(title, list);
+                previewMapOverlay.replaceChildren(toggle, list);
+                previewMapOverlay.classList.toggle('is-collapsed', mapOverlayCollapsed);
                 previewMapOverlay.hidden = false;
             }
 
@@ -5517,8 +5600,8 @@
                     svg.appendChild(group);
                 };
                 const trip = currentPreview?.trip || {};
-                drawLabelledMarker(points[0], '#16cfa7', trip.origin?.name || 'Origin', 'right');
-                drawLabelledMarker(points.at(-1), '#ff5974', trip.destination?.name || 'Destination', 'left');
+                drawLabelledMarker(points[0], '#16a7ff', trip.origin?.name || 'Origin', 'right');
+                drawLabelledMarker(points.at(-1), '#ff596d', trip.destination?.name || 'Destination', 'left');
                 const routePlaces = allPreviewPlaces();
                 const shownCategories = new Set();
                 routePlaces.forEach((place) => {
@@ -5527,7 +5610,7 @@
                     const y = Math.max(inset, Math.min(height - inset, height - inset - ((Number(place.lat) - minLat) / latRange) * (height - inset * 2)));
                     if (!Number.isFinite(x) || !Number.isFinite(y)) return;
                     shownCategories.add(place.category);
-                    drawLabelledMarker([x, y], place.category === 'fuel' ? '#15d4a6' : '#ffb21a', place.name, x > width * 0.62 ? 'left' : 'right');
+                    drawLabelledMarker([x, y], place.category === 'fuel' ? '#12c997' : '#ffb21a', place.name, x > width * 0.62 ? 'left' : 'right');
                 });
                 const label = document.createElement('p');
                 label.className = 'rp-map-fallback-label';
@@ -5746,11 +5829,18 @@
                 }
             });
 
-            function mapMarker(color, title) {
+            function mapMarker(color, title, isFuel = false) {
                 const element = document.createElement('span');
-                element.style.cssText = `display:block;width:14px;height:14px;border:2px solid #fff;border-radius:50%;background:${color};box-shadow:0 2px 8px rgba(0,0,0,.38)`;
+                const size = isFuel ? '16px' : (color === '#16a7ff' || color === '#ff596d' ? '15px' : '13px');
+                const glow = isFuel
+                    ? '0 0 10px rgba(18, 201, 151, 0.75), 0 2px 6px rgba(0,0,0,0.45)'
+                    : (color === '#16a7ff'
+                        ? '0 0 10px rgba(22, 167, 255, 0.7), 0 2px 6px rgba(0,0,0,0.4)'
+                        : (color === '#ff596d' ? '0 0 10px rgba(255, 89, 109, 0.7), 0 2px 6px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.38)'));
+                element.style.cssText = `display:block;width:${size};height:${size};border:2.5px solid #fff;border-radius:50%;background:${color};box-shadow:${glow};cursor:pointer;transition:transform 0.2s ease`;
                 element.setAttribute('role', 'img');
                 element.setAttribute('aria-label', title);
+                element.title = title;
                 return element;
             }
 
@@ -5758,9 +5848,9 @@
                 if (!landingMap || !window.mapboxgl || !currentPreview) return;
                 landingMapMarkers.forEach((marker) => marker.remove());
                 landingMapMarkers = [];
-                const addMarker = (lng, lat, color, title) => {
+                const addMarker = (lng, lat, color, title, isFuel = false) => {
                     if (!Number.isFinite(Number(lng)) || !Number.isFinite(Number(lat))) return;
-                    const marker = new window.mapboxgl.Marker({ element: mapMarker(color, title) })
+                    const marker = new window.mapboxgl.Marker({ element: mapMarker(color, title, isFuel) })
                         .setLngLat([Number(lng), Number(lat)])
                         .setPopup(new window.mapboxgl.Popup({ offset: 12 }).setText(title))
                         .addTo(landingMap);
@@ -5769,8 +5859,34 @@
                 const trip = currentPreview.trip;
                 addMarker(trip?.origin?.lng, trip?.origin?.lat, '#16a7ff', trip?.origin?.name || 'Origin');
                 addMarker(trip?.destination?.lng, trip?.destination?.lat, '#ff596d', trip?.destination?.name || 'Destination');
-                (currentPreview.fuelPlan?.refuelStops || []).forEach((stop) => addMarker(stop.lng, stop.lat, '#12c997', stop.name));
-                filteredPlaces().slice(0, 12).forEach((place) => addMarker(place.lng, place.lat, '#ffb21a', place.name));
+
+                const markedCoords = new Set();
+                const toKey = (lng, lat) => `${Number(lng).toFixed(3)},${Number(lat).toFixed(3)}`;
+                if (trip?.origin?.lng && trip?.origin?.lat) markedCoords.add(toKey(trip.origin.lng, trip.origin.lat));
+                if (trip?.destination?.lng && trip?.destination?.lat) markedCoords.add(toKey(trip.destination.lng, trip.destination.lat));
+
+                // 1. Refuel stops from calculated fuel plan (always vivid emerald green #12c997)
+                (currentPreview.fuelPlan?.refuelStops || []).forEach((stop) => {
+                    const key = toKey(stop.lng, stop.lat);
+                    if (!markedCoords.has(key)) {
+                        markedCoords.add(key);
+                        addMarker(stop.lng, stop.lat, '#12c997', `${stop.name} (Fuel Stop)`, true);
+                    }
+                });
+
+                // 2. Route places (fuel stations in green #12c997, route attractions/food in orange #ffb21a)
+                filteredPlaces().slice(0, 16).forEach((place) => {
+                    const key = toKey(place.lng, place.lat);
+                    if (markedCoords.has(key)) return;
+                    markedCoords.add(key);
+
+                    const isFuel = place.category === 'fuel' ||
+                        /fuel|petrol|diesel|gas|shell|indianoil|indian oil|hp|bpcl|bharat petroleum/i.test(place.name || '');
+
+                    const color = isFuel ? '#12c997' : '#ffb21a';
+                    const label = isFuel ? `${place.name} (Fuel Stop)` : place.name;
+                    addMarker(place.lng, place.lat, color, label, isFuel);
+                });
             }
 
             function paintRouteOnMap({ fit = false } = {}) {

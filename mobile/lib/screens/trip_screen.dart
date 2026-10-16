@@ -2376,8 +2376,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                     const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                 decoration: BoxDecoration(
                   color: isVisited
-                      ? const Color(0xFF10B981)
-                      : const Color(0xFFF59E0B),
+                      ? const Color(0xFF059669)
+                      : const Color(0xFF10B981),
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: const [
                     BoxShadow(color: Colors.black45, blurRadius: 4)
@@ -2403,8 +2403,8 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   boxShadow: [
                     BoxShadow(
                       color: (isVisited
-                              ? const Color(0xFF10B981)
-                              : const Color(0xFFF59E0B))
+                              ? const Color(0xFF059669)
+                              : const Color(0xFF10B981))
                           .withOpacity(0.6),
                       blurRadius: 8,
                       spreadRadius: 2,
@@ -2412,17 +2412,17 @@ class _TripScreenState extends State<TripScreen> with TickerProviderStateMixin {
                   ],
                   border: Border.all(
                     color: isVisited
-                        ? const Color(0xFF10B981)
-                        : const Color(0xFFF59E0B),
+                        ? const Color(0xFF059669)
+                        : const Color(0xFF10B981),
                     width: 2.5,
                   ),
                 ),
                 child: Center(
                   child: isVisited
                       ? const Icon(Icons.check,
-                          color: Color(0xFF10B981), size: 18)
+                          color: Color(0xFF059669), size: 18)
                       : const Icon(Icons.local_gas_station_rounded,
-                          color: Color(0xFFF59E0B), size: 18),
+                          color: Color(0xFF10B981), size: 18),
                 ),
               ),
             ],
