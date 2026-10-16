@@ -145,6 +145,18 @@ describe("VoyPlan Cloudflare Worker API", () => {
       expect(json.success).toBe(true);
       expect(Array.isArray(json.vehicles)).toBe(true);
     });
+
+    it("GET /api/vehicles/image validates required brand and model parameters", async () => {
+      const res = await app.request("/api/vehicles/image?brand=Maruti", {}, mockEnv);
+      expect(res.status).toBe(400);
+    });
+
+    it("GET /api/vehicles/image returns fallback with CORS headers for non-existent vehicle", async () => {
+      const res = await app.request("/api/vehicles/image?brand=NonExistent&model=Imaginary&type=car", {}, mockEnv);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(res.headers.get("content-type")).toContain("image/svg+xml");
+    });
   });
 
   describe("Fuel Routes", () => {

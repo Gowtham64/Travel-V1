@@ -810,7 +810,8 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
                       Row(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(7),
+                            width: 50,
+                            height: 38,
                             decoration: BoxDecoration(
                               color: (_selectedVehicle!.type == 'motorcycle'
                                       ? const Color(0xFFF59E0B)
@@ -818,14 +819,19 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
                                   .withOpacity(0.18),
                               borderRadius: BorderRadius.circular(8),
                             ),
-                            child: Icon(
-                              _selectedVehicle!.type == 'motorcycle'
-                                  ? Icons.two_wheeler_rounded
-                                  : Icons.directions_car_rounded,
-                              size: 18,
-                              color: _selectedVehicle!.type == 'motorcycle'
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFF60A5FA),
+                            clipBehavior: Clip.antiAlias,
+                            child: VehicleImage(
+                              vehicle: _selectedVehicle!,
+                              fit: BoxFit.contain,
+                              fallback: Icon(
+                                _selectedVehicle!.type == 'motorcycle'
+                                    ? Icons.two_wheeler_rounded
+                                    : Icons.directions_car_rounded,
+                                size: 18,
+                                color: _selectedVehicle!.type == 'motorcycle'
+                                    ? const Color(0xFFF59E0B)
+                                    : const Color(0xFF60A5FA),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -1022,8 +1028,10 @@ class _VehicleSearchSheetState extends State<VehicleSearchSheet> {
                         : const Color(0xFF3B82F6).withOpacity(0.12)),
                 borderRadius: BorderRadius.circular(10),
               ),
+              clipBehavior: Clip.antiAlias,
               child: VehicleImage(
                 vehicle: v,
+                fit: BoxFit.contain,
                 fallback: Icon(
                   isBike
                       ? Icons.two_wheeler_rounded

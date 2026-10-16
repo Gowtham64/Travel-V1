@@ -8,12 +8,14 @@ class VehicleImage extends StatelessWidget {
   final VehicleModel vehicle;
   final Widget fallback;
   final BoxFit fit;
+  final BorderRadius? borderRadius;
 
   const VehicleImage({
     super.key,
     required this.vehicle,
     required this.fallback,
-    this.fit = BoxFit.cover,
+    this.fit = BoxFit.contain,
+    this.borderRadius,
   });
 
   @override
@@ -23,13 +25,19 @@ class VehicleImage extends StatelessWidget {
 
     Widget load(int index) {
       if (index >= urls.length) return fallback;
-      return Image.network(
+      final image = Image.network(
         urls[index],
         fit: fit,
         errorBuilder: (_, __, ___) => load(index + 1),
       );
+
+      if (borderRadius != null) {
+        return ClipRRect(borderRadius: borderRadius!, child: image);
+      }
+      return image;
     }
 
     return load(0);
   }
 }
+
