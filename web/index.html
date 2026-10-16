@@ -576,8 +576,8 @@
 
         .hero.weather-mode-rain .hero-scrim {
             background:
-                radial-gradient(ellipse 70% 65% at 24% 45%, rgba(4, 10, 24, 0.88) 0%, rgba(4, 10, 24, 0.65) 45%, rgba(4, 10, 24, 0.2) 75%),
-                linear-gradient(180deg, rgba(6, 16, 32, 0.55) 0%, transparent 35%, transparent 68%, rgba(4, 10, 24, 0.82) 86%, var(--bg-base) 100%);
+                radial-gradient(ellipse 70% 65% at 24% 45%, rgba(6, 14, 28, 0.88) 0%, rgba(8, 16, 32, 0.65) 45%, rgba(20, 36, 60, 0.2) 75%),
+                linear-gradient(180deg, rgba(8, 20, 40, 0.6) 0%, rgba(12, 28, 50, 0.2) 30%, transparent 55%, rgba(8, 20, 36, 0.45) 80%, rgba(4, 10, 24, 0.86) 92%, var(--bg-base) 100%);
         }
         .hero.weather-mode-sunny .hero-scrim {
             background:
@@ -5330,6 +5330,10 @@
                     this.height = 0;
                     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
                     this.particles = [];
+                    this.backRain = [];
+                    this.midRain = [];
+                    this.frontRain = [];
+                    this.glassDrops = [];
                     this.splashes = [];
                     this.rafId = null;
                     this.isActive = false;
@@ -5398,23 +5402,68 @@
 
                 initParticles() {
                     this.particles = [];
+                    this.backRain = [];
+                    this.midRain = [];
+                    this.frontRain = [];
+                    this.glassDrops = [];
                     this.splashes = [];
                     this.lightningTimer = Math.random() * 3000 + 4000;
                     this.lightningAlpha = 0;
                     const isMobile = this.width < 680;
 
                     if (this.mode === 'rain' || this.mode === 'thunderstorm') {
-                        const count = this.mode === 'thunderstorm'
-                            ? (isMobile ? 85 : 145)
-                            : (isMobile ? 60 : 105);
-                        for (let i = 0; i < count; i++) {
-                            this.particles.push({
-                                x: Math.random() * (this.width + 150) - 50,
+                        const isThunder = this.mode === 'thunderstorm';
+                        // 1. Distant drizzle curtain (high density, fine width, fast, soft atmospheric opacity)
+                        const backCount = isThunder ? (isMobile ? 150 : 280) : (isMobile ? 110 : 200);
+                        for (let i = 0; i < backCount; i++) {
+                            this.backRain.push({
+                                x: Math.random() * (this.width + 300) - 100,
                                 y: Math.random() * this.height,
-                                length: Math.random() * 16 + 14,
-                                speed: Math.random() * 8 + 14,
-                                alpha: Math.random() * 0.45 + 0.25,
-                                width: Math.random() * 0.8 + 1,
+                                length: Math.random() * 25 + 30,
+                                speed: Math.random() * 10 + 28,
+                                alpha: Math.random() * 0.12 + 0.10,
+                            });
+                        }
+
+                        // 2. Midground rain streaks (standard raindrops, medium width, long motion blur)
+                        const midCount = isThunder ? (isMobile ? 85 : 160) : (isMobile ? 60 : 120);
+                        for (let i = 0; i < midCount; i++) {
+                            this.midRain.push({
+                                x: Math.random() * (this.width + 300) - 100,
+                                y: Math.random() * this.height,
+                                length: Math.random() * 45 + 60,
+                                speed: Math.random() * 14 + 40,
+                                alpha: Math.random() * 0.22 + 0.28,
+                                width: Math.random() * 0.35 + 1.2,
+                            });
+                        }
+
+                        // 3. Foreground close-up drops (heavy, wide, high-speed gradient streak with bright water bead)
+                        const frontCount = isThunder ? (isMobile ? 24 : 45) : (isMobile ? 16 : 28);
+                        for (let i = 0; i < frontCount; i++) {
+                            this.frontRain.push({
+                                x: Math.random() * (this.width + 300) - 100,
+                                y: Math.random() * this.height,
+                                length: Math.random() * 70 + 100,
+                                speed: Math.random() * 18 + 58,
+                                alpha: Math.random() * 0.25 + 0.50,
+                                width: Math.random() * 0.8 + 2.0,
+                            });
+                        }
+
+                        // 4. Authentic Glass Droplets (windshield / screen liquid beads with refraction & specular glints)
+                        const glassCount = isMobile ? 18 : 32;
+                        for (let i = 0; i < glassCount; i++) {
+                            this.glassDrops.push({
+                                x: Math.random() * (this.width - 40) + 20,
+                                y: Math.random() * (this.height - 40) + 20,
+                                r: Math.random() * 3.4 + 2.0,
+                                aspect: Math.random() * 0.3 + 1.1,
+                                alpha: Math.random() * 0.25 + 0.70,
+                                isTrickling: Math.random() < 0.22,
+                                trickleSpeed: Math.random() * 1.5 + 0.7,
+                                tricklePause: 0,
+                                trail: [],
                             });
                         }
                     } else if (this.mode === 'snow') {
@@ -5517,69 +5566,256 @@
 
                 renderRain(time, dt) {
                     const ctx = this.ctx;
-                    const angle = 0.22; // ~12 degrees slant
+                    const speedMult = Math.min(dt * 60, 2.5); // Normalize physical frame rate
+
+                    // Organic wind gusting (~12-16 degrees slant with gentle breathing)
+                    const baseSlant = this.mode === 'thunderstorm' ? 0.26 : 0.20;
+                    const angle = baseSlant + Math.sin(time * 0.0008) * 0.035;
                     const sin = Math.sin(angle);
                     const cos = Math.cos(angle);
 
+                    // Lightning illumination flash
                     if (this.mode === 'thunderstorm') {
                         this.lightningTimer -= dt * 1000;
                         if (this.lightningTimer <= 0) {
-                            this.lightningAlpha = Math.random() * 0.35 + 0.3;
-                            this.lightningTimer = Math.random() * 8000 + 6000;
+                            this.lightningAlpha = Math.random() * 0.38 + 0.35;
+                            this.lightningTimer = Math.random() * 7000 + 5000;
                         }
                         if (this.lightningAlpha > 0) {
-                            ctx.fillStyle = `rgba(230, 244, 255, ${this.lightningAlpha})`;
+                            ctx.fillStyle = `rgba(235, 245, 255, ${this.lightningAlpha})`;
                             ctx.fillRect(0, 0, this.width, this.height);
                             this.lightningAlpha = Math.max(0, this.lightningAlpha - dt * 2.8);
                         }
                     }
 
                     ctx.save();
+
+                    // ── 1. Distant Drizzle Curtain (Single Batched Stroke Pass) ──
+                    ctx.strokeStyle = 'rgba(186, 225, 253, 0.16)';
+                    ctx.lineWidth = 0.8;
+                    ctx.lineCap = 'butt';
+                    ctx.beginPath();
+                    for (let i = 0; i < this.backRain.length; i++) {
+                        const p = this.backRain[i];
+                        p.x += sin * p.speed * speedMult;
+                        p.y += cos * p.speed * speedMult;
+                        if (p.y > this.height) {
+                            p.y = -p.length;
+                            p.x = Math.random() * (this.width + 300) - 100;
+                        }
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p.x - sin * p.length, p.y - cos * p.length);
+                    }
+                    ctx.stroke();
+
+                    // ── 2. Midground Rain Streaks (Batched with Droplet Heads) ──
+                    ctx.strokeStyle = 'rgba(205, 235, 255, 0.36)';
+                    ctx.lineWidth = 1.25;
                     ctx.lineCap = 'round';
-                    this.particles.forEach((p) => {
-                        p.x += sin * p.speed;
-                        p.y += cos * p.speed;
+                    ctx.beginPath();
+                    for (let i = 0; i < this.midRain.length; i++) {
+                        const p = this.midRain[i];
+                        p.x += sin * p.speed * speedMult;
+                        p.y += cos * p.speed * speedMult;
+
+                        // Road impact splashes
+                        if (p.y > this.height || (p.y > this.height * 0.72 && Math.random() < 0.015)) {
+                            if (this.splashes.length < 35) {
+                                this.splashes.push({
+                                    x: p.x,
+                                    y: Math.min(p.y, this.height - 4),
+                                    rx: 1.5,
+                                    ry: 0.6,
+                                    maxR: Math.random() * 8 + 5,
+                                    alpha: 0.55,
+                                });
+                            }
+                            if (p.y > this.height) {
+                                p.y = -p.length;
+                                p.x = Math.random() * (this.width + 300) - 100;
+                            }
+                        }
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p.x - sin * p.length, p.y - cos * p.length);
+                    }
+                    ctx.stroke();
+
+                    // ── 3. Foreground Close Rain (Individual Gradient Water Streaks + Droplet Beads) ──
+                    ctx.lineCap = 'round';
+                    for (let i = 0; i < this.frontRain.length; i++) {
+                        const p = this.frontRain[i];
+                        p.x += sin * p.speed * speedMult;
+                        p.y += cos * p.speed * speedMult;
 
                         if (p.y > this.height) {
-                            if (Math.random() > 0.65 && this.splashes.length < 35) {
+                            if (this.splashes.length < 40) {
+                                // Road ripple
                                 this.splashes.push({
                                     x: p.x,
                                     y: this.height - 4,
-                                    vx: (Math.random() - 0.5) * 3,
-                                    vy: -(Math.random() * 2 + 1),
-                                    r: Math.random() * 1.5 + 0.8,
-                                    alpha: 0.5,
+                                    rx: 2.0,
+                                    ry: 0.8,
+                                    maxR: Math.random() * 12 + 8,
+                                    alpha: 0.65,
                                 });
+                                // Droplet pop spray
+                                for (let s = 0; s < 2; s++) {
+                                    this.splashes.push({
+                                        x: p.x,
+                                        y: this.height - 6,
+                                        vx: (Math.random() - 0.5) * 4,
+                                        vy: -(Math.random() * 2.8 + 1.2),
+                                        r: Math.random() * 1.4 + 0.8,
+                                        alpha: 0.6,
+                                    });
+                                }
                             }
                             p.y = -p.length;
-                            p.x = Math.random() * (this.width + 150) - 50;
+                            p.x = Math.random() * (this.width + 300) - 100;
                         }
 
-                        ctx.strokeStyle = `rgba(186, 230, 253, ${p.alpha})`;
+                        // Gradient stroke along falling streak
+                        const tailX = p.x - sin * p.length;
+                        const tailY = p.y - cos * p.length;
+                        const grad = ctx.createLinearGradient(p.x, p.y, tailX, tailY);
+                        grad.addColorStop(0, `rgba(255, 255, 255, ${p.alpha * 0.95})`);
+                        grad.addColorStop(0.18, `rgba(215, 240, 255, ${p.alpha * 0.72})`);
+                        grad.addColorStop(0.65, `rgba(180, 220, 255, ${p.alpha * 0.28})`);
+                        grad.addColorStop(1, 'rgba(160, 210, 255, 0)');
+
+                        ctx.strokeStyle = grad;
                         ctx.lineWidth = p.width;
                         ctx.beginPath();
                         ctx.moveTo(p.x, p.y);
-                        ctx.lineTo(p.x - sin * p.length, p.y - cos * p.length);
+                        ctx.lineTo(tailX, tailY);
                         ctx.stroke();
-                    });
 
-                    for (let i = this.splashes.length - 1; i >= 0; i--) {
-                        const s = this.splashes[i];
-                        s.x += s.vx;
-                        s.y += s.vy;
-                        s.vy += 0.18;
-                        s.alpha -= dt * 1.8;
-
-                        if (s.alpha <= 0) {
-                            this.splashes.splice(i, 1);
-                            continue;
-                        }
-
-                        ctx.fillStyle = `rgba(186, 230, 253, ${s.alpha})`;
+                        // Liquid water droplet bead at the leading tip
+                        ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha * 0.9})`;
                         ctx.beginPath();
-                        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                        ctx.arc(p.x, p.y, p.width * 0.7, 0, Math.PI * 2);
                         ctx.fill();
                     }
+
+                    // ── 4. Highway Surface Splashes & Expanding Water Ripples ──
+                    for (let i = this.splashes.length - 1; i >= 0; i--) {
+                        const s = this.splashes[i];
+                        if (s.rx !== undefined) {
+                            // Expanding ripple ellipse on wet asphalt
+                            s.rx += dt * 32;
+                            s.ry += dt * 11;
+                            s.alpha -= dt * 1.8;
+                            if (s.alpha <= 0 || s.rx > s.maxR) {
+                                this.splashes.splice(i, 1);
+                                continue;
+                            }
+                            ctx.strokeStyle = `rgba(195, 230, 255, ${s.alpha * 0.5})`;
+                            ctx.lineWidth = 1.0;
+                            ctx.beginPath();
+                            ctx.ellipse(s.x, s.y, s.rx, s.ry, 0, 0, Math.PI * 2);
+                            ctx.stroke();
+                        } else {
+                            // Droplet splash bounce particle
+                            s.x += s.vx;
+                            s.y += s.vy;
+                            s.vy += 0.22;
+                            s.alpha -= dt * 1.8;
+                            if (s.alpha <= 0) {
+                                this.splashes.splice(i, 1);
+                                continue;
+                            }
+                            ctx.fillStyle = `rgba(210, 240, 255, ${s.alpha})`;
+                            ctx.beginPath();
+                            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+
+                    // ── 5. Real 3D Glass Raindrops (Windshield/Screen Liquid Beads) ──
+                    for (let i = 0; i < this.glassDrops.length; i++) {
+                        const d = this.glassDrops[i];
+
+                        // Trickling physics
+                        if (d.isTrickling) {
+                            if (d.tricklePause > 0) {
+                                d.tricklePause -= dt;
+                            } else {
+                                d.y += d.trickleSpeed * speedMult * 0.55;
+                                if (Math.random() < 0.3 && d.trail.length < 8) {
+                                    d.trail.push({ x: d.x + (Math.random() - 0.5) * 0.6, y: d.y - d.r * 1.2, r: d.r * 0.42, alpha: 0.5 });
+                                }
+                                if (Math.random() < 0.016) {
+                                    d.tricklePause = Math.random() * 0.5 + 0.2;
+                                }
+                            }
+                            if (d.y > this.height + 25) {
+                                d.y = -10;
+                                d.x = Math.random() * (this.width - 40) + 20;
+                                d.r = Math.random() * 3.2 + 2.0;
+                                d.isTrickling = Math.random() < 0.22;
+                                d.trail = [];
+                            }
+                        }
+
+                        // Wet trail behind trickling drops
+                        for (let tIdx = d.trail.length - 1; tIdx >= 0; tIdx--) {
+                            const tr = d.trail[tIdx];
+                            tr.alpha -= dt * 0.35;
+                            if (tr.alpha <= 0) {
+                                d.trail.splice(tIdx, 1);
+                                continue;
+                            }
+                            ctx.fillStyle = `rgba(200, 230, 255, ${tr.alpha * 0.35})`;
+                            ctx.beginPath();
+                            ctx.arc(tr.x, tr.y, tr.r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // A. Soft Drop Shadow (gives 3D depth against background)
+                        ctx.fillStyle = 'rgba(2, 8, 20, 0.32)';
+                        ctx.beginPath();
+                        ctx.ellipse(d.x + 0.8, d.y + 1.2, d.r * 0.95, d.r * d.aspect * 0.95, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // B. Translucent Liquid Refractive Body
+                        const dropGrad = ctx.createRadialGradient(
+                            d.x - d.r * 0.2, d.y - d.r * 0.25, d.r * 0.1,
+                            d.x, d.y, d.r * d.aspect
+                        );
+                        dropGrad.addColorStop(0, 'rgba(230, 245, 255, 0.45)');
+                        dropGrad.addColorStop(0.55, 'rgba(170, 215, 255, 0.22)');
+                        dropGrad.addColorStop(0.92, 'rgba(100, 160, 230, 0.36)');
+                        dropGrad.addColorStop(1, 'rgba(215, 240, 255, 0.55)');
+                        ctx.fillStyle = dropGrad;
+                        ctx.beginPath();
+                        ctx.ellipse(d.x, d.y, d.r, d.r * d.aspect, 0, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // C. Specular Glint (Bright daylight/headlight reflection at top-left)
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            d.x - d.r * 0.32,
+                            d.y - d.r * 0.35 * d.aspect,
+                            Math.max(0.6, d.r * 0.28),
+                            Math.max(0.5, d.r * 0.20),
+                            -0.4, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+
+                        // D. Secondary Ambient Rim Light (bottom reflection)
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.42)';
+                        ctx.beginPath();
+                        ctx.ellipse(
+                            d.x + d.r * 0.18,
+                            d.y + d.r * 0.38 * d.aspect,
+                            Math.max(0.5, d.r * 0.22),
+                            Math.max(0.4, d.r * 0.14),
+                            0.3, 0, Math.PI * 2
+                        );
+                        ctx.fill();
+                    }
+
                     ctx.restore();
                 }
 
