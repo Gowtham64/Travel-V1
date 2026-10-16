@@ -29,27 +29,30 @@
                 var h = now.getHours();
                 var m = now.getMinutes();
 
-                var dayImg = 'images/hero_india_day.jpg?v=5';
-                var nightImg = 'images/hero_india_night.jpg?v=5';
-
+                var heroImg = 'images/hero_india_day.jpg?v=6';
                 if (h >= 5 && h < 8) {
-                    dayImg = 'images/hero_india_morning.jpg?v=5';
+                    heroImg = 'images/hero_india_morning.jpg?v=6'; // 5 AM - 8 AM: Western Ghats sunrise
+                } else if (h >= 8 && h < 17) {
+                    heroImg = 'images/hero_india_day.jpg?v=6';     // 8 AM - 5 PM: Bright sunny expressway
                 } else if (h >= 17 && (h < 19 || (h === 19 && m < 30))) {
-                    dayImg = 'images/hero_india_sunset.jpg?v=5';
-                    nightImg = 'images/hero_india_sunset.jpg?v=5';
+                    heroImg = 'images/hero_india_sunset.jpg?v=6';  // 5 PM - 7:30 PM: Golden twilight
+                } else {
+                    heroImg = 'images/hero_india_night.jpg?v=6';   // 7:30 PM - 5 AM: Starry night
                 }
 
-                window._voyplanDayImg = dayImg;
-                window._voyplanNightImg = nightImg;
-                var activeHeroImg = theme === 'light' ? dayImg : nightImg;
-                window._voyplanActiveHeroImg = activeHeroImg;
+                window._voyplanHeroImg = heroImg;
 
                 var preloadLink = document.createElement('link');
                 preloadLink.rel = 'preload';
                 preloadLink.as = 'image';
-                preloadLink.href = activeHeroImg;
+                preloadLink.href = heroImg;
                 preloadLink.fetchPriority = 'high';
                 document.head.appendChild(preloadLink);
+
+                // Inject instant CSS override so the correct background renders without waiting for scripts
+                var style = document.createElement('style');
+                style.textContent = '.hero-backdrop-day, .hero-backdrop-night { background-image: url("' + heroImg + '") !important; opacity: 1 !important; }';
+                document.head.appendChild(style);
             } catch (_) {}
         })();
     </script>
@@ -476,28 +479,15 @@
             image-rendering: high-quality;
         }
 
-        .hero-backdrop-day {
-            background-image: url('images/hero_india_day.jpg?v=5');
-            opacity: 0;
-        }
-
+        .hero-backdrop-day,
         .hero-backdrop-night {
-            background-image: url('images/hero_india_night.jpg?v=5');
+            background-image: url('images/hero_india_day.jpg?v=6');
             opacity: 1;
         }
 
-        [data-theme="light"] .hero-backdrop-day {
-            opacity: 1;
-        }
-
-        [data-theme="light"] .hero-backdrop-night {
-            opacity: 0;
-        }
-
-        [data-theme="dark"] .hero-backdrop-day {
-            opacity: 0;
-        }
-
+        [data-theme="light"] .hero-backdrop-day,
+        [data-theme="light"] .hero-backdrop-night,
+        [data-theme="dark"] .hero-backdrop-day,
         [data-theme="dark"] .hero-backdrop-night {
             opacity: 1;
         }
@@ -3659,11 +3649,14 @@
         @media (max-width: 1180px) {
             .hero-content {
                 grid-template-columns: 1fr;
-                gap: 3rem;
+                gap: 2rem;
             }
             .hero-copy { max-width: 100%; }
-            .category-rail { display: none; }
-            .route-hud-card { display: none; }
+            .hero-right-spacer { display: none !important; }
+            .category-rail { display: none !important; }
+            .route-hud-card { display: none !important; }
+            .floating-marker { display: none !important; }
+            .hero-script-flourish { display: none !important; }
             .features-grid-6 { grid-template-columns: repeat(3, 1fr); }
             .ai-grid { grid-template-columns: 1fr; }
             .ai-itinerary-hud { position: static; margin-top: 1.5rem; width: 100%; }
@@ -4859,12 +4852,11 @@
                     };
                     test.src = url;
                 };
-                const dayUrl = window._voyplanDayImg || 'images/hero_india_day.jpg?v=5';
-                const nightUrl = window._voyplanNightImg || 'images/hero_india_night.jpg?v=5';
-                heroBackdropDay.style.backgroundImage = `url('${dayUrl}')`;
-                heroBackdropNight.style.backgroundImage = `url('${nightUrl}')`;
-                verifyImg(dayUrl, heroBackdropDay, 'day');
-                verifyImg(nightUrl, heroBackdropNight, 'night');
+                const heroUrl = window._voyplanHeroImg || 'images/hero_india_day.jpg?v=6';
+                if (heroBackdropDay) heroBackdropDay.style.backgroundImage = `url('${heroUrl}')`;
+                if (heroBackdropNight) heroBackdropNight.style.backgroundImage = `url('${heroUrl}')`;
+                verifyImg(heroUrl, heroBackdropDay, 'day');
+                verifyImg(heroUrl, heroBackdropNight, 'night');
             }
 
             // GPU-friendly, requestAnimationFrame damped mouse parallax (separate from Ken Burns drift)

@@ -665,50 +665,32 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   String get _heroBackgroundAsset {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final phase = _timePhase;
 
-    if (!isDark) {
-      // DAY MODE (Light Theme)
-      if (_isIndiaRegion) {
-        switch (phase) {
-          case TimeOfDayPhase.dawn:
-            return 'assets/images/hero_india_morning.jpg';
-          case TimeOfDayPhase.sunset:
-            return 'assets/images/hero_india_sunset.jpg';
-          default:
-            return 'assets/images/hero_india_day.jpg';
-        }
-      } else {
-        switch (phase) {
-          case TimeOfDayPhase.dawn:
-            return 'assets/images/hero_day_roadtrip.jpg';
-          case TimeOfDayPhase.sunset:
-            return 'assets/images/hero_3d_landscape.jpg';
-          default:
-            return 'assets/images/route_preview_scenic.jpg';
-        }
+    if (_isIndiaRegion) {
+      switch (phase) {
+        case TimeOfDayPhase.dawn:
+          return 'assets/images/hero_india_morning.jpg';
+        case TimeOfDayPhase.morning:
+        case TimeOfDayPhase.afternoon:
+          return 'assets/images/hero_india_day.jpg';
+        case TimeOfDayPhase.sunset:
+          return 'assets/images/hero_india_sunset.jpg';
+        case TimeOfDayPhase.evening:
+        case TimeOfDayPhase.lateNight:
+          return 'assets/images/hero_india_night.jpg';
       }
     } else {
-      // NIGHT MODE (Dark Theme)
-      if (_isIndiaRegion) {
-        switch (phase) {
-          case TimeOfDayPhase.sunset:
-            return 'assets/images/hero_india_sunset.jpg';
-          case TimeOfDayPhase.dawn:
-            return 'assets/images/hero_india_morning.jpg';
-          default:
-            return 'assets/images/hero_india_night.jpg';
-        }
-      } else {
-        switch (phase) {
-          case TimeOfDayPhase.sunset:
-            return 'assets/images/hero_3d_landscape.jpg';
-          case TimeOfDayPhase.dawn:
-            return 'assets/images/hero_day_roadtrip.jpg';
-          default:
-            return 'assets/images/hero_night_roadtrip.jpg';
-        }
+      switch (phase) {
+        case TimeOfDayPhase.dawn:
+        case TimeOfDayPhase.morning:
+        case TimeOfDayPhase.afternoon:
+          return 'assets/images/hero_day_roadtrip.jpg';
+        case TimeOfDayPhase.sunset:
+          return 'assets/images/hero_3d_landscape.jpg';
+        case TimeOfDayPhase.evening:
+        case TimeOfDayPhase.lateNight:
+          return 'assets/images/hero_night_roadtrip.jpg';
       }
     }
   }
