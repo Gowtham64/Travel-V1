@@ -6400,23 +6400,27 @@
             }
 
             function setPreviewLoading() {
-                routePreviewStatus.hidden = true;
-                routePreviewContent.hidden = false;
-                previewDetailsBtn.disabled = true;
-                previewAllStopsBtn.disabled = true;
-                routePreviewHeading.textContent = 'Calculating your route…';
-                routePreviewSubtitle.textContent = 'Checking the route, budget, toll estimate and mapped stops.';
-                ['rpDistance', 'rpDuration', 'rpFuel', 'rpTolls', 'rpFood', 'rpTotal'].forEach((id) => {
+                if (routePreviewStatus) routePreviewStatus.hidden = true;
+                if (routePreviewContent) routePreviewContent.hidden = false;
+                if (previewDetailsBtn) previewDetailsBtn.disabled = true;
+                if (previewAllStopsBtn) previewAllStopsBtn.disabled = true;
+                if (routePreviewHeading) routePreviewHeading.textContent = 'Calculating your route…';
+                if (routePreviewSubtitle) routePreviewSubtitle.textContent = 'Checking the route, budget, toll estimate and mapped stops.';
+                ['rpDistance', 'rpDuration', 'rpFuel', 'rpTolls', 'rpFood'].forEach((id) => {
                     const element = document.getElementById(id);
-                    element.classList.add('rp-skeleton');
-                    element.textContent = 'Loading';
+                    if (element) {
+                        element.classList.add('rp-skeleton');
+                        element.textContent = 'Loading';
+                    }
                 });
-                routePreviewPlaces.replaceChildren(...Array.from({ length: 3 }, () => {
-                    const card = document.createElement('div');
-                    card.className = 'rp-place-card rp-skeleton';
-                    return card;
-                }));
-                routeDiscoveryStatus.textContent = 'Finding mapped stops…';
+                if (routePreviewPlaces) {
+                    routePreviewPlaces.replaceChildren(...Array.from({ length: 3 }, () => {
+                        const card = document.createElement('div');
+                        card.className = 'rp-place-card rp-skeleton';
+                        return card;
+                    }));
+                }
+                if (routeDiscoveryStatus) routeDiscoveryStatus.textContent = 'Finding mapped stops…';
             }
 
             function formatDuration(minutes) {
@@ -6443,6 +6447,7 @@
 
             function setMetric(id, value, note = '') {
                 const valueElement = document.getElementById(id);
+                if (!valueElement) return;
                 valueElement.classList.remove('rp-skeleton');
                 valueElement.textContent = value;
                 const noteElement = document.getElementById(`${id}Note`);
@@ -7093,15 +7098,21 @@
             }
 
             function showPreview(preview) {
+                if (!preview) return;
                 currentPreview = preview;
                 const trip = preview.trip;
+                if (!trip || !trip.route) return;
                 const budget = trip?.budget || {};
                 const currencyCode = budget.currency || 'INR';
                 const selection = readPlannerSelection();
                 // Keep the preview title aligned with what the traveler typed,
                 // rather than exposing the geocoder's long administrative label.
-                routePreviewHeading.textContent = `${selection.origin || trip.origin?.name || 'Origin'} → ${selection.destination || trip.destination?.name || 'Destination'}`;
-                routePreviewSubtitle.textContent = 'Live road-route and estimate from the VoyPlan planner.';
+                if (routePreviewHeading) {
+                    routePreviewHeading.textContent = `${selection.origin || trip.origin?.name || 'Origin'} → ${selection.destination || trip.destination?.name || 'Destination'}`;
+                }
+                if (routePreviewSubtitle) {
+                    routePreviewSubtitle.textContent = 'Live road-route and estimate from the VoyPlan planner.';
+                }
                 setMetric('rpDistance', `${Number(trip.route.distanceKm).toLocaleString('en-IN')} km`, `${selection.travellers} ${selection.travellers === 1 ? 'traveler' : 'travelers'}`);
                 setMetric('rpDuration', formatDuration(trip.route.durationMin), 'Driving time');
                 const fuelStops = preview.fuelPlan?.refuelStops || [];
@@ -7109,14 +7120,13 @@
                 const tollCount = preview.toll?.count;
                 setMetric('rpTolls', formatCurrency(preview.toll?.amount ?? budget.tolls, currencyCode), Number.isFinite(Number(tollCount)) ? `${tollCount} ${Number(tollCount) === 1 ? 'plaza' : 'plazas'}` : 'Route estimate');
                 setMetric('rpFood', formatCurrency(budget.food, currencyCode), 'Trip estimate');
-                setMetric('rpTotal', formatCurrency(budget.total, currencyCode), 'Trip estimate');
-                previewDetailsBtn.disabled = false;
-                previewAllStopsBtn.disabled = false;
-                routePreviewContent.hidden = false;
-                routePreviewStatus.hidden = true;
-                renderMapOverlay();
-                renderPlaces();
-                renderPreviewMap();
+                if (previewDetailsBtn) previewDetailsBtn.disabled = false;
+                if (previewAllStopsBtn) previewAllStopsBtn.disabled = false;
+                if (routePreviewContent) routePreviewContent.hidden = false;
+                if (routePreviewStatus) routePreviewStatus.hidden = true;
+                try { renderMapOverlay(); } catch (err) { console.warn('renderMapOverlay error:', err); }
+                try { renderPlaces(); } catch (err) { console.warn('renderPlaces error:', err); }
+                try { renderPreviewMap(); } catch (err) { console.warn('renderPreviewMap error:', err); }
             }
 
             async function planRoutePreview(options = {}) {
